@@ -6,6 +6,7 @@ import { prepareArmature, assemble } from './prep.js';
 import { GLRenderer } from './renderer.js';
 import { Motion, limbsFromArmature } from './motion.js';
 import { HOP, visemeName } from '../lipsync.js';
+import { EFFECT_BLENDS, propActive, sheetUv } from '../../shared/studio-effects.js';
 
 export const ASPECTS = {
   '9:16': { w: 9, h: 16, label: 'Portrait 9:16' },
@@ -435,6 +436,7 @@ export class Stage {
     r.begin(W, H, { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
     r.setMask(null, W, H);
     r.quad(this.bgTex, 0, 0, W, H);
+    this.drawProps(t, true);                               // props placed behind the characters
     const list = [];
     for (const layer of this.layers) layer.tearAnchors = {};
     for (const l of this.layers) if (l.visible !== false && l.shown !== false) {
@@ -444,16 +446,25 @@ export class Stage {
       drawTears(r, this.tearTex, l, list, t);
     }
     r.setMask(null, W, H);
+    this.drawProps(t, false);
+    r.end();
+    this.onFrame?.();
+  }
+
+  /** props and effects: behind = true draws those the user sent behind the characters, otherwise the ones in front (effects always are in front) */
+  drawProps(t, behind) {
+    const { r, W, H } = this;
+    r.setMask(null, W, H);
     for (const prop of this.props) {
-      const tex = this.propTex.get(prop.id); if (!tex || prop.visible === false) continue;
+      const tex = this.propTex.get(prop.id);
+      if (!tex || !propActive(prop, t) || (prop.behind === true && prop.kind !== 'effect') !== behind) continue;
       const w = Math.max(8, (prop.w || 0.18) * W), h = Math.max(8, (prop.h || 0.18) * H);
       const x = (prop.x ?? 0.5) * W - w / 2, y = (prop.y ?? 0.65) * H - h / 2, a = (prop.rotation || 0) * Math.PI / 180;
       const c = Math.cos(a), s = Math.sin(a), cx = x + w / 2, cy = y + h / 2;
       const m = [c, s, -s, c, cx - c * w / 2 + s * h / 2, cy - s * w / 2 - c * h / 2];
-      r.add({ verts: new Float32Array([0, 0, w, 0, w, h, 0, h]), uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: 1, r: 1, g: 1, b: 1, blend: 0 }, tex, m);
+      const [u0, v0, u1, v1] = sheetUv(prop.sheet, t - (prop.start || 0));       // sprite-sheet effects play their frames
+      r.add({ verts: new Float32Array([0, 0, w, 0, w, h, 0, h]), uvs: new Float32Array([u0, v0, u1, v0, u1, v1, u0, v1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: Math.min(1, Math.max(0, prop.opacity ?? 1)), r: 1, g: 1, b: 1, blend: EFFECT_BLENDS[prop.blend] ?? 0 }, tex, m);
     }
-    r.end();
-    this.onFrame?.();
   }
 
   /** tiny always-on movement (neck nods forward / back a little, chest breathes) so nobody looks frozen */

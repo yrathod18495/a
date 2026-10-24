@@ -4,8 +4,11 @@ import { services } from '../server/firebase-admin.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { configured, objectHead, readRange, readObject, CHUNK_SIZE } from '../server/r2-storage.js';
 import { AccessError } from '../server/security-policy.js';
+import { cleanAssetMeta } from '../shared/studio-effects.js';
 
 const idOK = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{12,80}$/.test(value);
+const LIBRARY_CACHE_MS = 30_000;
+let libraryCache = null;
 const maintenanceEnabled = () => process.env.MAINTENANCE_MODE !== 'false';
 
 export default async function handler(req, res) {
@@ -17,15 +20,19 @@ export default async function handler(req, res) {
     const { db } = services(), col = db.collection('studioAssets');
 
     if (b.action === 'list') {
-      const snap = await col.get();
-      const assets = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.enabled === true);
-      assets.sort((a, z) => String(a.type).localeCompare(String(z.type)) || String(a.name).localeCompare(String(z.name)));
-      return send(res, 200, { assets });
+      // the library changes rarely: one Firestore read of every asset is shared by all visitors for a short time
+      if (!libraryCache || Date.now() - libraryCache.at > LIBRARY_CACHE_MS) {
+        const snap = await col.get();
+        const assets = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.enabled === true);
+        assets.sort((a, z) => String(a.type).localeCompare(String(z.type)) || String(a.category || '').localeCompare(String(z.category || '')) || String(a.name).localeCompare(String(z.name)));
+        libraryCache = { at: Date.now(), assets };
+      }
+      return send(res, 200, { assets: libraryCache.assets });
     }
 
     if (b.action === 'save') {
       const animation = b.type === 'animation';
-      if (!idOK(b.id) || !['background', 'prop', 'animation'].includes(b.type) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 100 ||
+      if (!idOK(b.id) || !['background', 'prop', 'effect', 'animation'].includes(b.type) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 100 ||
           typeof b.key !== 'string' || !/^assets\/[a-f0-9]{64}$/.test(b.key) || !Number.isSafeInteger(b.size) || b.size < 1 || b.size > (animation ? MAX_ANIMATION_BYTES : 40 * 1024 * 1024) ||
           typeof b.mime !== 'string' || (animation ? b.mime !== 'application/json' || !animationTarget(b.target, manifest) || !ANIMATION_LAYERS.includes(b.layer) || !Number.isFinite(b.frameRate) || b.frameRate < 1 || b.frameRate > 120 : !b.mime.startsWith('image/')))
         throw new AccessError('invalid_asset', 'Sahi asset aur character pose chunein.', 400);
@@ -33,12 +40,15 @@ export default async function handler(req, res) {
       const head = await objectHead(who.uid, b.key);
       if (!head.exists || head.size !== b.size || head.digest !== b.key.slice(7)) throw new AccessError('incomplete_upload', 'Image upload verify nahi ho paya. Dobara upload karein.', 409);
       let animationMeta = {};
+      let imageMeta = {};
+      if (!animation) { try { imageMeta = cleanAssetMeta(b.type, b); } catch (error) { throw new AccessError(error.code || 'invalid_asset', error.message, 400); } }
       if (animation) {
         let data; try { data = animationData(JSON.parse((await readObject(who.uid, b.key)).toString('utf8'))); } catch { throw new AccessError('invalid_animation', 'Sahi DragonBones animation JSON file chunein.', 400); }
         animationMeta = { target: b.target, layer: b.layer, frameRate: b.frameRate, length: data.duration / b.frameRate };
       }
-      const asset = { ...animationMeta, id: b.id, type: b.type, name: b.name.trim(), key: b.key, size: b.size, mime: b.mime, ownerUid: who.uid, enabled: true, updatedAt: new Date().toISOString() };
+      const asset = { ...animationMeta, ...imageMeta, id: b.id, type: b.type, name: b.name.trim(), key: b.key, size: b.size, mime: b.mime, ownerUid: who.uid, enabled: true, updatedAt: new Date().toISOString() };
       await col.doc(b.id).set(asset);
+      libraryCache = null;
       return send(res, 200, { asset });
     }
 
@@ -47,6 +57,7 @@ export default async function handler(req, res) {
       const ref = col.doc(b.id), existing = (await ref.get()).data();
       if (existing?.type === 'animation') await ref.set({ enabled: false }, { merge: true });
       else await ref.delete();
+      libraryCache = null;
       return send(res, 200, { ok: true });
     }
 

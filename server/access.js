@@ -28,4 +28,4 @@ export async function bodyOf(req,max=1000000) {
   let body = ''; for await (const chunk of req) { body += chunk; if (body.length > max) throw new AccessError('too_large', 'Request bahut badi hai.', 413); }
   try { return JSON.parse(body || '{}'); } catch { throw new AccessError('invalid_json', 'Request ka data sahi nahi hai.', 400); }
 }
-export const failure = (res, e) => send(res, e.status || 500, { code: e.code || 'server_error', error: e.status ? e.message : 'Server par kuch gadbad ho gayi. Thodi der baad dobara try karein.' });
+export const failure = (res, e) => (e.status || console.error('Server error:', e), send(res, e.status || 500, { code: e.code || 'server_error', error: e.status ? e.message : 'Server par kuch gadbad ho gayi. Thodi der baad dobara try karein.' }));

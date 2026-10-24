@@ -29,6 +29,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     ['Studio Controls', openStudio],
     ['Tester Requests', openRequests],
     ['Tester Permissions', openTesters],
+    ['Props & Effects', () => import('./admin-props-effects.js').then(m => m.propsEffectsView({ home, toast, back: async () => switchTo(showDashboard) }))],
     ['Add Assets', () => import('./admin-assets.js').then(m => m.assetsView({ user, home, toast, back: async () => switchTo(showDashboard) }))],
     ['Affiliates', () => import('./admin-affiliates.js').then(m => m.affiliatesView({ user, toast, back: async () => switchTo(showDashboard) }))],
   ];

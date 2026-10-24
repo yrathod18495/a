@@ -9,6 +9,7 @@ AI animation studio that runs in the browser.
 - **12toons** – animation workbench: characters, backgrounds, audio lines (ZIP, optional) → AI direction → camera → export (WebM / MP4, up to 4K).
 - **12toons Character Studio** – start from a template (Neha / My Baby, 5 poses each) or any DragonBones character ZIP (skeleton `_ske.json` + texture `_tex.json` + picture); every layer can be uploaded (png / svg), downloaded, removed, locked, recoloured and nudged; face fitting (eyes, brows, nose, lips, ears); outfits; live preview with animations and mouth test. Save = baked character in this device's database and in your account (Firestore + R2); the animation studio loads exactly that character.
 - **Auto-direct with any AI (no key):** step 2 / AI tab → *Download brief (.txt)* → give it to Claude / ChatGPT / Gemini → *Import AI file*. The AI picks shot, who is on screen and which animation plays at which second for every dialogue.
+- **Props & Effects:** admins publish them in *Admin → Props & Effects*; creators add them from the studio's Props / Effects tabs. See `docs/PROPS-EFFECTS.md`.
 - Flow: landing page → Google login → hub (choose one of the two tools).
 - Theme: white background, blue accents, black + blue buttons.
 

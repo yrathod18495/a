@@ -87,3 +87,33 @@ test('preview quality sits in the header, and projects saved before animation-le
  const restored=await page.evaluate(()=>{const {S,fillSoloLengths}=window.__toon;const solo=Object.values(S.solo)[0];delete solo.bodyLen;fillSoloLengths({solo:S.solo,speakers:S.speakers});return solo.bodyLen;});
  expect(restored).toBe(length);
 });
+
+test('tool menu and side panel can be dragged anywhere, keep their place after reload, leave a button when idle, and dock back on double click',async({page})=>{
+ await page.setViewportSize({width:1366,height:800});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Float');await page.getByRole('button',{name:'Create project',exact:true}).click();
+ await expect(page.locator('#app .stagebox canvas')).toBeVisible();
+ const rail=page.locator('#app .tabs.big'),panel=page.locator('#app .panel');
+ await rail.getByRole('button',{name:'Export',exact:true}).click();await expect(panel).toBeVisible();
+ const drag=async(handle,dx,dy)=>{const box=await handle.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+Math.min(10,box.height/2));await page.mouse.down();await page.mouse.move(box.x+box.width/2+dx,box.y+Math.min(10,box.height/2)+dy,{steps:6});await page.mouse.up();};
+ const docked=await rail.boundingBox();
+ await drag(page.locator('.dock-grip'),380,100);
+ const moved=await rail.boundingBox();expect(moved.x).toBeGreaterThan(docked.x+300);expect(moved.y).toBeGreaterThan(docked.y+60);
+ await expect(rail).toHaveClass(/free/);
+ await drag(page.locator('.sheet-close'),-520,70);
+ const panelBox=await panel.boundingBox();expect(panelBox.x).toBeLessThan(900);await expect(panel).toHaveClass(/free/);
+ // the menus still work where they were dropped
+ await rail.getByRole('button',{name:'Audio',exact:true}).click();await expect(panel.locator('.sheet-close b')).toContainText('Audio');
+ // the position is remembered
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('12toons.studio.layout')));expect(saved.railPos.x).toBeGreaterThan(300);expect(saved.panelPos.w).toBeGreaterThan(200);
+ await page.reload();await expect.poll(()=>page.evaluate(()=>window.__toon?.S.ready)).toBe(true);
+ await expect(rail).toHaveClass(/free/);expect(Math.abs((await rail.boundingBox()).x-moved.x)).toBeLessThan(3);
+ // idle: both menus slide away and leave a small round button where they were
+ await page.mouse.move(700,600);
+ await expect(page.locator('.dock-pill.show')).toHaveCount(2,{timeout:12000});
+ const pillBox=await page.locator('.dock-pill.show').first().boundingBox();await page.mouse.move(pillBox.x+pillBox.width/2,pillBox.y+pillBox.height/2);   // the pill hides itself as soon as the menu is back
+ await expect(page.locator('.ws')).toHaveAttribute('data-dock-rail','in');
+ // double click docks it back at the edge
+ await page.locator('.dock-grip').dblclick();await expect(rail).not.toHaveClass(/free/);
+ expect((await rail.boundingBox()).x).toBeLessThan(40);
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('12toons.studio.layout')).railPos)).toBe(null);
+});

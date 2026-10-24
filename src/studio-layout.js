@@ -2,12 +2,20 @@
 // Kept free of DOM work (except applyLayout) so it can be unit-tested.
 const KEY = '12toons.studio.layout';
 
-export const DEFAULT_LAYOUT = { focus: false, panelW: 310, tlH: 0, loop: false };
+export const DEFAULT_LAYOUT = { focus: false, panelW: 310, tlH: 0, loop: false, railPos: null, panelPos: null };
 export const PANEL_MIN = 240, TIMELINE_MIN = 110;
 
 export const clampPanel = (w, viewport = 1280) => Math.round(Math.min(Math.max(PANEL_MIN, +w || DEFAULT_LAYOUT.panelW), Math.max(PANEL_MIN, Math.min(720, viewport * 0.6))));
 export const clampTimeline = (h, viewport = 800) => Math.round(Math.min(Math.max(TIMELINE_MIN, +h || TIMELINE_MIN), Math.max(TIMELINE_MIN, viewport * 0.6)));
 
+/** where the user dragged a floating menu: {x, y} inside the workspace (the side panel also remembers its size); null = docked at the edge */
+export function cleanDockPos(value) {
+  if (!value || !Number.isFinite(+value.x) || !Number.isFinite(+value.y)) return null;
+  const pos = { x: Math.max(0, Math.round(+value.x)), y: Math.max(0, Math.round(+value.y)) };
+  if (+value.w > 0) pos.w = Math.min(1600, Math.round(+value.w));
+  if (+value.h > 0) pos.h = Math.min(1200, Math.round(+value.h));
+  return pos;
+}
 export function loadLayout(storage = globalThis.localStorage) {
   try {
     const saved = JSON.parse(storage.getItem(KEY) || '{}');
@@ -16,6 +24,8 @@ export function loadLayout(storage = globalThis.localStorage) {
       panelW: clampPanel(saved.panelW),
       tlH: saved.tlH ? clampTimeline(saved.tlH) : 0,
       loop: saved.loop === true,
+      railPos: cleanDockPos(saved.railPos),
+      panelPos: cleanDockPos(saved.panelPos),
     };
   } catch { return { ...DEFAULT_LAYOUT }; }
 }

@@ -22,6 +22,8 @@ import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
+import { propFromAsset, isEffect } from '../shared/studio-effects.js';
+import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
 const initialPreviewMode = readPreviewMode();
@@ -93,7 +95,7 @@ async function boot() {
 /* ---------------- the workbench ---------------- */
 function render() {
   $app.replaceChildren(h('div', { class: 'wrap s3 ws' }, topBar(), viewStudio()));
-  mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode; applyLayout(wsEl(), S.layout); dockShow('rail'); dockShow('panel');
+  mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode; applyLayout(wsEl(), S.layout); placeDock('rail'); placeDock('panel'); dockShow('rail'); dockShow('panel');
 }
 function topBar() {
   return h('header', { class: 'topbar' },
@@ -512,21 +514,75 @@ const DOCK_IDLE_MS = 5000, dockTimer = { rail: 0, panel: 0 };
 const dockEl = (name) => (name === 'rail' ? tabsEl : panelEl);
 const dockOut = (name) => wsEl()?.getAttribute(`data-dock-${name}`) === 'out';
 function dockArm(name) { clearTimeout(dockTimer[name]); dockTimer[name] = setTimeout(() => dockHide(name), DOCK_IDLE_MS); }
-function dockShow(name) { wsEl()?.setAttribute(`data-dock-${name}`, 'in'); dockArm(name); }
+function dockShow(name) { wsEl()?.setAttribute(`data-dock-${name}`, 'in'); syncPills(); dockArm(name); }
 function dockHide(name) {
   const el = dockEl(name), active = document.activeElement;
-  const busy = el && (el.matches(':hover') || (el.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) || el.querySelector('details[open]'));
+  const busy = el && (el.matches(':hover') || (el.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) || el.querySelector('.advanced-tools[open]'));
   if (busy || document.querySelector('.modal') || S.exporting) { dockArm(name); return; }   // still in use: look again in 5 s
-  wsEl()?.setAttribute(`data-dock-${name}`, 'out');
+  wsEl()?.setAttribute(`data-dock-${name}`, 'out'); syncPills();
 }
 function dockToggle(name) {
   if (S.layout.focus) setLayout({ focus: false });
-  if (dockOut(name)) dockShow(name); else { clearTimeout(dockTimer[name]); wsEl()?.setAttribute(`data-dock-${name}`, 'out'); }
+  if (dockOut(name)) dockShow(name); else { clearTimeout(dockTimer[name]); wsEl()?.setAttribute(`data-dock-${name}`, 'out'); syncPills(); }
 }
 function dockWire(el, name) {
   for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel']) el.addEventListener(type, () => dockArm(name), { passive: true });
   el.addEventListener('focusin', () => dockShow(name));
 }
+/* The tool menu and the side panel can be dragged anywhere on the workspace (grip on the menu, title bar on the panel).
+   Where they were left is remembered; double-click the grip / title bar to dock them back. A floating menu that has slid
+   away leaves a small round button in its place; touching it brings the menu back. */
+const dockKey = { rail: 'railPos', panel: 'panelPos' }, pills = {};
+const floatingOk = () => innerWidth > 860;
+const clampTo = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
+function railCount() { return [...tabsEl.children].filter((c) => !c.classList.contains('dock-grip') && !c.classList.contains('rail-label')).length; }
+function placeDock(name) {
+  const el = dockEl(name), ws = wsEl(), studio = ws?.querySelector('.studio');
+  if (!el || !studio) return;
+  const pos = floatingOk() ? S.layout[dockKey[name]] : null;
+  ws.toggleAttribute(`data-${name}-free`, !!pos); el.classList.toggle('free', !!pos);
+  for (const prop of ['left', 'top', 'right', 'bottom', 'width', 'height']) el.style[prop] = '';
+  if (pos) {
+    const area = studio.getBoundingClientRect(), w = name === 'panel' ? Math.min(pos.w || S.layout.panelW, area.width - 8) : 0, h = name === 'panel' ? Math.min(pos.h || 420, area.height - 8) : 0;
+    Object.assign(el.style, { left: `${clampTo(pos.x, 0, area.width - (w || 70))}px`, top: `${clampTo(pos.y, 0, area.height - 60)}px`, right: 'auto', bottom: 'auto' });
+    if (name === 'panel') Object.assign(el.style, { width: `${w}px`, height: `${h}px` });
+    else el.style.setProperty('--rail-count', String(railCount()));
+  }
+  syncPills();
+}
+function syncPills() {
+  for (const name of ['rail', 'panel']) {
+    const pill = pills[name], el = dockEl(name);
+    if (!pill || !el) continue;
+    const show = el.classList.contains('free') && dockOut(name) && (name === 'rail' || S.panelOpen);
+    pill.classList.toggle('show', show);
+    if (show) Object.assign(pill.style, { left: el.style.left, top: el.style.top });
+  }
+}
+function dockPill(name) {
+  const pill = pills[name] = h('button', { type: 'button', class: 'dock-pill', title: name === 'rail' ? 'Tool menu kholein' : 'Side panel kholein', 'aria-label': name === 'rail' ? 'Tool menu kholein' : 'Side panel kholein', onclick: () => dockShow(name) }, name === 'rail' ? '🧰' : '🗂');
+  pill.addEventListener('pointerenter', () => dockShow(name));
+  return pill;
+}
+function startDockDrag(name, event) {
+  if (!floatingOk() || event.button > 0) return;
+  event.preventDefault();
+  const el = dockEl(name), studio = wsEl().querySelector('.studio'), area = studio.getBoundingClientRect(), box = el.getBoundingClientRect(), key = dockKey[name];
+  const pos = S.layout[key] ||= { x: Math.round(box.left - area.left), y: Math.round(box.top - area.top), w: Math.round(box.width), h: Math.round(box.height) };
+  placeDock(name);
+  const startX = event.clientX, startY = event.clientY, fromX = pos.x, fromY = pos.y;
+  const move = (e) => { pos.x = Math.round(clampTo(fromX + e.clientX - startX, 0, area.width - Math.min(box.width, 70))); pos.y = Math.round(clampTo(fromY + e.clientY - startY, 0, area.height - 60)); placeDock(name); dockArm(name); };
+  const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); saveLayout(S.layout); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+}
+function resetDock(name) { S.layout[dockKey[name]] = null; saveLayout(S.layout); placeDock(name); }
+function rememberPanelSize() {
+  const pos = S.layout.panelPos;
+  if (!pos || !panelEl.classList.contains('free')) return;
+  const w = Math.round(panelEl.offsetWidth), h = Math.round(panelEl.offsetHeight);
+  if (w !== pos.w || h !== pos.h) { pos.w = w; pos.h = h; saveLayout(S.layout); }
+}
+addEventListener('resize', () => { if ($app.hidden) return; placeDock('rail'); placeDock('panel'); });
 function dockEdge(side) {
   const name = side === 'left' ? 'rail' : 'panel', el = h('div', { class: `dock-edge dock-edge-${side}`, 'aria-hidden': 'true' });
   el.addEventListener('pointerenter', () => dockShow(name));
@@ -571,7 +627,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', '🎙'], ['chars', 'Characters', '🎭'], ['anim', 'Animations', '🎬'], ['tears', 'Tears', '💧'], ['motion', 'Move', '🏃'], ['camera', 'Camera', '🎥'], ['mask', 'Mask', '◩'], ['ai', 'AI', '✨'], ['canvas', 'Background', '🖼'], ['export', 'Export', '⬇']];
+const TABS = [['audio', 'Audio', '🎙'], ['chars', 'Characters', '🎭'], ['anim', 'Animations', '🎬'], ['tears', 'Tears', '💧'], ['motion', 'Move', '🏃'], ['camera', 'Camera', '🎥'], ['mask', 'Mask', '◩'], ['ai', 'AI', '✨'], ['canvas', 'Background', '🖼'], ['props', 'Props', '🧸'], ['effects', 'Effects', '💫'], ['export', 'Export', '⬇']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri', onclick: togglePlay }, '▶ Play');
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -583,7 +639,7 @@ function viewStudio() {
   lineBox = h('div', { class: 'linebox' });
   tabsEl = h('div', { class: 'tabs big' });
   panelEl = h('div', { class: 'panel' });
-  dockWire(tabsEl, 'rail'); dockWire(panelEl, 'panel');
+  dockWire(tabsEl, 'rail'); dockWire(panelEl, 'panel'); panelEl.addEventListener('pointerup', rememberPanelSize);
   const zoom = (f) => { const left = tlScroll.scrollLeft / S.pps; S.pps = Math.min(300, Math.max(4, S.pps * f)); drawTimeline(); tlScroll.scrollLeft = left * S.pps; };
   const fit = fitTimeline;
   const tools = h('div', { class: 'tltools' }, h('b', { class: 'timeline-title' }, 'Timeline'),
@@ -598,7 +654,7 @@ function viewStudio() {
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm', title: 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, '−'), h('button', { class: 'btn sm', title: 'Fit scene in editor', onclick: () => setEditorZoom(1) }, 'Fit scene'), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm', title: 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, '+')), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, sceneTabs(), tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
-      h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), panelHandle(), timelineHandle()));
+      h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
   const strip = h('div', { class: 'scene-tabs', role: 'tablist', 'aria-label': 'Scenes' });
@@ -717,11 +773,13 @@ function drawTabs() {
   const more = h('details', { class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}` },
     h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '⚙'), 'Advanced'),
     h('div', { class: 'advanced-tools-list' }, ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
-  tabsEl.replaceChildren(...rail('Create', ['audio', 'chars', 'anim', 'tears', 'canvas']), ...rail('Output', ['export']), more);
+  tabsEl.replaceChildren(...rail('Create', ['audio', 'chars', 'anim', 'tears', 'canvas', 'props', 'effects']), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
-  panelEl.replaceChildren(h('div', { class: 'sheet-close' }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, 'Close')),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, export: tabExport }[S.tab]());
+  panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag karke panel kahin bhi rakhein · double-click se wapas', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, 'Close')),
+    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), effects: () => libraryTab('effect'), export: tabExport }[S.tab]());
+  tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag karke menu kahin bhi rakhein · double-click se wapas', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
+  placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   S.dirty = true; syncLayoutUi();
 }
 
@@ -1201,7 +1259,7 @@ function mountStage() {
     if (stage.fullView) return;
     const p = pt(e), hd = e.target.dataset?.c;
     if (stage.camZoom <= 1.02 && !hd) {
-      const prop = [...S.props].reverse().find((x) => x.visible !== false && Math.abs(p.x - x.x * stage.W) <= (x.w || .18) * stage.W / 2 && Math.abs(p.y - x.y * stage.H) <= (x.h || .18) * stage.H / 2);
+      const prop = [...S.props].reverse().find((x) => x.visible !== false && !coversFrame(x) && Math.abs(p.x - x.x * stage.W) <= (x.w || .18) * stage.W / 2 && Math.abs(p.y - x.y * stage.H) <= (x.h || .18) * stage.H / 2);
       if (prop) {
         S.selectedPropId = prop.id; S.sel = null;
         drag = { mode: 'prop', prop, p0: p, x0: prop.x ?? .5, y0: prop.y ?? .65 };
@@ -1679,6 +1737,85 @@ function tabAi() {
         h('button', { class: 'btn', disabled: !L, onclick: () => runDirector([L]) }, 'Only this line')))));
 }
 
+/* ---- props & effects: the library admins publish (props, effects) plus the user's own pictures ---- */
+const sharedBlobs = new Map();                    // library asset id -> its file, so each file is downloaded once per tab
+const libraryFilter = { prop: 'all', effect: 'all' };
+/** pick up what admins published since this tab loaded (the list is cached for a few minutes; the button forces a fresh read) */
+async function refreshShared(fresh = false) {
+  try {
+    const next = await listStudioAssets({ fresh });
+    if (JSON.stringify(next.map((a) => [a.id, a.updatedAt])) !== JSON.stringify(S.sharedAssets.map((a) => [a.id, a.updatedAt]))) { S.sharedAssets = next; return true; }
+  } catch (e) { if (fresh) toast(`Library load nahi ho payi: ${friendlyError(e)}`); }
+  return false;
+}
+const coversFrame = (prop) => isEffect(prop) && (prop.w ?? 1) >= 0.99 && (prop.h ?? 1) >= 0.99;
+async function libraryBlob(asset) {
+  const known = sharedBlobs.get(asset.id) || S.props.find((prop) => prop.assetId === asset.id)?.blob;
+  if (known) return known;
+  const blob = await downloadStudioAsset(asset); sharedBlobs.set(asset.id, blob); return blob;
+}
+async function putProp(prop) {
+  await dbPut('props', prop); S.props.push(prop); S.selectedPropId = prop.id;
+  await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
+}
+async function addLibraryProp(asset) {
+  const loading = busy(asset.type === 'effect' ? 'Effect laga rahe hain…' : 'Prop laga rahe hain…');
+  try { await putProp(propFromAsset(asset, await libraryBlob(asset), crypto.randomUUID())); }
+  catch (e) { toast(`${asset.type === 'effect' ? 'Effect' : 'Prop'} add nahi ho paya: ${friendlyError(e)}`); }
+  finally { loading.done(); }
+}
+async function addOwnProps(files) {
+  try {
+    for (const f of files) {
+      if (!f.type.startsWith('image/')) { toast('Sirf image file chunein.'); continue; }
+      await putProp({ id: crypto.randomUUID(), kind: 'prop', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My prop', blob: f, x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true });
+    }
+  } catch (e) { toast(`Prop add nahi ho paya: ${friendlyError(e)}`); }
+}
+function libraryTab(kind) {
+  if (!libraryTab.checked) { libraryTab.checked = true; refreshShared().then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'effects')) redrawPanel(); }); }
+  const effects = kind === 'effect', label = effects ? 'Effects' : 'Props', icon = effects ? '💫' : '🧸';
+  const assets = S.sharedAssets.filter((asset) => asset.type === kind);
+  const categories = [...new Set(assets.map((asset) => asset.category || 'Other'))].sort();
+  if (libraryFilter[kind] !== 'all' && !categories.includes(libraryFilter[kind])) libraryFilter[kind] = 'all';
+  const shown = assets.filter((asset) => libraryFilter[kind] === 'all' || (asset.category || 'Other') === libraryFilter[kind]);
+  const chip = (value, text) => h('button', { type: 'button', class: `btn sm ${libraryFilter[kind] === value ? 'pri' : ''}`, 'aria-pressed': String(libraryFilter[kind] === value), onclick: () => { libraryFilter[kind] = value; redrawPanel(); } }, text);
+  const card = (asset) => h('button', { class: 'studio-shared-card lib-card', type: 'button', title: `Scene me lagayein: ${asset.name}`, onclick: () => addLibraryProp(asset) },
+    asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, icon), h('b', {}, asset.name),
+    h('small', {}, effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'}` : (asset.category || 'Shared library')));
+  const ownFile = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; await addOwnProps(files); } });
+  const onStage = S.props.filter((prop) => (isEffect(prop) ? 'effect' : 'prop') === kind);
+  const selected = onStage.find((prop) => prop.id === S.selectedPropId);
+  const change = (apply) => { apply(); stage.setProps(S.props); updateSel(); S.dirty = true; dbPut('props', selected); };
+  const edit = (key, value) => change(() => { if (value === undefined) delete selected[key]; else selected[key] = value; });
+  const percent = (value) => `${Math.round(value * 100)}%`;
+  const range = (key, text, min, max, step, fallback, format = percent, set = (value) => edit(key, value)) => {
+    const value = selected[key] ?? fallback, out = h('b', {}, format(value));
+    return h('label', { class: 'studio-prop-range' }, h('span', {}, text, out), h('input', { type: 'range', min, max, step, value, oninput: (e) => { set(Number(e.target.value)); out.textContent = format(Number(e.target.value)); } }));
+  };
+  const seconds = (key, text) => h('label', { class: 'prop-time' }, h('span', {}, text), h('input', { type: 'number', min: 0, step: 0.1, placeholder: 'poori scene', value: selected[key] ?? '', 'aria-label': text, onchange: (e) => edit(key, e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))) }));
+  const freeform = !(effects && coversFrame(selected || {}));
+  const editor = !selected ? null : h('div', { class: 'card flat studio-prop-editor' }, h('h3', {}, selected.name),
+    range('opacity', 'Opacity', 0.05, 1, 0.01, 1),
+    ...(effects ? [h('div', { class: 'seg', role: 'group', 'aria-label': 'Blend mode' }, [['normal', 'Normal'], ['add', 'Glow'], ['screen', 'Screen']].map(([value, text]) => h('button', { type: 'button', class: (selected.blend || 'normal') === value ? 'on' : '', onclick: () => { edit('blend', value); redrawPanel(); } }, text))),
+      freeform ? h('button', { class: 'btn sm', type: 'button', onclick: () => { change(() => Object.assign(selected, { x: .5, y: .5, w: 1, h: 1, rotation: 0 })); redrawPanel(); } }, 'Poori frame par failayein') : null] : []),
+    ...(freeform ? [range('x', 'Position · left / right', 0, 1, 0.01, .5), range('y', 'Position · top / bottom', 0, 1, 0.01, .66), range('w', 'Width', 0.04, effects ? 1 : 0.8, 0.01, .18), range('h', 'Height', 0.04, effects ? 1 : 0.8, 0.01, .18), range('rotation', 'Rotation', -180, 180, 1, 0, (v) => `${Math.round(v)}°`)] : []),
+    ...(selected.sheet ? [range('sheet', 'Animation speed', 1, 60, 1, selected.sheet.fps, (v) => `${Math.round(v)} fps`, (v) => change(() => { selected.sheet = { ...selected.sheet, fps: v }; }))] : []),
+    ...(effects ? [] : [h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.behind === true, onchange: (e) => edit('behind', e.target.checked ? true : undefined) }), 'Character ke peeche rakhein')]),
+    h('div', { class: 'prop-times' }, seconds('start', 'Dikhe: shuru (s)'), seconds('end', 'Dikhe: khatam (s)')),
+    h('button', { class: 'btn sm', type: 'button', style: 'color:#b91c1c;border-color:#fecaca', onclick: async () => { await dbDel('props', selected.id); S.props = S.props.filter((p) => p.id !== selected.id); S.selectedPropId = null; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel(); } }, `${effects ? 'Effect' : 'Prop'} hatayein`));
+  return h('div', { class: 'list' },
+    h('div', { class: 'card flat' }, h('h2', {}, label),
+      h('p', { class: 'sub studio-help' }, effects ? 'Effect tap karke poori scene par lagayein (rain, sparkle, light…). Opacity aur blend se look badlein, aur chahein to sirf kuch seconds ke liye dikhayein.' : 'Prop tap karke scene me lagayein. Stage par drag karke hilayein; yahin se size, rotation aur kab dikhe ye badlein.'),
+      categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
+      shown.length ? h('div', { class: 'studio-shared-grid' }, shown.map(card)) : h('p', { class: 'sub studio-library-empty' }, assets.length ? 'Is category me kuch nahi hai.' : `Abhi koi shared ${label.toLowerCase()} publish nahi hue. Admin panel ke "Props & Effects" tab se add hote hain.`),
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, effects ? null : h('button', { class: 'btn sm', type: 'button', onclick: () => ownFile.click() }, '＋ Apni image upload karein'), h('button', { class: 'btn sm', type: 'button', title: 'Admin ne jo naya publish kiya hai wo dekhein', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Naya dekhein')), ownFile),
+    onStage.length ? h('div', { class: 'card flat' }, h('h3', {}, `Scene me (${onStage.length})`), h('div', { class: 'lib-onstage' }, onStage.map((prop) => h('div', { class: `lib-row${prop.id === S.selectedPropId ? ' on' : ''}` },
+      h('button', { type: 'button', class: 'lib-pick', onclick: () => { S.selectedPropId = prop.id; S.sel = null; redrawPanel(); updateSel(); S.dirty = true; } }, h('span', {}, icon), h('b', {}, prop.name)),
+      h('button', { type: 'button', class: 'ib', title: prop.visible === false ? 'Dikhayein' : 'Chhupayein', 'aria-pressed': String(prop.visible !== false), onclick: () => { prop.visible = prop.visible === false; stage.setProps(S.props); S.dirty = true; dbPut('props', prop); redrawPanel(); } }, prop.visible === false ? '🚫' : '👁'))))) : null,
+    editor);
+}
+
 function tabCanvas() {
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: String(cur()) === String(k) ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', String(items[i][0]) === String(k))); } }, l)));
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => {
@@ -1695,21 +1832,7 @@ function tabCanvas() {
       await pickBg(rec);
     } catch (e) { toast(`Background add nahi ho paya: ${e.message}`); }
   };
-  const addSharedProp = async (asset) => {
-    try {
-      const blob = await downloadStudioAsset(asset), prop = { id: crypto.randomUUID(), assetId: asset.id, name: asset.name, blob, x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true };
-      await dbPut('props', prop); S.props.push(prop); S.selectedPropId = prop.id; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
-    } catch (e) { toast(`Prop add nahi ho paya: ${e.message}`); }
-  };
   const sharedGrid = (type, choose) => shared(type).length ? h('div', { class: 'studio-shared-grid' }, shared(type).map((asset) => h('button', { class: 'studio-shared-card', type: 'button', onclick: () => choose(asset) }, h('span', {}, type === 'background' ? '🖼' : '🧸'), h('b', {}, asset.name), h('small', {}, 'Shared library · tap to add')))) : h('p', { class: 'sub studio-library-empty' }, 'No shared items have been added by the admin yet.');
-  const tab = (mode, label) => h('button', { class: `btn sm ${S.canvasMode === mode ? 'pri' : ''}`, type: 'button', 'aria-pressed': S.canvasMode === mode, onclick: () => { S.canvasMode = mode; redrawPanel(); } }, label);
-  if (S.canvasMode === 'props') {
-    const selected = S.props.find((p) => p.id === S.selectedPropId);
-    const edit = (key, value) => { if (!selected) return; selected[key] = value; stage.setProps(S.props); updateSel(); S.dirty = true; dbPut('props', selected); };
-    return h('div', { class: 'list' },
-      h('div', { class: 'card flat' }, h('h2', {}, 'Props'), h('p', { class: 'sub studio-help' }, 'Tap a shared prop to add it. Drag it on the stage to move it; choose it to resize, rotate or remove it.'), h('div', { class: 'studio-asset-tabs' }, tab('backgrounds', 'Backgrounds'), tab('props', 'Props')), sharedGrid('prop', addSharedProp)),
-      selected ? h('div', { class: 'card flat studio-prop-editor' }, h('h3', {}, selected.name), ...[['x','Position · left / right',0,1,0.01],['y','Position · top / bottom',0,1,0.01],['w','Width',0.04,0.8,0.01],['h','Height',0.04,0.8,0.01],['rotation','Rotation',-180,180,1]].map(([key,label,min,max,step]) => h('label', { class: 'studio-prop-range' }, h('span', {}, label, h('b', {}, key === 'rotation' ? `${Math.round(selected[key] || 0)}°` : `${Math.round((selected[key] ?? (key === 'x' ? .5 : key === 'y' ? .66 : .18)) * 100)}%`)), h('input', { type:'range', min, max, step, value:selected[key] ?? (key === 'x' ? .5 : key === 'y' ? .66 : .18), oninput:e => { edit(key, Number(e.target.value)); e.currentTarget.previousSibling.querySelector('b').textContent = key === 'rotation' ? `${Math.round(Number(e.target.value))}°` : `${Math.round(Number(e.target.value)*100)}%`; } }))), h('button', { class:'btn sm', style:'color:#b91c1c;border-color:#fecaca', onclick: async()=>{ await dbDel('props',selected.id); S.props=S.props.filter(p=>p.id!==selected.id); S.selectedPropId=null; await stage.setProps(S.props); S.dirty=true; drawTabs(); updateSel(); } }, 'Remove prop')) : null);
-  }
   const mine = h('div', { class: 'bggrid' },
     h('button', { class: 'bgc add', onclick: () => file.click() }, h('span', {}, '+'), h('small', {}, 'Add images')),
     S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },
@@ -1717,7 +1840,7 @@ function tabCanvas() {
       h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('Ye background kisi doosre scene me use ho raha hai.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
   const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { stage.bg.preset = i; await pickBg(null); } })));
   return h('div', { class: 'list' },
-    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), h('div', { class: 'studio-asset-tabs' }, tab('backgrounds', 'Backgrounds'), tab('props', 'Props')), sharedGrid('background', addSharedBackground), mine, file),
+    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), sharedGrid('background', addSharedBackground), mine, file),
     h('div', { class: 'card flat' }, h('h2', {}, 'Plain colours'), sw));
 }
 
@@ -2105,7 +2228,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, sharedBlobs, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
