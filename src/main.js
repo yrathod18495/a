@@ -1,3 +1,4 @@
+import { TEAR_STYLES, TEAR_IMAGE_URL, tearConfig, loadTearSprite } from './tears.js';
 import { EditHistory } from './edit-history.js';
 import { PREVIEW_MODES, readPreviewMode, savePreviewMode, previewFrameDue } from './preview-quality.js';
 import './style.css';
@@ -470,7 +471,7 @@ async function buildLayerSpecs() {
     // gestures that only move the arms get the idle animation underneath, so head / chest keep moving
     const idleKey = plan.idleRef ? animKey(plan.idleRef) : null, drives = (j) => (j?.bone || []).some((b) => /^(head|pelvis|neck|torso\d*)$/i.test(b.name));
     const clips = plan.clips.filter((c) => anims[c.name]).map((c) => ({ ...c, base: c.kind === 'body' && idleKey && anims[idleKey] && c.name !== idleKey && !drives(anims[c.name]) ? idleKey : undefined }));
-    layers.push({ fit: getFit(s.charId), skins: s.skins ?? def.skins ?? null, key: s.key, charId: s.charId, swap, anims, clips, present: plan.present, flip: s.flip, xf: s.xf ? { ...s.xf } : null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', slot: withChar.indexOf(s), visible: s.visible, keys: (S.charKeys[s.key] || []).map((k) => ({ t: k.t, x: k.x, y: k.y, mul: k.mul, flip: !!k.flip, ease: k.ease })) });
+    layers.push({ fit: getFit(s.charId), skins: s.skins ?? def.skins ?? null, key: s.key, charId: s.charId, swap, anims, clips, present: plan.present, flip: s.flip, xf: s.xf ? { ...s.xf } : null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null, tearFacingBack: /\bback\b/i.test(def.pose || ''), slot: withChar.indexOf(s), visible: s.visible, keys: (S.charKeys[s.key] || []).map((k) => ({ t: k.t, x: k.x, y: k.y, mul: k.mul, flip: !!k.flip, ease: k.ease })) });
   }
   return layers.reverse(); // front-first -> back-first
 }
@@ -478,6 +479,7 @@ async function buildLayerSpecs() {
 async function applyLayers() {
   const layers = await buildLayerSpecs();
   for (const l of layers) for (const blob of Object.values(l.swap || {})) await stage.loadSwap(blob);
+  await stage.setTearSprite(layers.some(layer => layer.tears?.style) ? await loadTearSprite() : null);
   const bad = stage.setLayers(layers);
   const activeIds = new Set(layers.map(l => l.charId));
   for (const id of stage.assets.keys()) if (!activeIds.has(id)) stage.unload(id);
@@ -601,7 +603,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', '🎙'], ['chars', 'Characters', '🎭'], ['anim', 'Animations', '🎬'], ['motion', 'Move', '🏃'], ['camera', 'Camera', '🎥'], ['mask', 'Mask', '◩'], ['ai', 'AI', '✨'], ['canvas', 'Background', '🖼'], ['export', 'Export', '⬇']];
+const TABS = [['audio', 'Audio', '🎙'], ['chars', 'Characters', '🎭'], ['anim', 'Animations', '🎬'], ['tears', 'Tears', '💧'], ['motion', 'Move', '🏃'], ['camera', 'Camera', '🎥'], ['mask', 'Mask', '◩'], ['ai', 'AI', '✨'], ['canvas', 'Background', '🖼'], ['export', 'Export', '⬇']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri', onclick: togglePlay }, '▶ Play');
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -656,7 +658,7 @@ function rememberScene() {
   if (scene) scene.doc = clone(sceneDoc());
 }
 async function activateScene(scene) {
-  S.sceneId = scene.id;
+  S.sceneId = scene.id; S.tearPlacement = false; S.tearFor = null;
   S.sel = S.animFor = S.lineSel = S.mclip = S.camSel = S.ckSel = null;
   await loadSceneDoc(clone(scene.doc || emptyScene(S.aspect)));
   await prepareStudio({ quiet: true });
@@ -747,11 +749,11 @@ function drawTabs() {
   const more = h('details', { class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}` },
     h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '⚙'), 'Advanced'),
     h('div', { class: 'advanced-tools-list' }, ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
-  tabsEl.replaceChildren(...rail('Create', ['audio', 'chars', 'anim', 'canvas']), ...rail('Output', ['export']), more);
+  tabsEl.replaceChildren(...rail('Create', ['audio', 'chars', 'anim', 'tears', 'canvas']), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close' }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, 'Close')),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, export: tabExport }[S.tab]());
+    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, export: tabExport }[S.tab]());
   S.dirty = true; syncLayoutUi();
 }
 
@@ -1217,7 +1219,8 @@ function mountStage() {
   selEl = h('div', { class: 'selbox', hidden: true });
   propSelEl = h('div', { class: 'prop-sel', hidden: true, 'aria-label': 'Selected prop; drag to move' });
   handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true })]));
-  wrapEl = h('div', { class: 'stagewrap' }, stage.out, selEl, propSelEl, ...Object.values(handleEls));
+  tearHandlesEl = h('div', { class: 'tear-handles', hidden: true }, tearHandle('left'), tearHandle('right'));
+  wrapEl = h('div', { class: 'stagewrap' }, stage.out, selEl, propSelEl, ...Object.values(handleEls), tearHandlesEl);
   stageObserver?.disconnect();
   const box = document.getElementById('stagebox'); box.replaceChildren(wrapEl);
   stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor();
@@ -1301,6 +1304,7 @@ function updateSel() {
   if (hintEl) hintEl.hidden = !!S.sel || stage.layers.length === 0;
   const hideBox = () => { selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; }); };
   if (!l || l.shown === false || S.step !== 3 || stage.fullView) { hideBox(); if (selBar) selBar.hidden = true; return; }
+  if (S.tab === 'tears' && S.tearPlacement) { hideBox(); if (selBar) selBar.hidden = true; return; }
   if (selBar.dataset.key !== l.key) drawSelBar(l);
   selBar.hidden = false;
   const r = selBar.querySelector('input[type=range]'); if (r && document.activeElement !== r) r.value = Math.round((l.mul ?? 1) * 100);
@@ -1425,6 +1429,88 @@ function tabChars() {
     s.manual ? h('button', { class: 'ib', title: 'Remove', onclick: () => { S.speakers = S.speakers.filter((x) => x !== s); S.order = S.order.filter((k) => k !== s.key); drawTabs(); } }, '✕') : null));
   return h('div', { class: 'list' }, h('button', { class: 'btn ok', onclick: addManualCharacter }, '＋ Add character'),
     h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Characters on stage (top = in front). Every voice you add as audio shows up here too. 🖼 swaps the character image, 🗑 removes it.'), rows, without);
+}
+
+let tearHandlesEl;
+const tearSpeaker = () => S.speakers.find(s => s.charId && s.key === S.tearFor) || S.speakers.find(s => s.charId && s.key === S.sel) || S.speakers.find(s => s.charId);
+function updateTears(speaker, config) {
+  speaker.tears = tearConfig(config);
+  const layer = stage.layers.find(layer => layer.key === speaker.key);
+  if (layer) layer.tears = speaker.tears;
+  S.dirty = true;
+}
+function tabTears() {
+  const chars = S.speakers.filter(speaker => speaker.charId), speaker = tearSpeaker();
+  if (!speaker) return h('div', { class: 'card flat' }, h('h2', {}, 'Tears'), h('p', { class: 'sub' }, 'Add a character, then choose a tear style for their eyes.'), h('button', { class: 'btn pri', onclick: () => openTab('chars') }, 'Add a character'));
+  const config = tearConfig(speaker.tears), side = S.tearEye || 'left', eye = config[side];
+  const change = (key, value) => { const next = tearConfig(speaker.tears); next[key] = value; updateTears(speaker, next); };
+  const changeEye = (key, value) => { const next = tearConfig(speaker.tears); next[side][key] = value; updateTears(speaker, next); };
+  const slider = (label, key, min, max, step, value, set, format) => {
+    const out = h('output', {}, format(value));
+    return h('label', { class: 'tear-slider' }, h('span', {}, label, out), h('input', { type: 'range', 'aria-label': label, min, max, step, value, oninput: event => { const value = +event.target.value; set(key, value); out.textContent = format(value); } }));
+  };
+  const pick = async style => {
+    const loading = busy('Loading tear style…');
+    try {
+      if (style) await stage.setTearSprite(await loadTearSprite());
+      change('style', style);
+      if (!style && !S.speakers.some(speaker => speaker.tears?.style)) await stage.setTearSprite(null);
+      if (!style) S.tearPlacement = false;
+      drawTabs();
+    } catch (error) { toast(error.message); }
+    finally { loading.done(); }
+  };
+  const detected = Object.keys(stage.layers.find(layer => layer.key === speaker.key)?.tearBind || {});
+  return h('div', { class: 'list tears-panel' },
+    h('label', { class: 'tear-character' }, 'Character', h('select', { 'aria-label': 'Tear character', onchange: event => { S.tearFor = event.target.value; S.sel = event.target.value; S.tearPlacement = false; drawTabs(); } }, chars.map(char => h('option', { value: char.key, selected: char.key === speaker.key }, char.name)))),
+    h('p', { class: 'sub' }, 'Tears follow the character’s head. Pick a style, then adjust each eye.'),
+    h('div', { class: 'tear-styles', 'aria-label': 'Tear styles' }, TEAR_STYLES.map(style => h('button', { class: `tear-style${config.style === style.id ? ' on' : ''}`, type: 'button', 'aria-pressed': String(config.style === style.id), 'aria-label': style.name, onclick: () => pick(style.id) },
+      h('span', { class: `tear-style-preview tear-preview-${style.id}`, 'aria-hidden': 'true' }, style.id ? Array.from({length:style.id === 2 || style.id === 5 ? 2 : 1}, (_,i) => h('img', { src: TEAR_IMAGE_URL, alt: '', style: `--drop:${i}` })) : '—'), h('b', {}, style.name), h('small', {}, style.hint)))),
+    !detected.length ? h('p', { class: 'sub' }, 'No visible eyes were detected in this pose. Choose a front or side pose to add tears.') : null,
+    h('fieldset', { class: 'tear-settings', disabled: !config.style },
+      h('legend', {}, 'Tear adjustment'),
+      h('div', { class: 'seg' }, ['left', 'right'].map(eye => h('button', { class: side === eye ? 'on' : '', type: 'button', 'aria-pressed': String(side === eye), onclick: () => { S.tearEye = eye; drawTabs(); } }, eye === 'left' ? 'Left Eye' : 'Right Eye'))),
+      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: eye.enabled, onchange: event => { changeEye('enabled', event.target.checked); drawTabs(); } }), `Show tears · ${side} eye`),
+      h('button', { class: `btn ${S.tearPlacement ? 'pri' : ''}`, type: 'button', 'aria-pressed': String(!!S.tearPlacement), onclick: () => { S.tearFor = speaker.key; S.tearPlacement = !S.tearPlacement; player.pause(); drawTabs(); } }, S.tearPlacement ? 'Done adjusting placement' : 'Adjust Tear Placement'),
+      h('p', { class: 'tear-help' }, S.tearPlacement ? 'Drag the marker for the selected eye. Zoom in for finer placement.' : 'Left and right refer to the character’s eyes. A side pose may show only one eye.'),
+      slider('Left / right', 'x', -300, 300, 1, eye.x, changeEye, value => `${Math.round(value)}%`),
+      slider('Up / down', 'y', -300, 500, 1, eye.y, changeEye, value => `${Math.round(value)}%`),
+      slider('Tear rotation', 'rotation', -180, 180, 1, eye.rotation, changeEye, value => `${value}°`),
+      slider('Tear size', 'size', .2, 3, .05, eye.size, changeEye, value => `${Math.round(value*100)}%`),
+      h('button', { class: 'btn sm', type: 'button', onclick: () => { const next = tearConfig(speaker.tears); next[side] = tearConfig()[side]; updateTears(speaker, next); drawTabs(); } }, 'Reset this eye'),
+      slider('Tear speed', 'speed', .25, 3, .05, config.speed, change, value => `${value.toFixed(2)}×`),
+      h('div', { class: 'tear-timing' }, h('label', {}, 'Start (s)', h('input', { type: 'number', 'aria-label': 'Tears start', min: 0, step: .1, value: config.start, onchange: event => { change('start', +event.target.value); drawTabs(); } })),
+        h('label', {}, 'End (s)', h('input', { type: 'number', 'aria-label': 'Tears end', min: config.start+.05, step: .1, value: config.end ?? '', placeholder: 'Scene end', onchange: event => { change('end', event.target.value === '' ? null : +event.target.value); drawTabs(); } })))));
+}
+function updateTearHandles() {
+  if (!tearHandlesEl) return;
+  const speaker = tearSpeaker(), layer = stage.layers.find(layer => layer.key === speaker?.key);
+  const show = S.tab === 'tears' && S.panelOpen && S.tearPlacement && !S.exporting && !player.playing && layer?.visible !== false && layer?.shown !== false;
+  tearHandlesEl.hidden = !show;
+  const camera = stage.r.cam;
+  for (const side of ['left', 'right']) {
+    const button = tearHandlesEl.querySelector(`[data-eye=${side}]`), frame = layer?.tearAnchors?.[side];
+    button.hidden = !show || !frame || !camera || side !== (S.tearEye || 'left');
+    if (button.hidden) continue;
+    button.style.left = `${(frame.p.x-camera[0])*camera[2]/2*stage.out.clientWidth}px`;
+    button.style.top = `${(frame.p.y-camera[1])*camera[3]/2*stage.out.clientHeight}px`;
+    button.classList.toggle('active', (S.tearEye || 'left') === side);
+  }
+}
+function tearHandle(side) {
+  return h('button', { type: 'button', class: 'tear-eye-handle', 'data-eye': side, 'aria-label': `Move tears for ${side} eye`, hidden: true, onpointerdown: event => {
+    event.preventDefault(); event.stopPropagation();
+    const speaker = tearSpeaker(), layer = stage.layers.find(layer => layer.key === speaker?.key), frame = layer?.tearAnchors?.[side];
+    if (!frame || !stage.r.cam || S.exporting) return;
+    S.tearEye = side; const button = event.currentTarget, rect = stage.out.getBoundingClientRect(), camera = [...stage.r.cam];
+    const ux = frame.u.x*camera[2]/2*rect.width, uy = frame.u.y*camera[3]/2*rect.height, vx = frame.v.x*camera[2]/2*rect.width, vy = frame.v.y*camera[3]/2*rect.height, det = ux*vy-uy*vx;
+    if (Math.abs(det)<1e-8) return;
+    const origin = {x:event.clientX,y:event.clientY}, config = tearConfig(speaker.tears), initial = {...config[side]};
+    button.setPointerCapture(event.pointerId);
+    const move = event => { const dx = event.clientX-origin.x, dy = event.clientY-origin.y, next = tearConfig(speaker.tears); next[side].x = initial.x+(dx*vy-dy*vx)/det*100; next[side].y = initial.y+(ux*dy-uy*dx)/det*100; updateTears(speaker,next); };
+    const end = () => { button.removeEventListener('pointermove',move); button.removeEventListener('pointerup',end); button.removeEventListener('pointercancel',end); drawTabs(); };
+    button.addEventListener('pointermove',move); button.addEventListener('pointerup',end); button.addEventListener('pointercancel',end);
+  } }, side === 'left' ? 'L' : 'R');
 }
 
 function tabAnim() {
@@ -1759,6 +1845,7 @@ async function doExport() {
         const job = {
           aspect: S.aspect, short: S.quality, fps: S.fps, level: S.level, format: S.format, W: stage.W, H: stage.H, maxTex: S.quality >= 2160 ? 4096 : 2048,
           chars: ids.map((id) => { const d = S.characters.find((c) => c.id === id) || S.libDefs.get(id); return { id, ske: d.ske, tex: d.tex }; }),
+          tearSprite: layers.some(layer => layer.tears?.style) ? await loadTearSprite() : null,
           bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, props: S.props.map((prop) => ({ ...prop })),
           layers, plan: shotPlan(), camKeys: stage.camKeys, voice: player.clips.map((c) => ({ speaker: c.speaker, start: c.start, end: c.end, visemes: c.visemes })),
         };
@@ -1796,7 +1883,7 @@ function sceneDoc() {
   return {
     lines: S.lines.map(({id, order, file, speaker}) => ({id, order, file, speaker})),
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
-    speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '' })),
+    speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
     order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgPreset: stage?.bg.preset ?? 0,
     swaps: Object.fromEntries([...S.swaps].map(([k, pages]) => [k, Object.fromEntries(Object.entries(pages).map(([pg, b]) => [pg, bid(b)]))])),
     props: S.props.map((prop) => ({ ...prop, blob: bid(prop.blob) })),
@@ -2010,7 +2097,7 @@ function loop(now) {
   const t = player.time;
   try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; lastPreviewFrame = now; } catch (e) { console.error(e); }
   if (player.playing) followLine();
-  updateSel(); updateCamBox();
+  updateSel(); updateCamBox(); updateTearHandles();
   if (headEl) {
     const x = t * S.pps;
     headEl.style.left = `${x}px`;

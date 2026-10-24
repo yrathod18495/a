@@ -13,6 +13,7 @@ async function init(msg) {
   await stage.setProps(job.props || []);
   for (const def of job.chars) await stage.loadCharacter(def);
   for (const l of job.layers) for (const blob of Object.values(l.swap || {})) await stage.loadSwap(blob);
+  if (job.tearSprite) await stage.setTearSprite(job.tearSprite);
   stage.setLayers(job.layers);
   stage.camKeys = job.camKeys || [];
   if (stage.W !== job.W || stage.H !== job.H) throw new Error('size mismatch');
