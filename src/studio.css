@@ -229,3 +229,4 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .controls{flex-wrap:wrap}
   #app .ws .layout-tools{max-width:100%;flex-wrap:wrap}
 }
+.tclip.bg{background:#191610;border:2px solid #594729;color:#efd08a;font-size:11px;cursor:pointer}
