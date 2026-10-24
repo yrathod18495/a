@@ -6,16 +6,14 @@ test('latest workspace controls coexist with undo, export presets and themed sce
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Workspace integration');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  const clipped=await page.locator('.prev').evaluate(host=>{const bounds=host.getBoundingClientRect();return [...host.querySelectorAll('.layout-tools button')].filter(button=>{const box=button.getBoundingClientRect();return box.left<bounds.left || box.right>bounds.right+1;}).map(button=>button.title);});expect(clipped).toEqual([]);
- await page.getByLabel('Canvas guides',{exact:true}).selectOption('all');await expect(page.locator('.guides i')).toHaveCount(8);await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeDisabled();
  const focus=page.getByRole('button',{name:'Focus mode — canvas only (F)',exact:true});await focus.click();await expect(page.locator('.ws')).toHaveAttribute('data-focus','true');
  await page.keyboard.press('Escape');await expect(page.locator('.ws')).toHaveAttribute('data-focus','false');
- await page.getByRole('button',{name:'Timeline (T)',exact:true}).click();await expect(page.locator('.ws')).toHaveAttribute('data-timeline','min');await page.getByRole('button',{name:'Timeline (T)',exact:true}).click();
  await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
  const before=await page.evaluate(()=>{const {quality,fps,format,level}=window.__toon.S;return{quality,fps,format,level};});
  await page.getByRole('button',{name:'Quick draft',exact:false}).click();expect(await page.evaluate(()=>window.__toon.S.quality)).toBe(360);
  await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);
  expect(await page.evaluate(()=>{const {quality,fps,format,level}=window.__toon.S;return{quality,fps,format,level};})).toEqual(before);
- await expect(page.getByLabel('Canvas guides',{exact:true})).toHaveValue('all');
  await page.getByRole('button',{name:'Redo',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__toon.S.quality)).toBe(360);
  await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
  await page.getByLabel('Options for Scene 2',{exact:true}).click();await page.locator('.scene-tab').filter({has:page.getByRole('tab',{name:'Scene 2',exact:true})}).getByRole('button',{name:'Delete',exact:true}).click();
@@ -36,4 +34,18 @@ test('animation duration from latest main stays consistent through undo and merg
  const ready=page.waitForEvent('download');await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();const download=await ready;const {readFile}=await import('node:fs/promises');const data=await readFile(await download.path());
  const duration=await page.evaluate(async base64=>{const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type:'video/webm'})),video=document.createElement('video');video.src=url;await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=reject;});const duration=video.duration;URL.revokeObjectURL(url);return duration;},data.toString('base64'));
  expect(Math.abs(duration-(Math.max(1,length)+8))).toBeLessThanOrEqual(.21);
+});
+
+test('side menus slide away after 5 s idle and return from the screen edge; timeline is the largest area',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Dock');await page.getByRole('button',{name:'Create project',exact:true}).click();
+ await expect(page.locator('#app .stagebox canvas')).toBeVisible();
+ await expect(page.locator('.prev .hint')).toHaveCount(0);await expect(page.locator('.guides')).toHaveCount(0);
+ const ws=page.locator('.ws');await expect(ws).toHaveAttribute('data-dock-rail','in');
+ await page.mouse.move(600,200);
+ await expect(ws).toHaveAttribute('data-dock-rail','out',{timeout:9000});await expect(ws).toHaveAttribute('data-dock-panel','out');
+ const stage=await page.locator('.stagebox').boundingBox(),timeline=await page.locator('.tlwrap').boundingBox();expect(timeline.height).toBeGreaterThan(stage.height*0.9);
+ await page.mouse.move(2,200);await expect(ws).toHaveAttribute('data-dock-rail','in');
+ await page.mouse.move(1364,200);await expect(ws).toHaveAttribute('data-dock-panel','in');
+ await page.mouse.move(600,200);await page.keyboard.press('[');await expect(ws).toHaveAttribute('data-dock-rail','out');
 });

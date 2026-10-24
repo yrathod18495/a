@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clampPanel, clampTimeline, nextGuide, loadLayout, saveLayout, presetMatch, EXPORT_PRESETS, DEFAULT_LAYOUT } from '../src/studio-layout.js';
+import { clampPanel, clampTimeline, loadLayout, saveLayout, presetMatch, EXPORT_PRESETS, DEFAULT_LAYOUT } from '../src/studio-layout.js';
 
 const memory = () => { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, v) }; };
 
@@ -12,16 +12,11 @@ test('panel and timeline sizes stay within sensible bounds', () => {
   assert.equal(clampTimeline(10, 800), 110);
   assert.equal(clampTimeline(900, 800), 480);
 });
-test('guides cycle and wrap back to off', () => {
-  assert.equal(nextGuide('off'), 'thirds');
-  assert.equal(nextGuide('all'), 'off');
-  assert.equal(nextGuide('nope'), 'off');
-});
 test('layout persists but never restores focus mode', () => {
   const store = memory();
-  saveLayout({ ...DEFAULT_LAYOUT, focus: true, rail: false, panelW: 400, guides: 'safe', loop: true }, store);
+  saveLayout({ ...DEFAULT_LAYOUT, focus: true, panelW: 400, tlH: 300, loop: true }, store);
   const back = loadLayout(store);
-  assert.deepEqual(back, { focus: false, rail: false, panelW: 400, tlH: 0, tlMin: false, guides: 'safe', loop: true });
+  assert.deepEqual(back, { focus: false, panelW: 400, tlH: 300, loop: true });
 });
 test('broken or missing storage falls back to defaults', () => {
   assert.deepEqual(loadLayout({ getItem: () => '{bad' }), DEFAULT_LAYOUT);

@@ -63,7 +63,7 @@ body:has(#app:not([hidden])){overflow:hidden}
 .animation-row.on{border-color:var(--acc);box-shadow:inset 3px 0 var(--acc)}
 .animation-apply{display:flex;align-items:center;gap:9px;flex:1;min-width:0;height:100%;padding:8px;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer}
 .animation-apply:disabled{opacity:.5;cursor:wait}
-.animation-thumb{display:grid;place-items:center;width:34px;height:34px;flex:none;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--acc);font-size:13px;overflow:hidden}
+.animation-thumb{display:grid;place-items:center;width:46px;height:46px;flex:none;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--acc);font-size:13px;overflow:hidden}
 .animation-thumb img{width:100%;height:100%;object-fit:cover}
 .animation-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
 .animation-copy b{font-size:12px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
@@ -168,14 +168,8 @@ body:has(#app:not([hidden])){overflow:hidden}
 .layout-tools{display:flex;align-items:center;gap:4px;flex:none}
 .layout-tools .btn{min-height:32px;padding:4px 8px;font-size:12px}
 .layout-tools .btn[aria-pressed=true]{background:var(--royal-button);color:#201607}
-.layout-tools select{padding:5px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--text);font-size:11px;max-width:118px}
-.layout-tools .lt-sep{width:1px;height:20px;background:var(--line);margin:0 3px}
 #app .ws .resize-handle{display:none}
 #app .ws .controls .time{white-space:nowrap}
-#app .ws .guides{position:absolute;inset:0;pointer-events:none}
-#app .ws .guides i{position:absolute;display:block}
-#app .ws .guides .g-line{background:#fff9;box-shadow:0 0 0 1px #0006}
-#app .ws .guides .g-safe{border:1px dashed #ffe08a;box-shadow:0 0 0 1px #0005}
 #app .ws .tabs.big .rail-label{flex:none;font-size:8px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);text-align:center;margin:7px 0 1px;padding-top:6px;border-top:1px solid var(--line)}
 #app .ws .tabs.big .rail-label:first-child{margin-top:0;padding-top:0;border-top:0}
 #app .ws .advanced-tools-list .adv-label{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);padding:5px 6px 2px}
@@ -201,32 +195,54 @@ body:has(#app:not([hidden])){overflow:hidden}
 .shortcut-list kbd{justify-self:start;padding:1px 7px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--card2);font:600 12px ui-monospace,monospace}
 .shortcut-list dd{margin:0}
 @media(min-width:861px){
-  #app .ws{--rail-w:64px;--panel-w:310px;--rail-gap:8px}
-  #app .ws[data-rail=hidden]{--rail-w:0px;--rail-gap:0px}
-  #app .ws .studio,#app .ws:has(.panel:not(.open)) .studio{column-gap:0;grid-template-columns:var(--rail-w) minmax(0,1fr) calc(var(--panel-w) + 8px);grid-template-rows:minmax(0,1fr) var(--tl-h,clamp(150px,26vh,220px))}
-  #app .ws:has(.panel:not(.open)) .studio{grid-template-columns:var(--rail-w) minmax(0,1fr) 0px}
-  #app .ws .prev,#app .ws .tlwrap{margin-left:var(--rail-gap)}
-  #app .ws .panel{margin-left:8px}
-  #app .ws[data-rail=hidden] .tabs.big{display:none}
-  #app .ws[data-timeline=min]{--tl-h:70px}
-  #app .ws[data-timeline=min] .tlwrap>:not(.scene-tabs):not(.tltools){display:none}
+  #app .ws{--panel-w:310px;--rail-w:64px;--tl-h:clamp(240px,40vh,480px);--dock-bottom:calc(var(--tl-h) + 8px)}
+  /* the timeline is the biggest area; the side menus float over the canvas and slide away when idle */
+  #app .ws .studio,#app .ws:has(.panel:not(.open)) .studio{position:relative;column-gap:0;grid-template-columns:0px minmax(0,1fr) 0px;grid-template-rows:minmax(0,1fr) var(--tl-h)}
+  #app .ws .prev,#app .ws .tlwrap{margin-left:0}
+  #app .ws .tabs.big,#app .ws .panel{position:absolute;top:0;bottom:var(--dock-bottom);height:auto;margin:0;z-index:30;box-shadow:0 8px 28px #0007;transition:transform .28s cubic-bezier(.3,.7,.2,1),opacity .22s}
+  #app .ws .tabs.big{left:0;width:var(--rail-w);align-self:auto}
+  #app .ws .panel{right:0;width:var(--panel-w)}
+  #app .ws[data-dock-rail=out] .tabs.big{transform:translateX(calc(-100% - 20px));opacity:0;pointer-events:none}
+  #app .ws[data-dock-panel=out] .panel{transform:translateX(calc(100% + 20px));opacity:0;pointer-events:none}
+  #app .ws .dock-edge{position:absolute;top:0;bottom:var(--dock-bottom);width:20px;z-index:29}
+  #app .ws .dock-edge-left{left:-12px}
+  #app .ws .dock-edge-right{right:-12px}
+  #app .ws .dock-edge::after{content:'';position:absolute;top:50%;width:4px;height:60px;margin-top:-30px;border-radius:3px;background:var(--acc,#c59532);opacity:0;transition:opacity .25s .15s}
+  #app .ws .dock-edge-left::after{left:14px}
+  #app .ws .dock-edge-right::after{right:14px}
+  #app .ws[data-dock-rail=out] .dock-edge-left::after,#app .ws[data-dock-panel=out] .dock-edge-right::after{opacity:.55}
   #app .ws .resize-handle{display:block;position:relative;z-index:6;touch-action:none}
   #app .ws .resize-handle::after{content:'';position:absolute;border-radius:3px;background:var(--acc,#c59532);opacity:0;transition:opacity .15s}
   #app .ws .resize-handle:hover::after,#app .ws .resize-handle.dragging::after{opacity:.65}
-  #app .ws .resize-panel{grid-area:side;justify-self:start;align-self:stretch;width:8px;height:100%;cursor:col-resize}
+  #app .ws .resize-panel{position:absolute;grid-area:auto;right:calc(var(--panel-w) - 4px);top:0;bottom:var(--dock-bottom);width:8px;height:auto;z-index:31;cursor:col-resize}
   #app .ws .resize-panel::after{inset:0 3px}
-  #app .ws .resize-tl{grid-area:tl;align-self:start;height:8px;margin:-8px 0 0 var(--rail-gap);cursor:row-resize}
+  #app .ws .resize-tl{grid-area:tl;align-self:start;height:8px;margin:-8px 0 0;cursor:row-resize}
   #app .ws .resize-tl::after{inset:3px 0}
-  #app .ws:has(.panel:not(.open)) .resize-panel,#app .ws[data-timeline=min] .resize-tl{display:none}
-  #app .ws[data-focus=true] .studio{grid-template-columns:0px minmax(0,1fr) 0px !important;grid-template-rows:minmax(0,1fr) 0px !important;row-gap:0}
-  #app .ws[data-focus=true] .prev{margin-left:0}
-  #app .ws[data-focus=true] :is(.topbar,.tabs.big,.panel,.tlwrap,.resize-handle){display:none !important}
+  #app .ws:has(.panel:not(.open)) .resize-panel,#app .ws[data-dock-panel=out] .resize-panel{display:none}
+  #app .ws[data-focus=true] .studio{grid-template-rows:minmax(0,1fr) 0px !important;row-gap:0}
+  #app .ws[data-focus=true] :is(.topbar,.tabs.big,.panel,.tlwrap,.resize-handle,.dock-edge){display:none !important}
+  /* bigger, clearer timeline */
+  #app .ws .tl-labels{width:116px}
+  #app .ws .rl{font-size:12px}
+  #app .ws .tclip{font-size:13px}
+  #app .ws .tclip.voice,#app .ws .tclip.bg{font-size:12px}
+  #app .ws .tltools{min-height:34px}
+  #app .ws .tltools .btn{min-height:30px;font-size:12px}
+  #app .ws .timeline-title{font-size:14px}
+}
+@media(min-width:861px) and (max-height:780px){
+  #app .ws .tabs.big>button,#app .ws .advanced-tools button{min-height:38px;padding:3px 2px}
+  #app .ws .tabs.big>button span:not(.ti),#app .ws .advanced-tools>summary{font-size:0}
+  #app .ws .tabs.big .rail-label{display:none}
+  #app .ws .tabs.big .ti{font-size:18px}
+  #app .ws .advanced-tools>summary{padding:6px 0}
+  #app .ws .advanced-tools>summary .ti{font-size:18px}
 }
 @media(max-width:860px){.layout-tools{display:none}}
-@media(max-height:700px) and (min-width:861px){#app .ws .tabs.big>button,#app .ws .advanced-tools button{min-height:44px}#app .ws .tabs.big .rail-label{margin-top:4px;padding-top:4px}}
 
 @media(min-width:861px){
   #app .ws .controls{flex-wrap:wrap}
   #app .ws .layout-tools{max-width:100%;flex-wrap:wrap}
 }
 .tclip.bg{background:#191610;border:2px solid #594729;color:#efd08a;font-size:11px;cursor:pointer}
+.animation-thumb canvas{width:100%;height:100%;display:block}

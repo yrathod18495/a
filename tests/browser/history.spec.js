@@ -47,7 +47,7 @@ test('character keyframes and camera keys undo immediately; shortcuts preserve p
  await page.evaluate(()=>window.__toon.player.seek(3));await page.getByRole('button',{name:'＋ Keyframe here',exact:true}).click();
  expect((await keys(page)).length).toBe(2);
  await page.getByRole('button',{name:'🗑 Delete',exact:true}).click();expect((await keys(page)).length).toBe(1);
- await page.locator('#app .stagebox').click({position:{x:5,y:5}});await page.keyboard.press('Control+z');await expect.poll(async()=> (await keys(page)).length).toBe(2);
+ await page.locator('#app .stagebox').click({position:{x:160,y:8}});await page.keyboard.press('Control+z');await expect.poll(async()=> (await keys(page)).length).toBe(2);
  expect(await page.evaluate(()=>window.__toon.player.time)).toBe(3);
  await page.keyboard.press('Control+Shift+z');await expect.poll(async()=> (await keys(page)).length).toBe(1);
  await page.getByRole('button',{name:'＋ Keyframe here',exact:true}).click();await expect(page.getByRole('button',{name:'Redo',exact:true})).toBeDisabled();

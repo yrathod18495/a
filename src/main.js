@@ -20,7 +20,7 @@ import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
-import { DEFAULT_LAYOUT, GUIDES, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline, nextGuide } from './studio-layout.js';
+import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
 const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
@@ -93,7 +93,7 @@ async function boot() {
 /* ---------------- the workbench ---------------- */
 function render() {
   $app.replaceChildren(h('div', { class: 'wrap s3 ws' }, topBar(), viewStudio()));
-  mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode; applyLayout(wsEl(), S.layout);
+  mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode; applyLayout(wsEl(), S.layout); dockShow('rail'); dockShow('panel');
 }
 function topBar() {
   return h('header', { class: 'topbar' },
@@ -238,7 +238,43 @@ function chooseCharacter(s, after) {
 /* Compact rows render only the visible window; previews start only on request. */
 const browserObservers = new Set();
 let activePreview = null;
-function stopAll() { for (const observer of browserObservers) observer.disconnect(); browserObservers.clear(); activePreview?.pause(); activePreview = null; }
+function stopAll() { thumbPlay.stop(); for (const observer of browserObservers) observer.disconnect(); browserObservers.clear(); activePreview?.pause(); activePreview = null; }
+/* ---- live animation thumbnails: no GIFs. One shared mini stage plays the animation under the pointer on the
+   speaker's own character. Nothing is downloaded until the pointer rests on a row (animations are cached afterwards). ---- */
+const thumbPlay = (() => {
+  let mini = null, loadedId = null, job = 0, raf = 0, host = null, shelf = null;
+  const stop = () => {
+    job++; cancelAnimationFrame(raf); raf = 0;
+    if (host && shelf) host.replaceChildren(...shelf);
+    host = shelf = null;
+  };
+  async function start(el, def, a) {
+    stop();
+    const my = job;
+    if (!el || !def?.ske || a.ref.source === 'mode' || a.cat.overlay) return;
+    await new Promise((resolve) => setTimeout(resolve, 220));            // only when the pointer rests on the row
+    if (my !== job || !el.isConnected) return;
+    try {
+      const anim = await animJson(def, a.ref);
+      if (my !== job || !anim) return;
+      if (!mini) { mini = new Stage({ maxTex: 1024 }); mini.setSize('1:1', 192); mini.fullView = false; }
+      if (loadedId !== def.id) { for (const id of [...mini.assets.keys()]) mini.unload(id); await mini.loadCharacter(def); loadedId = def.id; }
+      if (my !== job) return;
+      const name = animKey(a.ref), len = Math.max(0.5, +a.length || 3);
+      mini.setLayers([{ fit: getFit(def.id), skins: def.skins ?? null, key: 'thumb', charId: def.id, swap: null, anims: { [name]: anim }, clips: [{ id: 'thumb', kind: 'body', name, start: 0, dur: len, off: 0 }], present: null, flip: false, xf: null, mask: null, maskKeys: [], maskFollow: '', slot: 0, visible: true, keys: [] }]);
+      host = el; shelf = [...el.childNodes]; el.replaceChildren(mini.out);
+      let t = 0, last = performance.now();
+      const frame = (now) => {
+        if (my !== job) return;
+        const dt = Math.min(0.1, (now - last) / 1000); last = now; t = (t + dt) % len;
+        try { mini.render(t, dt, [], []); } catch { stop(); return; }
+        raf = requestAnimationFrame(frame);
+      };
+      raf = requestAnimationFrame(frame);
+    } catch { /* the still poster simply stays */ }
+  }
+  return { start, stop };
+})();
 function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
   const root = h('div', { class: 'ab' });
   let cat = null, q = '', scrollTop = 0, observer;
@@ -271,6 +307,11 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
         } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, a.poster ? h('img', { src: assetUrl(a.poster), alt: '', loading: 'lazy', decoding: 'async' }) : '▶'),
         h('span', { class: 'animation-copy' }, h('b', {}, a.name), h('small', {}, `${a.cat.layer || a.cat.name}${a.length ? ` · ${Number(a.length).toFixed(1)} s` : ''}`)), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+'));
         const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${(start + offset) * 64}px` }, apply);
+        if (!a.cat.overlay && a.ref.source !== 'mode') {
+          const thumb = () => row.querySelector('.animation-thumb');
+          row.addEventListener('pointerenter', () => thumbPlay.start(thumb(), def, a)); row.addEventListener('pointerleave', thumbPlay.stop);
+          apply.addEventListener('focus', () => thumbPlay.start(thumb(), def, a)); apply.addEventListener('blur', thumbPlay.stop);
+        }
         if (a.preview) row.append(h('button', { class: 'ib', title: `Preview ${a.name}`, onclick: () => {
           activePreview?.pause(); const video = h('video', { src: assetUrl(a.preview), controls: true, muted: true, playsinline: true, preload: 'none', style: 'max-width:100%' });
           activePreview = video; modal(a.name, video, () => video.pause()); video.play().catch(() => {});
@@ -480,43 +521,51 @@ function swapModal(s) {
   close = modal(`Swap image · ${s.name}`, h('div', {}, body, h('div', { class: 'foot', style: 'margin-top:14px' }, h('span'), h('button', { class: 'btn pri', onclick: () => close() }, 'Done'))));
 }
 
-/* ---------------- workspace layout: wide canvas, hideable panels, focus mode, guides ---------------- */
+/* ---------------- workspace layout: wide canvas, self-hiding side menus, focus mode ---------------- */
 S.layout = loadLayout(); S.loop = S.layout.loop; S.expOpen = { quick: true, out: true, pic: true, file: false };
 const layoutUi = {};
-let guideEl;
 const wsEl = () => document.querySelector('.ws');
 function setLayout(patch) {
   Object.assign(S.layout, patch); S.loop = S.layout.loop;
-  saveLayout(S.layout); applyLayout(wsEl(), S.layout); syncLayoutUi(); drawGuides();
+  saveLayout(S.layout); applyLayout(wsEl(), S.layout); syncLayoutUi();
   requestAnimationFrame(fitEditor);
 }
 function syncLayoutUi() {
-  const L = S.layout, set = (key, on) => layoutUi[key]?.setAttribute('aria-pressed', String(on));
-  set('rail', L.rail && !L.focus); set('panel', S.panelOpen && !L.focus); set('timeline', !L.tlMin && !L.focus); set('focus', L.focus); set('loop', L.loop);
-  if (layoutUi.guides) layoutUi.guides.value = L.guides;
+  layoutUi.focus?.setAttribute('aria-pressed', String(S.layout.focus));
+  layoutUi.loop?.setAttribute('aria-pressed', String(S.layout.loop));
 }
-const toggleRail = () => setLayout({ focus: false, rail: !S.layout.rail });
-const toggleTimeline = () => setLayout({ focus: false, tlMin: !S.layout.tlMin });
 const toggleFocus = () => setLayout({ focus: !S.layout.focus });
-function togglePanel() {
-  const reopen = S.layout.focus;
-  if (reopen) setLayout({ focus: false });
-  S.panelOpen = reopen ? true : !S.panelOpen; drawTabs();
+
+/* The tool menu (left) and the side panel (right) slide away after 5 s without use and slide back
+   when the pointer touches the screen edge, a tool is chosen, or the keyboard focuses them. No buttons. */
+const DOCK_IDLE_MS = 5000, dockTimer = { rail: 0, panel: 0 };
+const dockEl = (name) => (name === 'rail' ? tabsEl : panelEl);
+const dockOut = (name) => wsEl()?.getAttribute(`data-dock-${name}`) === 'out';
+function dockArm(name) { clearTimeout(dockTimer[name]); dockTimer[name] = setTimeout(() => dockHide(name), DOCK_IDLE_MS); }
+function dockShow(name) { wsEl()?.setAttribute(`data-dock-${name}`, 'in'); dockArm(name); }
+function dockHide(name) {
+  const el = dockEl(name), active = document.activeElement;
+  const busy = el && (el.matches(':hover') || (el.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) || el.querySelector('details[open]'));
+  if (busy || document.querySelector('.modal') || S.exporting) { dockArm(name); return; }   // still in use: look again in 5 s
+  wsEl()?.setAttribute(`data-dock-${name}`, 'out');
 }
-function drawGuides() {
-  if (!guideEl) return;
-  const g = S.layout.guides, parts = [], line = (css) => h('i', { class: 'g-line', style: css });
-  if (g === 'thirds' || g === 'all') parts.push(line('left:33.333%;top:0;bottom:0;width:1px'), line('left:66.666%;top:0;bottom:0;width:1px'), line('top:33.333%;left:0;right:0;height:1px'), line('top:66.666%;left:0;right:0;height:1px'));
-  if (g === 'center' || g === 'all') parts.push(line('left:50%;top:0;bottom:0;width:1px'), line('top:50%;left:0;right:0;height:1px'));
-  if (g === 'safe' || g === 'all') parts.push(h('i', { class: 'g-safe', style: 'inset:5%' }), h('i', { class: 'g-safe', style: 'inset:10%' }));
-  guideEl.replaceChildren(...parts); guideEl.hidden = !parts.length;
+function dockToggle(name) {
+  if (S.layout.focus) setLayout({ focus: false });
+  if (dockOut(name)) dockShow(name); else { clearTimeout(dockTimer[name]); wsEl()?.setAttribute(`data-dock-${name}`, 'out'); }
+}
+function dockWire(el, name) {
+  for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel']) el.addEventListener(type, () => dockArm(name), { passive: true });
+  el.addEventListener('focusin', () => dockShow(name));
+}
+function dockEdge(side) {
+  const name = side === 'left' ? 'rail' : 'panel', el = h('div', { class: `dock-edge dock-edge-${side}`, 'aria-hidden': 'true' });
+  el.addEventListener('pointerenter', () => dockShow(name));
+  return el;
 }
 function layoutTools() {
-  const btn = (key, label, title, onclick, cls = '') => layoutUi[key] = h('button', { type: 'button', class: `btn sm ${cls}`, title, 'aria-label': title, 'aria-pressed': 'false', onclick }, label);
-  layoutUi.guides = h('select', { 'aria-label': 'Canvas guides', title: 'Canvas guides (G). Only shown while editing — never in the exported video.', onchange: e => { setLayout({ guides: e.target.value }); e.target.blur(); } }, GUIDES.map(([key, label]) => h('option', { value: key, selected: key === S.layout.guides }, label)));
+  const btn = (key, label, title, onclick) => layoutUi[key] = h('button', { type: 'button', class: 'btn sm', title, 'aria-label': title, 'aria-pressed': 'false', onclick }, label);
   const box = h('div', { class: 'layout-tools' },
-    btn('loop', '🔁', 'Loop playback (L)', () => setLayout({ loop: !S.layout.loop })), layoutUi.guides, h('span', { class: 'lt-sep' }),
-    btn('rail', '☰', 'Tool rail ( [ )', toggleRail), btn('panel', '▥', 'Side panel ( ] )', togglePanel), btn('timeline', '▬', 'Timeline (T)', toggleTimeline),
+    btn('loop', '🔁', 'Loop playback (L)', () => setLayout({ loop: !S.layout.loop })),
     btn('focus', '⤢ Focus', 'Focus mode — canvas only (F)', toggleFocus), btn('help', '?', 'Keyboard shortcuts (?)', showShortcuts));
   syncLayoutUi(); return box;
 }
@@ -542,8 +591,8 @@ window.addEventListener('keydown', (e) => {
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key, seekBy = (d) => { player.seek(Math.min(player.total, Math.max(0, player.time + d))); S.dirty = true; };
   const onTab = !!e.target.closest?.('[role=tab]');
   const actions = {
-    f: toggleFocus, '[': toggleRail, ']': togglePanel, t: toggleTimeline, '?': showShortcuts, '0': () => setEditorZoom(1),
-    g: () => setLayout({ guides: nextGuide(S.layout.guides) }), l: () => setLayout({ loop: !S.layout.loop }),
+    f: toggleFocus, '[': () => dockToggle('rail'), ']': () => dockToggle('panel'), '?': showShortcuts, '0': () => setEditorZoom(1),
+    l: () => setLayout({ loop: !S.layout.loop }),
     Home: () => { player.seek(0); S.dirty = true; }, End: () => seekBy(player.total),
     ArrowLeft: onTab ? null : () => seekBy(e.shiftKey ? -1 : -0.1), ArrowRight: onTab ? null : () => seekBy(e.shiftKey ? 1 : 0.1),
     Escape: S.layout.focus ? toggleFocus : null,
@@ -564,6 +613,7 @@ function viewStudio() {
   lineBox = h('div', { class: 'linebox' });
   tabsEl = h('div', { class: 'tabs big' });
   panelEl = h('div', { class: 'panel' });
+  dockWire(tabsEl, 'rail'); dockWire(panelEl, 'panel');
   const zoom = (f) => { const left = tlScroll.scrollLeft / S.pps; S.pps = Math.min(300, Math.max(4, S.pps * f)); drawTimeline(); tlScroll.scrollLeft = left * S.pps; };
   const fit = fitTimeline;
   const tools = h('div', { class: 'tltools' }, h('b', { class: 'timeline-title' }, 'Timeline'),
@@ -576,10 +626,9 @@ function viewStudio() {
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard()),
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn', title: 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, '⏮'), timeEl, h('label', { class: 'preview-quality' }, h('span', {}, 'Preview'), previewSelect = h('select', { 'aria-label': 'Preview quality', title: 'Low is faster and softer. Export quality is set separately.', onchange: e => changePreviewQuality(e.target.value) }, Object.entries(PREVIEW_MODES).map(([value, mode]) => h('option', { value, selected: value === S.previewMode }, mode.label)))), h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm', title: 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, '−'), h('button', { class: 'btn sm', title: 'Fit scene in editor', onclick: () => setEditorZoom(1) }, 'Fit scene'), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm', title: 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, '+')), layoutTools()),
-        hintEl = h('p', { class: 'hint' }, '👆 Tap a character or prop to select it · drag to move'),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, sceneTabs(), tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
-      h('div', { class: 'side' }, tabsEl, panelEl), panelHandle(), timelineHandle()));
+      h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
   const strip = h('div', { class: 'scene-tabs', role: 'tablist', 'aria-label': 'Scenes' });
@@ -690,7 +739,7 @@ function drawTabs() {
   const advanced = new Set(['motion', 'camera', 'mask', 'ai']);
   const button = ([key, label, icon]) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
     if (S.tab === key) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
-    drawTabs(); S.dirty = true;
+    drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
   } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon), h('span', {}, label));
   const byKey = Object.fromEntries(TABS.map(t => [t[0], t]));
   const rail = (label, keys) => [h('div', { class: 'rail-label' }, label), ...keys.map(k => button(byKey[k]))];
@@ -707,7 +756,7 @@ function drawTabs() {
 }
 
 /* ---- timeline: ruler + the audio lines (the main track) ---- */
-const RULER = 24;
+const RULER = 28;
 function selectLine(id, seek = true) {
   if (!id) return;
   S.lineSel = id;
@@ -729,7 +778,7 @@ function drawTimeline() {
   ruler.addEventListener('pointermove', (e) => scrubbing && scrub(e));
   ruler.addEventListener('pointerup', () => { scrubbing = false; });
   const fileLabel = (id) => { const f = S.lines.find((l) => l.id === id)?.file; return String(f?.name ?? f ?? '').replace(/\.[^.]+$/, ''); };
-  const lane = h('div', { class: 'lane2 audio', style: 'height:40px' });
+  const lane = h('div', { class: 'lane2 audio', style: 'height:52px' });
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
     lane.append(h('div', { class: `tclip voice ${c.id === S.lineSel ? 'sel' : ''}`, style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
@@ -737,12 +786,12 @@ function drawTimeline() {
   });
   // no audio yet: show only the ruler and the animation lanes (audio can still be added in the Audio tab)
   const hasAudio = player.clips.length > 0;
-  const labels = [h('div', { class: 'rl ruler', style: `height:${RULER}px` }, 'Time'), ...(hasAudio ? [h('div', { class: 'rl audio', style: 'height:40px' }, '🔊 Audio')] : [])], lanes = [ruler, ...(hasAudio ? [lane] : [])];
+  const labels = [h('div', { class: 'rl ruler', style: `height:${RULER}px` }, 'Time'), ...(hasAudio ? [h('div', { class: 'rl audio', style: 'height:52px' }, '🔊 Audio')] : [])], lanes = [ruler, ...(hasAudio ? [lane] : [])];
   // the scene background, named like the audio and animation clips
   const bgName = S.bgId ? (S.myBgs.find((r) => r.id === S.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[stage.bg.preset] || BACKGROUNDS[0]).name;
-  labels.push(h('div', { class: 'rl audio', style: 'height:30px', onclick: () => openTab('canvas') }, '🖼 Background'));
-  lanes.push(h('div', { class: 'lane2 bg', style: 'height:30px', onclick: () => openTab('canvas') }, h('div', { class: 'tclip bg', title: `Background · ${bgName}`, style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`))));
-  const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 34;
+  labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, '🖼 Background'));
+  lanes.push(h('div', { class: 'lane2 bg', style: 'height:38px', onclick: () => openTab('canvas') }, h('div', { class: 'tclip bg', title: `Background · ${bgName}`, style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`))));
+  const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 46;
   for (const s of S.order.map(sOf).filter((x) => x?.charId && charOf(x))) {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
     kinds.forEach((kind, i) => {
@@ -764,23 +813,23 @@ function drawTimeline() {
     });
     const cks = S.charKeys[s.key];
     if (cks?.length) {
-      const kl = h('div', { class: 'lane2 cam move', style: 'height:24px' });
+      const kl = h('div', { class: 'lane2 cam move', style: 'height:30px' });
       for (const k of cks.slice().sort((a, b) => a.t - b.t)) {
         const d = h('i', { class: `kf mv ${k.id === S.ckSel ? 'sel' : ''}`, title: `${s.name} · ${k.t.toFixed(2)}s`, style: `left:${k.t * pps}px;background:${s.color}` });
         d.addEventListener('pointerdown', (e) => dragCharKey(e, s, k, d)); kl.append(d);
       }
-      labels.push(h('div', { class: 'rl char', style: 'height:24px' }, h('span', { class: 'lt face' }, '◆ move'))); lanes.push(kl);
+      labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, '◆ move'))); lanes.push(kl);
     }
   }
   // camera keyframes
-  const cl = h('div', { class: 'lane2 cam', style: 'height:30px' });
+  const cl = h('div', { class: 'lane2 cam', style: 'height:38px' });
   if (!S.camKeys.length) cl.append(h('span', { class: 'camhint' }, 'automatic shots · open the Camera tab to add keyframes'));
   for (const k of [...S.camKeys].sort((a, b) => a.t - b.t)) {
     const d = h('i', { class: `kf ${k.id === S.camSel ? 'sel' : ''}`, title: `${k.t.toFixed(2)}s · ${k.zoom.toFixed(2)}×`, style: `left:${k.t * pps}px` });
     d.addEventListener('pointerdown', (e) => dragKey(e, k, d));
     cl.append(d);
   }
-  labels.push(h('div', { class: 'rl audio', style: 'height:30px', onclick: () => openTab('camera') }, '🎥 Camera')); lanes.push(cl);
+  labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('camera') }, '🎥 Camera')); lanes.push(cl);
   tlLabels.replaceChildren(...labels);
   tlInner.style.width = `${Math.ceil(total * pps) + 60}px`;
   tlInner.replaceChildren(...lanes, headEl);
@@ -1134,6 +1183,9 @@ function fitEditor() {
   const width = Math.max(40, Math.min(box.clientWidth - 20, (box.clientHeight - 20) * ratio)) * S.editorZoom;
   wrapEl.style.width = `${width}px`; wrapEl.style.height = `${width / ratio}px`;
   if (zoomLabel) zoomLabel.value = `${Math.round(S.editorZoom * 100)}%`;
+  // the floating menus cover only the canvas area, never the play / zoom controls or the timeline
+  const ws = wsEl(), studio = ws?.querySelector('.studio');
+  if (studio) ws.style.setProperty('--dock-bottom', `${Math.max(0, Math.round(studio.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom))}px`);
   updateSel(); S.dirty = true;
 }
 function setEditorZoom(zoom) { S.editorZoom = Math.max(.5, Math.min(2, zoom)); fitEditor(); }
@@ -1165,11 +1217,10 @@ function mountStage() {
   selEl = h('div', { class: 'selbox', hidden: true });
   propSelEl = h('div', { class: 'prop-sel', hidden: true, 'aria-label': 'Selected prop; drag to move' });
   handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true })]));
-  guideEl = h('div', { class: 'guides', 'aria-hidden': 'true' });
-  wrapEl = h('div', { class: 'stagewrap' }, stage.out, guideEl, selEl, propSelEl, ...Object.values(handleEls));
+  wrapEl = h('div', { class: 'stagewrap' }, stage.out, selEl, propSelEl, ...Object.values(handleEls));
   stageObserver?.disconnect();
   const box = document.getElementById('stagebox'); box.replaceChildren(wrapEl);
-  stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor(); drawGuides();
+  stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor();
   mountCamBox();
   let drag = null;
   const pt = (e) => { const r = stage.out.getBoundingClientRect(), k = stage.W / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
@@ -1303,7 +1354,7 @@ function addCharacterTo(s) {
   });
 }
 /* ---- start of a scene: audio is optional, so the workbench is open from the first second ---- */
-const openTab = (k) => { S.tab = k; S.panelOpen = true; drawTabs(); };
+const openTab = (k) => { S.tab = k; S.panelOpen = true; drawTabs(); dockShow('panel'); };
 function emptyCard() {
   return h('div', { class: 'empty' }, h('div', { class: 'empty-in' },
     h('b', {}, 'Start your scene'),
@@ -1980,7 +2031,7 @@ export async function openStudio() {
   $app.hidden = false;
   if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile
   startAutoSync();
-  S.ready = true; S.dirty = true; fitEditor();
+  S.ready = true; S.dirty = true; fitEditor(); dockShow('rail'); dockShow('panel');
   const box = document.getElementById('stagebox'); if (box) stageObserver?.observe(box);
 }
 export async function closeStudio() {
