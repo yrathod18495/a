@@ -176,6 +176,7 @@ async function useCharacter(s, id) {
   let def = S.characters.find((c) => c.id === id) || S.libDefs.get(id);
   if (!def && id) {
     const entry = libraryCharacters().find((e) => `lib:${e.id}` === id);
+    if (!entry) { toast('This character template is no longer available. Choose another character.'); return false; }
     const b = busy(`Downloading ${entry.name}…`);
     try { def = await fetchLibraryCharacter(entry); S.libDefs.set(id, def); } catch (e) { b.done(); toast(`Could not download character: ${e.message}`); return false; }
     b.done();
@@ -194,7 +195,6 @@ function chooseCharacter(s, after) {
     h('div', { class: 'gridc' }, card(null, 'No character', 'Voice only', () => pick(null), !s.charId)),
     h('h2', { style: 'margin:16px 0 8px' }, 'Characters'),
     libraryCharacters().some((e) => e.autodraft) ? characterPicker({ entries: libraryCharacters(), isOn: (e) => s.charId === `lib:${e.id}`, onPick: (e) => pick(`lib:${e.id}`) }) : null,
-    libraryCharacters().some((e) => !e.autodraft) ? [h('h2', { style: 'margin:16px 0 8px' }, `More characters (${libraryCharacters().filter((e) => !e.autodraft).length})`), h('div', { class: 'gridc' }, libraryCharacters().filter((e) => !e.autodraft).map((e) => card(cdn(e.thumbnail), e.name, e.pose, () => pick(`lib:${e.id}`), s.charId === `lib:${e.id}`)))] : null,
     S.characters.length ? [h('h2', { style: 'margin:16px 0 8px' }, 'Your characters'), h('div', { class: 'gridc' }, S.characters.map((c) => card(c.thumb || null, c.name, 'from your device', () => pick(c.id), s.charId === c.id)))] : null,
     cloudBox));
   cloudReady().then(async (ok) => {

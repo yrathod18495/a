@@ -4,7 +4,6 @@ async function setup(page){
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  // These UI tests exercise local storage only; missing bundled catalogs use empty fixtures.
- await page.route('**/catalog/*.json',r=>r.fulfill({json:{patterns:{},characters:[]}}));
  await page.route('**/autodraft/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
  await page.goto('/?debug#/toons');
  await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
@@ -86,7 +85,6 @@ test('affiliate partner form explains data use and confirms successful submissio
 test('tester starts blank with only the custom character action and no visible brand',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
- await page.route('**/catalog/*.json',r=>r.fulfill({json:{patterns:{},characters:[]}}));
  await page.route('**/autodraft/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
  await page.goto('/?debug&tester#/tester');
  await expect(page).toHaveTitle('Character Tester');
@@ -100,7 +98,6 @@ test('tester starts blank with only the custom character action and no visible b
 test('tester upload selects the uploaded character and loads its live preview',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
- await page.route('**/catalog/*.json',r=>r.fulfill({json:{patterns:{},characters:[]}}));
  await page.goto('about:blank');
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d');g.fillStyle='#ff0000';g.fillRect(0,0,32,32);return c.toDataURL('image/png').split(',')[1];});
  const ske={version:'5.5',compatibleVersion:'5.5',name:'Rig',frameRate:24,armature:[{name:'Rig',type:'Armature',frameRate:24,bone:[{name:'root',transform:{}}],slot:[{name:'body',parent:'root',displayIndex:0}],skin:[{name:'default',slot:[{name:'body',display:[{name:'body',path:'body',type:'image',transform:{}}]}]}],animation:[]}]};

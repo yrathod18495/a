@@ -356,9 +356,8 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       const files = [...e.target.files]; e.target.value = ''; await importCharacterFiles(files);
     } });
     const lib = tester ? [] : libraryCharacters();
-    const card = (e, on) => h('div', { class: `cs-card ${st.def && st.def.id === `lib:${e.id}` ? 'on' : ''}`, onclick: on }, h('span', { class: 'cs-th' }, e.thumbnail ? h('img', { src: cdn(e.thumbnail), alt: '', loading: 'lazy' }) : '🎭'), h('b', {}, e.name), h('small', {}, e.pose));
     const open = (e) => async () => { try { await pick(await fetchLibraryCharacter(e), `${e.name} · ${e.pose}`); st.tpl = e.autodraft ? { id: e.id } : null; } catch (er) { toast(`Could not download: ${er.message}`); } };
-    const templates = lib.filter((e) => e.autodraft), others = lib.filter((e) => !e.autodraft);
+    const templates = lib;
     const cloudOnly = st.cloud.filter((c) => !mine.some((m) => m.id === c.id));
     const modeBtn = (create, label, hint) => h('button', { class: `cs-mode ${st.createMode === create ? 'on' : ''}`, onclick: () => { st.createMode = create; st.outline = create; draw(); } }, h('b', {}, label), h('small', {}, hint));
     if (tester) return [
@@ -384,7 +383,6 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         mine.map((c) => h('div', { class: `cs-card ${st.def?.id === c.id ? 'on' : ''}`, onclick: () => pick(c) }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'), h('b', {}, c.name),
           h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); mine.splice(mine.indexOf(c), 1); draw(); } }, '✕'))),
         cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('Its template is not available any more.'); mine.push(d); await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ from your account')))), file),
-      others.length ? h('details', { class: 'cs-sec' }, h('summary', { style: 'cursor:pointer;font-weight:700' }, `More characters (${others.length})`), h('div', { class: 'cs-grid', style: 'margin-top:8px' }, others.map((e) => card(e, open(e))))) : null,
     ];
   }
 

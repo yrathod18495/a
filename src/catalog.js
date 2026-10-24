@@ -1,5 +1,5 @@
 import { testerAnimationAllowed } from './tester-animation-policy.js';
-// Built-in animation library. Everything is bundled with the app (public/animations), no network needed.
+// Bundled Autodraft characters and their animation library.
 import { get as dbGet, put as dbPut, del as dbDel, all as dbAll } from './store.js';
 import { loadAnimRules, cachedRules, loadTesterConfig } from './cloud.js';
 import { rigInfo, dirOf } from './db/info.js';
@@ -7,10 +7,6 @@ import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
 
 const BASE = import.meta.env.BASE_URL;
-let patterns = {};
-export const PATTERN_NAMES = { 2: '3/4 Front', 62: 'Sitting' };
-
-const CDN = 'https://assets.stpro.app/';
 let library = [], adAnims = null;
 
 /* ---- admin rules: animations the admin switched off. { '*': [ids for every character], neha: [ids], mybaby: [ids] } ---- */
@@ -30,40 +26,34 @@ const isHiddenAnim = (rig, id) => { const k = String(id), all = hiddenRules['*']
 export async function loadCatalog() {
   setAnimRules(cachedRules());   // last published rules kept on this device, then the fresh ones (waits at most 2.5 s)
   try { const r = await Promise.race([loadAnimRules(), new Promise((res) => setTimeout(() => res(null), 2500))]); if (r) setAnimRules(r); } catch { /* keep the cached rules */ }
-  try { patterns = (await fetch(`${BASE}catalog/animations.json`).then((r) => r.json())).patterns || {}; } catch (e) { console.warn('animation catalog failed to load', e); }
-  try {
-    const list = (await fetch(`${BASE}catalog/characters.json`).then((r) => r.json())).characters || [];
-    // characters with downloadable files; front poses first
-    library = list.filter((c) => c.ske && c.tex).sort((a, b) => (a.patternId === 2 ? 0 : 1) - (b.patternId === 2 ? 0 : 1) || b.id - a.id);
-  } catch (e) { console.warn('character list failed to load', e); }
+  library = [];
+  adAnims = null;
   // Autodraft template characters (layered SVG characters, five poses each) + their animation library
   try {
     const [chars, anims] = await Promise.all([fetch(`${BASE}autodraft/characters.json`).then((r) => r.json()), fetch(`${BASE}autodraft/animations.json`).then((r) => r.json())]);
     adAnims = anims;
     const mine = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `autodraft/pose/${c.id}-${p.pose}.webp`, autodraft: p, paid: false })));
-    library = [...mine, ...library];
+    library = mine;
   } catch (e) { console.warn('autodraft data failed to load', e); }
 }
 export const libraryCharacters = () => library;
-export const cdn = (p) => (!p ? null : /^(https?:|blob:|data:)/.test(p) ? p : p.startsWith('autodraft/') ? BASE + p : CDN + p);
+export const cdn = (p) => url(p);
 
 /** Downloads a character (DragonBones skeleton + texture atlases + pictures) from its files and returns the same shape ingest() produces. */
 export async function fetchLibraryCharacter(entry) {
   const ok = (r) => { if (!r.ok) throw new Error(`${r.status} ${r.url}`); return r; };
-  const a = entry.autodraft || entry, load = async () => {
+  if (!entry?.autodraft) throw new Error('Character template is no longer available.');
+  const a = entry.autodraft, load = async () => {
     const [ske, texJsons] = await Promise.all([fetch(url(a.ske)).then(ok).then((r) => r.json()), Promise.all(a.tex.map((u) => fetch(url(u)).then(ok).then((r) => r.json())))]);
     const blobs = await Promise.all(texJsons.map((t, i) => fetch(url(dirOf(a.tex[i]) + t.imagePath)).then(ok).then((r) => r.blob())));
     return { ske, tex: texJsons.map((json, i) => ({ json, image: blobs[i] })) };
   };
   const { ske, tex } = await load();
-  if (entry.autodraft) {
-    // own = the rig brings its animations (Village Boy, SVG Multi): listed in animIndex, one file each in animDir
-    let animList = null;
-    if (a.own && a.animIndex) animList = await fetch(url(a.animIndex)).then(ok).then((r) => r.json());
-    const rig = rigInfo(ske, { toonChar: entry.charBase, ...(a.own ? { animList, animDir: a.animDir } : { toonPattern: entry.patternId }) });
-    return { skins: a.defaultSkin ? ['default', a.defaultSkin] : a.skins?.includes('Saree') ? ['Saree'] : null, id: `lib:${entry.id}`, name: entry.name, pose: entry.pose, patternId: entry.patternId, lib: true, thumbnail: url(entry.thumbnail), ske, tex, rig, anims: [] };
-  }
-  return { id: `lib:${entry.id}`, name: entry.name, pose: entry.pose, patternId: entry.patternId, lib: true, thumbnail: cdn(entry.thumbnail), ske, tex, rig: rigInfo(ske), anims: [] };
+  // own = the rig brings its animations (Village Boy, SVG Multi): listed in animIndex, one file each in animDir
+  let animList = null;
+  if (a.own && a.animIndex) animList = await fetch(url(a.animIndex)).then(ok).then((r) => r.json());
+  const rig = rigInfo(ske, { toonChar: entry.charBase, ...(a.own ? { animList, animDir: a.animDir } : { toonPattern: entry.patternId }) });
+  return { skins: a.defaultSkin ? ['default', a.defaultSkin] : a.skins?.includes('Saree') ? ['Saree'] : null, id: `lib:${entry.id}`, name: entry.name, pose: entry.pose, patternId: entry.patternId, lib: true, thumbnail: url(entry.thumbnail), ske, tex, rig, anims: [] };
 }
 /**
  * A saved character is small: { id, name, pose, base: 'lib:<template id>', profile, pages: {imagePath: Blob}, thumb }.
@@ -85,20 +75,6 @@ export async function hydrateCharacter(rec) {
 /** hydrate a list, dropping what cannot be loaded */
 export async function hydrateAll(list) { return (await Promise.all(list.map((r) => hydrateCharacter(r).catch(() => null)))).filter(Boolean); }
 export const url = (p) => (!p ? null : /^(https?:|blob:|data:)/.test(p) ? p : BASE + p);
-/** Expression / Eyes animations only move the face, so they are layered on top of the body animation */
-const isOverlay = (name) => /expression|eyes?/i.test(name);
-export const libraryAnimCount = () => Object.values(patterns).flatMap((p) => p.categories).reduce((n, c) => n + c.animations.length, 0);
-
-/** Which animation set fits this rig? (checks that the rig owns every bone the set drives) */
-export function patternsFor(rig) {
-  if (rig?.toonPattern && String(rig.toonPattern).startsWith('ad:')) return [rig.toonPattern];
-  const bones = new Set((rig?.bones || []).map((b) => b.name));
-  const cov = Object.entries(patterns).map(([p, v]) => [p, v.bones?.length ? v.bones.filter((b) => bones.has(b)).length / v.bones.length : 0]);
-  const full = cov.filter(([, c]) => c >= 0.999).map(([p]) => p);
-  if (full.includes('2')) return ['2'];
-  if (full.length) return full;
-  return cov.sort((a, b) => b[1] - a[1]).slice(0, 1).map(([p]) => p);
-}
 /** categories for a rig: [{key, name, overlay, animations:[{ref,...}]}] */
 const AD_LAYER = { HAND: 'hand', LEGS: 'legs', EXPRESSION: 'face' };
 /** Autodraft poses: Body animations (split into Talking / Idle / the rest) plus three layers that run on top of a body animation */
@@ -131,7 +107,7 @@ export function categoriesFor(rig, { all = false, tester = false } = {}) {
   }
   return cats.map((c) => ({ ...c, animations: c.animations.filter((a) => a.ref.source !== 'lib' || !isHiddenAnim(rig, a.ref.id)) })).filter((c) => c.animations.length);
 }
-/** a rig that brings its own animations (Autodraft exports ...) and does not match a library pattern: list its animations, split like the Autodraft ones */
+/** List a rig's own animations, grouped into body, hand, leg and face tracks. */
 function embeddedCategories(rig) {
   const pretty = (n) => n.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
   const kindOf = (n) => (/leg_?part/i.test(n) ? 'legs' : /hand_?part|_hand\d*$/i.test(n) ? 'hand' : /expression|_eb$|_eb\d*$/i.test(n) ? 'face' : 'body');
@@ -146,19 +122,9 @@ function embeddedCategories(rig) {
     cat('face', 'Face expressions (layer)', all.filter((a) => a.kind === 'face'), true, 'face')].filter((x) => x.animations.length);
 }
 function allCategories(rig) {
-  if (rig && rig.animList && rig.animList.length >= 3 && !(String(rig.toonPattern || '').startsWith('ad:'))) {
-    const bones = new Set((rig.bones || []).map((b) => b.name)), best = Math.max(0, ...Object.values(patterns).map((v) => (v.bones?.length ? v.bones.filter((b) => bones.has(b)).length / v.bones.length : 0)));
-    if (best < 0.6) return embeddedCategories(rig);
-  }
-  const ps = patternsFor(rig), multi = ps.length > 1, out = [];
-  if (ps.length === 1 && String(ps[0]).startsWith('ad:')) return adCategories(ps[0].slice(3));
-  for (const p of ps) for (const c of patterns[p]?.categories || []) {
-    out.push({
-      key: `${p}:${c.id}`, name: multi ? `${PATTERN_NAMES[p] || p} · ${c.name}` : c.name, overlay: isOverlay(c.name),
-      animations: c.animations.map((a) => ({ ref: { source: 'lib', id: a.id, name: a.name, file: a.file, overlay: isOverlay(c.name) }, name: a.name, length: a.length, preview: a.preview, poster: a.poster })),
-    });
-  }
-  return out;
+  if (String(rig?.toonPattern || '').startsWith('ad:')) return adCategories(rig.toonPattern.slice(3));
+  if (rig?.animList?.length) return embeddedCategories(rig);
+  return [];
 }
 
 const cache = new Map();

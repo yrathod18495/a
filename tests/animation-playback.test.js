@@ -18,13 +18,8 @@ for (const character of chars) {
   cases.push({label:character.name+' '+action,pose,clip});
  }
 }
-const stpro = read('catalog/animations.json').patterns['2'].categories.flatMap(c=>c.animations);
-for (const action of ['walk','run','talk']) {
- const clip=stpro.find(a=>new RegExp(action,'i').test(a.name));assert.ok(clip);
- cases.push({label:'STPro '+action,pose:{ske:'characters/Blazer_3-4_Front/Blazer_3-4_Front_ske.json',tex:['characters/Blazer_3-4_Front/Blazer_3-4_Front_tex_0.json']},clip});
-}
 for (const {label,pose,clip} of cases) test(label+' advances the actual rig through a full animation cycle',t=>{
- const skeleton=read(pose.ske),prep=prepareArmature(skeleton,pose.ske.startsWith('characters/') ? null : pose.defaultSkin?['default',pose.defaultSkin]:['default','Saree']);
+ const skeleton=read(pose.ske),prep=prepareArmature(skeleton,pose.defaultSkin?['default',pose.defaultSkin]:['default','Saree']);
  const animation=unwrap(read(clip.file));
  const f=new GLFactory(),name='playback-check';f.parseDragonBonesData(assemble(prep,{check:animation}),name);
  for(const tex of pose.tex||[]) f.parseTextureAtlasData(read(tex),null,name);

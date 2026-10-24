@@ -44,10 +44,10 @@ const FAQ = [
   ['How do I report a problem?', 'Use the support channel through which you received access to 12toons, and include the page and browser where the issue occurred. Do not send passwords, API keys, or private project files unless requested through a trusted channel.']
 ];
 
-const animationPreviews = [
-  { title: 'Angry walk', desc: 'Body movement preview', video: '/animations/1833.webm', poster: '/animations/1833.jpg' },
-  { title: 'Happy walk', desc: 'Walking animation preview', video: '/animations/1861.webm', poster: '/animations/1861.jpg' },
-  { title: 'Run', desc: 'Action animation preview', video: '/animations/1887.webm', poster: '/animations/1887.jpg' }
+const characterPreviews = [
+  { title: 'Neha', desc: 'Layered character template', image: pose('neha-front-side') },
+  { title: 'My Baby', desc: 'Editable outfits and colours', image: pose('mybaby-front-side') },
+  { title: 'Village Boy', desc: 'Character with its own animations', image: pose('villageboy-front-side') }
 ];
 
 function button(label, fn, style = 'primary', royal = false) {
@@ -88,11 +88,10 @@ function characterStrip() {
 }
 
 export function landingView({ user, cta, profileMenu, logo }) {
-  const gallery = h('div', { class: 'lp-gallery-grid' }, animationPreviews.map(({ title, desc, video, poster }) => {
-    const vid = h('video', { controls: true, preload: 'none', playsinline: true, poster, 'aria-label': title + ' animation library preview' });
-    vid.append(h('source', { src: video, type: 'video/webm' }), 'Your browser does not support WebM video playback.');
-    return h('article', { class: 'lp-preview-card' }, vid, h('div', { class: 'lp-preview-text' }, h('h3', {}, title), h('p', {}, desc)));
-  }));
+  const gallery = h('div', { class: 'lp-gallery-grid' }, characterPreviews.map(({ title, desc, image }) =>
+    h('article', { class: 'lp-preview-card' }, h('img', { src: image, alt: title + ' character pose', loading: 'lazy' }),
+      h('div', { class: 'lp-preview-text' }, h('h3', {}, title), h('p', {}, desc)))
+  ));
 
   const pricingLink = h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing');
   const brand = logo(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -137,7 +136,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
         )))
       ),
       h('section', { id: 'examples', class: 'lp-section lp-gallery-section' },
-        sectionTitle('See real library motion', 'Explore animation clip previews', 'Watch a few actual motion previews included in the 12toons animation library. These are sample clips, not finished user-created videos.'),
+        sectionTitle('Meet the cast', 'Explore character poses', 'Choose a character template, customise its artwork and bring it into your own animated scenes.'),
         gallery,
         h('div', { class: 'lp-gallery-note' }, h('span', {}, 'Want to turn movement into a full scene?'), button('Open Animation Studio →', cta, 'outline'))
       ),

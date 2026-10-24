@@ -65,7 +65,7 @@
 .lp .lp-feature-icon{height:48px;width:48px;border-radius:13px;display:grid;place-items:center;background:#eaf2ff;font-size:25px}
 .lp .lp-gallery-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
 .lp .lp-preview-card{overflow:hidden;border:1px solid #e4eafa;border-radius:20px;background:#fff;box-shadow:0 10px 28px #1a355912}
-.lp .lp-preview-card video{width:100%;display:block;aspect-ratio:16/9;object-fit:contain;background:#eaf3ff}
+.lp .lp-preview-card img{width:100%;display:block;aspect-ratio:16/9;object-fit:contain;background:#eaf3ff}
 .lp .lp-preview-text{padding:4px 20px 20px}
 .lp .lp-gallery-note{margin-top:26px;display:flex;gap:18px;align-items:center;justify-content:center;color:var(--lp-muted);font-size:14px}
 .lp .lp-how-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
@@ -206,7 +206,7 @@
 .lp .lp-feature-card h3,.lp .lp-preview-card h3,.lp .lp-how-card h3,.lp .lp-use-card h3,.lp .lp-tools-cards h3{font-family:Georgia,'Times New Roman',serif;color:#fff0cf}
 .lp .lp-feature-card p,.lp .lp-preview-card p,.lp .lp-how-card p,.lp .lp-use-card p,.lp .lp-tools-cards p{color:#c6bda9}
 .lp .lp-feature-card small{color:#f1c24d}
-.lp .lp-preview-card video{background:#111b29}
+.lp .lp-preview-card img{background:#111b29}
 .lp .lp-how-card>span{color:#d5a844}
 .lp .lp-gallery-note{color:#ddcfb3}
 .lp .lp-tools-section{background:linear-gradient(130deg,#111a29,#080e18);border-top:1px solid #715326;border-bottom:1px solid #715326}
