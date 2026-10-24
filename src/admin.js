@@ -96,7 +96,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       clips.push({ id: 'a', kind, name: key, start: 0, dur: 36000, off: 0 });
       if (my !== st.gen) return;
       stage.setRig(st.def.id, st.def.ske);
-      stage.setLayers([{ key: 'c', charId: st.def.id, swap: {}, anims, clips, flip: false, slot: 0, visible: true, xf: null, skins: st.def.skins, hide: [] }]);
+      stage.setLayers([{ key: 'c', charId: st.def.id, anims, clips, flip: false, slot: 0, visible: true, xf: null, skins: st.def.skins, hide: [] }]);
       t0 = performance.now(); loaded = true;
     } catch (e) { st.note = 'Preview not available for this animation (its file is missing) — you can still show or hide it.'; loaded = false; drawCaption(); }
   }

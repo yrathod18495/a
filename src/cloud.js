@@ -1,5 +1,5 @@
 // Cloud side of 12toons: profile in Firestore, files in Cloudflare R2 (through /api/r2), and a "sync" that mirrors
-// everything saved on this device (project, audio, characters, backgrounds, swapped images, custom animations).
+// everything saved on this device (project, audio, characters, backgrounds and animation data).
 import { auth, db, wsDoc, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from './firebase.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
