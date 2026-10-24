@@ -1,3 +1,4 @@
+import { EditHistory } from './edit-history.js';
 import { PREVIEW_MODES, readPreviewMode, savePreviewMode, previewFrameDue } from './preview-quality.js';
 import './style.css';
 import './studio.css';
@@ -42,7 +43,7 @@ const $app = document.getElementById('app');
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
-    if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    if (k.startsWith('on')) el.addEventListener(k.slice(2), event => ['click', 'input', 'change', 'drop'].includes(k.slice(2)) && !el.hasAttribute('data-history-control') ? historyAction(() => v(event), editGroup(event)) : v(event));
     else if (k === 'style') el.style.cssText = v;
     else if (v === true) el.setAttribute(k, '');
     else if (v !== false && v != null) el.setAttribute(k, v);
@@ -83,7 +84,7 @@ async function boot() {
   const restored = await restoreProject();
   if (!S.scenes.length) { S.sceneId = uid(); S.scenes = [{ id: S.sceneId, name: 'Scene 1', doc: null }]; }
   S.ready = true;
-  hist.cur = docOf(); hist.curStr = JSON.stringify(hist.cur);
+  hist.reset(docOf());
   setInterval(() => { if (!document.hidden) tick(); }, 1000);
   if (!restored) { await prepareStudio(); render(); }
 }
@@ -215,7 +216,7 @@ function chooseCharacter(s, after) {
   const card = (img, title, sub, on, sel) => h('button', { class: `cc ${sel ? 'on' : ''}`, onclick: on },
     h('div', { class: 'th' }, img ? h('img', { src: img, alt: '', loading: 'lazy' }) : h('span', {}, '🚫')), h('b', {}, title), sub && h('small', {}, sub));
   const cloudBox = h('div');
-  const pick = async (id) => { if (await useCharacter(s, id)) { close(); after(); } };
+  const pick = id => historyAction(async () => { if (await useCharacter(s, id)) { close(); await after(); } });
   close = modal(`Character for ${s.name}`, h('div', {},
     h('div', { class: 'gridc' }, card(null, 'No character', 'Voice only', () => pick(null), !s.charId)),
     h('h2', { style: 'margin:16px 0 8px' }, 'Characters'),
@@ -546,7 +547,7 @@ async function switchScene(id, { play = false } = {}) {
   const progress = busy('Opening scene…');
   try {
     while (saving) await new Promise(resolve => setTimeout(resolve, 20));
-    await tick({ sceneCommit: true }); hist.last = 0;
+    await tick({ sceneCommit: true });
     rememberScene();
     await activateScene(S.scenes.find(scene => scene.id === id));
     render(); await tick({ sceneCommit: true });
@@ -554,18 +555,44 @@ async function switchScene(id, { play = false } = {}) {
   } catch (error) { toast(`Could not open scene: ${error.message}`); }
   finally { progress.done(); sceneChanging = false; S.dirty = true; }
 }
+let sceneDialogOpen = false;
+function confirmSceneDelete(scene) {
+  player.pause(); S.dirty = true;
+  sceneDialogOpen = true;
+  document.querySelectorAll('.scene-menu[open]').forEach(menu => { menu.open = false; });
+  return new Promise(resolve => {
+    const focusTarget = document.querySelector('.scene-tabs [aria-selected=true]');
+    const dialog = h('dialog', { class: 'scene-delete-dialog', 'aria-labelledby': 'scene-delete-title', 'aria-describedby': 'scene-delete-description', onclick: event => {
+      const rect = dialog.getBoundingClientRect();
+      if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close('cancel');
+    } }, h('form', { method: 'dialog' },
+      h('span', { class: 'scene-delete-icon', 'aria-hidden': 'true' }, '✦'),
+      h('h2', { id: 'scene-delete-title' }, 'Delete scene?'),
+      h('p', { id: 'scene-delete-description' }, `“${scene.name}” and its characters, audio and animation clips will be removed from this project. You can undo this change.`),
+      h('div', { class: 'scene-delete-actions' },
+        h('button', { class: 'btn', type: 'submit', value: 'cancel', autofocus: true }, 'Cancel'),
+        h('button', { class: 'btn pri', type: 'submit', value: 'delete' }, 'Delete scene'))));
+    dialog.addEventListener('close', () => {
+      const confirmed = dialog.returnValue === 'delete';
+      dialog.remove(); sceneDialogOpen = false;
+      if (focusTarget?.isConnected) focusTarget.focus({ preventScroll: true });
+      resolve(confirmed);
+    }, { once: true });
+    document.body.append(dialog); dialog.showModal();
+  });
+}
 async function editScene(id, action) {
-  if (sceneChanging || S.exporting || previewChanging || hist.busy) return;
+  if (sceneChanging || sceneDialogOpen || S.exporting || previewChanging || hist.busy) return;
   const index = S.scenes.findIndex(scene => scene.id === id), scene = S.scenes[index];
   let name;
   if (action === 'rename') { name = prompt('Scene name', scene.name)?.trim().slice(0, 80); if (!name) return; }
   if (action === 'delete' && S.scenes.length === 1) { toast('Keep at least one scene in the project.'); return; }
-  if (action === 'delete' && !confirm(`Delete ${scene.name}? You can undo this.`)) return;
+  if (action === 'delete' && !await confirmSceneDelete(scene)) return;
   sceneChanging = true; player.pause();
   const progress = busy('Updating scenes…');
   try {
     while (saving) await new Promise(resolve => setTimeout(resolve, 20));
-    await tick({ sceneCommit: true }); hist.last = 0;
+    await tick({ sceneCommit: true });
     rememberScene();
     if (action === 'rename') scene.name = name;
     if (action === 'left' && index > 0) [S.scenes[index - 1], S.scenes[index]] = [scene, S.scenes[index - 1]];
@@ -749,7 +776,7 @@ function drawClipBar() {
 
 /* ---------- movement keyframes of a character (position, size, facing) ---------- */
 let tlTimer = 0;
-const scheduleTl = () => { clearTimeout(tlTimer); tlTimer = setTimeout(() => { drawTimeline(); if (S.tab === 'motion') drawTabs(); }, 220); };
+const scheduleTl = () => { clearTimeout(tlTimer); tlTimer = setTimeout(() => drawTimeline(), 220); };
 function syncChars() {
   if (!stage?.layers) return;
   for (const s of S.speakers) if (s.charId) stage.setLayerKeys(s.key, S.charKeys[s.key] || []);
@@ -787,7 +814,7 @@ function tabMotion() {
   const s = sOf(S.motionFor), list = (S.charKeys[s.key] || []).slice().sort((a, b) => a.t - b.t), k = list.find((x) => x.id === S.ckSel) || null;
   const segb = (items, cur, on) => h('div', { class: 'seg' }, items.map(([key, l]) => h('button', { class: String(cur()) === String(key) ? 'on' : '', onclick: () => { on(key); drawTabs(); } }, l)));
   const apply = () => { stage.setLayerKeys(s.key, S.charKeys[s.key]); S.dirty = true; scheduleTl(); };
-  const sl = (label, get, set, min, max, step, show) => { const out = h('span', { class: 'v' }, show(get())), input = h('input', { type: 'range', min, max, step, value: get() }); input.addEventListener('input', () => { set(+input.value); out.textContent = show(+input.value); apply(); }); return h('label', { class: 'cs-sl' }, h('span', {}, label), input, out); };
+  const sl = (label, get, set, min, max, step, show) => { const out = h('span', { class: 'v' }, show(get())), input = h('input', { type: 'range', min, max, step, value: get() }); input.addEventListener('input', () => { set(+input.value); out.textContent = show(+input.value); apply(); }); input.addEventListener('change', () => drawTabs()); return h('label', { class: 'cs-sl' }, h('span', {}, label), input, out); };
   const goto = (key) => { S.ckSel = key.id; player.seek(Math.min(player.total, key.t)); S.dirty = true; drawTabs(); };
   const addHere = () => { const l = stage.layers.find((x) => x.key === s.key); if (!l) return; writeCharKey(l); drawTabs(); };
   return h('div', { class: 'list' },
@@ -910,9 +937,8 @@ function tabMask() {
   wrapEl?.querySelectorAll('.mask-edit').forEach((e)=>e.remove());
   const chars = S.order.map(sOf).filter((s) => s?.charId), selected = chars.find((s) => s.key === S.sel) || chars.find((s) => s.key === S.animFor) || chars[0];
   if (!selected) return h('div', { class: 'card flat' }, h('h2', {}, 'Character mask'), h('p', { class: 'sub' }, 'Add a character first, then choose the visible area.'));
-  selected.mask ||= { enabled: false, shape: 'rect', x: 0.25, y: 0.15, w: 0.5, h: 0.7, invert: false };
-  const mask = selected.mask;
-  const update = (key, value) => { mask[key] = value; const layer = stage.layers.find((x) => x.key === selected.key); if (layer) layer.mask = { ...mask }; if (typeof place === 'function') place(); S.dirty = true; };
+  const mask = selected.mask || { enabled: false, shape: 'rect', x: 0.25, y: 0.15, w: 0.5, h: 0.7, invert: false };
+  const update = (key, value) => { mask[key] = value; selected.mask = mask; const layer = stage.layers.find((x) => x.key === selected.key); if (layer) layer.mask = { ...mask }; if (typeof place === 'function') place(); S.dirty = true; };
   const overlay = h('div', { class: `mask-edit ${mask.shape}`, title: 'Drag to move mask; drag a corner to resize' });
   const place = () => { const r=wrapEl.getBoundingClientRect(), k=r.width/stage.W; Object.assign(overlay.style,{left:`${mask.x*stage.W*k}px`,top:`${mask.y*stage.H*k}px`,width:`${mask.w*stage.W*k}px`,height:`${mask.h*stage.H*k}px`,clipPath:mask.shape==='polygon'?`polygon(${(mask.points||[{x:0,y:0},{x:1,y:0},{x:.8,y:1},{x:.2,y:1}]).map(p=>`${p.x*100}% ${p.y*100}%`).join(',')})`:''}); overlay.className=`mask-edit ${mask.shape}${mask.enabled?' active':''}`; };
   const drag=(e,corner='')=>{e.preventDefault();e.stopPropagation();const x=e.clientX,y=e.clientY,orig={...mask},k=stage.out.clientWidth/stage.W;const move=(ev)=>{let dx=(ev.clientX-x)/k/stage.W,dy=(ev.clientY-y)/k/stage.H;if(corner){if(corner.includes('r')){mask.w=Math.max(.02,orig.w+dx)}else{mask.x=orig.x+dx;mask.w=Math.max(.02,orig.w-dx)}if(corner.includes('b'))mask.h=Math.max(.02,orig.h+dy);else{mask.y=orig.y+dy;mask.h=Math.max(.02,orig.h-dy)}}else{mask.x=orig.x+dx;mask.y=orig.y+dy}mask.x=Math.max(0,Math.min(1-mask.w,mask.x));mask.y=Math.max(0,Math.min(1-mask.h,mask.y));update('x',mask.x);place();};const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);drawTabs();};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});};
@@ -1039,7 +1065,7 @@ function updateSaveStatus(state = syncStatus) {
   const detail = localSaveError || state.issue?.detail || state.error;
   const retry = h('button', { class: 'btn sm', disabled: !navigator.onLine && !localSaveError, onclick: async () => {
     retry.disabled = true;
-    try { await tick(); if (localSaveError) return; await syncCurrent(); }
+    try { await tick({ sceneCommit: true }); if (localSaveError) return; await syncCurrent(); }
     catch (error) { toast(`Sync could not finish: ${error.message}`); }
     finally { retry.disabled = false; }
   } }, localSaveError ? 'Retry local save' : 'Retry sync');
@@ -1047,7 +1073,7 @@ function updateSaveStatus(state = syncStatus) {
     h('p', {}, problem || (feedback.tone === 'saved' ? 'Your latest changes are saved on this device and in your account.' : 'Changes save on this device first, then sync automatically when your account and connection are available.')),
     ...(detail ? [h('details', {}, h('summary', {}, 'Error details'), h('p', { class: 'save-error-detail' }, detail))] : []),
     ...(localSaveError || state.issue?.retryable || feedback.tone === 'offline' ? [retry] : []),
-    ...(state.text === 'Conflict' ? [h('button', { class: 'btn sm', onclick: async () => { await tick(); saveDetails.open = false; location.hash = '#/toons'; } }, 'Open My Projects')] : []));
+    ...(state.text === 'Conflict' ? [h('button', { class: 'btn sm', onclick: async () => { await tick({ sceneCommit: true }); saveDetails.open = false; location.hash = '#/toons'; } }, 'Open My Projects')] : []));
 }
 
 function mountStage() {
@@ -1112,7 +1138,7 @@ function mountStage() {
     l.axf = a.x / W; l.ayf = (H - a.y) / H;
     saveXf(l); stage.layout(); updateSel(); S.dirty = true;
   });
-  const end = async () => { if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save prop position: ${e.message}`); } } drag = null; };
+  const end = async () => { if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save prop position: ${e.message}`); } } if (drag && S.tab === 'motion') drawTabs(); drag = null; };
   wrapEl.addEventListener('pointerup', end); wrapEl.addEventListener('pointercancel', end);
   S.dirty = true; updateSel();
 }
@@ -1206,19 +1232,19 @@ function addManualCharacter() {
   const n = S.speakers.filter((s) => s.manual).length + 1;
   let key = `actor${n}`; while (S.speakers.some((s) => s.key === key)) key += 'x';
   const s = { key, name: `Character ${n}`, narrator: false, color: COLORS[S.speakers.length % COLORS.length], charId: null, flip: false, visible: true, manual: true };
-  S.speakers.push(s); S.order.push(key);
   chooseCharacter(s, async () => {
     if (!s.charId) { S.speakers = S.speakers.filter((x) => x !== s); S.order = S.order.filter((k) => k !== key); drawTabs(); return; }
+    S.speakers.push(s); S.order.push(key);
     const b = busy('Loading character…');
     try { const d = charOf(s); if (d) await stage.loadCharacter(d); S.speakers.filter((x) => x.charId).forEach((x, i) => { if (!x._flipSet) x.flip = i % 2 === 1; }); await applyLayers(); } catch (e) { toast(e.message); }
     b.done(); S.animFor = key; drawTimeline(); drawLineBox(); drawTabs(); S.dirty = true;
   });
 }
 function tabAudio() {
-  const input = h('input', { type: 'file', multiple: true, accept: '.zip,.json,.txt,audio/*', style: 'display:none', onchange: (e) => { const f = [...e.target.files]; e.target.value = ''; onFiles(f); } });
+  const input = h('input', { type: 'file', multiple: true, accept: '.zip,.json,.txt,audio/*', style: 'display:none', onchange: async (e) => { const f = [...e.target.files]; e.target.value = ''; await onFiles(f); } });
   const drop = h('div', { class: 'drop sm', onclick: () => input.click(),
     ondragover: (e) => { e.preventDefault(); drop.classList.add('over'); }, ondragleave: () => drop.classList.remove('over'),
-    ondrop: (e) => { e.preventDefault(); drop.classList.remove('over'); onFiles([...e.dataTransfer.files]); } },
+    ondrop: async (e) => { e.preventDefault(); drop.classList.remove('over'); await onFiles([...e.dataTransfer.files]); } },
     h('div', { class: 'big' }, '🎙'), h('b', {}, 'Add a ZIP or audio files'), h('p', {}, 'Name them like 001-Narrator.wav, 002-Rohan.wav. A script .json / .txt in the ZIP is read too.'), input);
   const rows = S.lines.map((l, i) => {
     const sp = S.speakers.find((x) => x.key === l.speaker.toLowerCase());
@@ -1611,7 +1637,8 @@ async function doExport() {
 /* ---------------- autosave, undo / redo, reset ---------------- */
 const blobIds = new WeakMap(), blobReg = new Map();
 function bid(b) { let id = blobIds.get(b); if (!id) { id = `b${Math.random().toString(36).slice(2, 9)}`; blobIds.set(b, id); blobReg.set(id, b); } return id; }
-const hist = { undo: [], redo: [], cur: null, curStr: '', last: 0, busy: false };
+const hist = new EditHistory(100);
+let historyDepth = 0, historyPointer = null, historyQueued = false, historyGroup = null;
 let hdrUndo, hdrRedo, savedEl, lastSaved = '', saving = false, savedTimer;
 const savedAudio = new Set();
 
@@ -1629,9 +1656,11 @@ function sceneDoc() {
 }
 function docOf() {
   const current = sceneDoc();
-  return clone({ version: 3, sceneId: S.sceneId, scenes: S.scenes.map(scene => ({ ...scene, doc: scene.id === S.sceneId ? current : scene.doc })) });
+  return clone({ version: 3, settings: { quality: S.quality, expMethod: S.expMethod, fps: S.fps, level: S.level, format: S.format }, backgrounds: S.myBgs.map(background => ({ ...background, blob: bid(background.blob) })), sceneId: S.sceneId, scenes: S.scenes.map(scene => ({ ...scene, doc: scene.id === S.sceneId ? current : scene.doc })) });
 }
 async function loadDoc(doc, options = {}) {
+  if (doc.settings) Object.assign(S, doc.settings);
+  if (doc.backgrounds) S.myBgs = doc.backgrounds.map(background => ({ ...background, blob: blobReg.get(background.blob) })).filter(background => background.blob);
   if (Array.isArray(doc.scenes) && doc.scenes.length) {
     S.scenes = clone(doc.scenes);
     S.sceneId = S.scenes.some(scene => scene.id === doc.sceneId) ? doc.sceneId : S.scenes[0].id;
@@ -1709,7 +1738,7 @@ async function saveProject(doc, docStr) {
   const sig = JSON.stringify({ ui, lines }) + docStr;
   if (sig === lastSaved) return;
   for (const {id} of lines) { const l = sceneAudio.get(id); if (l && !savedAudio.has(l.id) && l.raw) { await dbPut('audio', { id: l.id, raw: l.raw }); savedAudio.add(l.id); } }
-  const refs = new Set(doc.scenes.flatMap(scene => [...(scene.doc.props || []).map(prop => prop.blob), ...Object.values(scene.doc.swaps || {}).flatMap(pages => Object.values(pages))]));
+  const refs = new Set([...(doc.backgrounds || []).map(background => background.blob), ...doc.scenes.flatMap(scene => [...(scene.doc.props || []).map(prop => prop.blob), ...Object.values(scene.doc.swaps || {}).flatMap(pages => Object.values(pages))])]);
   const blobs = Object.fromEntries([...refs].filter(id => blobReg.has(id)).map(id => [id, blobReg.get(id)]));
   await dbPut('project', { id: 'current', doc, ui, lines, blobs, ts: Date.now() });
   for (const id of [...savedAudio]) if (!lines.some((l) => l.id === id)) { await dbDel('audio', id); savedAudio.delete(id); }
@@ -1717,36 +1746,74 @@ async function saveProject(doc, docStr) {
   localSaveError = ''; updateSaveStatus({ text: navigator.onLine ? 'Saving' : 'Offline' });
 }
 async function tick({ sceneCommit = false } = {}) {
-  if (!S.ready || hist.busy || saving || S.exporting || (sceneChanging && !sceneCommit) || $app.hidden) return;
+  if (!S.ready || hist.busy || saving || S.exporting || historyPointer !== null || (historyDepth && !sceneCommit) || (sceneChanging && !sceneCommit) || $app.hidden) return;
   saving = true;
   try {
     const doc = docOf(), str = JSON.stringify(doc);
-    if (str !== hist.curStr) {
-      const now = Date.now();
-      if (now - hist.last > 700) { hist.undo.push(hist.cur); if (hist.undo.length > 100) hist.undo.shift(); hist.redo = []; }
-      hist.cur = doc; hist.curStr = str; hist.last = now;
-    }
-    updateHistoryButtons();
+    captureHistory();
     await saveProject(doc, str);
   } catch (e) { localSaveError = e.message; updateSaveStatus(); console.warn('autosave failed', e); }
   saving = false;
 }
-function updateHistoryButtons() { if (hdrUndo) { hdrUndo.disabled = !hist.undo.length; hdrRedo.disabled = !hist.redo.length; } }
+function editGroup(event) {
+  return ['input', 'change'].includes(event.type) && event.target.matches('textarea,input:not([type=checkbox]):not([type=radio]):not([type=file])') ? event.target : null;
+}
+function captureHistory(group = historyGroup) {
+  if (!S.ready || !hist.cur || hist.busy || historyDepth || historyPointer !== null || S.exporting || sceneChanging || previewChanging || $app.hidden) return;
+  hist.record(docOf(), group); updateHistoryButtons();
+}
+function queueHistoryCapture(group) {
+  if (group !== undefined) historyGroup = group;
+  if (!S.ready || historyQueued) return;
+  historyQueued = true;
+  queueMicrotask(() => { historyQueued = false; captureHistory(); });
+}
+function historyAction(action, group = null) {
+  if (!S.ready || hist.busy || S.exporting) return action();
+  captureHistory(); historyDepth++; updateHistoryButtons();
+  const done = () => { historyDepth--; updateHistoryButtons(); queueHistoryCapture(group); };
+  try {
+    const result = action();
+    if (result?.then) return result.finally(done);
+    done(); return result;
+  } catch (error) { done(); throw error; }
+}
+const inStudio = target => !$app.hidden && (target.closest('#app,.modal,.scene-delete-dialog') || target === stage?.out);
+for (const type of ['input', 'change', 'click', 'drop']) document.addEventListener(type, event => {
+  if (inStudio(event.target) && !event.target.closest('[data-history-control]')) queueHistoryCapture(editGroup(event));
+}, true);
+document.addEventListener('pointerdown', event => {
+  if (!inStudio(event.target) || hist.busy || S.exporting || event.target.closest('[data-history-control]')) return;
+  captureHistory(); historyPointer = event.pointerId;
+}, true);
+const endHistoryPointer = event => {
+  if (event && event.pointerId !== historyPointer) return;
+  queueMicrotask(() => { historyPointer = null; queueHistoryCapture(null); });
+};
+window.addEventListener('pointerup', endHistoryPointer, true);
+window.addEventListener('pointercancel', endHistoryPointer, true);
+window.addEventListener('blur', () => endHistoryPointer());
+function updateHistoryButtons() { if (hdrUndo) { hdrUndo.disabled = hist.busy || historyDepth > 0 || !hist.undo.length; hdrRedo.disabled = hist.busy || historyDepth > 0 || !hist.redo.length; } }
 async function stepHistory(dir) {
-  const from = dir < 0 ? hist.undo : hist.redo, to = dir < 0 ? hist.redo : hist.undo;
-  if (!from.length || S.exporting || hist.busy || sceneChanging || previewChanging) return;
-  hist.busy = true;
+  if (S.exporting || hist.busy || sceneChanging || previewChanging || sceneDialogOpen || historyDepth || historyPointer !== null) return;
+  captureHistory();
+  const target = hist.destination(dir);
+  if (!target) return;
+  const original = docOf(), time = player.time;
+  hist.busy = true; clearTimeout(tlTimer); clearTimeout(softTimer); updateHistoryButtons();
   const b = busy(dir < 0 ? 'Undo…' : 'Redo…');
   try {
     player.pause();
-    to.push(hist.cur);
-    await loadDoc(from.pop());
-    if (S.step === 3) await prepareStudio();
+    await loadDoc(target);
+    if (S.step === 3) await prepareStudio({ quiet: true });
+    player.seek(original.sceneId === S.sceneId ? time : 0);
+    hist.accept(dir, docOf());
     render();
-  } catch (e) { console.error(e); toast(`Could not ${dir < 0 ? 'undo' : 'redo'}: ${e.message}`); }
-  b.done();
-  hist.cur = docOf(); hist.curStr = JSON.stringify(hist.cur); hist.last = Date.now();
-  hist.busy = false; updateHistoryButtons();
+  } catch (error) {
+    try { await loadDoc(original); await prepareStudio({ quiet: true }); player.seek(time); render(); } catch (restoreError) { console.error(restoreError); }
+    toast(`Could not ${dir < 0 ? 'undo' : 'redo'}: ${error.message}`);
+  } finally { b.done(); hist.busy = false; updateHistoryButtons(); S.dirty = true; }
+  await tick();
 }
 async function resetEverything() {
   if (!confirm('Reset this project? This removes its characters, clips and audio from this device. Other projects are preserved. This cannot be undone.')) return;
@@ -1755,8 +1822,8 @@ async function resetEverything() {
   location.reload();
 }
 function headerTools() {
-  hdrUndo = h('button', { class: 'btn sm ico', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, '↶');
-  hdrRedo = h('button', { class: 'btn sm ico', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, '↷');
+  hdrUndo = h('button', { class: 'btn sm history-button', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z / ⌘Z)', onclick: () => stepHistory(-1) }, h('span', { 'aria-hidden': true }, '↶'), h('span', { class: 'history-label' }, 'Undo'));
+  hdrRedo = h('button', { class: 'btn sm history-button', 'data-history-control': true, 'aria-label': 'Redo', title: 'Redo (Ctrl+Y / Ctrl+Shift+Z / ⌘⇧Z)', onclick: () => stepHistory(1) }, h('span', { 'aria-hidden': true }, '↷'), h('span', { class: 'history-label' }, 'Redo'));
   savedEl = h('summary', { class: 'saved show' });
   saveBody = h('div', { class: 'save-popover' });
   saveDetails = h('details', { class: 'save-status' }, savedEl, saveBody);
@@ -1766,7 +1833,7 @@ function headerTools() {
   return h('div', { class: 'hdr-tools' }, saveDetails, hdrUndo, hdrRedo, h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm', 'aria-label': 'More studio actions' }, '⋯'), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, 'Reset this project…'))), exportBtn);
 }
 window.addEventListener('keydown', (e) => {
-  if ($app.hidden || !(e.ctrlKey || e.metaKey) || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  if ($app.hidden || !(e.ctrlKey || e.metaKey) || e.target.closest('input,select,textarea,[contenteditable=true],dialog[open],.modal')) return;
   const k = e.key.toLowerCase();
   if (k === 'z' && !e.shiftKey) { e.preventDefault(); stepHistory(-1); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); stepHistory(1); }
 });
@@ -1777,7 +1844,7 @@ let last = performance.now(), frameId = 0, renderCount = 0, dirty = true, lastPr
 function requestStudioFrame() {
   if (!frameId && player && !$app.hidden && (!document.hidden || S.exporting)) frameId = requestAnimationFrame(loop);
 }
-Object.defineProperty(S, 'dirty', { get: () => dirty, set: value => { dirty = value; if (value) requestStudioFrame(); } });
+Object.defineProperty(S, 'dirty', { get: () => dirty, set: value => { dirty = value; if (value) { requestStudioFrame(); queueHistoryCapture(); } } });
 function loop(now) {
   frameId = 0;
   if ($app.hidden || previewChanging || document.hidden && !S.exporting) return;
@@ -1811,7 +1878,7 @@ if (location.search.includes("debug")) window.__toon = { S, get stage() { return
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
 export const setHome = (fn) => { homeFn = fn; };
-async function goHome() { if (S.exporting) { toast('Wait for the export to finish.'); return; } player?.pause(); try { await tick(); } catch { /* best effort */ } homeFn?.(); }
+async function goHome() { if (S.exporting) { toast('Wait for the export to finish.'); return; } player?.pause(); try { await tick({ sceneCommit: true }); } catch { /* best effort */ } homeFn?.(); }
 export async function openStudio() {
   $app.hidden = false;
   if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile
@@ -1821,7 +1888,7 @@ export async function openStudio() {
 }
 export async function closeStudio() {
   while(saving)await new Promise(resolve=>setTimeout(resolve,20));
-  await tick(); player?.pause(); stopAll(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; $app.hidden = true; S.ready = false;
+  await tick({ sceneCommit: true }); player?.pause(); stopAll(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; $app.hidden = true; S.ready = false;
 }
 onSyncStatus(state => { if (!state.projectId || state.projectId === projectContext()?.id) updateSaveStatus(state); });
 
