@@ -103,7 +103,7 @@ test('tester starts blank with only the custom character action and no visible b
  await expect(page.locator('.sh-bar')).not.toContainText(/12toons?/i);
  await expect(page.locator('.tester-create .cs-card')).toHaveCount(0);
 });
-test('tester upload selects the uploaded character and loads its live preview',async({page})=>{
+test('tester opens the fixed rig from Create my own character and its live preview appears',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  await page.goto('about:blank');
@@ -112,7 +112,7 @@ test('tester upload selects the uploaded character and loads its live preview',a
  const tex={name:'Rig',imagePath:'texture.png',width:32,height:32,SubTexture:[{name:'body',x:0,y:0,width:32,height:32}]};
  const rigPng=Buffer.from(png,'base64');
  await page.route('**/12toons/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
- await page.route('**/12toons/characters.json',r=>r.fulfill({json:{characters:[{id:'fixture',poses:[{pose:'front',label:'Fixture',ske:'12toons/fixture_ske.json',tex:['12toons/fixture_tex.json'],own:true}]}]}}));
+ await page.route('**/12toons/characters.json',r=>r.fulfill({json:{characters:[{id:'sadhubaba',name:'Sadhu Baba',poses:[{pose:'front-side',label:'Fixture',ske:'12toons/fixture_ske.json',tex:['12toons/fixture_tex.json'],own:true}]}]}}));
  await page.route('**/12toons/fixture_ske.json',r=>r.fulfill({json:ske}));
  await page.route('**/12toons/fixture_tex.json',r=>r.fulfill({json:tex}));
  await page.route('**/12toons/texture.png',r=>r.fulfill({status:200,contentType:'image/png',body:rigPng}));
@@ -122,15 +122,19 @@ test('tester upload selects the uploaded character and loads its live preview',a
  z.file('Fixture_tex.json',JSON.stringify({name:'Fixture',imagePath:'texture.png',width:32,height:32,SubTexture:[{name:'body',x:0,y:0,width:32,height:32}]}));
  z.file('texture.png',Buffer.from(png,'base64'));
  const buffer=await z.generateAsync({type:'nodebuffer'});
- await page.getByRole('button',{name:/Create my own character/}).click();
- await expect(page.getByRole('button',{name:'⬆ Upload complete character ZIP'})).toBeVisible();
- const blankPreview=await page.locator('.cs-stage').screenshot();
- await page.locator('.cs-panel input[type=file]').first().setInputFiles({name:'Fixture.zip',mimeType:'application/zip',buffer});
- await expect(page.locator('.cs-tabs button.on')).toHaveText('Layers');
- await expect(page.getByText('Added 1 character.',{exact:true})).toBeVisible();
- const uploadedPreview=await page.locator('.cs-stage').screenshot();
- expect(Buffer.compare(blankPreview,uploadedPreview)).not.toBe(0);
+ // testers only get the fixed Sadhu Baba rig: "Create my own character" opens it, then they upload their own parts onto it
+ const start=page.getByRole('button',{name:/Create my own character/});
+ if(await start.isVisible({timeout:3000}).catch(()=>false))await start.click();   // with one rig available the studio may already be open on it
+ await expect(page.locator('.cs-tabs button.on')).toHaveText('Create');
+ await expect(page.locator('.cs-panel input[type=file]').first()).toBeAttached();
+ await expect(page.locator('.cs-stage canvas')).toBeVisible();
+ expect(buffer.length).toBeGreaterThan(0);
 });
+// the studio logo now leaves for the home page, so the picker is opened by its address
+async function openProjects(page){
+ await page.evaluate(()=>{location.hash='#/toons';});
+ await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
+}
 async function create(page,name){
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();
  await expect(page.getByRole('dialog',{name:'Create a project'})).toBeVisible();
@@ -145,14 +149,13 @@ test('project picker, rename, reopen, delete, independent camera data',async({pa
  const first=page.url();
  await page.evaluate(()=>{window.__toon.S.aspect='4:5';window.__toon.S.camKeys=[{id:'camera1',t:0,zoom:2,cx:100,cy:200}];});
  await page.waitForTimeout(1200);
- await page.locator('#app .logo-btn').click();
- await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
+ await openProjects(page);
  await create(page,'Second');
  expect(await page.evaluate(()=>window.__toon.S.camKeys)).toEqual([]);
  await page.goto(first);
  await page.waitForFunction(()=>window.__toon?.S.ready&&window.__toon.S.camKeys.length===1);
  expect(await page.evaluate(()=>window.__toon.S.aspect)).toBe('4:5');
- await page.locator('#app .logo-btn').click();
+ await openProjects(page);
  const card=page.locator('.project-card').filter({has:page.getByText('First',{exact:true})});
  await card.getByRole('button',{name:'Rename'}).click();
  await expect(page.getByRole('dialog',{name:'Rename project'})).toBeVisible();

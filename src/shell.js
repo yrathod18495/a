@@ -321,7 +321,7 @@ function guardSession(u) {
 async function start() {
   $shell.replaceChildren(h('div', { class: 'sh sh-center' }, h('p', { class: 'sub' }, 'Loading…')));
   try { maintenance = (await maintenanceStatus()).maintenance === true; } catch { maintenance = true; }
-  if (DEBUG) { user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
+  if (DEBUG) { user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = location.search.includes('tester') ? 'tester' : 'user'; ready = true; route(); return; }
   await finishRedirect();
   let first = true;
   onUser(async (u, authState = {}) => {
