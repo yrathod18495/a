@@ -41,7 +41,7 @@ const hasVoice = (clips) => clips.some((c) => c.buffer);
 /** voice lines -> one stereo track -> encoded audio chunks */
 async function encodeAudio(clips, total, codecs) {
   const oc = new OfflineAudioContext(2, Math.ceil(total * SR), SR);
-  for (const c of clips) { const src = oc.createBufferSource(); src.buffer = c.buffer; src.connect(oc.destination); src.start(c.start); }
+  for (const c of clips) { const src = oc.createBufferSource(); src.buffer = c.buffer; src.connect(oc.destination); src.start(c.start, c.trimStart || 0, Math.max(0.01, c.end - c.start)); }
   const mix = await oc.startRendering(), out = [];
   let failure = null;
   const aenc = new AudioEncoder({ output: (c, m) => out.push([c, m]), error: (e) => { failure = e; } });

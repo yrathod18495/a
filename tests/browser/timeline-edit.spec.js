@@ -56,3 +56,29 @@ test('a selected background clip can be copied and pasted at the playhead with C
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.map((c) => [c.preset, c.start, c.dur]))).toEqual([[2, 0, 2], [2, 5, 2]]);
   expect(errors).toEqual([]);
 });
+
+test('a voice line can be trimmed from both edges; the scene gets shorter, playback and export read the trimmed part, double-click restores it', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await studio(page);
+  await page.evaluate(async () => {
+    const { S, prepareStudio } = window.__toon, ctx = new AudioContext(), buffer = ctx.createBuffer(1, 48000 * 4, 48000);
+    S.speakers.push({ key: 'narrator', name: 'Narrator', narrator: true, color: '#7c5cff' }); S.order = ['narrator'];
+    S.lines = [{ id: 'v1', order: 0, file: 'voice.wav', speaker: 'Narrator', raw: new ArrayBuffer(8), buffer, visemes: new Array(200).fill(0) }];
+    await prepareStudio({ quiet: true }); window.__toon.drawTimeline(); await ctx.close();
+  });
+  const total0 = await page.evaluate(() => window.__toon.player.total);
+  const clip = page.locator('#app .lane2.audio .tclip.voice').first();
+  await expect(clip).toBeVisible();
+  await dragEdge(page, clip, 'right', -300);   // 150 px per second: 2 s
+  await expect.poll(() => page.evaluate(() => window.__toon.S.lines[0].trimEnd)).toBeGreaterThan(1);
+  const state = await page.evaluate(() => { const { player, S } = window.__toon, c = player.clips[0]; return { total: player.total, len: c.end - c.start, trimEnd: S.lines[0].trimEnd }; });
+  expect(state.total).toBeLessThan(total0 - 1); expect(state.len).toBeCloseTo(4 - state.trimEnd, 1);
+  await dragEdge(page, page.locator('#app .lane2.audio .tclip.voice').first(), 'left', 60);
+  await expect.poll(() => page.evaluate(() => window.__toon.S.lines[0].trimStart)).toBeGreaterThan(0.3);
+  const head = await page.evaluate(() => { const c = window.__toon.player.clips[0]; return { trimStart: c.trimStart, visemes: c.visemes.length }; });
+  expect(head.trimStart).toBeGreaterThan(0.3); expect(head.visemes).toBeLessThan(200);
+  await page.locator('#app .lane2.audio .tclip.voice').first().dblclick({ position: { x: 20, y: 10 } });
+  await expect.poll(() => page.evaluate(() => [window.__toon.S.lines[0].trimStart, window.__toon.S.lines[0].trimEnd])).toEqual([0, 0]);
+  expect(await page.evaluate(() => window.__toon.player.total)).toBeCloseTo(total0, 1);
+  expect(errors).toEqual([]);
+});

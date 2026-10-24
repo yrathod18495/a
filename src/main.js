@@ -450,7 +450,7 @@ async function prepareStudio({ quiet = false } = {}) {
   const b = quiet ? { done() {} } : busy('Setting up characters & lip-sync…');
   try {
     for (const s of S.speakers) { const d = charOf(s); if (d) await stage.loadCharacter(d); }
-    const tl = buildTimeline(S.lines.map((l) => ({ id: l.id, speaker: l.speaker.toLowerCase(), file: l.file, buffer: l.buffer, visemes: l.visemes })));
+    const tl = buildTimeline(S.lines.map((l) => ({ id: l.id, speaker: l.speaker.toLowerCase(), file: l.file, buffer: l.buffer, visemes: l.visemes, trimStart: l.trimStart || 0, trimEnd: l.trimEnd || 0 })));
     if (!tl.clips.length) tl.total = sceneLen();       // an empty scene is 8 seconds long (longer when clips or camera keys are placed later)
     player.setTimeline(tl);
     await applyLayers();
@@ -813,8 +813,12 @@ function drawTimeline() {
   const lane = h('div', { class: 'lane2 audio', style: 'height:52px' });
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
-    lane.append(h('div', { class: `tclip voice ${c.id === S.lineSel ? 'sel' : ''}`, style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
-      h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`)));
+    const lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' }), trimmed = (S.lines.find((l) => l.id === c.id)?.trimStart || 0) + (S.lines.find((l) => l.id === c.id)?.trimEnd || 0) > 0;
+    const el = h('div', { class: `tclip voice ${c.id === S.lineSel ? 'sel' : ''} ${trimmed ? 'trimmed' : ''}`, title: 'Edge kheench kar audio chhota-bada karein · double-click = trim hatao', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
+      lz, h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), rz);
+    el.addEventListener('pointerdown', (e) => { if (e.target === lz || e.target === rz) dragVoice(e, c, e.target === rz ? 'right' : 'left', el); });
+    el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
+    lane.append(el);
   });
   // no audio yet: show only the ruler and the animation lanes (audio can still be added in the Audio tab)
   const hasAudio = player.clips.length > 0;
@@ -939,8 +943,31 @@ function dragItem(e, mode, el, io) {
     el.style.left = `${r.start * pps}px`; el.style.width = `${Math.max(6, r.dur * pps)}px`;
     if (!raf) raf = requestAnimationFrame(() => { raf = 0; refreshPresence(); });
   };
-  const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); if (moved) { io.after?.(); commitClips(); } else drawClipBar(); };
+  const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); if (!moved) { drawClipBar(); return; } const done = io.after?.(); if (done?.then) done.then(() => commitClips()); else commitClips(); };
   el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+/** drag the head or tail of a voice line to cut it shorter (or bring back what was cut); later lines slide up, the scene gets shorter */
+function dragVoice(e, c, mode, el) {
+  const line = S.lines.find((l) => l.id === c.id);
+  if (!line) return;
+  const whole = c.end - c.start, from = { start: c.start, dur: whole, off: line.trimStart || 0 };
+  let result = from;
+  dragItem(e, mode, el, {
+    min: 0.2, room: line.trimStart || 0,
+    get: () => from,
+    set: (r) => { result = mode === 'right' ? { ...r, dur: Math.min(r.dur, whole + (line.trimEnd || 0)) } : r; },
+    after: async () => {
+      if (mode === 'left') line.trimStart = Math.max(0, +result.off.toFixed(2));
+      else line.trimEnd = Math.max(0, +((line.trimEnd || 0) + whole - result.dur).toFixed(2));
+      await retimeAudio();
+    },
+  });
+}
+/** the voice lines changed length: rebuild the timeline, keep the playhead where it was */
+async function retimeAudio() {
+  const at = player.time; player.pause();
+  await prepareStudio({ quiet: true });
+  player.seek(Math.min(at, player.total)); S.dirty = true;
 }
 const selectOnly = (kind, id) => { S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; document.querySelectorAll('.tclip.sel:not(.voice)').forEach((x) => x.classList.remove('sel')); drawClipBar(); };
 function dragClip(e, m, mode, el) {
@@ -2149,7 +2176,7 @@ async function doExport() {
     let res;
     if (sequence) {
       const total = sequence.at(-1).end;
-      const clips = sequence.flatMap(scene => buildTimeline((scene.doc.lines || []).map(meta => sceneAudio.get(meta.id)).filter(Boolean).map(line => ({ ...line, speaker: line.speaker.toLowerCase() }))).clips.map(clip => ({ ...clip, start: clip.start + scene.start, end: clip.end + scene.start })));
+      const clips = sequence.flatMap(scene => buildTimeline((scene.doc.lines || []).map(meta => sceneAudio.has(meta.id) ? { ...sceneAudio.get(meta.id), trimStart: meta.trimStart || 0, trimEnd: meta.trimEnd || 0 } : null).filter(Boolean).map(line => ({ ...line, speaker: line.speaker.toLowerCase() }))).clips.map(clip => ({ ...clip, start: clip.start + scene.start, end: clip.end + scene.start })));
       res = await exportOffline({ stage, clips, plan: [], total, fps: S.fps, level: S.level, format: S.format, cancelled: () => stop,
         onProgress: p => b.set(`Rendering all scenes ${Math.round(p * 100)}%`, p),
         beforeFrame: async time => {
@@ -2206,7 +2233,7 @@ const savedAudio = new Set();
 function sceneDoc() {
   for (const line of S.lines) sceneAudio.set(line.id, line);
   return {
-    lines: S.lines.map(({id, order, file, speaker}) => ({id, order, file, speaker})),
+    lines: S.lines.map(({id, order, file, speaker, trimStart, trimEnd}) => ({id, order, file, speaker, trimStart: trimStart || 0, trimEnd: trimEnd || 0})),
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
     order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), paths: clone(S.paths), grade: gradeActive(S.grade) ? clone(S.grade) : null, camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
@@ -2449,7 +2476,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

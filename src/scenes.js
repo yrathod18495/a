@@ -5,7 +5,7 @@ export function emptyScene(aspect = '16:9') {
   return { lines: [], speakers: [], order: [], fits: {}, cast: {}, shots: {}, script: {}, solo: {}, manual: {}, charKeys: {}, paths: {}, camKeys: [], aspect, bgId: null, bgPreset: 0, bgClips: [], props: [] };
 }
 /** the length of one audio line after the creator trimmed its start and end on the timeline */
-export const lineLength = (buffer, meta = {}) => Math.max(0.2, buffer.duration - (meta.trimStart || 0) - (meta.trimEnd || 0));
+export const lineLength = (buffer, meta = {}) => (meta.trimStart || meta.trimEnd) ? Math.max(0.2, buffer.duration - (meta.trimStart || 0) - (meta.trimEnd || 0)) : buffer.duration;   // an untouched line keeps its real length; a trimmed one never goes below 0.2 s
 export function sceneDuration(doc, audio) {
   const lines = (doc.lines || []).filter(line => audio.get(line.id));
   if (lines.length) return LEAD + lines.reduce((sum, line) => sum + lineLength(audio.get(line.id).buffer, line), 0) + GAP * (lines.length - 1) + TAIL;
