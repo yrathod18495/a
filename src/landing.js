@@ -2,7 +2,6 @@ import { h } from './dom.js';
 import './landing.css';
 
 /** Public marketing page. Media URLs below are bundled assets already shipped by 12toons. */
-const pose = (name) => '/12toons/pose/' + name + '.webp';
 const scrollToSection = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 const navLink = (label, id) => h('a', { href: '#' + id, onclick: (e) => { e.preventDefault(); scrollToSection(id); } }, label);
 const eyebrow = (text) => h('span', { class: 'lp-eyebrow' }, text);
@@ -50,23 +49,11 @@ function button(label, fn, style = 'primary', royal = false) {
 }
 
 
-function characterStrip() {
-  const characters = [
-    ['Neha', 'neha-front-side'],
-    ['My Baby', 'mybaby-front-side'],
-    ['Village Boy', 'villageboy-front-side'],
-    ['SVG Multi', 'svgmulti-front-side']
-  ];
-  return h('div', { class: 'lp-character-strip' }, characters.map(([name, file]) =>
-    h('div', { class: 'lp-character' }, h('div', { class: 'lp-character-art' }, h('img', { src: pose(file), alt: name + ' character preview', loading: 'lazy' })), h('strong', {}, name))
-  ));
-}
 
 export function landingView({ user, cta, profileMenu, logo }) {
 
   const pricingLink = h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing');
   const brand = logo(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
-  brand.prepend(h('img', { class: 'lp-brand-crown', src: '/images/royal-crown-emblem.png', alt: '', width: '64', height: '50' }));
   const primaryCta = (label) => h('span', { class: 'lp-button-content' }, h('img', { src: '/images/royal-crown-emblem.png', alt: '', width: '38', height: '38', loading: 'lazy' }), h('span', {}, label));
   const nav = h('nav', { class: 'lp-nav', 'aria-label': 'Main navigation' },
     navLink('Home', 'top'), navLink('Features', 'features'), navLink('How it works', 'how'), pricingLink);
@@ -93,10 +80,6 @@ export function landingView({ user, cta, profileMenu, logo }) {
             h('span', {}, h('b', {}, '▦'), h('strong', {}, 'Editable Timeline'), h('small', {}, 'Direct every scene')),
             h('span', {}, h('b', { class: 'lp-export-medallion' }, h('img', { src: '/images/royal-export-medallion.png', alt: '', width: '48', height: '48', loading: 'lazy' })), h('strong', {}, 'Export Anywhere'), h('small', {}, 'Video from browser')))
         )
-      ),
-      h('section', { class: 'lp-section lp-intro', id: 'characters' },
-        h('div', { class: 'lp-intro-copy' }, eyebrow('Your cast, your world'), h('h2', {}, 'Characters that bring every scene to life'), h('p', {}, 'Choose from available 2D characters or build your own in Character Studio. Change colours, outfits and facial features, then animate them in your project.')),
-        characterStrip()
       ),
       h('section', { id: 'features', class: 'lp-section lp-section-soft' },
         sectionTitle('All in one workspace', 'Create, direct and export in one place', 'From dialogue to character motion, 12toons gives you tools to make and fine-tune every scene.'),

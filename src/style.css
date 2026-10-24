@@ -779,7 +779,7 @@ button,a,input,select,textarea{transition:background-color .18s,border-color .18
 h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing:-.025em}
 .logo,.logo-btn{color:var(--text)}
 .logo b,.logo-btn b{color:var(--acc)}
-.royal-brand-emblem{width:38px;height:38px;object-fit:contain;flex:none;filter:drop-shadow(0 2px 6px #0008)}
+
 :root[data-theme] .btn.pri,:root[data-theme] .btn.ok,:root[data-theme] .project-dialog-confirm,
 :root[data-theme] .admin-console-tab.active,:root[data-theme] .admin-assets-tab.active,
 :root[data-theme] .theme-toggle,:root[data-theme] .seg button.on,:root[data-theme] .tabs button.on{
@@ -808,3 +808,37 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 :root[data-theme] .legal-notice{background:var(--card2);border-color:var(--line);color:var(--text)}
 :root[data-theme] .legal-header nav a,:root[data-theme] .legal-section a,:root[data-theme] .legal-switch a,:root[data-theme] .legal-footer button{color:var(--acc)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+/* Crown the number itself; the same wordmark is shared by every app header. */
+.logo .brand-number,.projects-brand .brand-number,.legal-brand .brand-number{
+  position:relative;
+  display:inline-flex;
+  align-items:baseline;
+  padding-top:.55em;
+  margin-right:.025em;
+  flex:none;
+  isolation:isolate;
+}
+.logo .brand-number b,.projects-brand .brand-number b,.legal-brand .brand-number b{
+  display:block;
+  margin:0;
+  font-size:1.18em;
+  line-height:1;
+  letter-spacing:-.06em;
+  font-weight:900;
+  background:none;
+}
+.brand-number .brand-crown{
+  position:absolute;
+  left:50%;
+  top:-.32em;
+  width:1.45em;
+  height:auto;
+  max-width:none;
+  transform:translateX(-50%) rotate(-7deg);
+  transform-origin:50% 85%;
+  pointer-events:none;
+  filter:drop-shadow(0 2px 3px #0004);
+}
+.logo .brand-name,.projects-brand .brand-name,.legal-brand .brand-name{line-height:1}
+.projects-brand,.legal-brand{display:inline-flex;align-items:baseline;gap:0;overflow:visible}

@@ -44,7 +44,7 @@ test('royal palette and brightness preference persist across landing, legal and 
  await page.locator('.sh-avatar').click();
  await page.getByRole('button',{name:/Switch to night mode/}).click();
  await expect(page.locator('html')).toHaveAttribute('data-theme','night');
- expect(await page.locator('.lp-faq details').first().evaluate(e=>getComputedStyle(e).backgroundImage)).toContain('rgb(40, 33, 22)');
+ expect(await page.locator('.lp-section-soft').first().evaluate(e=>getComputedStyle(e).backgroundImage)).toContain('landing-palace.webp');
  await page.getByRole('link',{name:'Terms of Use'}).first().click();
  await expect(page.getByRole('heading',{name:'Terms of Use'})).toBeVisible();
  expect(await page.locator('.legal-page').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(11, 9, 7)');

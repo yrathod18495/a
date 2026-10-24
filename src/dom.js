@@ -11,4 +11,11 @@ export const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 export const toast = (msg) => { const t = h('div', { class: 'toast' }, msg); document.body.append(t); setTimeout(() => t.remove(), 4500); };
-export const logo = () => h('a', { class: 'logo logo-btn', href: '/#/', style: 'text-decoration:none', title: '12toons home', 'aria-label': '12toons home' }, h('img', { class: 'royal-brand-emblem', src: '/images/royal-crown-emblem.png', alt: '', width: 38, height: 38 }), h('b', {}, '12'), 'toons');
+/** The crown belongs to the number, so every header uses the same wordmark. */
+export const brandWordmark = () => [
+  h('span', { class: 'brand-number' },
+    h('img', { class: 'brand-crown', src: '/images/royal-crown-emblem.png', alt: '', width: 320, height: 247 }),
+    h('b', {}, '12')),
+  h('span', { class: 'brand-name' }, 'toons'),
+];
+export const logo = () => h('a', { class: 'logo logo-btn', href: '/#/', style: 'text-decoration:none', title: '12toons home', 'aria-label': '12toons home' }, ...brandWordmark());

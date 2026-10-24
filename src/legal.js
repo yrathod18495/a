@@ -1,4 +1,4 @@
-import { h } from './dom.js';
+import { h, brandWordmark } from './dom.js';
 import './legal.css';
 
 const UPDATED = '22 October 2026';
@@ -116,7 +116,7 @@ export function legalView({ kind, home }) {
   document.title = `12toons | ${title}`;
   const sections = isTerms ? TERMS : LICENCE;
   return h('div', { class: 'legal-page' },
-    h('header', { class: 'legal-header' }, h('a', { class: 'legal-brand', href: '/#/', style: 'text-decoration:none', 'aria-label': '12toons home' }, h('b', {}, '12'), 'toons'), h('nav', {},
+    h('header', { class: 'legal-header' }, h('a', { class: 'legal-brand', href: '/#/', style: 'text-decoration:none', 'aria-label': '12toons home' }, ...brandWordmark()), h('nav', {},
       h('a', { href: '/#/' }, 'Home'), h('a', { href: '/#/terms' }, 'Terms of Use'), h('a', { href: '/#/website-license' }, 'Website Licence'))),
     h('main', { class: 'legal-main' },
       h('p', { class: 'legal-kicker' }, '12TOONS · SERVICE INFORMATION'),

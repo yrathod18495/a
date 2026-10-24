@@ -430,8 +430,6 @@
 :root[data-theme="day"] body .lp .lp-accent{color:#18140e}
 :root[data-theme="day"] body .lp .lp-hero-foot{color:#625642}
 :root[data-theme="day"] body .lp .lp-section-soft{background:#ffffff}
-:root[data-theme="day"] body .lp .lp-character{background:#ffffff;border:1px solid #d9c8a5;box-shadow:0 10px 26px #3b2a120c}
-:root[data-theme="day"] body .lp .lp-character-art{background:linear-gradient(145deg,#ffffff,#ffffff)}
 :root[data-theme="day"] body .lp .lp-feature-card{background:#ffffff;border:1px solid #d9c8a5;box-shadow:0 8px 30px #3b2a1206}
 :root[data-theme="day"] body .lp .lp-feature-card small{color:#18140e}
 :root[data-theme="day"] body .lp .lp-feature-icon{background:#ffffff}
@@ -484,20 +482,15 @@
 :root[data-theme="day"] body .lp .lp-section{background:#ffffff;color:#18140e}
 :root[data-theme="day"] body .lp .lp-section-soft{background:#ffffff}
 :root[data-theme="day"] body .lp .lp-heading h2,
-:root[data-theme="day"] body .lp .lp-intro h2,
 :root[data-theme="day"] body .lp .lp-tools-section h2,
 :root[data-theme="day"] body .lp .lp-final-cta h2{color:#18140e}
 :root[data-theme="day"] body .lp .lp-heading p,
-:root[data-theme="day"] body .lp .lp-intro p,
 :root[data-theme="day"] body .lp .lp-tools-section p{color:#625642}
-:root[data-theme="day"] body .lp .lp-heading .lp-eyebrow,
-:root[data-theme="day"] body .lp .lp-intro .lp-eyebrow{background:#ffffff;color:#18140e;border-color:#916b2e}
-:root[data-theme="day"] body .lp .lp-character,
+:root[data-theme="day"] body .lp .lp-heading .lp-eyebrow{background:#ffffff;color:#18140e;border-color:#916b2e}
 :root[data-theme="day"] body .lp .lp-feature-card,
 :root[data-theme="day"] body .lp .lp-how-card,
 :root[data-theme="day"] body .lp .lp-use-card,
 :root[data-theme="day"] body .lp .lp-faq details{background:linear-gradient(145deg,#ffffff,#ffffff);border-color:#d9c8a5;color:#18140e;box-shadow:0 10px 28px #3b2a121c}
-:root[data-theme="day"] body .lp .lp-character-art,
 :root[data-theme="day"] body .lp .lp-feature-icon,
 :root[data-theme="day"] body .lp .lp-use-card>span{background:linear-gradient(145deg,#ffffff,#ffffff);color:#18140e;border:1px solid #98712d}
 :root[data-theme="day"] body .lp .lp-feature-card h3,
@@ -538,7 +531,6 @@
 :root[data-theme="day"] body .lp .lp-header,
 :root[data-theme="day"] body .lp-mobile-nav,
 :root[data-theme="day"] body .lp .lp-footer{background:#ffffff}
-:root[data-theme="day"] body .lp .lp-character,
 :root[data-theme="day"] body .lp .lp-feature-card,
 :root[data-theme="day"] body .lp .lp-how-card,
 :root[data-theme="day"] body .lp .lp-use-card,
@@ -570,8 +562,7 @@
 :root[data-theme="day"] body .lp .lp-header,:root[data-theme="day"] body .lp-mobile-nav,:root[data-theme="day"] body .lp .lp-footer{background:#fff;border-color:var(--line)}
 :root[data-theme="day"] body .lp .lp-header .logo,:root[data-theme="day"] body .lp .lp-header .logo-btn{color:#18140e}
 :root[data-theme="day"] body .lp .lp-nav a,:root[data-theme="day"] body .lp-mobile-nav a{color:#18140e}
-:root[data-theme="day"] body .lp .lp-button-outline{background:#fff;color:#18140e;border-color:#b58b3d}
-:root[data-theme="day"] body .lp .lp-character,:root[data-theme="day"] body .lp .lp-feature-card,:root[data-theme="day"] body .lp .lp-how-card,:root[data-theme="day"] body .lp .lp-use-card,:root[data-theme="day"] body .lp .lp-faq details,:root[data-theme="day"] body .lp .lp-tools-cards article{background:#fff;border-color:var(--line);color:var(--text)}
+:root[data-theme="day"] body .lp .lp-button-outline{background:#fff;color:#18140e;border-color:#b58b3d}:root[data-theme="day"] body .lp .lp-feature-card,:root[data-theme="day"] body .lp .lp-how-card,:root[data-theme="day"] body .lp .lp-use-card,:root[data-theme="day"] body .lp .lp-faq details,:root[data-theme="day"] body .lp .lp-tools-cards article{background:#fff;border-color:var(--line);color:var(--text)}
 :root[data-theme="day"] body .btn.pri,:root[data-theme="day"] body .btn.ok,:root[data-theme="day"] body .project-dialog-confirm,:root[data-theme="day"] body .lp .lp-button-primary,:root[data-theme="day"] body .theme-toggle,:root[data-theme="day"] body .seg button.on,:root[data-theme="day"] body .tabs button.on,:root[data-theme="day"] body .admin-console-tab.active,:root[data-theme="day"] body .admin-assets-tab.active{background:var(--royal-button);border-color:#d7b15b;color:#1b1308}
 :root[data-theme="day"] body input::placeholder,:root[data-theme="day"] body textarea::placeholder{color:#746852}
 :root[data-theme="day"] body .toast{background:#fff9ea;color:#18140e;border-color:#b58b3d}

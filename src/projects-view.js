@@ -1,4 +1,4 @@
-import { h } from './dom.js';
+import { h, brandWordmark } from './dom.js';
 import { listProjects, createProject, renameProject, deleteProject, migrateLegacy, copyProject } from './store.js';
 import { recoverLegacyCloud } from './legacy-cloud.js';
 import { refreshProjects, syncProject, onSyncStatus, resolveConflict } from './project-sync.js';
@@ -53,7 +53,7 @@ export async function projectsView({user,kind,home,toast}) {
       const p=await migrateLegacy(user.uid);toast(p?'Old work copied safely.':'No old work found.');
     })},'Recover old browser save'):null,
     kind==='animation'?h('button',{class:'btn',onclick:run(async()=>{const p=await recoverLegacyCloud(user.uid);toast(p?'Recovered as '+p.name:'No older cloud save was found.');})},'Recover old cloud save'):null);
-  root.append(h('header',{class:'projects-header'},h('a',{class:'projects-brand',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},h('span',{class:'projects-brand-mark'},'12'),'toons'),h('span',{class:'projects-divider'}),h('div',{class:'projects-heading'},h('h1',{},'My Projects'),h('p',{},title)),h('span',{class:'sp'}),h('button',{class:'btn projects-home',onclick:home},'Home')),
+  root.append(h('header',{class:'projects-header'},h('a',{class:'projects-brand',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},...brandWordmark()),h('span',{class:'projects-divider'}),h('div',{class:'projects-heading'},h('h1',{},'My Projects'),h('p',{},title)),h('span',{class:'sp'}),h('button',{class:'btn projects-home',onclick:home},'Home')),
     h('main',{class:'projects-main'},h('div',{class:'projects-intro'},h('div',{},h('span',{class:'projects-eyebrow'},'YOUR WORKSPACE'),h('h2',{},`Your ${kind==='animation'?'animations':'characters'}`),h('p',{},`Open and manage your ${kind==='animation'?'animation':'character'} projects.`)),status),toolbar,list));
   const off=onSyncStatus(s=>{status.textContent=s.text+(s.error?' — '+s.error:'');});
   root.dispose=off;

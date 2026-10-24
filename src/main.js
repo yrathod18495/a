@@ -1,4 +1,5 @@
 import './style.css';
+import { brandWordmark } from './dom.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
@@ -85,7 +86,7 @@ function render() {
 }
 function topBar() {
   return h('header', { class: 'topbar' },
-    h('button', { class: 'logo logo-btn', title: 'Back to 12toons home', onclick: goHome }, h('b', {}, '12'), 'toons'),
+    h('button', { class: 'logo logo-btn', title: 'Back to 12toons home', onclick: goHome }, ...brandWordmark()),
     h('span', { class: 'proj' }, 'Studio'), h('span', { class: 'sp' }), headerTools());
 }
 /** audio lines changed (added / removed): rebuild the voices, the timeline and the characters */

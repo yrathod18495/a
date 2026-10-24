@@ -1,0 +1,100 @@
+/* One cached palace image connects the public pages and creative workspaces. */
+:root{
+  --palace-art:url('/images/landing-palace.webp');
+  --palace-page:linear-gradient(110deg,#100e0bf5 12%,#100e0be8 52%,#100e0bb3);
+  --palace-banner:linear-gradient(100deg,#191610f5 15%,#191610df 55%,#19161092);
+  --palace-header:linear-gradient(90deg,#100e0bf7,#100e0be6);
+  --palace-panel:color-mix(in srgb,var(--card) 95%,transparent);
+  --palace-shadow:0 18px 50px #0004,inset 0 1px #efd08a15;
+}
+:root[data-theme="day"]{
+  --palace-page:linear-gradient(110deg,#fffffff5 12%,#ffffffed 52%,#ffffffb8);
+  --palace-banner:linear-gradient(100deg,#fffffff7 15%,#ffffffe6 55%,#ffffffa3);
+  --palace-header:linear-gradient(90deg,#fffffff7,#ffffffe8);
+  --palace-panel:color-mix(in srgb,var(--card) 96%,transparent);
+  --palace-shadow:0 16px 42px #69481712,inset 0 1px #fff;
+}
+/* Keep the illustration behind the interface, outside the rendered scene. */
+:root[data-theme] body :is(.sh:not(.lp),.projects-page,.legal-page,.ws){
+  background-color:var(--bg);
+  background-image:var(--palace-page),var(--palace-art);
+  background-size:cover;
+  background-position:center top;
+  background-repeat:no-repeat;
+  background-attachment:fixed;
+}
+:root[data-theme] body :is(.projects-main,.affiliate-main,.affiliate-dash-main,.credit-main,.payments-main,.admin-console-main,.cs-body){
+  background:transparent;
+}
+:root[data-theme] body :is(.sh-bar:not(.lp-header),.projects-header,.admin-console-topbar,.legal-header,.ws>header){
+  background-color:var(--card);
+  background-image:var(--palace-header),var(--palace-art);
+  background-position:center 38%;
+  background-size:cover;
+  border-bottom:1px solid var(--line);
+  box-shadow:0 4px 20px #00000012;
+}
+:root[data-theme] body :is(.projects-intro,.credit-hero,.affiliate-hero,.affiliate-dash-hero,.admin-dashboard-heading,.payments-title,.admin-chat-title,.admin-assets-intro,.sa-head){
+  padding:26px 28px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background-color:var(--card);
+  background-image:var(--palace-banner),var(--palace-art);
+  background-size:cover;
+  background-position:center 45%;
+  box-shadow:var(--palace-shadow);
+}
+:root[data-theme] body :is(.projects-intro,.credit-hero,.affiliate-hero,.affiliate-dash-hero,.admin-dashboard-heading,.payments-title,.admin-chat-title,.admin-assets-intro){
+  margin-bottom:24px;
+}
+:root[data-theme] body :is(.project-card,.projects-toolbar,.projects-empty,.sh-tool,.credit-plan,.credit-history-section,.affiliate-card,.affiliate-link-card,.affiliate-commission-card,.affiliate-kpi,.admin-panel-card,.admin-kpi,.sa-card,.sa-metric,.payments-stat,.payments-table-wrap,.admin-chat-layout,.affiliate-admin-card,.affiliate-rate-card,.admin-assets-upload,.admin-asset-card){
+  background:var(--palace-panel);
+  border-color:var(--line);
+  box-shadow:var(--palace-shadow);
+}
+:root[data-theme] body :is(.sh-login,.project-dialog){
+  background-color:var(--card);
+  background-image:var(--palace-banner),var(--palace-art);
+  background-size:auto,auto 600px;
+  background-position:center,70% top;
+  background-repeat:no-repeat;
+  border-color:#ae8946;
+  box-shadow:var(--palace-shadow);
+}
+:root[data-theme] body .legal-main{
+  background:var(--palace-panel);
+  border-inline:1px solid var(--line);
+}
+:root[data-theme] body :is(.cs-right,.ws .panel){
+  background:var(--palace-panel);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:var(--palace-shadow);
+}
+/* Broader picture panels also carry the royal treatment down the landing page. */
+:root[data-theme] body .lp :is(.lp-section-soft,.lp-tools-section,.lp-final-cta){
+  background-color:var(--bg);
+  background-image:var(--palace-page),var(--palace-art);
+  background-size:cover;
+  background-position:center 48%;
+  border-block:1px solid var(--line);
+}
+:root[data-theme] body .lp :is(.lp-feature-card,.lp-how-card,.lp-use-card,.lp-faq details,.lp-tools-cards article){
+  background:var(--palace-panel);
+  border-color:var(--line);
+}
+@media(max-width:760px){
+  :root[data-theme] body :is(.sh:not(.lp),.projects-page,.legal-page,.ws){
+    background-attachment:scroll;
+    background-size:auto,auto 1100px;
+    background-position:center top,65% top;
+  }
+  :root[data-theme] body :is(.projects-intro,.credit-hero,.affiliate-hero,.affiliate-dash-hero,.admin-dashboard-heading,.payments-title,.admin-chat-title,.admin-assets-intro,.sa-head){
+    padding:20px 18px;
+    border-radius:16px;
+    background-position:center,65% center;
+  }
+  :root[data-theme] body .cs-right{padding:12px}
+}
+:root[data-theme="day"] body .sh-tool b{color:var(--text)}

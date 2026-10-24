@@ -1,6 +1,7 @@
 import './style.css';
 import { landingView as marketingLandingView } from './landing.js';
 import './day-theme.css';
+import './royal-surfaces.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
 import { h, toast, logo } from './dom.js';
 import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser } from './firebase.js';
