@@ -1,7 +1,7 @@
 // Cloud side of 12toons: profile in Firestore, files in Cloudflare R2 (through /api/r2), and a "sync" that mirrors
 // everything saved on this device (project, audio, characters, backgrounds, swapped images, custom animations).
 import { auth, db, wsDoc, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from './firebase.js';
-import { syncAll, refreshProjects } from './project-sync.js';
+import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
 import { uploadBinary, downloadBinary } from './binary-cloud.js';
 
@@ -24,14 +24,11 @@ export const uploadFile=(key,blob,owner=auth.currentUser?.uid)=>uploadBinary(own
 export const downloadFile=(key,owner=auth.currentUser?.uid)=>downloadBinary(owner,key);
 
 /* ---------- project sync ---------- */
-export const syncState = { status: 'off', at: null, error: '', listeners: new Set() };
-export const pushAll = async () => { await syncAll(); return 0; };
 export async function cloudInfo() {
  const uid=auth.currentUser?.uid;if(!uid||uid==='debug')return null;
  const {projects}=await apiCall('/api/projects',{action:'list'},uid);
  return projects.length?{updatedAt:Math.max(...projects.map(p=>p.updatedAt))}:null;
 }
-export const pullAll = async () => {const uid=auth.currentUser?.uid;if(uid)await refreshProjects(uid);};
 let autoTimer;
 export function startAutoSync() {clearInterval(autoTimer);syncAll().catch(()=>{});autoTimer=setInterval(()=>syncAll().catch(()=>{}),15000);}
 export const stopAutoSync=()=>clearInterval(autoTimer);

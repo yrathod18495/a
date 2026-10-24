@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
+import { AssetCache } from '../src/asset-cache.js';
 import {testerAnimationAllowed,changeTesterAnimation} from '../src/tester-animation-policy.js';
 const maps=()=>({grants:new Map([['*',new Set(['walk','talk','run'])]]),blocked:{}});
 test('character None overrides global grants and allow restores only the selected character',()=>{
@@ -27,7 +28,7 @@ test('actual tester category filtering respects character exclusions, limits, an
  let source=await readFile(new URL('../src/catalog.js',import.meta.url),'utf8');
  source=source.replace(/^import .*;\r?$/gm,'').replace('import.meta.env.BASE_URL',"'/'").replace(/export (const|async function|function)/g,'$1');
  source+='\nglobalThis.api={setTesterRules,categoriesFor};';
- const sandbox={testerAnimationAllowed};vm.runInNewContext(source,sandbox);
+ const sandbox={testerAnimationAllowed,AssetCache};vm.runInNewContext(source,sandbox);
  const rig={toonChar:'neha',animDir:'/',animList:['walk','run','talk'].map(name=>({name,file:name,length:1}))};
  sandbox.api.setTesterRules({anims:{'*':['walk','run','talk']},blockedAnims:{neha:['walk','run','talk']}});
  assert.equal(sandbox.api.categoriesFor(rig,{tester:true}).length,0);

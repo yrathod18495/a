@@ -5,7 +5,7 @@ import './royal-surfaces.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
 import { h, toast, logo } from './dom.js';
 import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser } from './firebase.js';
-import { ensureProfile, r2Configured, pushAll, pullAll, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
+import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
 import { selectProject, projectMeta, listProjects, createProject } from './store.js';
 import { projectsView } from './projects-view.js';
 import { syncAll } from './project-sync.js';
@@ -162,56 +162,71 @@ async function loginTester() {
   }
 }
 const initial = (u) => (u.displayName || u.email || '?').trim()[0].toUpperCase();
+let profileMenuCount = 0;
 function profileMenu() {
-  const menu = h('div', { class: 'sh-menu', hidden: true });
-  const avatar = user.photoURL ? h('img', { src: user.photoURL, alt: '', referrerpolicy: 'no-referrer' }) : initial(user);
-  const btn = h('button', { class: 'sh-avatar', title: user.displayName || 'Account', onclick: (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; } }, avatar);
-  const close = () => { menu.hidden = true; };
-  document.addEventListener('click', close, { once: false });
-  const item = (label, fn) => h('button', { class: 'sh-mi', onclick: () => { close(); fn(); } }, label);
-  const themeItem = h('button', { class: 'sh-mi', type: 'button', onclick: () => { setTheme(activeTheme === 'day' ? 'night' : 'day'); themeItem.textContent = activeTheme === 'day' ? '☾ Switch to night mode' : '☀ Switch to day mode'; close(); } }, activeTheme === 'day' ? '☾ Switch to night mode' : '☀ Switch to day mode');
-  // Temporarily disabled until Firebase Web Push VAPID is configured.
-  // Preserve the UI implementation here so it can be restored after setup.
-  /*
-  const notifications = h('button', { class: 'sh-mi sh-notification-setting', type: 'button' }, '🔔 Enable reply notifications');
-  import('./notifications.js').then(({ replyNotificationsEnabled }) => {
-    notifications.textContent = replyNotificationsEnabled(user.uid) ? '🔔 Turn off reply notifications' : '🔔 Enable reply notifications';
-  }).catch(() => {});
-  notifications.addEventListener('click', async () => {
-    close();
-    try {
-      const { toggleReplyNotifications, replyNotificationsEnabled } = await import('./notifications.js');
-      const message = await toggleReplyNotifications(user);
-      notifications.textContent = replyNotificationsEnabled(user.uid) ? '🔔 Turn off reply notifications' : '🔔 Enable reply notifications';
-      toast(message);
-    } catch (e) { toast(e.message || 'Could not update notification settings.'); }
+  const name = user.displayName || 'Creator';
+  const makeAvatar = () => user.photoURL ? h('img', { src: user.photoURL, alt: '', referrerpolicy: 'no-referrer' }) : initial(user);
+  const menu = h('nav', { class: 'sh-menu', id: `account-menu-${++profileMenuCount}`, 'aria-label': 'Account options', hidden: true });
+  let openEvents;
+  const close = () => {
+    menu.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    openEvents?.abort();
+  };
+  const btn = h('button', {
+    class: 'sh-avatar', type: 'button', title: name,
+    'aria-label': `Account menu for ${name}`, 'aria-controls': menu.id, 'aria-expanded': 'false',
+    onclick: (event) => {
+      if (!menu.hidden) { close(); return; }
+      menu.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      openEvents = new AbortController();
+      document.addEventListener('pointerdown', (e) => { if (!root.contains(e.target)) close(); }, { signal: openEvents.signal });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); btn.focus(); } }, { signal: openEvents.signal });
+      window.addEventListener('hashchange', close, { signal: openEvents.signal });
+      if (event.detail === 0) menu.querySelector('button')?.focus();
+    },
+  }, makeAvatar());
+  const menuIcon = (name) => {
+    const paths = {
+      moon: 'M21 12.8A9 9 0 0 1 11.2 3 9 9 0 1 0 21 12.8Z',
+      sun: 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5',
+      affiliate: 'M4 17l6-6 4 4 6-10m-6 0h6v6',
+      tester: 'M12 3l8 9-8 9-8-9 8-9Zm0 5v5m0 3v.1',
+      admin: 'M4 7h16M4 17h16M8 4v6m8 4v6',
+      logout: 'M10 4H4v16h6m4-12 4 4-4 4M8 12h10',
+    };
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', paths[name]); svg.append(path); return svg;
+  };
+  const item = (icon, label, description, action, extraClass = '') => h('button', {
+    class: `sh-mi ${extraClass}`.trim(), type: 'button', onclick: () => { close(); action(); },
+  }, h('span', { class: 'sh-mi-icon', 'aria-hidden': 'true' }, menuIcon(icon)),
+  h('span', { class: 'sh-mi-copy' }, h('span', { class: 'sh-mi-label' }, label), h('small', {}, description)),
+  h('span', { class: 'sh-mi-arrow', 'aria-hidden': 'true' }, '›'));
+  const themeItem = item('moon', '', '', () => {
+    setTheme(activeTheme === 'day' ? 'night' : 'day');
+    updateThemeItem();
   });
-  */
+  function updateThemeItem() {
+    const isDay = activeTheme === 'day';
+    themeItem.querySelector('.sh-mi-icon').replaceChildren(menuIcon(isDay ? 'moon' : 'sun'));
+    themeItem.querySelector('.sh-mi-label').textContent = isDay ? 'Switch to night mode' : 'Switch to day mode';
+    themeItem.querySelector('small').textContent = isDay ? 'Dark palace with gold accents' : 'White surfaces with gold accents';
+  }
+  updateThemeItem();
   menu.append(
-    h('div', { class: 'sh-who' }, h('b', {}, user.displayName || 'Creator'), h('small', {}, user.email || ''), h('span', { class: 'sh-plan' }, 'Free plan')),
-    item('☁ Save everything to the cloud', async () => { try { const n = await pushAll(); toast(n ? `Saved (${n} new file${n > 1 ? 's' : ''}).` : 'Cloud is up to date.'); } catch (e) { toast(e.message); } }),
-    item('⬇ Restore from the cloud', async () => {
-      const info = await cloudInfo();
-      if (!info) { toast('Nothing saved in the cloud yet.'); return; }
-      if (!confirm('Download cloud projects? Unsynced local edits are preserved.')) return;
-      try { await pullAll(); location.hash = '#/toons'; location.reload(); } catch (e) { toast(e.message); }
-    }),
-    themeItem,
-    // notifications,
-    item('Affiliate dashboard', () => go('#/affiliate-dashboard')),
-    item('🧪 Tester access', () => go('#/tester')),
-    ...(role === 'admin' ? [item('🛠 Admin panel', () => go('#/admin'))] : []),
-    item('⎋ Log out', async () => {
-      // Temporarily disabled with Web Push until the VAPID key is configured.
-      /*
-      try {
-        const { replyNotificationsEnabled, disableReplyNotifications } = await import('./notifications.js');
-        if (replyNotificationsEnabled(user.uid)) await disableReplyNotifications(user);
-      } catch (e) { console.warn('Notification cleanup on sign out failed:', e.message); }
-      */
-      await signOutUser(); go('#/');
-    }));
-  return h('div', { class: 'sh-profile' }, btn, menu);
+    h('div', { class: 'sh-who' },
+      h('span', { class: 'sh-account-avatar', 'aria-hidden': 'true' }, makeAvatar()),
+      h('div', { class: 'sh-account-copy' }, h('span', { class: 'sh-menu-kicker' }, 'YOUR ACCOUNT'), h('b', {}, name), h('small', {}, user.email || ''), h('span', { class: 'sh-plan' }, 'Free plan'))),
+    h('div', { class: 'sh-menu-section' }, themeItem,
+      item('affiliate', 'Affiliate dashboard', 'Your referrals and earnings', () => go('#/affiliate-dashboard')),
+      item('tester', 'Tester access', 'Request or open tester access', () => go('#/tester')),
+      ...(role === 'admin' ? [item('admin', 'Admin panel', 'Manage your workspace', () => go('#/admin'))] : [])),
+    h('div', { class: 'sh-menu-footer' }, item('logout', 'Log out', 'Sign out of this account', async () => { await signOutUser(); go('#/'); }, 'sh-mi-logout')));
+  const root = h('div', { class: 'sh-profile' }, btn, menu);
+  return root;
 }
 
 /* ---------------- landing ---------------- */

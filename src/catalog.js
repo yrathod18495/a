@@ -1,3 +1,4 @@
+import { AssetCache } from './asset-cache.js';
 import { testerAnimationAllowed } from './tester-animation-policy.js';
 // Bundled 12toons characters and their animation library.
 import { get as dbGet, put as dbPut, del as dbDel, all as dbAll } from './store.js';
@@ -127,10 +128,11 @@ function allCategories(rig) {
   return [];
 }
 
-const cache = new Map();
+const cache = new AssetCache();
 export function fetchAnimation(file) {
-  if (!cache.has(file)) cache.set(file, fetch(url(file), { signal: AbortSignal.timeout(20000) }).then((r) => { if (!r.ok) throw new Error(`animation ${r.status}`); return r.json(); }).then((j) => (j && j.bone ? j : Object.values(j)[0])).catch((e) => { cache.delete(file); throw e; }));
-  return cache.get(file);
+  return cache.load(file, () => fetch(url(file), { signal: AbortSignal.timeout(20000) })
+    .then(r => { if (!r.ok) throw new Error(`animation ${r.status}`); return r.json(); })
+    .then(j => j && j.bone ? j : Object.values(j)[0]));
 }
 
 /* ---- custom animations (uploaded DragonBones animation json, kept on this device) ---- */

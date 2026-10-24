@@ -1,12 +1,13 @@
+import { syncFailure } from './sync-feedback.js';
 import { auth } from './firebase.js';
 import { apiCall } from './session.js';
 import { listProjects, snapshot, acknowledge, restoreSnapshot, onStoreChange, context, setPending, copyProject } from './store.js';
 import { packRecords, unpackRecords } from './project-codec.js';
 import { uploadBinary as upload, downloadBinary as download } from './binary-cloud.js';
 const listeners = new Set(), jobs = new Map(), timers = new Map();
-export const syncStatus = { text: 'Saved locally', error: '' };
+export const syncStatus = { text: 'Saved locally', error: '', issue: null, projectId: null };
 export const onSyncStatus = fn => { listeners.add(fn); fn(syncStatus); return () => listeners.delete(fn); };
-function status(text, error = '') { Object.assign(syncStatus, { text, error }); listeners.forEach(fn => fn(syncStatus)); }
+function status(text, error = '', issue = null, projectId = null) { Object.assign(syncStatus, { text, error, issue, projectId }); listeners.forEach(fn => fn(syncStatus)); }
 export async function syncProject(uid, id) {
   if (uid === 'debug') return;
   const key = uid + '/' + id;
@@ -15,7 +16,7 @@ export async function syncProject(uid, id) {
     if (!navigator.onLine) { status('Offline'); return; }
     const { meta, records } = await snapshot(uid, id);
     if (!meta?.dirty) return;
-    status('Saving');
+    status('Saving', '', null, id);
     try {
       let pending=meta.pending;
       if(!pending) {
@@ -29,11 +30,12 @@ export async function syncProject(uid, id) {
       }
       const { revision } = await apiCall('/api/projects', pending.body, uid);
       await acknowledge(uid, id, pending.generation, revision);
-      if ((await snapshot(uid,id)).meta.dirty) {status('Saving');schedule({uid,id});}
-      else status('Saved to Cloud');
+      if ((await snapshot(uid,id)).meta.dirty) {status('Saving', '', null, id);schedule({uid,id});}
+      else status('Saved to Cloud', '', null, id);
     } catch (e) {
-      status(e.code === 'conflict' ? 'Conflict' : !navigator.onLine ? 'Offline' : 'Sync Failed', e.message);
-      if (e.code !== 'conflict' && e.status !== 401 && e.status !== 403) schedule({ uid, id }, 15000);
+      const issue = syncFailure(e);
+      status(e.code === 'conflict' ? 'Conflict' : !navigator.onLine ? 'Offline' : 'Sync Failed', e.message, issue, id);
+      if (issue.retryable) schedule({ uid, id }, 15000);
       throw e;
     }
   };

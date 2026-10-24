@@ -3,7 +3,7 @@ import test,{mock} from 'node:test';
 import assert from 'node:assert/strict';
 import * as store from '../src/store.js';
 const user={uid:'cloud-user'}, remote=new Map(), objects=new Map(), calls=[];
-let failUpload=false,loseCommitResponse=false;
+let failUpload=false,loseCommitResponse=false,denyCommit=false;
 globalThis.window=new EventTarget();
 Object.defineProperty(globalThis.navigator,'onLine',{value:true,configurable:true});
 mock.module('../src/firebase.js',{exports:{auth:{currentUser:user}}});
@@ -17,6 +17,7 @@ mock.module('../src/session.js',{exports:{apiCall:async(url,body,uid)=>{
   if(body.action==='head')return {exists:objects.has(body.key),size:objects.get(body.key)?.size};
   return {url:body.key};
  }
+ if(denyCommit){const error=Error('Cloud access denied');error.status=403;error.code='forbidden';throw error;}
  if(body.action==='list')return {projects:[...remote.values()]};
  const old=remote.get(body.id);
  if(old?.operationId===body.operationId)return {revision:old.revision};
@@ -79,4 +80,22 @@ test('concurrent saves share one job and unchanged binaries are not uploaded aga
  await store.renameProject(user.uid,p.id,'Renamed');await sync.syncProject(user.uid,p.id);
  const after=calls.filter(c=>c.action==='put'&&c.key.startsWith('assets/')).length;
  assert.equal(after-before,1);
+});
+
+test('denied sync reports an actionable cause and preserves local records',async(t)=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ const p=await store.createProject(user.uid,'animation');store.selectProject(user.uid,p.id);
+ await store.put('project',{id:'current',doc:{name:'Keep my edits'}});
+ denyCommit=true;
+ try {
+  await assert.rejects(sync.syncProject(user.uid,p.id));
+  assert.equal(sync.syncStatus.projectId,p.id);
+  assert.equal(sync.syncStatus.issue.retryable,false);
+  assert.match(sync.syncStatus.issue.message,/access was denied/);
+  assert.equal((await store.get('project','current')).doc.name,'Keep my edits');
+  assert.equal((await store.projectMeta(user.uid,p.id)).dirty,true);
+ } finally {denyCommit=false;}
+ await sync.syncProject(user.uid,p.id);
+ assert.equal((await store.projectMeta(user.uid,p.id)).dirty,false);
+ assert.equal(sync.syncStatus.issue,null);
 });

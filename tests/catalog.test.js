@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { AssetCache } from '../src/asset-cache.js';
 import { testerAnimationAllowed } from '../src/tester-animation-policy.js';
 
 async function catalog() {
@@ -12,7 +13,7 @@ async function catalog() {
   source += '\nglobalThis.api = { loadCatalog, libraryCharacters, fetchLibraryCharacter, categoriesFor };';
   const requests = [];
   const sandbox = {
-    testerAnimationAllowed,
+    testerAnimationAllowed, AssetCache,
     cachedRules: () => null,
     loadAnimRules: async () => null,
     setTimeout: () => 0,

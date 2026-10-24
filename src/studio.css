@@ -1,0 +1,133 @@
+/* Workspace layout: one viewport, one tool panel, an always available timeline. */
+body:has(#app:not([hidden])){overflow:hidden}
+#app:not([hidden]){height:100dvh;overflow:hidden}
+#app .ws{height:100%;min-height:0;max-width:none;padding:8px 12px;display:flex;flex-direction:column;background-attachment:scroll}
+#app .ws .topbar{flex:none;min-height:54px;margin:0 0 8px;padding:0 0 8px;gap:10px}
+#app .workbench{flex:1;min-height:0}
+#app .ws .studio{height:100%;min-height:0;display:grid;grid-template-columns:64px minmax(0,1fr) 310px;grid-template-rows:minmax(0,1fr) clamp(150px,26vh,220px);grid-template-areas:'rail prev side' 'rail tl side';gap:8px}
+#app .ws .side{display:contents}
+#app .ws .prev{height:100%;align-self:stretch;min-width:0;min-height:0;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+#app .ws .stagehost{flex:1;min-height:0}
+#app .ws .stagebox{width:100%;height:100%;min-height:0;padding:8px;display:block;overflow:auto;background:var(--card2);border:1px solid var(--line);border-radius:12px}
+#app .ws .stagewrap{position:relative;flex:none;margin:auto;max-width:none}
+#app .ws .stagebox canvas{display:block;width:100%;height:100%;max-width:none;max-height:none;border-radius:6px;box-shadow:none}
+#app .ws .controls{flex:none;min-height:34px;margin:2px 0;gap:6px}
+#app .ws .controls .btn{min-height:32px;padding:5px 10px}
+#app .ws .hint{font-size:11px}
+#app .ws .editor-zoom{display:flex;align-items:center;gap:3px}
+#app .ws .editor-zoom output{width:38px;text-align:center;font-size:10px;color:var(--mute)}
+#app .ws .selbar{flex:none;gap:6px;margin:0;padding:4px 6px;min-height:34px}
+#app .ws .selbar .btn{min-height:26px;padding:3px 6px}
+#app .ws .character-name{width:110px;min-width:65px;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--text);font-size:12px}
+#app .ws .selbox{border:2px solid var(--acc);box-shadow:0 0 0 1px #0005}
+#app .ws .tlwrap{height:100%;align-self:stretch;min-height:0;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+#app .ws .tltools{flex:none;min-height:28px;gap:4px;margin:0}
+#app .ws .tltools .btn{min-height:25px;padding:3px 7px;font-size:11px}
+#app .ws .timeline-title{font-size:12px;margin-right:8px}
+#app .ws .tl2{min-height:40px;max-height:none;flex:1;border-radius:10px}
+#app .ws .line-details{flex:none;max-height:110px;overflow:auto;font-size:11px}
+#app .ws .line-details>summary{padding:3px 6px;color:var(--mute);cursor:pointer}
+#app .ws .linebox{margin:0;padding:6px}
+#app .ws .clipbar{flex:none;margin:0;padding:4px 6px;min-height:30px}
+#app .ws .tabs.big{position:static;align-self:stretch;display:flex;flex-direction:column;gap:3px;padding:5px;margin:0;min-height:0;overflow:visible;border-radius:12px;background:var(--card);box-shadow:none;z-index:12}
+#app .ws .tabs.big>button,#app .ws .advanced-tools button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;width:100%;min-height:52px;padding:6px 2px;font-size:10px;border-radius:9px;color:var(--text);background:transparent;border:0}
+#app .ws .tabs.big .ti{display:block;font-size:19px;line-height:1}
+#app .ws .tabs.big button.on{background:var(--royal-button);color:#201607}
+#app .ws .advanced-tools{position:relative;margin-top:auto;flex:none}
+#app .ws .advanced-tools>summary{list-style:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;font-size:9px;cursor:pointer;border-radius:9px;color:var(--text)}
+#app .ws .advanced-tools>summary::-webkit-details-marker{display:none}
+#app .ws .advanced-tools[open]>summary{background:var(--card2)}
+#app .ws .advanced-tools-list{position:absolute;left:calc(100% + 12px);bottom:0;width:118px;display:flex;flex-direction:column;gap:3px;padding:5px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 20px #0003;z-index:20}
+#app .ws .panel{grid-area:side;position:relative;top:auto;left:auto;right:auto;bottom:auto;display:block;min-height:0;max-height:none;height:100%;overflow:auto;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);box-shadow:none;z-index:1}
+#app .ws .panel:not(.open){display:none}
+#app .ws:has(.panel:not(.open)) .studio{grid-template-columns:64px minmax(0,1fr) 0}
+#app .ws .sheet-close{display:none}
+#app .ws .panel.animation-panel-host{overflow:hidden;display:flex;flex-direction:column}
+#app .ws .panel.animation-panel-host:not(.open){display:none}
+#app .animation-panel{display:flex;flex-direction:column;gap:7px;min-height:0;height:100%;overflow:hidden}
+.animation-context,.animation-options{flex:none}
+.animation-options{font-size:11px;color:var(--mute)}
+.animation-options summary{cursor:pointer;padding:3px 0}
+.animation-options .tog{font-size:11px;padding-top:5px}
+.ab{display:flex;flex-direction:column;min-height:0;flex:1;gap:6px}
+.animation-filters{display:flex;flex-direction:column;gap:7px;flex:none;background:var(--card)}
+.animation-filters .tabs{flex:none;margin:0;padding:0;gap:4px}
+.animation-filters .tabs button{padding:5px 8px;font-size:11px}
+.animation-filters .row{flex-wrap:nowrap;gap:5px}
+.animation-filters .row select{flex:1;min-width:0;margin:0;font-size:12px;padding:8px}
+.animation-filters .search{margin:0;font-size:12px;padding:8px}
+.animation-count{font-size:10px;color:var(--mute)}
+.animation-list{flex:1;min-height:80px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.animation-window{position:relative}
+.animation-row{position:absolute;left:0;right:0;display:flex;align-items:center;gap:4px;height:60px;border:1px solid var(--line);border-radius:9px;background:var(--card2);overflow:hidden}
+.animation-row.on{border-color:var(--acc);box-shadow:inset 3px 0 var(--acc)}
+.animation-apply{display:flex;align-items:center;gap:9px;flex:1;min-width:0;height:100%;padding:8px;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer}
+.animation-apply:disabled{opacity:.5;cursor:wait}
+.animation-thumb{display:grid;place-items:center;width:34px;height:34px;flex:none;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--acc);font-size:13px;overflow:hidden}
+.animation-thumb img{width:100%;height:100%;object-fit:cover}
+.animation-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
+.animation-copy b{font-size:12px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.animation-copy small{color:var(--mute);font-size:10px}
+.animation-check{flex:none;color:var(--acc);font-size:16px}
+.sheet:has(.ab){height:min(620px,85dvh);display:flex;flex-direction:column}
+.sheet:has(.ab)>div:not(.row){display:flex;flex-direction:column;flex:1;min-height:0}
+#app .ws .hdr-tools{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+#app .ws .hdr-tools .btn{min-height:32px;padding:5px 9px}
+#app .ws .save-status,#app .ws .studio-menu{position:relative}
+#app .ws .save-status .saved{display:flex;align-items:center;gap:6px;font-size:11px;max-width:220px;cursor:pointer;color:var(--mute);list-style:none}
+#app .ws .save-status summary::-webkit-details-marker,#app .ws .studio-menu summary::-webkit-details-marker{display:none}
+.save-dot{width:7px;height:7px;border-radius:50%;background:#b58d38;flex:none}
+.save-status[data-tone=saved] .save-dot{background:#4baf76}
+.save-status[data-tone=error] .save-dot{background:#e48469}
+.save-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#app .ws .save-popover,#app .ws .studio-menu-panel{position:absolute;right:0;top:calc(100% + 10px);z-index:40;width:290px;max-width:calc(100vw - 24px);padding:14px;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 28px #0003;white-space:normal}
+.save-popover b{font-size:13px}.save-popover p{font-size:12px;color:var(--mute);margin:8px 0;line-height:1.5}.save-popover details{font-size:11px;margin:8px 0}.save-error-detail{overflow-wrap:anywhere}
+#app .ws .studio-menu-panel{width:200px}
+#app .ws .studio-menu-panel .danger{color:var(--warn);width:100%}
+/* Limit decorative layers inside the editor; reuse the cached palace art. */
+:root[data-theme] body #app .ws{background-attachment:scroll}
+:root[data-theme] body #app .ws :is(.panel,.tabs.big,.stagebox,.tl2,.card,.empty-in){box-shadow:none;backdrop-filter:none}
+:root[data-theme] body #app .ws .topbar{background-image:none;background-color:var(--card);border-radius:8px;padding:4px 8px 8px}
+@media(max-width:860px) and (min-height:501px){
+  #app .ws{padding:6px}
+  #app .ws .topbar{min-height:46px;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+  #app .ws .topbar .logo-btn{font-size:17px}
+  #app .ws .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(110px,1fr) minmax(150px,1fr) 130px 52px;grid-template-areas:'prev' 'side' 'tl' 'rail';gap:5px}
+  #app .ws:has(.panel:not(.open)) .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) 0 150px 52px}
+  #app .ws .tabs.big{display:flex;flex-direction:row;align-items:stretch;overflow:visible;padding:3px;border:1px solid var(--line);position:relative;bottom:auto}
+  #app .ws .tabs.big>button{min-height:42px;flex:1;min-width:0;width:auto;font-size:9px;padding:3px}
+  #app .ws .tabs.big .ti{font-size:16px}
+  #app .ws .advanced-tools{margin:0;flex:1;min-width:0}
+  #app .ws .advanced-tools>summary{font-size:9px;padding:4px 0}
+  #app .ws .advanced-tools-list{left:auto;right:0;bottom:calc(100% + 8px);width:120px}
+  #app .ws .advanced-tools button{min-height:40px;flex-direction:row;padding:5px;gap:7px}
+  #app .ws .panel{padding:8px;border-radius:10px}
+  #app .ws .sheet-close{display:flex;position:static;flex:none;padding:0;margin:0 0 5px;font-size:11px;min-height:20px}
+  #app .ws .sheet-close button{min-height:22px;padding:2px 7px;font-size:10px}
+  #app .ws .controls{min-height:28px;margin:0;gap:4px}
+  #app .ws .controls .btn{min-height:27px;padding:3px 6px;font-size:10px}
+  #app .ws .prev>.hint{display:none}
+  #app .ws .selbar{gap:4px;min-height:28px;padding:2px 4px}
+  #app .ws .selbar .pct,#app .ws .selbar .dot{display:none}
+  #app .ws .selbar input[type=range]{min-width:35px}
+  #app .ws .character-name{width:85px;font-size:10px}
+  #app .ws .selbar .btn{font-size:10px;padding:2px 4px;min-height:22px}
+  #app .ws .hdr-tools .btn{min-height:28px;font-size:11px;padding:4px 6px}
+  #app .ws .save-status .saved{max-width:110px;font-size:10px}
+  #app .ws .save-popover{position:fixed;top:82px;right:12px}
+  #app .ws .animation-context,#app .ws .animation-count{display:none}
+  .animation-filters{gap:4px}
+  .animation-filters .search{padding:5px}
+  #app .ws .animation-options summary{padding:0}
+  .animation-filters .row select{padding:5px}
+  .animation-list{min-height:48px}
+}
+@media(max-height:500px) and (max-width:860px){
+  #app .ws .studio{grid-template-columns:52px minmax(0,1fr) 240px;grid-template-rows:minmax(0,1fr) 110px}
+  #app .ws .tabs.big>button{min-height:32px;font-size:8px;padding:2px}
+  #app .ws .tabs.big .ti{font-size:12px}
+  #app .ws .advanced-tools>summary{font-size:8px;padding:3px}
+}
+#app .ws .advanced-tools.has-active>summary{background:var(--royal-button);color:#201607}
+.animation-filters .search{border:1px solid var(--line);border-radius:8px;background:var(--card2);color:var(--text)}
+#app .ws .studio-menu>summary{list-style:none}

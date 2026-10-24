@@ -98,3 +98,48 @@
   :root[data-theme] body .cs-right{padding:12px}
 }
 :root[data-theme="day"] body .sh-tool b{color:var(--text)}
+
+/* Compact account popover with a clear identity, actions and sign-out area. */
+:root[data-theme] body .sh-profile .sh-avatar{
+  width:42px;height:42px;border:1px solid #c7a45c;
+  background:var(--royal-button);color:#241907;
+  box-shadow:0 3px 12px #0002;
+}
+:root[data-theme] body .sh-profile .sh-avatar[aria-expanded="true"]{outline:2px solid var(--acc);outline-offset:3px}
+:root[data-theme] body .sh-profile .sh-menu{
+  display:flex;flex-direction:column;
+  top:calc(100% + 12px);right:0;width:326px;max-width:calc(100vw - 28px);
+  max-height:calc(100dvh - 110px);overflow-y:auto;
+  padding:0;gap:0;border:1px solid #a58445;border-radius:20px;
+  background:var(--card);color:var(--text);
+  box-shadow:0 20px 60px #0005;z-index:110;
+  text-align:left;font:14px/1.4 system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+:root[data-theme] body .sh-profile .sh-who{
+  display:flex;flex-direction:row;align-items:center;gap:12px;
+  padding:20px 18px;margin:0;border-bottom:1px solid var(--line);
+  background:var(--palace-banner),var(--palace-art);background-size:cover;background-position:center;
+}
+.sh-account-avatar{display:grid;place-items:center;flex:none;width:46px;height:46px;border:1px solid #bf9b53;border-radius:15px;background:var(--royal-button);color:#241907;font-size:20px;font-weight:800;overflow:hidden}
+.sh-account-avatar img{width:100%;height:100%;object-fit:cover}
+.sh-account-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.sh-account-copy b{font-size:15px;overflow-wrap:anywhere}
+.sh-account-copy>small{font-size:11px;overflow-wrap:anywhere;color:var(--mute)}
+.sh-menu-kicker{font-size:9px;font-weight:750;letter-spacing:.14em;color:var(--mute)}
+:root[data-theme] body .sh-account-copy .sh-plan{align-self:flex-start;margin-top:5px;padding:3px 8px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:10px;font-weight:650}
+.sh-menu-section{padding:8px}
+:root[data-theme] body .sh-profile .sh-mi{
+  display:flex;align-items:center;gap:12px;width:100%;padding:12px 10px;
+  border:0;border-radius:12px;background:transparent;color:var(--text);text-align:left;
+}
+:root[data-theme] body .sh-profile .sh-mi:hover,:root[data-theme] body .sh-profile .sh-mi:focus-visible{background:var(--card2);color:var(--text)}
+.sh-mi-icon{display:grid;place-items:center;flex:none;width:34px;height:34px;border:1px solid var(--line);border-radius:11px;background:var(--card2);color:#b28a36;font-size:21px;font-weight:500}
+.sh-mi-copy{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
+.sh-mi-label{font-size:13px;font-weight:650}
+.sh-mi-copy small{font-size:11px;font-weight:400;color:var(--mute)}
+.sh-mi-arrow{color:var(--mute);font-size:20px;font-weight:400}
+.sh-menu-footer{padding:8px;border-top:1px solid var(--line)}
+:root[data-theme] body .sh-profile .sh-mi-logout .sh-mi-label{color:#f3aa9f}
+:root[data-theme="day"] body .sh-profile .sh-mi-logout .sh-mi-label{color:#9b3027}
+@media(max-width:420px){:root[data-theme] body .sh-profile .sh-menu{width:300px}.sh-menu-section,.sh-menu-footer{padding:6px}}
+.sh-mi-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}

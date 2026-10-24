@@ -1,4 +1,6 @@
 import './style.css';
+import './studio.css';
+import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark } from './dom.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
@@ -6,19 +8,19 @@ import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
 import { Player, buildTimeline } from './player.js';
 import { characterPicker } from './charpick.js';
 import { exportOffline, exportParallel, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
-import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, resetAll } from './store.js';
-import { pushAll, r2Configured, syncState, startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud } from './cloud.js';
+import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, resetAll, context as projectContext } from './store.js';
+import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
-import { loadCatalog, hydrateAll, categoriesFor, fetchAnimation, url as assetUrl, loadCustom, addCustom, removeCustom, libraryCharacters, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS } from './catalog.js';
+import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, loadCustom, addCustom, removeCustom, libraryCharacters, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS } from './catalog.js';
 import { getFit, setFit } from './universal.js';
-import { onSyncStatus, syncStatus } from './project-sync.js';
+import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
 const S = {
   step: 3, characters: [], customAnims: [], libDefs: new Map(), swaps: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
-  ready: false, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: false,
+  ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', preview: 720, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
   manual: {}, mclip: null, addMode: false,            // animations the user placed on the timeline: { <character key>: [{id, kind, ref, start, dur, off}] }
@@ -50,8 +52,8 @@ const busy = (msg, onCancel) => {
   return { set: (m, p) => { txt.textContent = m; if (p != null) bar.style.width = `${Math.round(p * 100)}%`; }, done: () => el.remove() };
 };
 
-function modal(title, body) {
-  const close = () => el.remove();
+function modal(title, body, onClose) {
+  const close = () => { onClose?.(); el.remove(); };
   const el = h('div', { class: 'modal', onclick: (e) => e.target === el && close() },
     h('div', { class: 'sheet' }, h('div', { class: 'row', style: 'margin-bottom:12px' }, h('h2', { style: 'margin:0' }, title), h('span', { class: 'sp' }), h('button', { class: 'btn sm', onclick: close }, '✕')), body));
   document.body.append(el);
@@ -63,7 +65,6 @@ async function boot() {
   [S.characters, S.customAnims, S.myBgs, S.props, swaps] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), loadCustom(), dbAll('backgrounds'), dbAll('props'), dbAll('swaps')]);
   await loadCatalog();
   S.sharedAssets = await listStudioAssets().catch((e) => { console.warn('Shared studio library unavailable:', e.message); return []; });
-  S.characters = await hydrateAll(S.characters);            // saved characters are small records: skeleton + untouched pictures come from their template
   swaps.forEach((r) => { S.swaps.set(r.id, r.pages); Object.values(r.pages).forEach(bid); });
   S.props.forEach((p) => p.blob && bid(p.blob));
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -71,7 +72,7 @@ async function boot() {
   stage.setSize(S.aspect, S.preview);
   await stage.setProps(S.props);
   player = new Player(audioCtx);
-  requestAnimationFrame(loop);
+  requestStudioFrame();
   const restored = await restoreProject();
   S.ready = true;
   hist.cur = docOf(); hist.curStr = JSON.stringify(hist.cur);
@@ -173,17 +174,32 @@ async function animJson(def, r) {
 const sameRef = (a, b) => a && b && a.source === b.source && (a.source === 'local' ? a.name === b.name : a.id === b.id);
 
 /* ---- character chooser (characters are downloaded from their links; animations, expressions and image swap live in the studio) ---- */
+const definitionJobs = new Map();
+async function ensureCharacter(id) {
+  const saved = S.characters.find(c => c.id === id), ready = saved || S.libDefs.get(id);
+  if (ready?.ske) { if (S.libDefs.has(id)) { S.libDefs.delete(id); S.libDefs.set(id, ready); } return ready; }
+  if (definitionJobs.has(id)) return definitionJobs.get(id);
+  const job = (async () => {
+    if (saved) {
+      const def = await hydrateCharacter(saved);
+      if (!def) throw new Error('The saved character template is unavailable.');
+      S.characters[S.characters.indexOf(saved)] = def; return def;
+    }
+    const entry = libraryCharacters().find(e => `lib:${e.id}` === id);
+    if (!entry) throw new Error('This character template is no longer available.');
+    const def = await fetchLibraryCharacter(entry); S.libDefs.set(id, def); return def;
+  })().finally(() => definitionJobs.delete(id));
+  definitionJobs.set(id, job); return job;
+}
 async function useCharacter(s, id) {
-  let def = S.characters.find((c) => c.id === id) || S.libDefs.get(id);
-  if (!def && id) {
-    const entry = libraryCharacters().find((e) => `lib:${e.id}` === id);
-    if (!entry) { toast('This character template is no longer available. Choose another character.'); return false; }
-    const b = busy(`Downloading ${entry.name}…`);
-    try { def = await fetchLibraryCharacter(entry); S.libDefs.set(id, def); } catch (e) { b.done(); toast(`Could not download character: ${e.message}`); return false; }
-    b.done();
+  if (id) {
+    const loading = busy('Loading character…');
+    try { await ensureCharacter(id); }
+    catch (error) { toast(`Could not load character: ${error.message}`); return false; }
+    finally { loading.done(); }
   }
-  s.charId = id; s._chosen = true;
-  S.speakers.filter((x) => x.charId).forEach((x, i) => { if (!x._flipSet) x.flip = i % 2 === 1; });
+  s.charId = id; s._chosen = true; if (id) S.sel = s.key;
+  S.speakers.filter(x => x.charId).forEach((x, i) => { if (!x._flipSet) x.flip = i % 2 === 1; });
   return true;
 }
 function chooseCharacter(s, after) {
@@ -209,61 +225,66 @@ function chooseCharacter(s, after) {
   }).catch(() => {});
 }
 
-/* ---- animation browser (same layout as the platform: category dropdown, search, 2-column cards) ---- */
-/* previews play on their own while visible (at most 6 at once, so phones stay smooth) */
-const playing = [];
-let previewIO;
-function stopAll() { previewIO?.disconnect(); while (playing.length) playing.pop().remove(); previewIO = null; }
-function watch(th) {
-  previewIO ??= new IntersectionObserver((es) => es.forEach((e) => {
-    const box = e.target, v = box.querySelector('video');
-    if (e.isIntersecting && !v) {
-      const vid = h('video', { src: box.dataset.src, muted: true, loop: true, playsinline: true, autoplay: true, preload: 'auto' });
-      vid.muted = true; box.append(vid); playing.push(vid);
-      vid.play().catch(() => {});
-      while (playing.length > 6) { const old = playing.shift(); old.remove(); }
-    } else if (!e.isIntersecting && v) { v.remove(); const i = playing.indexOf(v); if (i >= 0) playing.splice(i, 1); }
-  }), { threshold: 0.5 });
-  previewIO.observe(th);
-}
-
+/* Compact rows render only the visible window; previews start only on request. */
+const browserObservers = new Set();
+let activePreview = null;
+function stopAll() { for (const observer of browserObservers) observer.disconnect(); browserObservers.clear(); activePreview?.pause(); activePreview = null; }
 function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
   const root = h('div', { class: 'ab' });
-  let cat = null, q = '';
+  let cat = null, q = '', scrollTop = 0, observer;
   const draw = () => {
-    stopAll();
+    observer?.disconnect(); browserObservers.delete(observer);
     const s = getSpeaker(), def = s && charOf(s);
-    if (!def) { root.replaceChildren(h('p', { class: 'sub' }, 'Pick a character first — animations are applied to characters.')); return; }
-    const zip = def.anims?.length ? [{ key: 'zip', name: 'From character ZIP', animations: def.anims.map((n) => ({ ref: { source: 'local', name: n }, name: n.replace(/_/g, ' ') })) }] : [];
-    const custom = { key: 'custom', name: 'Custom', custom: true, animations: S.customAnims.map((c) => ({ ref: { source: 'custom', id: c.id, name: c.name }, name: c.name, custom: true })) };
+    if (!def) { root.replaceChildren(h('p', { class: 'sub' }, 'Pick a character first.')); return; }
+    const zip = def.anims?.length ? [{ key: 'zip', name: 'From character ZIP', animations: def.anims.map(name => ({ ref: { source: 'local', name }, name: name.replace(/_/g, ' ') })) }] : [];
+    const custom = { key: 'custom', name: 'Custom', animations: S.customAnims.map(c => ({ ref: { source: 'custom', id: c.id, name: c.name }, name: c.name, custom: true })) };
     const modes = modeEntries(def.rig);
     const cats = [...zip, ...(modes.animations.length ? [modes] : []), ...categoriesFor(def.rig), custom];
-    const cur0 = selectedRef();
-    if (!cat || !cats.some((c) => c.key === cat)) cat = (cats.find((c) => cur0 && c.animations.some((a) => sameRef(a.ref, cur0))) || cats.find((c) => !c.overlay) || cats[0]).key;
-    const cur = cats.find((c) => c.key === cat);
-    const list = q.trim() ? cats.flatMap((c) => c.animations.map((a) => ({ ...a, cat: c }))).filter((a) => a.name.toLowerCase().includes(q.trim().toLowerCase())) : cur.animations.map((a) => ({ ...a, cat: cur }));
-
-    const file = h('input', { type: 'file', accept: '.json,application/json', multiple: true, style: 'display:none', onchange: async (e) => {
-      for (const f of e.target.files) { try { S.customAnims.push(await addCustom(f)); cat = 'custom'; } catch (err) { toast(`${f.name}: ${err.message}`); } }
-      draw();
+    const curRef = selectedRef();
+    if (!cat || !cats.some(c => c.key === cat)) cat = (cats.find(c => curRef && c.animations.some(a => sameRef(a.ref, curRef))) || cats[0]).key;
+    const current = cats.find(c => c.key === cat);
+    const list = (q.trim() ? cats : [current]).flatMap(c => c.animations.map(a => ({ ...a, cat: c }))).filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase()));
+    const file = h('input', { type: 'file', accept: '.json,application/json', multiple: true, hidden: true, onchange: async e => {
+      for (const f of e.target.files) try { S.customAnims.push(await addCustom(f)); cat = 'custom'; } catch (error) { toast(`${f.name}: ${error.message}`); }
+      scrollTop = 0; draw();
     } });
-    const grid = h('div', { class: 'agrid' },
-      h('button', { class: 'acard add', onclick: () => file.click() }, h('span', {}, '+'), h('b', {}, 'Add New'), h('small', {}, 'animation .json'), file),
-      list.map((a) => {
-        const sel = sameRef(cur0, a.ref);
-        const th = h('div', { class: `ath${a.poster?.startsWith('12toons/') ? ' dark' : ''}` }, a.poster ? h('img', { src: assetUrl(a.poster), alt: '', loading: 'lazy' }) : h('span', {}, a.custom ? '🎞' : '🎬'));
-        if (a.preview) { th.dataset.src = assetUrl(a.preview); watch(th); }
-        return h('button', { class: `acard ${sel ? 'on' : ''}`, onclick: async () => { await onPick(s, a.ref, !!a.cat.overlay, a.length); draw(); } }, th, a.length && h('span', { class: 'dur' }, `${(+a.length).toFixed(2)} s`), h('span', { class: 'nm2' }, a.name, a.cat.layer ? ` · ${a.cat.layer}` : a.cat.overlay ? ' · face' : ''),
-          a.custom && h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); await removeCustom(a.ref.id); S.customAnims = S.customAnims.filter((c) => c.id !== a.ref.id); draw(); } }, '✕'));
+    const viewport = h('div', { class: 'animation-list', tabindex: '0', 'aria-label': 'Animation results' });
+    const windowEl = h('div', { class: 'animation-window', style: `height:${list.length * 64}px` });
+    viewport.append(windowEl);
+    let start = -1, end = -1;
+    const paint = () => {
+      const nextStart = Math.max(0, Math.floor(viewport.scrollTop / 64) - 4);
+      const nextEnd = Math.min(list.length, nextStart + Math.ceil((viewport.clientHeight || 640) / 64) + 9);
+      if (nextStart === start && nextEnd === end) return;
+      start = nextStart; end = nextEnd;
+      windowEl.replaceChildren(...list.slice(start, end).map((a, offset) => {
+        const chosen = sameRef(selectedRef(), a.ref);
+        const apply = h('button', { class: 'animation-apply', 'aria-pressed': String(!!chosen), title: `Apply ${a.name}`, onclick: async () => {
+          apply.disabled = true;
+          try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
+          catch (error) { toast(`Could not apply animation: ${error.message}`); apply.disabled = false; }
+        } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, a.poster ? h('img', { src: assetUrl(a.poster), alt: '', loading: 'lazy', decoding: 'async' }) : '▶'),
+        h('span', { class: 'animation-copy' }, h('b', {}, a.name), h('small', {}, `${a.cat.layer || a.cat.name}${a.length ? ` · ${Number(a.length).toFixed(1)} s` : ''}`)), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+'));
+        const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${(start + offset) * 64}px` }, apply);
+        if (a.preview) row.append(h('button', { class: 'ib', title: `Preview ${a.name}`, onclick: () => {
+          activePreview?.pause(); const video = h('video', { src: assetUrl(a.preview), controls: true, muted: true, playsinline: true, preload: 'none', style: 'max-width:100%' });
+          activePreview = video; modal(a.name, video, () => video.pause()); video.play().catch(() => {});
+        } }, '▷'));
+        if (a.custom) row.append(h('button', { class: 'ib', title: `Delete ${a.name}`, onclick: async () => { if (!confirm(`Delete custom animation “${a.name}”?`)) return; await removeCustom(a.ref.id); S.customAnims = S.customAnims.filter(c => c.id !== a.ref.id); draw(); } }, '×'));
+        return row;
       }));
-    root.replaceChildren(
+    };
+    viewport.addEventListener('scroll', () => { scrollTop = viewport.scrollTop; paint(); }, { passive: true });
+    root.replaceChildren(h('div', { class: 'animation-filters' },
       ...(chips ? [chips(draw)] : []),
-      h('select', { onchange: (e) => { cat = e.target.value; q = ''; draw(); } }, cats.map((c) => h('option', { value: c.key, selected: c.key === cat }, `${c.name} (${c.animations.length})`))),
-      h('input', { type: 'text', class: 'search', placeholder: '🔍  Search animations', value: q, oninput: (e) => { q = e.target.value; const pos = e.target.selectionStart; draw(); const i = root.querySelector('.search'); i.focus(); i.setSelectionRange(pos, pos); } }),
-      grid);
+      h('div', { class: 'row' }, h('select', { 'aria-label': 'Animation category', onchange: e => { cat = e.target.value; q = ''; scrollTop = 0; draw(); } }, cats.map(c => h('option', { value: c.key, selected: c.key === cat }, `${c.name} (${c.animations.length})`))), h('button', { class: 'btn sm', onclick: () => file.click() }, '+ Import'), file),
+      h('input', { type: 'search', class: 'search', 'aria-label': 'Search animations', placeholder: 'Search animations…', value: q, oninput: e => { q = e.target.value; const caret = e.target.selectionStart; scrollTop = 0; draw(); const search = root.querySelector('.search'); search.focus(); search.setSelectionRange(caret, caret); } }),
+      h('small', { class: 'animation-count', role: 'status' }, `${list.length} animation${list.length === 1 ? '' : 's'} · click to apply`)),
+      list.length ? viewport : h('p', { class: 'sub' }, 'No matching animations. Try another category or search.'));
+    paint(); viewport.scrollTop = scrollTop;
+    observer = new ResizeObserver(paint); observer.observe(viewport); browserObservers.add(observer);
   };
-  draw();
-  return { el: root, draw };
+  draw(); return { el: root, draw, dispose: () => { observer?.disconnect(); browserObservers.delete(observer); } };
 }
 
 /* ---------------- step 3: studio ---------------- */
@@ -413,6 +434,10 @@ async function applyLayers() {
   const layers = await buildLayerSpecs();
   for (const l of layers) for (const blob of Object.values(l.swap || {})) await stage.loadSwap(blob);
   const bad = stage.setLayers(layers);
+  const activeIds = new Set(layers.map(l => l.charId));
+  for (const id of stage.assets.keys()) if (!activeIds.has(id)) stage.unload(id);
+  const unused = [...S.libDefs.keys()].filter(id => !activeIds.has(id));
+  for (const id of unused.slice(0, Math.max(0, unused.length - 2))) S.libDefs.delete(id);
   if (bad.length) toast(`Some animations don't fit that character and were skipped (${bad.map((k) => sOf(k)?.name).join(', ')})`);
   S.dirty = true;
 }
@@ -465,29 +490,38 @@ function viewStudio() {
   panelEl = h('div', { class: 'panel' });
   const zoom = (f) => { const left = tlScroll.scrollLeft / S.pps; S.pps = Math.min(300, Math.max(4, S.pps * f)); drawTimeline(); tlScroll.scrollLeft = left * S.pps; };
   const fit = fitTimeline;
-  const tools = h('div', { class: 'tltools' },
+  const tools = h('div', { class: 'tltools' }, h('b', { class: 'timeline-title' }, 'Timeline'),
     h('button', { class: 'btn sm', title: 'Zoom out', onclick: () => zoom(1 / 1.5) }, '🔍−'), h('button', { class: 'btn sm', title: 'Zoom in', onclick: () => zoom(1.5) }, '🔍+'),
-    h('button', { class: 'btn sm', onclick: fit }, 'Fit'), h('span', { class: 'sp' }), h('span', { class: 'hint', style: 'margin:0' }, 'Tap an audio line ↓'));
+    h('button', { class: 'btn sm', onclick: fit }, 'Fit'), h('span', { class: 'sp' }), h('span', { class: 'hint', style: 'margin:0' }, 'Select a clip to edit'));
   drawTimeline(); drawLineBox(); drawTabs();
   setTimeout(fit, 0);
-  return h('div', {},
+  return h('div', { class: 'workbench' },
     h('div', { class: 'studio' },
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard()),
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn', title: 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, '⏮'), timeEl, h('span', { class: 'sp' }),
-          ),
+          h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm', title: 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, '−'), h('button', { class: 'btn sm', title: 'Fit scene in editor', onclick: () => setEditorZoom(1) }, 'Fit scene'), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm', title: 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, '+'))),
         hintEl = h('p', { class: 'hint' }, '👆 Tap a character or prop to select it · drag to move'),
         selBar = h('div', { class: 'selbar', hidden: true })),
-      h('div', { class: 'tlwrap' }, tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, lineBox),
+      h('div', { class: 'tlwrap' }, tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
       h('div', { class: 'side' }, tabsEl, panelEl)));
 }
 function drawTabs() {
+  stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
-  tabsEl.replaceChildren(...TABS.map(([k, l, i]) => h('button', { class: S.tab === k ? 'on' : '', onclick: () => {
-    if (S.tab === k) S.panelOpen = !S.panelOpen; else { S.tab = k; S.panelOpen = true; }
-    drawTabs();
-  } }, h('span', { class: 'ti' }, i), h('span', {}, l))));
-  panelEl.className = `panel${S.panelOpen ? ' open' : ''}`;
-  panelEl.replaceChildren(h('div', { class: 'sheet-close' }, h('b', {}, TABS.find((t) => t[0] === S.tab)[1]), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, '▾ Close')), { audio: tabAudio, chars: tabChars, anim: tabAnim, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, export: tabExport }[S.tab]());
+  const advanced = new Set(['motion', 'camera', 'mask', 'ai']);
+  const button = ([key, label, icon]) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
+    if (S.tab === key) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
+    drawTabs(); S.dirty = true;
+  } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon), h('span', {}, label));
+  const more = h('details', { class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}` },
+    h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '⚙'), 'Advanced'),
+    h('div', { class: 'advanced-tools-list' }, ...TABS.filter(t => advanced.has(t[0])).map(button)));
+  tabsEl.replaceChildren(...TABS.filter(t => !advanced.has(t[0])).map(button), more);
+  panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
+  const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
+  panelEl.replaceChildren(h('div', { class: 'sheet-close' }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, 'Close')),
+    { audio: tabAudio, chars: tabChars, anim: tabAnim, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, export: tabExport }[S.tab]());
+  S.dirty = true;
 }
 
 /* ---- timeline: ruler + the audio lines (the main track) ---- */
@@ -597,7 +631,7 @@ async function addClip(s, ref, overlay, length) {
 function clipPicker(s, onPick) {
   let close;
   const ab = animBrowser({ getSpeaker: () => s, chips: null, selectedRef: () => null, onPick: async (sp, ref, overlay, length) => { close(); await (onPick ? onPick(ref, overlay, length) : addClip(sp, ref, overlay, length)); } });
-  close = modal(`Add an animation · ${s.name}`, h('div', {}, h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, onPick ? 'Pick the animation that replaces this clip.' : `It is placed at the playhead (${fmt(player.time)}). Add the same animation as many times as you like.`), ab.el));
+  close = modal(`Add an animation · ${s.name}`, h('div', {}, h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, onPick ? 'Pick the animation that replaces this clip.' : `It is placed at the playhead (${fmt(player.time)}). Add the same animation as many times as you like.`), ab.el), () => ab.dispose());
 }
 function dragClip(e, m, mode, el) {
   if (S.exporting) return;
@@ -822,7 +856,7 @@ function tabMask() {
     h('div', { class: 'card flat' }, h('b', {}, `Target: ${selected.name}`), h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:8px' }, ...chars.map((s) => h('button', { class: `btn sm ${s.key === selected.key ? 'pri' : ''}`, onclick: () => { S.sel = s.key; drawTabs(); } }, s.name)))));
 }
 function setAspect(a) {
-  S.aspect = a; stage.setSize(a, S.preview); S.dirty = true; syncCam(); updateSel(); drawTabs();
+  S.aspect = a; stage.setSize(a, S.preview); fitEditor(); S.dirty = true; syncCam(); updateSel(); drawTabs();
 }
 
 /** while playing / scrubbing the "line layers" follow the playhead */
@@ -882,12 +916,50 @@ async function pickAnimation(s, ref, overlay, length) {
 }
 
 /* ---- on-canvas handles: drag to move, corner squares to resize ---- */
+/* Editor zoom changes CSS dimensions only; the render/export camera is untouched. */
+let stageObserver, zoomLabel;
+function fitEditor() {
+  const box = document.getElementById('stagebox');
+  if (!box || !wrapEl || !stage) return;
+  const ratio = stage.W / stage.H;
+  const width = Math.max(40, Math.min(box.clientWidth - 20, (box.clientHeight - 20) * ratio)) * S.editorZoom;
+  wrapEl.style.width = `${width}px`; wrapEl.style.height = `${width / ratio}px`;
+  if (zoomLabel) zoomLabel.value = `${Math.round(S.editorZoom * 100)}%`;
+  updateSel(); S.dirty = true;
+}
+function setEditorZoom(zoom) { S.editorZoom = Math.max(.5, Math.min(2, zoom)); fitEditor(); }
+
+let localSaveError = '', saveDetails, saveBody;
+function updateSaveStatus(state = syncStatus) {
+  if (state.projectId && state.projectId !== projectContext()?.id) state = { text: 'Saved locally' };
+  if (!savedEl || !saveBody) return;
+  const feedback = localSaveError ? { label: 'Local save failed', tone: 'error' } : syncPresentation(state);
+  savedEl.replaceChildren(h('span', { class: 'save-dot', 'aria-hidden': 'true' }), h('span', { class: 'save-label' }, feedback.label));
+  savedEl.setAttribute('aria-label', `${feedback.label}. Open save details`);
+  saveDetails.dataset.tone = feedback.tone;
+  const problem = localSaveError || state.issue?.message;
+  const detail = localSaveError || state.issue?.detail || state.error;
+  const retry = h('button', { class: 'btn sm', disabled: !navigator.onLine && !localSaveError, onclick: async () => {
+    retry.disabled = true;
+    try { await tick(); if (localSaveError) return; await syncCurrent(); }
+    catch (error) { toast(`Sync could not finish: ${error.message}`); }
+    finally { retry.disabled = false; }
+  } }, localSaveError ? 'Retry local save' : 'Retry sync');
+  saveBody.replaceChildren(h('b', {}, feedback.label),
+    h('p', {}, problem || (feedback.tone === 'saved' ? 'Your latest changes are saved on this device and in your account.' : 'Changes save on this device first, then sync automatically when your account and connection are available.')),
+    ...(detail ? [h('details', {}, h('summary', {}, 'Error details'), h('p', { class: 'save-error-detail' }, detail))] : []),
+    ...(localSaveError || state.issue?.retryable || feedback.tone === 'offline' ? [retry] : []),
+    ...(state.text === 'Conflict' ? [h('button', { class: 'btn sm', onclick: async () => { await tick(); saveDetails.open = false; location.hash = '#/toons'; } }, 'Open My Projects')] : []));
+}
+
 function mountStage() {
   selEl = h('div', { class: 'selbox', hidden: true });
   propSelEl = h('div', { class: 'prop-sel', hidden: true, 'aria-label': 'Selected prop; drag to move' });
   handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true })]));
   wrapEl = h('div', { class: 'stagewrap' }, stage.out, selEl, propSelEl, ...Object.values(handleEls));
-  document.getElementById('stagebox').replaceChildren(wrapEl);
+  stageObserver?.disconnect();
+  const box = document.getElementById('stagebox'); box.replaceChildren(wrapEl);
+  stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor();
   mountCamBox();
   let drag = null;
   const pt = (e) => { const r = stage.out.getBoundingClientRect(), k = stage.W / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
@@ -990,7 +1062,7 @@ function drawSelBar(l) {
   const s = S.speakers.find((x) => x.key === l.key);
   selBar.dataset.key = l.key; selBar.hidden = false;
   selBar.replaceChildren(
-    h('span', { class: 'dot', style: `background:${s.color}` }), h('b', {}, s.name),
+    h('span', { class: 'dot', style: `background:${s.color}` }), h('input', { class: 'character-name', 'aria-label': 'Selected character name', value: s.name, maxlength: 80, onchange: e => { const name = e.target.value.trim(); if (!name) { e.target.value = s.name; return; } s.name = name; drawTabs(); drawLineBox(); drawTimeline(); S.dirty = true; } }),
     h('span', { class: 'pct' }, `${Math.round((l.mul ?? 1) * 100)}%`),
     h('input', { type: 'range', min: 20, max: 800, value: Math.round((l.mul ?? 1) * 100), 'aria-label': 'Size', oninput: (e) => {
       const m = e.target.value / 100, cur = stage.layers.find((x) => x.key === l.key);
@@ -1002,7 +1074,7 @@ function drawSelBar(l) {
     h('button', { class: 'btn sm', title: 'Hide the box', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, '✕'),
     h('button', { class: 'btn sm', title: 'Reset size & position', onclick: () => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; } }, 'Reset'));
 }
-window.addEventListener('resize', () => updateSel());
+window.addEventListener('resize', () => fitEditor());
 
 async function removeCharacterFrom(s) {
   if (!confirm(`Remove ${s.name}'s character and its animations from the stage?`)) return;
@@ -1103,10 +1175,10 @@ function tabAnim() {
   const chips = () => h('div', { class: 'tabs' }, withChar.map((s) => h('button', { class: s.key === S.animFor ? 'on' : '', onclick: () => { S.animFor = s.key; drawTabs(); drawLineBox(); } }, h('span', { class: 'dot', style: `background:${s.color};display:inline-block;margin-right:6px` }), s.name)));
   const selectedRef = () => { const r = cur(); return r && !r.auto ? r.body : r?.body ?? null; };
   const idx = L ? player.clips.indexOf(L) + 1 : 0;
-  return h('div', {},
-    h('p', { class: 'hint', style: 'text-align:left;margin:0 0 6px' }, noAudio ? 'No audio yet — the animation you pick plays for the whole scene. (Add audio any time to give every line its own.)' : L ? `Choosing for line ${idx} (${fmt(L.start)}–${fmt(L.end)}). Pick the audio line first on the timeline.` : 'Tap an audio line on the timeline first.'),
-    h('label', { class: 'tog', style: 'margin-bottom:8px', title: 'Every tap places the animation on the timeline at the playhead, so you can stack as many as you like — the same one again too' }, h('input', { type: 'checkbox', checked: S.addMode, onchange: (e) => { S.addMode = e.target.checked; } }), '➕ Add on the timeline at the playhead (instead of replacing)'),
-    noAudio ? null : h('label', { class: 'tog', style: 'margin-bottom:8px' }, h('input', { type: 'checkbox', checked: S.applyAll, onchange: (e) => { S.applyAll = e.target.checked; } }), 'Use for all lines of this character'),
+  return h('div', { class: 'animation-panel' },
+    h('div', { class: 'animation-context' }, h('p', { class: 'hint', style: 'text-align:left;margin:0 0 6px' }, noAudio ? 'Choose an animation for this scene.' : L ? `Choosing for line ${idx} (${fmt(L.start)}–${fmt(L.end)}). Pick the audio line first on the timeline.` : 'Tap an audio line on the timeline first.')),
+    h('details', { class: 'animation-options' }, h('summary', {}, 'Apply options'), h('label', { class: 'tog', style: 'margin-bottom:8px', title: 'Every tap places the animation on the timeline at the playhead, so you can stack as many as you like — the same one again too' }, h('input', { type: 'checkbox', checked: S.addMode, onchange: (e) => { S.addMode = e.target.checked; } }), '➕ Add on the timeline at the playhead (instead of replacing)'),
+    noAudio ? null : h('label', { class: 'tog', style: 'margin-bottom:8px' }, h('input', { type: 'checkbox', checked: S.applyAll, onchange: (e) => { S.applyAll = e.target.checked; } }), 'Use for all lines of this character')),
     animBrowser({ getSpeaker: () => sOf(S.animFor), chips, onPick: pickAnimation, selectedRef }).el);
 }
 
@@ -1368,7 +1440,7 @@ async function togglePlay() {
 
 async function doExport() {
   if (S.exporting) return;
-  S.exporting = true; player.pause(); player.seek(0); if (selEl) selEl.hidden = true; stage.fullView = false; syncCam();
+  S.exporting = true; requestStudioFrame(); player.pause(); player.seek(0); if (selEl) selEl.hidden = true; stage.fullView = false; syncCam();
   let stop = false, wl = null;
   const b = busy('Preparing…', () => { stop = true; });
   try { wl = await navigator.wakeLock?.request('screen'); } catch { /* optional */ }
@@ -1429,10 +1501,10 @@ function docOf() {
   };
 }
 async function ensureDefs() {
-  for (const s of S.speakers) {
-    if (!s.charId?.startsWith('lib:') || S.libDefs.has(s.charId)) continue;
-    const entry = libraryCharacters().find((e) => `lib:${e.id}` === s.charId);
-    try { if (!entry) throw new Error('not in the list'); S.libDefs.set(s.charId, await fetchLibraryCharacter(entry)); } catch (e) { toast(`Could not load the character for ${s.name}: ${e.message}`); s.charId = null; }
+  for (const speaker of S.speakers) {
+    if (!speaker.charId) continue;
+    try { await ensureCharacter(speaker.charId); }
+    catch (error) { toast(`Could not load the character for ${speaker.name}: ${error.message}`); speaker.charId = null; }
   }
 }
 /** put a saved / undone document back into the app */
@@ -1496,7 +1568,7 @@ async function saveProject(doc, docStr) {
   for (const id of [...savedAudio]) if (!S.lines.some((l) => l.id === id)) { await dbDel('audio', id); savedAudio.delete(id); }
   await dbPut('project', { id: 'current', doc, ui, lines, ts: Date.now() });
   lastSaved = sig;
-  if (savedEl) { savedEl.textContent = navigator.onLine ? 'Saved locally · cloud pending' : 'Offline'; savedEl.classList.add('show'); }
+  localSaveError = ''; updateSaveStatus({ text: navigator.onLine ? 'Saving' : 'Offline' });
 }
 async function tick() {
   if (!S.ready || hist.busy || saving || S.exporting || $app.hidden) return;
@@ -1510,7 +1582,7 @@ async function tick() {
     }
     updateHistoryButtons();
     await saveProject(doc, str);
-  } catch (e) { console.warn('autosave failed', e); }
+  } catch (e) { localSaveError = e.message; updateSaveStatus(); console.warn('autosave failed', e); }
   saving = false;
 }
 function updateHistoryButtons() { if (hdrUndo) { hdrUndo.disabled = !hist.undo.length; hdrRedo.disabled = !hist.redo.length; } }
@@ -1531,7 +1603,7 @@ async function stepHistory(dir) {
   hist.busy = false; updateHistoryButtons();
 }
 async function resetEverything() {
-  if (!confirm('Clear the contents of this project? Other projects are preserved.')) return;
+  if (!confirm('Reset this project? This removes its characters, clips and audio from this device. Other projects are preserved. This cannot be undone.')) return;
   S.ready = false; player?.pause();
   await resetAll();
   location.reload();
@@ -1539,29 +1611,31 @@ async function resetEverything() {
 function headerTools() {
   hdrUndo = h('button', { class: 'btn sm ico', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, '↶');
   hdrRedo = h('button', { class: 'btn sm ico', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, '↷');
-  savedEl = h('span', { class: 'saved' });
-  savedEl.classList.add('show');
-  savedEl.textContent = 'Saved locally';
+  savedEl = h('summary', { class: 'saved show' });
+  saveBody = h('div', { class: 'save-popover' });
+  saveDetails = h('details', { class: 'save-status' }, savedEl, saveBody);
+  updateSaveStatus();
   queueMicrotask(updateHistoryButtons);
-  const cloud = h('button', { class: 'btn sm', title: 'Save everything to your 12toons cloud', onclick: async () => {
-    const b = busy('Saving to the cloud…');
-    try { await tick(); const n = await pushAll((p) => b.set('Saving to the cloud…', p)); toast(n ? `Saved to the cloud (${n} new file${n > 1 ? 's' : ''}).` : 'Cloud is up to date.'); } catch (e) { toast(`Cloud: ${e.message}`); } finally { b.done(); }
-  } }, '☁ Save');
-  r2Configured().then((ok) => { if (!ok) cloud.hidden = true; });
   exportBtn = h('button', { class: 'btn ok', onclick: doExport }, '⬇ Export');
-  return h('div', { class: 'hdr-tools' }, savedEl, cloud, hdrUndo, hdrRedo, h('button', { class: 'btn sm rst', title: 'Delete everything saved on this device', onclick: resetEverything }, '⟲ Reset'), exportBtn);
+  return h('div', { class: 'hdr-tools' }, saveDetails, hdrUndo, hdrRedo, h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm', 'aria-label': 'More studio actions' }, '⋯'), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, 'Reset this project…'))), exportBtn);
 }
 window.addEventListener('keydown', (e) => {
   if ($app.hidden || !(e.ctrlKey || e.metaKey) || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
   const k = e.key.toLowerCase();
   if (k === 'z' && !e.shiftKey) { e.preventDefault(); stepHistory(-1); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); stepHistory(1); }
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) tick(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) tick(); else { last = performance.now(); S.dirty = true; } });
 
 /* ---------------- main loop ---------------- */
-let last = performance.now();
+let last = performance.now(), frameId = 0, renderCount = 0, dirty = true;
+function requestStudioFrame() {
+  if (!frameId && player && !$app.hidden && (!document.hidden || S.exporting)) frameId = requestAnimationFrame(loop);
+}
+Object.defineProperty(S, 'dirty', { get: () => dirty, set: value => { dirty = value; if (value) requestStudioFrame(); } });
 function loop(now) {
-  requestAnimationFrame(loop);
+  frameId = 0;
+  if ($app.hidden || document.hidden && !S.exporting) return;
+  if (player.playing || S.exporting) requestStudioFrame();
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (S.step !== 3 || !stage.layers) return;
   if (S.exporting && !player.playing) return; // offline export drives the stage itself
@@ -1571,7 +1645,7 @@ function loop(now) {
   if (!player.playing && !S.dirty) return;
   S.dirty = false;
   const t = player.time;
-  try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); } catch (e) { console.error(e); }
+  try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; } catch (e) { console.error(e); }
   if (player.playing) followLine();
   updateSel(); updateCamBox();
   if (headEl) {
@@ -1582,9 +1656,9 @@ function loop(now) {
   if (timeEl) timeEl.textContent = `${fmt(t)} / ${fmt(player.total)}`;
   if (playBtn) playBtn.textContent = player.playing ? '⏸ Pause' : '▶ Play';
 }
-window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !['INPUT', 'SELECT'].includes(e.target.tagName)) { e.preventDefault(); togglePlay(); } });
+window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, get stage() { return stage; }, get player() { return player; } };
+if (location.search.includes("debug")) window.__toon = { S, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
@@ -1592,13 +1666,14 @@ export const setHome = (fn) => { homeFn = fn; };
 async function goHome() { if (S.exporting) { toast('Wait for the export to finish.'); return; } player?.pause(); try { await tick(); } catch { /* best effort */ } homeFn?.(); }
 export async function openStudio() {
   $app.hidden = false;
-  if (!booted) { booted = true; await boot(); } else { S.characters = await hydrateAll((await loadCharacters()).filter((c) => c.ske || c.base)); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile
+  if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile
   startAutoSync();
-  S.ready = true;
+  S.ready = true; S.dirty = true; fitEditor();
+  const box = document.getElementById('stagebox'); if (box) stageObserver?.observe(box);
 }
 export async function closeStudio() {
   while(saving)await new Promise(resolve=>setTimeout(resolve,20));
-  await tick(); player?.pause(); $app.hidden = true; S.ready = false;
+  await tick(); player?.pause(); stopAll(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; $app.hidden = true; S.ready = false;
 }
-onSyncStatus(s => { if(savedEl){savedEl.textContent=s.text;savedEl.title=s.error;savedEl.classList.add('show');} });
+onSyncStatus(state => { if (!state.projectId || state.projectId === projectContext()?.id) updateSaveStatus(state); });
 
