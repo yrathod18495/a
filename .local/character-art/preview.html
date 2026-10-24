@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local character artwork review</title><style>body{margin:0}.review-note{padding:14px 24px;background:#eef5ff;border-bottom:1px solid #cbd9ed;font:14px system-ui;color:#17243b;display:flex;gap:20px;align-items:center;flex-wrap:wrap}.review-note a{color:#1764df}#status{font-weight:650}</style><body><div class="review-note"><b>LOCAL ARTWORK REVIEW</b><span id="status">Loading original rig and replacement PNGs…</span><a href="/local-character-art/audit.json" target="_blank">Replacement audit</a><a href="/local-character-art/contact-sheet.png" target="_blank">All replacement parts</a></div><div id="preview"></div><script type="module">
+import '/src/style.css';
+import {view} from '/src/charstudio.js';
+import {selectProject} from '/src/store.js';
+import {toast} from '/src/dom.js';
+if(!import.meta.env.DEV) throw Error('This review is available only on the local development server.');
+selectProject('local-artwork-review','replacement-preview');
+try{
+ const root=await view({user:{uid:'local-artwork-review'},home:()=>{},logout:()=>location.reload(),toast,tester:true,localPreview:true});
+ document.querySelector('#preview').append(root);
+ const report=await root.loadArtworkPack('/local-character-art/manifest.json');
+ window.artworkReport=report;
+ document.querySelector('#status').textContent=`${report.length} layer rows loaded with exact original dimensions · local preview only`;
+}catch(error){document.querySelector('#status').textContent='Preview failed: '+error.message;console.error(error);}
+</script></body></html>
+

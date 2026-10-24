@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    { "source": "/admin", "destination": "/" },
+    { "source": "/admin/", "destination": "/" },
+    { "source": "/buy-credits", "destination": "/" },
+    { "source": "/buy-credits/", "destination": "/" },
+    { "source": "/credits", "destination": "/" },
+    { "source": "/credits/", "destination": "/" },
+    { "source": "/terms-of-use", "destination": "/" },
+    { "source": "/terms-of-use/", "destination": "/" },
+    { "source": "/website-license", "destination": "/" },
+    { "source": "/website-license/", "destination": "/" },
+    { "source": "/license", "destination": "/" },
+    { "source": "/license/", "destination": "/" }
+  ]
+}

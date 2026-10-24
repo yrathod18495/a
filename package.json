@@ -1,0 +1,37 @@
+{
+  "name": "12toons",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test": "node --experimental-test-module-mocks --test tests/*.test.js",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@aws-sdk/s3-request-presigner": "^3.1152.0",
+    "@google-cloud/firestore": "^9.3.1",
+    "ag-psd": "^31.0.3",
+    "firebase": "^13.0.0",
+    "firebase-admin": "13.10.0",
+    "jose": "^6.2.12",
+    "jszip": "^3.10.2",
+    "mp4-muxer": "^5.2.2",
+    "webm-muxer": "^5.1.4"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@playwright/test": "^1.64.1",
+    "fake-indexeddb": "^6.2.6",
+    "vite": "^8.3.4"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.13.6"
+  }
+}

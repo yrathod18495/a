@@ -1,0 +1,216 @@
+[
+ {
+  "name": "Bottom",
+  "displayName": "Bottom",
+  "section": "clothes",
+  "attachments": [
+   "Pelvis",
+   "THIGH_L",
+   "CALF_R",
+   "CALF_L",
+   "2"
+  ],
+  "primaryAttachment": "2",
+  "skinItems": {
+   "Saree": {
+    "displayName": "Saree",
+    "thumbnailUrl": "https://assets.autodraft.in/characters/977283/attachment_groups/Bottom/skin_thumbnails/1790757466375_Saree_Bottom.webp"
+   },
+   "Salvar": {
+    "displayName": "Salvar",
+    "thumbnailUrl": "https://assets.autodraft.in/characters/977283/attachment_groups/Bottom/skin_thumbnails/1790757476279_Salvar_Bottom.webp"
+   },
+   "Buisness": {
+    "displayName": "Business",
+    "thumbnailUrl": "https://assets.autodraft.in/characters/977283/attachment_groups/Bottom/skin_thumbnails/1790757483192_Pant_Shirt_Bottom.webp"
+   }
+  }
+ },
+ {
+  "name": "Top",
+  "displayName": "Top",
+  "section": "clothes",
+  "attachments": [
+   "ARM_R",
+   "ARM_L",
+   "FOREARM_L",
+   "FOREARM_R",
+   "TORSO_2",
+   "Body",
+   "Duptta"
+  ],
+  "skinItems": {
+   "Saree": {
+    "displayName": "Saree",
+    "thumbnailUrl": "https://assets.autodraft.in/characters/977283/attachment_groups/Top/skin_thumbnails/1790757490682_Saree_Top.webp"
+   },
+   "Salvar": {
+    "displayName": "Salvar",
+    "thumbnailUrl": "https://assets.autodraft.in/characters/977283/attachment_groups/Top/skin_thumbnails/1790757495206_Salvar_Top.webp"
+   },
+   "Buisness": {
+    "displayName": "Business",
+    "thumbnailUrl": "https://assets.autodraft.in/characters/977283/attachment_groups/Top/skin_thumbnails/1790757498486_Pant_Shirt_Top.webp"
+   }
+  }
+ },
+ {
+  "name": "Shoes",
+  "displayName": "Shoes",
+  "section": "clothes",
+  "attachments": [
+   "SHOE_L",
+   "SHOE_R"
+  ]
+ },
+ {
+  "name": "Eyes",
+  "displayName": "Eyes",
+  "section": "character",
+  "attachments": [
+   "Eyeball_R",
+   "Eyeball_L",
+   "EB",
+   "EB2",
+   "EB3",
+   "EB4",
+   "White"
+  ]
+ },
+ {
+  "name": "Eyebrows",
+  "displayName": "Eyebrows",
+  "section": "character",
+  "attachments": [
+   "Eyebrow_L_N",
+   "Eyebrow_L_N2",
+   "Eyebrow_L_N3",
+   "Eyebrow_R_N",
+   "Eyebrow_R_N2",
+   "Eyebrow_R_N3"
+  ]
+ },
+ {
+  "name": "Face",
+  "displayName": "Face",
+  "section": "character",
+  "attachments": [
+   "HEAD"
+  ]
+ },
+ {
+  "name": "Nose",
+  "displayName": "Nose",
+  "section": "character",
+  "attachments": [
+   "Nose"
+  ]
+ },
+ {
+  "name": "Ears",
+  "displayName": "Ears",
+  "section": "character",
+  "attachments": [
+   "Ear_L",
+   "Ear_R"
+  ],
+  "slotAnchors": [
+   "Ear_L",
+   "Ear_R"
+  ]
+ },
+ {
+  "name": "Hair",
+  "displayName": "Hair",
+  "section": "character",
+  "attachments": [
+   "Back_Hair",
+   "Hair",
+   "Bun_Hair",
+   "Hair_Part"
+  ]
+ },
+ {
+  "name": "Lips",
+  "displayName": "Lips",
+  "section": "character",
+  "attachments": [
+   "Mouth_A",
+   "Mouth_A_B",
+   "Mouth_A_C",
+   "Mouth_A_D",
+   "Mouth_A_D_N",
+   "Mouth_A_E",
+   "Mouth_A_F",
+   "Mouth_A_X",
+   "Mouth_B",
+   "Mouth_C",
+   "Mouth_D",
+   "Mouth_E",
+   "Mouth_X"
+  ]
+ },
+ {
+  "name": "Palms",
+  "displayName": "Palms",
+  "section": "character",
+  "attachments": [
+   "L_Palm",
+   "R_Palm_Strong",
+   "R_Palm",
+   "Palm_Think",
+   "Palm_Point",
+   "Palm_Mobile",
+   "Palm_9",
+   "Palm_8",
+   "Palm_7",
+   "Palm_6",
+   "Palm_5",
+   "Palm_4",
+   "Palm_31",
+   "Palm_30",
+   "Palm_3",
+   "Palm_2_P",
+   "Palm_29",
+   "Palm_28",
+   "Palm_27",
+   "Palm_26",
+   "Palm_25",
+   "Palm_24",
+   "Palm_23",
+   "Palm_22",
+   "Palm_21",
+   "Palm_20",
+   "Palm_2",
+   "Palm_19",
+   "Palm_18",
+   "Palm_17",
+   "Palm_16",
+   "Palm_15",
+   "Palm_14",
+   "Palm_13",
+   "Palm_12",
+   "Palm_11",
+   "Palm_10_2",
+   "Palm_10",
+   "Palm_1"
+  ],
+  "slotAnchors": [
+   "L_Palm",
+   "R_Palm"
+  ]
+ },
+ {
+  "name": "Earrings",
+  "displayName": "Earrings",
+  "section": "character",
+  "attachments": [
+   "Earring_L",
+   "Earring_R"
+  ],
+  "slotAnchors": [
+   "Earring_L",
+   "Earring_R"
+  ]
+ }
+]

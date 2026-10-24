@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signed() { return request.auth != null && request.auth.token.email_verified == true; }
+  function maintenance() {
+   return !exists(/databases/$(database)/documents/config/maintenance)
+    || get(/databases/$(database)/documents/config/maintenance).data.enabled != false;
+  }
+  function session() {
+   return signed() && request.auth.token.sid is string
+    && get(/databases/$(database)/documents/securitySessions/$(request.auth.uid)).data.sid == request.auth.token.sid
+    && get(/databases/$(database)/documents/securitySessions/$(request.auth.uid)).data.revoked == false
+    && get(/databases/$(database)/documents/securitySessions/$(request.auth.uid)).data.expiresAt > request.time.toMillis();
+  }
+  function staff() { return session() && get(/databases/$(database)/documents/securityAdmins/$(request.auth.uid)).data.enabled == true; }
+  function allowed() {
+   let u = get(/databases/$(database)/documents/securityUsers/$(request.auth.uid)).data;
+   return session() && u.get('status', 'active') != 'blocked'
+    && (u.get('status', 'active') != 'suspended' || u.get('until', 0) <= request.time.toMillis())
+    && (!maintenance() || staff());
+  }
+  function writable() { return allowed() && get(/databases/$(database)/documents/securityUsers/$(request.auth.uid)).data.get('status', 'active') != 'restricted'; }
+  function owner(uid) { return allowed() && request.auth.uid == uid; }
+  function admin() { return writable() && get(/databases/$(database)/documents/securityAdmins/$(request.auth.uid)).data.enabled == true; }
+  match /securityUsers/{uid} { allow read, write: if false; }
+  match /securitySessions/{uid} { allow read, write: if false; }
+  match /securityDevices/{id} { allow read, write: if false; }
+  match /securityEvents/{id} { allow read, write: if false; }
+  match /securityAudit/{id} { allow read, write: if false; }
+  match /securityAdmins/{uid} { allow read, write: if false; }
+  match /workspaces/{uid} {
+   allow read: if owner(uid);
+   allow create, update: if owner(uid) && writable()
+    && request.resource.data.keys().hasOnly(['name','email','photoURL','joinedAt','lastSeen','plan'])
+    && request.resource.data.plan == 'Free';
+  }
+  match /workspaces/{uid}/projects/{id} { allow read: if owner(uid); allow write: if false; }
+  match /workspaces/{uid}/characters/{id} { allow read: if owner(uid); allow write: if owner(uid) && writable(); }
+  match /workspaces/{uid}/sync/{id} { allow read: if owner(uid); allow write: if false; }
+  match /config/{id} {
+   allow read: if allowed() && id in ['animations','layers','testers'];
+   allow write: if admin() && id in ['animations','layers','testers'];
+  }
+  match /testerCharacters/{id} {
+   allow read: if allowed() && (resource.data.ownerUid == request.auth.uid || admin());
+   allow create: if writable() && request.resource.data.ownerUid == request.auth.uid;
+   allow update: if writable() && resource.data.ownerUid == request.auth.uid && request.resource.data.ownerUid == resource.data.ownerUid;
+   allow delete: if writable() && (resource.data.ownerUid == request.auth.uid || admin());
+  }
+ }
+}

@@ -1,0 +1,226 @@
+{
+ "tracks": {
+  "PRIMARY": "Body",
+  "HAND": "Hands",
+  "LEGS": "Legs",
+  "EXPRESSION": "Face"
+ },
+ "characters": [
+  {
+   "id": "neha",
+   "name": "Neha",
+   "poses": [
+    {
+     "pose": "front-side",
+     "label": "3/4 Front",
+     "rig": "autodraft/chars/neha/front-side.json",
+     "atlas": "autodraft/chars/neha/front-side.atlas",
+     "image": "autodraft/chars/neha/front-side.webp",
+     "page": "Women_Front 3_4th.png",
+     "bones": 108,
+     "skins": [
+      "default",
+      "Buisness",
+      "Salvar",
+      "Saree"
+     ]
+    },
+    {
+     "pose": "front",
+     "label": "Front",
+     "rig": "autodraft/chars/neha/front.json",
+     "atlas": "autodraft/chars/neha/front.atlas",
+     "image": "autodraft/chars/neha/front.webp",
+     "page": "Women_Front.png",
+     "bones": 99,
+     "skins": [
+      "default",
+      "Buisness",
+      "Salvar",
+      "Saree"
+     ]
+    },
+    {
+     "pose": "back",
+     "label": "Back",
+     "rig": "autodraft/chars/neha/back.json",
+     "atlas": "autodraft/chars/neha/back.atlas",
+     "image": "autodraft/chars/neha/back.webp",
+     "page": "Women_Back 3_4th.png",
+     "bones": 99,
+     "skins": [
+      "default",
+      "Buisness",
+      "Salvar",
+      "Saree"
+     ]
+    },
+    {
+     "pose": "back-2",
+     "label": "Back 2",
+     "rig": "autodraft/chars/neha/back-2.json",
+     "atlas": "autodraft/chars/neha/back-2.atlas",
+     "image": "autodraft/chars/neha/back-2.webp",
+     "page": "Women_Back.png",
+     "bones": 99,
+     "skins": [
+      "default",
+      "Buisness",
+      "Salvar",
+      "Saree"
+     ]
+    },
+    {
+     "pose": "side",
+     "label": "Side",
+     "rig": "autodraft/chars/neha/side.json",
+     "atlas": "autodraft/chars/neha/side.atlas",
+     "image": "autodraft/chars/neha/side.webp",
+     "page": "Women_Side.png",
+     "bones": 99,
+     "skins": [
+      "default",
+      "Buisness",
+      "Salvar",
+      "Saree"
+     ]
+    }
+   ],
+   "thumb": "autodraft/chars/neha/thumb.webp"
+  },
+  {
+   "id": "mybaby",
+   "name": "My Baby",
+   "poses": [
+    {
+     "pose": "front-side",
+     "label": "3/4 Front",
+     "rig": "autodraft/chars/mybaby/front-side.json",
+     "atlas": "autodraft/chars/mybaby/front-side.atlas",
+     "image": "autodraft/chars/mybaby/front-side.webp",
+     "page": "Women_Front 3_4th.png",
+     "bones": 108,
+     "skins": [
+      "Buisness",
+      "Salvar",
+      "Saree",
+      "default"
+     ]
+    },
+    {
+     "pose": "front",
+     "label": "Front",
+     "rig": "autodraft/chars/mybaby/front.json",
+     "atlas": "autodraft/chars/mybaby/front.atlas",
+     "image": "autodraft/chars/mybaby/front.webp",
+     "page": "Women_Front.png",
+     "bones": 99,
+     "skins": [
+      "Buisness",
+      "Salvar",
+      "Saree",
+      "default"
+     ]
+    },
+    {
+     "pose": "back",
+     "label": "Back",
+     "rig": "autodraft/chars/mybaby/back.json",
+     "atlas": "autodraft/chars/mybaby/back.atlas",
+     "image": "autodraft/chars/mybaby/back.webp",
+     "page": "Women_Back 3_4th.png",
+     "bones": 99,
+     "skins": [
+      "Buisness",
+      "Salvar",
+      "Saree",
+      "default"
+     ]
+    },
+    {
+     "pose": "back-2",
+     "label": "Back 2",
+     "rig": "autodraft/chars/mybaby/back-2.json",
+     "atlas": "autodraft/chars/mybaby/back-2.atlas",
+     "image": "autodraft/chars/mybaby/back-2.webp",
+     "page": "Women_Back.png",
+     "bones": 99,
+     "skins": [
+      "Buisness",
+      "Salvar",
+      "Saree",
+      "default"
+     ]
+    },
+    {
+     "pose": "side",
+     "label": "Side",
+     "rig": "autodraft/chars/mybaby/side.json",
+     "atlas": "autodraft/chars/mybaby/side.atlas",
+     "image": "autodraft/chars/mybaby/side.webp",
+     "page": "Women_Side.png",
+     "bones": 99,
+     "skins": [
+      "Buisness",
+      "Salvar",
+      "Saree",
+      "default"
+     ]
+    }
+   ],
+   "thumb": "autodraft/chars/mybaby/thumb.webp"
+  },
+  {
+   "id": "villageboy",
+   "name": "Village Boy",
+   "thumb": "autodraft/chars/villageboy/thumb.webp",
+   "poses": [
+    {
+     "pose": "front-side",
+     "label": "3/4 Front",
+     "rig": "autodraft/chars/villageboy/front-side.json",
+     "atlas": "autodraft/chars/villageboy/front-side.atlas",
+     "image": "autodraft/chars/villageboy/front-side.webp",
+     "page": "Village_Boy2.png",
+     "bones": 47,
+     "skins": [
+      "default"
+     ],
+     "own": true
+    }
+   ]
+  },
+  {
+   "id": "svgmulti",
+   "name": "SVG Multi",
+   "thumb": "autodraft/chars/svgmulti/thumb.webp",
+   "poses": [
+    {
+     "pose": "front-side",
+     "label": "3/4 Front",
+     "rig": "autodraft/chars/svgmulti/front-side.json",
+     "atlas": "autodraft/chars/svgmulti/front-side.atlas",
+     "image": "autodraft/chars/svgmulti/front-side.webp",
+     "images": {
+      "deepak_V2.png": "autodraft/chars/svgmulti/front-side.webp",
+      "deepak_V2_2.png": "autodraft/chars/svgmulti/front-side_2.webp",
+      "deepak_V2_3.png": "autodraft/chars/svgmulti/front-side_3.webp"
+     },
+     "page": "deepak_V2.png",
+     "bones": 78,
+     "skins": [
+      "default",
+      "Deepak",
+      "Kurta",
+      "Kurta2",
+      "Kurta3",
+      "Kurta4",
+      "Lungi"
+     ],
+     "defaultSkin": "Deepak",
+     "own": true
+    }
+   ]
+  }
+ ]
+}
