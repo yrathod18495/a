@@ -6,8 +6,8 @@ import { prepareArmature, assemble } from '../src/db/prep.js';
 import { Stage } from '../src/db/stage.js';
 const read = file => JSON.parse(readFileSync(new URL('../public/'+file, import.meta.url),'utf8'));
 const unwrap = j => j.bone ? j : Object.values(j)[0];
-const chars = read('autodraft/characters.json').characters;
-const catalog = read('autodraft/animations.json');
+const chars = read('12toons/characters.json').characters;
+const catalog = read('12toons/animations.json');
 const cases = [];
 for (const character of chars) {
  const pose = character.poses.find(p => p.pose === 'front-side');

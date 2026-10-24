@@ -1,5 +1,6 @@
 import './style.css';
 import { landingView as marketingLandingView } from './landing.js';
+import './day-theme.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
 import { h, toast, logo } from './dom.js';
 import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser } from './firebase.js';
@@ -12,7 +13,7 @@ import { apiCall } from './session.js';
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
 const brandFavicon = favicon?.getAttribute('href') || '';
-const testerFavicon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="8" fill="%232563eb"/%3E%3Ccircle cx="16" cy="16" r="6" fill="white"/%3E%3C/svg%3E';
+const testerFavicon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="8" fill="%23d4a443"/%3E%3Ccircle cx="16" cy="16" r="6" fill="%231b1308"/%3E%3C/svg%3E';
 window.addEventListener('session-error', e => toast(e.detail));
 window.addEventListener('session-revoked', e => toast(e.detail));
 const $shell = document.getElementById('shell'), $app = document.getElementById('app');
@@ -27,7 +28,7 @@ function setTheme(theme) {
   document.documentElement.style.colorScheme = activeTheme === 'night' ? 'dark' : 'light';
   try { localStorage.setItem('12toons-theme', activeTheme); } catch { /* theme still applies for this page view */ }
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = activeTheme === 'night' ? '#080d17' : '#ffffff';
+  if (meta) meta.content = activeTheme === 'night' ? '#0b0907' : '#ffffff';
 }
 setTheme(activeTheme);
 
@@ -167,7 +168,7 @@ function profileMenu() {
   const close = () => { menu.hidden = true; };
   document.addEventListener('click', close, { once: false });
   const item = (label, fn) => h('button', { class: 'sh-mi', onclick: () => { close(); fn(); } }, label);
-  const themeItem = h('button', { class: 'sh-mi', type: 'button', onclick: () => { setTheme(activeTheme === 'day' ? 'night' : 'day'); close(); } }, activeTheme === 'day' ? '☾ Switch to night mode' : '☀ Switch to day mode');
+  const themeItem = h('button', { class: 'sh-mi', type: 'button', onclick: () => { setTheme(activeTheme === 'day' ? 'night' : 'day'); themeItem.textContent = activeTheme === 'day' ? '☾ Switch to night mode' : '☀ Switch to day mode'; close(); } }, activeTheme === 'day' ? '☾ Switch to night mode' : '☀ Switch to day mode');
   // Temporarily disabled until Firebase Web Push VAPID is configured.
   // Preserve the UI implementation here so it can be restored after setup.
   /*

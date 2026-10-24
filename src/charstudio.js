@@ -67,7 +67,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const [rawMine] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), loadCatalog(), refreshLayerRules(), tester ? refreshTesterRules() : null]);
   const mine = await hydrateAll(rawMine);            // saved characters are small (template + settings + own pictures): put them together again
   let groupsData = [];
-  try { groupsData = await fetch(assetUrl('autodraft/groups.json')).then((r) => r.json()); } catch { /* optional */ }
+  try { groupsData = await fetch(assetUrl('12toons/groups.json')).then((r) => r.json()); } catch { /* optional */ }
   const groupOf = new Map();
   for (const g of groupsData) for (const a of g.attachments) groupOf.set(a, g.name);
 
@@ -356,7 +356,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       const files = [...e.target.files]; e.target.value = ''; await importCharacterFiles(files);
     } });
     const lib = tester ? [] : libraryCharacters();
-    const open = (e) => async () => { try { await pick(await fetchLibraryCharacter(e), `${e.name} · ${e.pose}`); st.tpl = e.autodraft ? { id: e.id } : null; } catch (er) { toast(`Could not download: ${er.message}`); } };
+    const open = (e) => async () => { try { await pick(await fetchLibraryCharacter(e), `${e.name} · ${e.pose}`); st.tpl = e.template ? { id: e.id } : null; } catch (er) { toast(`Could not download: ${er.message}`); } };
     const templates = lib;
     const cloudOnly = st.cloud.filter((c) => !mine.some((m) => m.id === c.id));
     const modeBtn = (create, label, hint) => h('button', { class: `cs-mode ${st.createMode === create ? 'on' : ''}`, onclick: () => { st.createMode = create; st.outline = create; draw(); } }, h('b', {}, label), h('small', {}, hint));
@@ -366,7 +366,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         h('div', { class: 'cs-grid' }, h('button', { class: 'cs-mode on', onclick: async () => {
             st.createMode = true; st.outline = false; st.autoLen = false;
             if (st.def) { rebuild(); st.tab = 'create'; draw(); focusRig(createRows()[0]); return; }
-            const base = libraryCharacters().find((e) => e.autodraft);
+            const base = libraryCharacters().find((e) => e.template);
             if (!base) { toast('No animation rig is configured yet.'); return; }
             try { await pick(await fetchLibraryCharacter(base), 'custom character base'); rebuild(); st.tab = 'create'; draw(); focusRig(createRows()[0]); }
             catch (er) { toast(`Could not load the animation rig: ${er.message}`); }
@@ -656,7 +656,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
           } catch (error) { toast(`Could not load the template: ${error.message}`); }
           finally { st.loadingTemplate = false; draw(); }
         },
-      }, libraryCharacters().filter(e => e.autodraft).map(e => h('option', {
+      }, libraryCharacters().filter(e => e.template).map(e => h('option', {
         value: e.id, selected: st.def.id === `lib:${e.id}` || st.tpl?.id === e.id,
       }, `${e.name} · ${e.pose}`))), h('small', {}, 'Selecting a template starts a fresh character. Upload parts to replace its artwork.')) : null,
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Draw these parts in your own style (same angle as the template, transparent background), upload them one by one, or all together with the template sheet / a PSD. The skeleton, animations, lip-sync and physics come with the base body, so every animation works on your character.'),
@@ -928,7 +928,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   draw(); drawAnimBar();
   if (tester) {
     try {
-      const base = libraryCharacters().find((e) => e.autodraft);
+      const base = libraryCharacters().find((e) => e.template);
       if (base) {
         await pick(await fetchLibraryCharacter(base), 'custom character rig');
         st.createMode = true;

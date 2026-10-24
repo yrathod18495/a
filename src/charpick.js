@@ -3,22 +3,22 @@
 import { h } from './dom.js';
 import { cdn } from './catalog.js';
 
-/** Autodraft entries grouped by character, front poses first: [{ base, name, cover, poses:[entry] }] */
+/** 12toons entries grouped by character, front poses first: [{ base, name, cover, poses:[entry] }] */
 export function groupByCharacter(entries) {
   const order = ['front-side', 'front', 'side', 'back', 'back-2'], byBase = new Map();
-  for (const e of entries.filter((x) => x.autodraft)) {
+  for (const e of entries.filter((x) => x.template)) {
     if (!byBase.has(e.charBase)) byBase.set(e.charBase, { base: e.charBase, name: e.name, poses: [] });
     byBase.get(e.charBase).poses.push(e);
   }
   for (const g of byBase.values()) {
-    g.poses.sort((a, b) => order.indexOf(a.autodraft.pose) - order.indexOf(b.autodraft.pose));
-    g.cover = (g.poses.find((p) => p.autodraft.pose === 'front-side') || g.poses[0]).thumbnail;
+    g.poses.sort((a, b) => order.indexOf(a.template.pose) - order.indexOf(b.template.pose));
+    g.cover = (g.poses.find((p) => p.template.pose === 'front-side') || g.poses[0]).thumbnail;
   }
   return [...byBase.values()];
 }
 
 /**
- * @param entries    library entries (only the Autodraft ones are shown here)
+ * @param entries    library entries (only the 12toons ones are shown here)
  * @param isOn       (entry) => bool   which pose is the current one
  * @param onPick     (entry) => void   a pose was tapped
  */

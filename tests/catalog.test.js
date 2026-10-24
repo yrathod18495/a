@@ -21,7 +21,7 @@ async function catalog() {
     rigInfo: (ske, extra) => ({ bones: ske.armature[0].bone, ...extra }),
     fetch: async path => {
       requests.push(path);
-      assert.ok(path.startsWith('/autodraft/'), 'Only retained local catalog assets should be fetched');
+      assert.ok(path.startsWith('/12toons/'), 'Only retained local catalog assets should be fetched');
       const data = await readFile(new URL('../public' + path, import.meta.url));
       return { ok: true, json: async () => JSON.parse(data), blob: async () => new Blob([data]) };
     },
@@ -36,7 +36,7 @@ test('retained character catalog loads every character and its front-side rig lo
   const entries = api.libraryCharacters();
   assert.deepEqual([...new Set(entries.map(e => e.charBase))].sort(),
     ['chudel', 'mybaby', 'neha', 'sadhubaba', 'svgmulti', 'villageboy']);
-  for (const entry of entries.filter(e => e.autodraft.pose === 'front-side')) {
+  for (const entry of entries.filter(e => e.template.pose === 'front-side')) {
     const character = await api.fetchLibraryCharacter(entry);
     assert.ok(character.ske.armature[0].bone.length > 0, entry.name);
     assert.ok(character.tex.every(t => t.json.SubTexture.length && t.image.size), entry.name);

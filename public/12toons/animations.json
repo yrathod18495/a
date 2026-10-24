@@ -11,391 +11,391 @@
     {
      "id": 9000,
      "name": "Walk \u00b7 Angry",
-     "file": "autodraft/anims/front-side/9000.json",
+     "file": "12toons/anims/front-side/9000.json",
      "length": 4
     },
     {
      "id": 9001,
      "name": "Walk \u00b7 Prop in both hands",
-     "file": "autodraft/anims/front-side/9001.json",
+     "file": "12toons/anims/front-side/9001.json",
      "length": 4
     },
     {
      "id": 9002,
      "name": "Walk \u00b7 Carrying a pot",
-     "file": "autodraft/anims/front-side/9002.json",
+     "file": "12toons/anims/front-side/9002.json",
      "length": 4
     },
     {
      "id": 9003,
      "name": "Walk \u00b7 Carrying a pot 2",
-     "file": "autodraft/anims/front-side/9003.json",
+     "file": "12toons/anims/front-side/9003.json",
      "length": 4
     },
     {
      "id": 9004,
      "name": "Walk \u00b7 Carrying a stick",
-     "file": "autodraft/anims/front-side/9004.json",
+     "file": "12toons/anims/front-side/9004.json",
      "length": 4
     },
     {
      "id": 9005,
      "name": "Walk \u00b7 Carrying a load",
-     "file": "autodraft/anims/front-side/9005.json",
+     "file": "12toons/anims/front-side/9005.json",
      "length": 4
     },
     {
      "id": 9006,
      "name": "Walk \u00b7 Happy",
-     "file": "autodraft/anims/front-side/9006.json",
+     "file": "12toons/anims/front-side/9006.json",
      "length": 4
     },
     {
      "id": 9007,
      "name": "Walk \u00b7 Prop in left hand",
-     "file": "autodraft/anims/front-side/9007.json",
+     "file": "12toons/anims/front-side/9007.json",
      "length": 4
     },
     {
      "id": 9008,
      "name": "Walk \u00b7 Long march",
-     "file": "autodraft/anims/front-side/9008.json",
+     "file": "12toons/anims/front-side/9008.json",
      "length": 32.07
     },
     {
      "id": 9009,
      "name": "Walk \u00b7 Prop in right hand",
-     "file": "autodraft/anims/front-side/9009.json",
+     "file": "12toons/anims/front-side/9009.json",
      "length": 4
     },
     {
      "id": 9010,
      "name": "Run \u00b7 Fast",
-     "file": "autodraft/anims/front-side/9010.json",
+     "file": "12toons/anims/front-side/9010.json",
      "length": 1.33
     },
     {
      "id": 9011,
      "name": "Run \u00b7 Looking back",
-     "file": "autodraft/anims/front-side/9011.json",
+     "file": "12toons/anims/front-side/9011.json",
      "length": 2.67
     },
     {
      "id": 9012,
      "name": "Run \u00b7 Looking front and back",
-     "file": "autodraft/anims/front-side/9012.json",
+     "file": "12toons/anims/front-side/9012.json",
      "length": 10.67
     },
     {
      "id": 9013,
      "name": "Walk \u00b7 Shocked",
-     "file": "autodraft/anims/front-side/9013.json",
+     "file": "12toons/anims/front-side/9013.json",
      "length": 4
     },
     {
      "id": 9014,
      "name": "Walk \u00b7 Suspense",
-     "file": "autodraft/anims/front-side/9014.json",
+     "file": "12toons/anims/front-side/9014.json",
      "length": 4
     },
     {
      "id": 9015,
      "name": "Walk \u00b7 Normal",
-     "file": "autodraft/anims/front-side/9015.json",
+     "file": "12toons/anims/front-side/9015.json",
      "length": 4
     },
     {
      "id": 9016,
      "name": "Walk \u00b7 Looking around",
-     "file": "autodraft/anims/front-side/9016.json",
+     "file": "12toons/anims/front-side/9016.json",
      "length": 12
     },
     {
      "id": 9017,
      "name": "Walk \u00b7 With conversation",
-     "file": "autodraft/anims/front-side/9017.json",
+     "file": "12toons/anims/front-side/9017.json",
      "length": 10.67
     },
     {
      "id": 9018,
      "name": "Walk \u00b7 On the spot",
-     "file": "autodraft/anims/front-side/9018.json",
+     "file": "12toons/anims/front-side/9018.json",
      "length": 4
     },
     {
      "id": 9019,
      "name": "Talk \u00b7 Style 4",
-     "file": "autodraft/anims/front-side/9019.json",
+     "file": "12toons/anims/front-side/9019.json",
      "length": 10
     },
     {
      "id": 9020,
      "name": "Talk \u00b7 Style 1",
-     "file": "autodraft/anims/front-side/9020.json",
+     "file": "12toons/anims/front-side/9020.json",
      "length": 10
     },
     {
      "id": 9021,
      "name": "Talk \u00b7 Style 3",
-     "file": "autodraft/anims/front-side/9021.json",
+     "file": "12toons/anims/front-side/9021.json",
      "length": 10
     },
     {
      "id": 9022,
      "name": "Talk \u00b7 Style 2",
-     "file": "autodraft/anims/front-side/9022.json",
+     "file": "12toons/anims/front-side/9022.json",
      "length": 10
     },
     {
      "id": 9023,
      "name": "Talk \u00b7 Left palm",
-     "file": "autodraft/anims/front-side/9023.json",
+     "file": "12toons/anims/front-side/9023.json",
      "length": 2.67
     },
     {
      "id": 9024,
      "name": "Arms folding",
-     "file": "autodraft/anims/front-side/9024.json",
+     "file": "12toons/anims/front-side/9024.json",
      "length": 2
     },
     {
      "id": 9025,
      "name": "Hands on hip \u00b7 both",
-     "file": "autodraft/anims/front-side/9025.json",
+     "file": "12toons/anims/front-side/9025.json",
      "length": 2
     },
     {
      "id": 9026,
      "name": "Pointing \u00b7 left hand",
-     "file": "autodraft/anims/front-side/9026.json",
+     "file": "12toons/anims/front-side/9026.json",
      "length": 2.67
     },
     {
      "id": 9027,
      "name": "Hand on hip \u00b7 left",
-     "file": "autodraft/anims/front-side/9027.json",
+     "file": "12toons/anims/front-side/9027.json",
      "length": 2
     },
     {
      "id": 9028,
      "name": "Hand on hip \u00b7 right",
-     "file": "autodraft/anims/front-side/9028.json",
+     "file": "12toons/anims/front-side/9028.json",
      "length": 2
     },
     {
      "id": 9029,
      "name": "Idle \u00b7 Calm",
-     "file": "autodraft/anims/front-side/9029.json",
+     "file": "12toons/anims/front-side/9029.json",
      "length": 5.33
     },
     {
      "id": 9030,
      "name": "Idle \u00b7 Relaxed",
-     "file": "autodraft/anims/front-side/9030.json",
+     "file": "12toons/anims/front-side/9030.json",
      "length": 7.33
     },
     {
      "id": 9031,
      "name": "Sleep \u00b7 Back",
-     "file": "autodraft/anims/front-side/9031.json",
+     "file": "12toons/anims/front-side/9031.json",
      "length": 2
     },
     {
      "id": 9032,
      "name": "Sleep \u00b7 Front",
-     "file": "autodraft/anims/front-side/9032.json",
+     "file": "12toons/anims/front-side/9032.json",
      "length": 2
     },
     {
      "id": 9033,
      "name": "Sleep \u00b7 Front 2",
-     "file": "autodraft/anims/front-side/9033.json",
+     "file": "12toons/anims/front-side/9033.json",
      "length": 2
     },
     {
      "id": 9034,
      "name": "Sleep \u00b7 Nightmare",
-     "file": "autodraft/anims/front-side/9034.json",
+     "file": "12toons/anims/front-side/9034.json",
      "length": 6.8
     },
     {
      "id": 9035,
      "name": "Fear \u00b7 Standing",
-     "file": "autodraft/anims/front-side/9035.json",
+     "file": "12toons/anims/front-side/9035.json",
      "length": 4
     },
     {
      "id": 9036,
      "name": "Fear \u00b7 Full body",
-     "file": "autodraft/anims/front-side/9036.json",
+     "file": "12toons/anims/front-side/9036.json",
      "length": 5
     },
     {
      "id": 9037,
      "name": "Breathing \u00b7 Heavy",
-     "file": "autodraft/anims/front-side/9037.json",
+     "file": "12toons/anims/front-side/9037.json",
      "length": 1.33
     },
     {
      "id": 9038,
      "name": "Action \u00b7 Stab",
-     "file": "autodraft/anims/front-side/9038.json",
+     "file": "12toons/anims/front-side/9038.json",
      "length": 1.67
     },
     {
      "id": 9039,
      "name": "Mood \u00b7 Bored",
-     "file": "autodraft/anims/front-side/9039.json",
+     "file": "12toons/anims/front-side/9039.json",
      "length": 2
     },
     {
      "id": 9040,
      "name": "Action \u00b7 Clap",
-     "file": "autodraft/anims/front-side/9040.json",
+     "file": "12toons/anims/front-side/9040.json",
      "length": 4
     },
     {
      "id": 9041,
      "name": "Action \u00b7 Cough",
-     "file": "autodraft/anims/front-side/9041.json",
+     "file": "12toons/anims/front-side/9041.json",
      "length": 3.33
     },
     {
      "id": 9042,
      "name": "Dance 1",
-     "file": "autodraft/anims/front-side/9042.json",
+     "file": "12toons/anims/front-side/9042.json",
      "length": 2
     },
     {
      "id": 9043,
      "name": "Dance 2",
-     "file": "autodraft/anims/front-side/9043.json",
+     "file": "12toons/anims/front-side/9043.json",
      "length": 2
     },
     {
      "id": 9044,
      "name": "Action \u00b7 Dig",
-     "file": "autodraft/anims/front-side/9044.json",
+     "file": "12toons/anims/front-side/9044.json",
      "length": 2
     },
     {
      "id": 9045,
      "name": "Mood \u00b7 Disappointed",
-     "file": "autodraft/anims/front-side/9045.json",
+     "file": "12toons/anims/front-side/9045.json",
      "length": 3
     },
     {
      "id": 9046,
      "name": "Mood \u00b7 Doubt",
-     "file": "autodraft/anims/front-side/9046.json",
+     "file": "12toons/anims/front-side/9046.json",
      "length": 6.67
     },
     {
      "id": 9047,
      "name": "Action \u00b7 Driving",
-     "file": "autodraft/anims/front-side/9047.json",
+     "file": "12toons/anims/front-side/9047.json",
      "length": 2
     },
     {
      "id": 9048,
      "name": "Mood \u00b7 Fed up",
-     "file": "autodraft/anims/front-side/9048.json",
+     "file": "12toons/anims/front-side/9048.json",
      "length": 6.67
     },
     {
      "id": 9049,
      "name": "Action \u00b7 Fly",
-     "file": "autodraft/anims/front-side/9049.json",
+     "file": "12toons/anims/front-side/9049.json",
      "length": 6
     },
     {
      "id": 9051,
      "name": "Greet \u00b7 Hello",
-     "file": "autodraft/anims/front-side/9051.json",
+     "file": "12toons/anims/front-side/9051.json",
      "length": 4
     },
     {
      "id": 9052,
      "name": "Action \u00b7 Jump",
-     "file": "autodraft/anims/front-side/9052.json",
+     "file": "12toons/anims/front-side/9052.json",
      "length": 3.33
     },
     {
      "id": 9053,
      "name": "Action \u00b7 Kick",
-     "file": "autodraft/anims/front-side/9053.json",
+     "file": "12toons/anims/front-side/9053.json",
      "length": 2.33
     },
     {
      "id": 9054,
      "name": "Action \u00b7 Kick a ball",
-     "file": "autodraft/anims/front-side/9054.json",
+     "file": "12toons/anims/front-side/9054.json",
      "length": 3
     },
     {
      "id": 9055,
      "name": "Mood \u00b7 Laugh at someone",
-     "file": "autodraft/anims/front-side/9055.json",
+     "file": "12toons/anims/front-side/9055.json",
      "length": 5.33
     },
     {
      "id": 9056,
      "name": "Pose \u00b7 Lean on a wall",
-     "file": "autodraft/anims/front-side/9056.json",
+     "file": "12toons/anims/front-side/9056.json",
      "length": 2
     },
     {
      "id": 9057,
      "name": "Look \u00b7 Around",
-     "file": "autodraft/anims/front-side/9057.json",
+     "file": "12toons/anims/front-side/9057.json",
      "length": 10
     },
     {
      "id": 9058,
      "name": "Action \u00b7 Pick up",
-     "file": "autodraft/anims/front-side/9058.json",
+     "file": "12toons/anims/front-side/9058.json",
      "length": 2
     },
     {
      "id": 9059,
      "name": "Greet \u00b7 Pray",
-     "file": "autodraft/anims/front-side/9059.json",
+     "file": "12toons/anims/front-side/9059.json",
      "length": 2.33
     },
     {
      "id": 9060,
      "name": "Greet \u00b7 Pray 2",
-     "file": "autodraft/anims/front-side/9060.json",
+     "file": "12toons/anims/front-side/9060.json",
      "length": 3.93
     },
     {
      "id": 9061,
      "name": "Action \u00b7 Punch",
-     "file": "autodraft/anims/front-side/9061.json",
+     "file": "12toons/anims/front-side/9061.json",
      "length": 2
     },
     {
      "id": 9062,
      "name": "Action \u00b7 Read a paper",
-     "file": "autodraft/anims/front-side/9062.json",
+     "file": "12toons/anims/front-side/9062.json",
      "length": 2
     },
     {
      "id": 9063,
      "name": "Greet \u00b7 Salute",
-     "file": "autodraft/anims/front-side/9063.json",
+     "file": "12toons/anims/front-side/9063.json",
      "length": 4.33
     },
     {
      "id": 9064,
      "name": "Action \u00b7 Swim",
-     "file": "autodraft/anims/front-side/9064.json",
+     "file": "12toons/anims/front-side/9064.json",
      "length": 1
     },
     {
      "id": 9065,
      "name": "Action \u00b7 Yawn",
-     "file": "autodraft/anims/front-side/9065.json",
+     "file": "12toons/anims/front-side/9065.json",
      "length": 3
     }
    ],
@@ -403,73 +403,73 @@
     {
      "id": 9300,
      "name": "Hands \u00b7 Talk 1",
-     "file": "autodraft/anims/front-side/9300.json",
+     "file": "12toons/anims/front-side/9300.json",
      "length": 10
     },
     {
      "id": 9301,
      "name": "Hands \u00b7 Talk 2",
-     "file": "autodraft/anims/front-side/9301.json",
+     "file": "12toons/anims/front-side/9301.json",
      "length": 10
     },
     {
      "id": 9302,
      "name": "Hands \u00b7 Talk 3",
-     "file": "autodraft/anims/front-side/9302.json",
+     "file": "12toons/anims/front-side/9302.json",
      "length": 10
     },
     {
      "id": 9303,
      "name": "Hands \u00b7 Talk 4",
-     "file": "autodraft/anims/front-side/9303.json",
+     "file": "12toons/anims/front-side/9303.json",
      "length": 10
     },
     {
      "id": 9304,
      "name": "Hands \u00b7 Clap",
-     "file": "autodraft/anims/front-side/9304.json",
+     "file": "12toons/anims/front-side/9304.json",
      "length": 4
     },
     {
      "id": 9305,
      "name": "Hands \u00b7 Hello",
-     "file": "autodraft/anims/front-side/9305.json",
+     "file": "12toons/anims/front-side/9305.json",
      "length": 4
     },
     {
      "id": 9306,
      "name": "Hands \u00b7 Pray",
-     "file": "autodraft/anims/front-side/9306.json",
+     "file": "12toons/anims/front-side/9306.json",
      "length": 2.33
     },
     {
      "id": 9307,
      "name": "Hands \u00b7 Pray 2",
-     "file": "autodraft/anims/front-side/9307.json",
+     "file": "12toons/anims/front-side/9307.json",
      "length": 3.93
     },
     {
      "id": 9308,
      "name": "Hands \u00b7 Salute",
-     "file": "autodraft/anims/front-side/9308.json",
+     "file": "12toons/anims/front-side/9308.json",
      "length": 4.33
     },
     {
      "id": 9309,
      "name": "Hands \u00b7 Punch",
-     "file": "autodraft/anims/front-side/9309.json",
+     "file": "12toons/anims/front-side/9309.json",
      "length": 2
     },
     {
      "id": 9310,
      "name": "Hands \u00b7 Folded",
-     "file": "autodraft/anims/front-side/9310.json",
+     "file": "12toons/anims/front-side/9310.json",
      "length": 2
     },
     {
      "id": 9311,
      "name": "Hands \u00b7 Pointing",
-     "file": "autodraft/anims/front-side/9311.json",
+     "file": "12toons/anims/front-side/9311.json",
      "length": 2.67
     }
    ],
@@ -477,49 +477,49 @@
     {
      "id": 9400,
      "name": "Legs \u00b7 Walk",
-     "file": "autodraft/anims/front-side/9400.json",
+     "file": "12toons/anims/front-side/9400.json",
      "length": 4
     },
     {
      "id": 9401,
      "name": "Legs \u00b7 Walk happy",
-     "file": "autodraft/anims/front-side/9401.json",
+     "file": "12toons/anims/front-side/9401.json",
      "length": 4
     },
     {
      "id": 9402,
      "name": "Legs \u00b7 Walk angry",
-     "file": "autodraft/anims/front-side/9402.json",
+     "file": "12toons/anims/front-side/9402.json",
      "length": 4
     },
     {
      "id": 9403,
      "name": "Legs \u00b7 Walk shocked",
-     "file": "autodraft/anims/front-side/9403.json",
+     "file": "12toons/anims/front-side/9403.json",
      "length": 4
     },
     {
      "id": 9404,
      "name": "Legs \u00b7 Walk suspense",
-     "file": "autodraft/anims/front-side/9404.json",
+     "file": "12toons/anims/front-side/9404.json",
      "length": 4
     },
     {
      "id": 9405,
      "name": "Legs \u00b7 Walk on the spot",
-     "file": "autodraft/anims/front-side/9405.json",
+     "file": "12toons/anims/front-side/9405.json",
      "length": 4
     },
     {
      "id": 9406,
      "name": "Legs \u00b7 Run",
-     "file": "autodraft/anims/front-side/9406.json",
+     "file": "12toons/anims/front-side/9406.json",
      "length": 1.33
     },
     {
      "id": 9407,
      "name": "Legs \u00b7 Run looking back",
-     "file": "autodraft/anims/front-side/9407.json",
+     "file": "12toons/anims/front-side/9407.json",
      "length": 2.67
     }
    ],
@@ -527,103 +527,103 @@
     {
      "id": 9066,
      "name": "Face \u00b7 Angry blink",
-     "file": "autodraft/anims/front-side/9066.json",
+     "file": "12toons/anims/front-side/9066.json",
      "length": 3.67
     },
     {
      "id": 9067,
      "name": "Face \u00b7 Shocked blink",
-     "file": "autodraft/anims/front-side/9067.json",
+     "file": "12toons/anims/front-side/9067.json",
      "length": 3.67
     },
     {
      "id": 9068,
      "name": "Face \u00b7 Suspense blink",
-     "file": "autodraft/anims/front-side/9068.json",
+     "file": "12toons/anims/front-side/9068.json",
      "length": 3.67
     },
     {
      "id": 9069,
      "name": "Face \u00b7 Happy blink",
-     "file": "autodraft/anims/front-side/9069.json",
+     "file": "12toons/anims/front-side/9069.json",
      "length": 3.67
     },
     {
      "id": 9070,
      "name": "Face \u00b7 Neutral blink",
-     "file": "autodraft/anims/front-side/9070.json",
+     "file": "12toons/anims/front-side/9070.json",
      "length": 3.67
     },
     {
      "id": 9071,
      "name": "Face \u00b7 Sad blink",
-     "file": "autodraft/anims/front-side/9071.json",
+     "file": "12toons/anims/front-side/9071.json",
      "length": 3.67
     },
     {
      "id": 9072,
      "name": "Face \u00b7 Scared blink",
-     "file": "autodraft/anims/front-side/9072.json",
+     "file": "12toons/anims/front-side/9072.json",
      "length": 3.67
     },
     {
      "id": 9073,
      "name": "Face \u00b7 Scared 1",
-     "file": "autodraft/anims/front-side/9073.json",
+     "file": "12toons/anims/front-side/9073.json",
      "length": 5
     },
     {
      "id": 9074,
      "name": "Face \u00b7 Scared 2",
-     "file": "autodraft/anims/front-side/9074.json",
+     "file": "12toons/anims/front-side/9074.json",
      "length": 5
     },
     {
      "id": 9075,
      "name": "Eyes \u00b7 Look up (long)",
-     "file": "autodraft/anims/front-side/9075.json",
+     "file": "12toons/anims/front-side/9075.json",
      "length": 4
     },
     {
      "id": 9076,
      "name": "Eyes \u00b7 Look down (long)",
-     "file": "autodraft/anims/front-side/9076.json",
+     "file": "12toons/anims/front-side/9076.json",
      "length": 4
     },
     {
      "id": 9077,
      "name": "Eyes \u00b7 Look left (long)",
-     "file": "autodraft/anims/front-side/9077.json",
+     "file": "12toons/anims/front-side/9077.json",
      "length": 4
     },
     {
      "id": 9078,
      "name": "Eyes \u00b7 Look right (long)",
-     "file": "autodraft/anims/front-side/9078.json",
+     "file": "12toons/anims/front-side/9078.json",
      "length": 4
     },
     {
      "id": 9079,
      "name": "Eyes \u00b7 Look down",
-     "file": "autodraft/anims/front-side/9079.json",
+     "file": "12toons/anims/front-side/9079.json",
      "length": 2
     },
     {
      "id": 9080,
      "name": "Eyes \u00b7 Look left",
-     "file": "autodraft/anims/front-side/9080.json",
+     "file": "12toons/anims/front-side/9080.json",
      "length": 2
     },
     {
      "id": 9081,
      "name": "Eyes \u00b7 Look right",
-     "file": "autodraft/anims/front-side/9081.json",
+     "file": "12toons/anims/front-side/9081.json",
      "length": 2
     },
     {
      "id": 9082,
      "name": "Eyes \u00b7 Look up",
-     "file": "autodraft/anims/front-side/9082.json",
+     "file": "12toons/anims/front-side/9082.json",
      "length": 2
     }
    ]
@@ -633,391 +633,391 @@
     {
      "id": 9000,
      "name": "Walk \u00b7 Angry",
-     "file": "autodraft/anims/front/9000.json",
+     "file": "12toons/anims/front/9000.json",
      "length": 4
     },
     {
      "id": 9001,
      "name": "Walk \u00b7 Prop in both hands",
-     "file": "autodraft/anims/front/9001.json",
+     "file": "12toons/anims/front/9001.json",
      "length": 4
     },
     {
      "id": 9002,
      "name": "Walk \u00b7 Carrying a pot",
-     "file": "autodraft/anims/front/9002.json",
+     "file": "12toons/anims/front/9002.json",
      "length": 4
     },
     {
      "id": 9003,
      "name": "Walk \u00b7 Carrying a pot 2",
-     "file": "autodraft/anims/front/9003.json",
+     "file": "12toons/anims/front/9003.json",
      "length": 4
     },
     {
      "id": 9004,
      "name": "Walk \u00b7 Carrying a stick",
-     "file": "autodraft/anims/front/9004.json",
+     "file": "12toons/anims/front/9004.json",
      "length": 4
     },
     {
      "id": 9005,
      "name": "Walk \u00b7 Carrying a load",
-     "file": "autodraft/anims/front/9005.json",
+     "file": "12toons/anims/front/9005.json",
      "length": 4
     },
     {
      "id": 9006,
      "name": "Walk \u00b7 Happy",
-     "file": "autodraft/anims/front/9006.json",
+     "file": "12toons/anims/front/9006.json",
      "length": 4
     },
     {
      "id": 9007,
      "name": "Walk \u00b7 Prop in left hand",
-     "file": "autodraft/anims/front/9007.json",
+     "file": "12toons/anims/front/9007.json",
      "length": 4
     },
     {
      "id": 9008,
      "name": "Walk \u00b7 Long march",
-     "file": "autodraft/anims/front/9008.json",
+     "file": "12toons/anims/front/9008.json",
      "length": 32.07
     },
     {
      "id": 9009,
      "name": "Walk \u00b7 Prop in right hand",
-     "file": "autodraft/anims/front/9009.json",
+     "file": "12toons/anims/front/9009.json",
      "length": 4
     },
     {
      "id": 9010,
      "name": "Run \u00b7 Fast",
-     "file": "autodraft/anims/front/9010.json",
+     "file": "12toons/anims/front/9010.json",
      "length": 1.33
     },
     {
      "id": 9011,
      "name": "Run \u00b7 Looking back",
-     "file": "autodraft/anims/front/9011.json",
+     "file": "12toons/anims/front/9011.json",
      "length": 2.67
     },
     {
      "id": 9012,
      "name": "Run \u00b7 Looking front and back",
-     "file": "autodraft/anims/front/9012.json",
+     "file": "12toons/anims/front/9012.json",
      "length": 10.67
     },
     {
      "id": 9013,
      "name": "Walk \u00b7 Shocked",
-     "file": "autodraft/anims/front/9013.json",
+     "file": "12toons/anims/front/9013.json",
      "length": 4
     },
     {
      "id": 9014,
      "name": "Walk \u00b7 Suspense",
-     "file": "autodraft/anims/front/9014.json",
+     "file": "12toons/anims/front/9014.json",
      "length": 4
     },
     {
      "id": 9015,
      "name": "Walk \u00b7 Normal",
-     "file": "autodraft/anims/front/9015.json",
+     "file": "12toons/anims/front/9015.json",
      "length": 4
     },
     {
      "id": 9016,
      "name": "Walk \u00b7 Looking around",
-     "file": "autodraft/anims/front/9016.json",
+     "file": "12toons/anims/front/9016.json",
      "length": 12
     },
     {
      "id": 9017,
      "name": "Walk \u00b7 With conversation",
-     "file": "autodraft/anims/front/9017.json",
+     "file": "12toons/anims/front/9017.json",
      "length": 10.67
     },
     {
      "id": 9018,
      "name": "Walk \u00b7 On the spot",
-     "file": "autodraft/anims/front/9018.json",
+     "file": "12toons/anims/front/9018.json",
      "length": 4
     },
     {
      "id": 9019,
      "name": "Talk \u00b7 Style 4",
-     "file": "autodraft/anims/front/9019.json",
+     "file": "12toons/anims/front/9019.json",
      "length": 10
     },
     {
      "id": 9020,
      "name": "Talk \u00b7 Style 1",
-     "file": "autodraft/anims/front/9020.json",
+     "file": "12toons/anims/front/9020.json",
      "length": 10
     },
     {
      "id": 9021,
      "name": "Talk \u00b7 Style 3",
-     "file": "autodraft/anims/front/9021.json",
+     "file": "12toons/anims/front/9021.json",
      "length": 10
     },
     {
      "id": 9022,
      "name": "Talk \u00b7 Style 2",
-     "file": "autodraft/anims/front/9022.json",
+     "file": "12toons/anims/front/9022.json",
      "length": 10
     },
     {
      "id": 9023,
      "name": "Talk \u00b7 Left palm",
-     "file": "autodraft/anims/front/9023.json",
+     "file": "12toons/anims/front/9023.json",
      "length": 2.67
     },
     {
      "id": 9024,
      "name": "Arms folding",
-     "file": "autodraft/anims/front/9024.json",
+     "file": "12toons/anims/front/9024.json",
      "length": 2
     },
     {
      "id": 9025,
      "name": "Hands on hip \u00b7 both",
-     "file": "autodraft/anims/front/9025.json",
+     "file": "12toons/anims/front/9025.json",
      "length": 2
     },
     {
      "id": 9026,
      "name": "Pointing \u00b7 left hand",
-     "file": "autodraft/anims/front/9026.json",
+     "file": "12toons/anims/front/9026.json",
      "length": 2.67
     },
     {
      "id": 9027,
      "name": "Hand on hip \u00b7 left",
-     "file": "autodraft/anims/front/9027.json",
+     "file": "12toons/anims/front/9027.json",
      "length": 2
     },
     {
      "id": 9028,
      "name": "Hand on hip \u00b7 right",
-     "file": "autodraft/anims/front/9028.json",
+     "file": "12toons/anims/front/9028.json",
      "length": 2
     },
     {
      "id": 9029,
      "name": "Idle \u00b7 Calm",
-     "file": "autodraft/anims/front/9029.json",
+     "file": "12toons/anims/front/9029.json",
      "length": 5.33
     },
     {
      "id": 9030,
      "name": "Idle \u00b7 Relaxed",
-     "file": "autodraft/anims/front/9030.json",
+     "file": "12toons/anims/front/9030.json",
      "length": 7.33
     },
     {
      "id": 9031,
      "name": "Sleep \u00b7 Back",
-     "file": "autodraft/anims/front/9031.json",
+     "file": "12toons/anims/front/9031.json",
      "length": 2
     },
     {
      "id": 9032,
      "name": "Sleep \u00b7 Front",
-     "file": "autodraft/anims/front/9032.json",
+     "file": "12toons/anims/front/9032.json",
      "length": 2
     },
     {
      "id": 9033,
      "name": "Sleep \u00b7 Front 2",
-     "file": "autodraft/anims/front/9033.json",
+     "file": "12toons/anims/front/9033.json",
      "length": 2
     },
     {
      "id": 9034,
      "name": "Sleep \u00b7 Nightmare",
-     "file": "autodraft/anims/front/9034.json",
+     "file": "12toons/anims/front/9034.json",
      "length": 6.8
     },
     {
      "id": 9035,
      "name": "Fear \u00b7 Standing",
-     "file": "autodraft/anims/front/9035.json",
+     "file": "12toons/anims/front/9035.json",
      "length": 4
     },
     {
      "id": 9036,
      "name": "Fear \u00b7 Full body",
-     "file": "autodraft/anims/front/9036.json",
+     "file": "12toons/anims/front/9036.json",
      "length": 5
     },
     {
      "id": 9037,
      "name": "Breathing \u00b7 Heavy",
-     "file": "autodraft/anims/front/9037.json",
+     "file": "12toons/anims/front/9037.json",
      "length": 1.33
     },
     {
      "id": 9038,
      "name": "Action \u00b7 Stab",
-     "file": "autodraft/anims/front/9038.json",
+     "file": "12toons/anims/front/9038.json",
      "length": 1.67
     },
     {
      "id": 9039,
      "name": "Mood \u00b7 Bored",
-     "file": "autodraft/anims/front/9039.json",
+     "file": "12toons/anims/front/9039.json",
      "length": 2
     },
     {
      "id": 9040,
      "name": "Action \u00b7 Clap",
-     "file": "autodraft/anims/front/9040.json",
+     "file": "12toons/anims/front/9040.json",
      "length": 4
     },
     {
      "id": 9041,
      "name": "Action \u00b7 Cough",
-     "file": "autodraft/anims/front/9041.json",
+     "file": "12toons/anims/front/9041.json",
      "length": 3.33
     },
     {
      "id": 9042,
      "name": "Dance 1",
-     "file": "autodraft/anims/front/9042.json",
+     "file": "12toons/anims/front/9042.json",
      "length": 2
     },
     {
      "id": 9043,
      "name": "Dance 2",
-     "file": "autodraft/anims/front/9043.json",
+     "file": "12toons/anims/front/9043.json",
      "length": 2
     },
     {
      "id": 9044,
      "name": "Action \u00b7 Dig",
-     "file": "autodraft/anims/front/9044.json",
+     "file": "12toons/anims/front/9044.json",
      "length": 2
     },
     {
      "id": 9045,
      "name": "Mood \u00b7 Disappointed",
-     "file": "autodraft/anims/front/9045.json",
+     "file": "12toons/anims/front/9045.json",
      "length": 3
     },
     {
      "id": 9046,
      "name": "Mood \u00b7 Doubt",
-     "file": "autodraft/anims/front/9046.json",
+     "file": "12toons/anims/front/9046.json",
      "length": 6.67
     },
     {
      "id": 9047,
      "name": "Action \u00b7 Driving",
-     "file": "autodraft/anims/front/9047.json",
+     "file": "12toons/anims/front/9047.json",
      "length": 2
     },
     {
      "id": 9048,
      "name": "Mood \u00b7 Fed up",
-     "file": "autodraft/anims/front/9048.json",
+     "file": "12toons/anims/front/9048.json",
      "length": 6.67
     },
     {
      "id": 9049,
      "name": "Action \u00b7 Fly",
-     "file": "autodraft/anims/front/9049.json",
+     "file": "12toons/anims/front/9049.json",
      "length": 6
     },
     {
      "id": 9051,
      "name": "Greet \u00b7 Hello",
-     "file": "autodraft/anims/front/9051.json",
+     "file": "12toons/anims/front/9051.json",
      "length": 4
     },
     {
      "id": 9052,
      "name": "Action \u00b7 Jump",
-     "file": "autodraft/anims/front/9052.json",
+     "file": "12toons/anims/front/9052.json",
      "length": 3.33
     },
     {
      "id": 9053,
      "name": "Action \u00b7 Kick",
-     "file": "autodraft/anims/front/9053.json",
+     "file": "12toons/anims/front/9053.json",
      "length": 2.33
     },
     {
      "id": 9054,
      "name": "Action \u00b7 Kick a ball",
-     "file": "autodraft/anims/front/9054.json",
+     "file": "12toons/anims/front/9054.json",
      "length": 3
     },
     {
      "id": 9055,
      "name": "Mood \u00b7 Laugh at someone",
-     "file": "autodraft/anims/front/9055.json",
+     "file": "12toons/anims/front/9055.json",
      "length": 5.33
     },
     {
      "id": 9056,
      "name": "Pose \u00b7 Lean on a wall",
-     "file": "autodraft/anims/front/9056.json",
+     "file": "12toons/anims/front/9056.json",
      "length": 2
     },
     {
      "id": 9057,
      "name": "Look \u00b7 Around",
-     "file": "autodraft/anims/front/9057.json",
+     "file": "12toons/anims/front/9057.json",
      "length": 10
     },
     {
      "id": 9058,
      "name": "Action \u00b7 Pick up",
-     "file": "autodraft/anims/front/9058.json",
+     "file": "12toons/anims/front/9058.json",
      "length": 2
     },
     {
      "id": 9059,
      "name": "Greet \u00b7 Pray",
-     "file": "autodraft/anims/front/9059.json",
+     "file": "12toons/anims/front/9059.json",
      "length": 2.33
     },
     {
      "id": 9060,
      "name": "Greet \u00b7 Pray 2",
-     "file": "autodraft/anims/front/9060.json",
+     "file": "12toons/anims/front/9060.json",
      "length": 3.93
     },
     {
      "id": 9061,
      "name": "Action \u00b7 Punch",
-     "file": "autodraft/anims/front/9061.json",
+     "file": "12toons/anims/front/9061.json",
      "length": 2
     },
     {
      "id": 9062,
      "name": "Action \u00b7 Read a paper",
-     "file": "autodraft/anims/front/9062.json",
+     "file": "12toons/anims/front/9062.json",
      "length": 2
     },
     {
      "id": 9063,
      "name": "Greet \u00b7 Salute",
-     "file": "autodraft/anims/front/9063.json",
+     "file": "12toons/anims/front/9063.json",
      "length": 4.33
     },
     {
      "id": 9064,
      "name": "Action \u00b7 Swim",
-     "file": "autodraft/anims/front/9064.json",
+     "file": "12toons/anims/front/9064.json",
      "length": 1
     },
     {
      "id": 9065,
      "name": "Action \u00b7 Yawn",
-     "file": "autodraft/anims/front/9065.json",
+     "file": "12toons/anims/front/9065.json",
      "length": 3
     }
    ],
@@ -1025,73 +1025,73 @@
     {
      "id": 9300,
      "name": "Hands \u00b7 Talk 1",
-     "file": "autodraft/anims/front/9300.json",
+     "file": "12toons/anims/front/9300.json",
      "length": 10
     },
     {
      "id": 9301,
      "name": "Hands \u00b7 Talk 2",
-     "file": "autodraft/anims/front/9301.json",
+     "file": "12toons/anims/front/9301.json",
      "length": 10
     },
     {
      "id": 9302,
      "name": "Hands \u00b7 Talk 3",
-     "file": "autodraft/anims/front/9302.json",
+     "file": "12toons/anims/front/9302.json",
      "length": 10
     },
     {
      "id": 9303,
      "name": "Hands \u00b7 Talk 4",
-     "file": "autodraft/anims/front/9303.json",
+     "file": "12toons/anims/front/9303.json",
      "length": 10
     },
     {
      "id": 9304,
      "name": "Hands \u00b7 Clap",
-     "file": "autodraft/anims/front/9304.json",
+     "file": "12toons/anims/front/9304.json",
      "length": 4
     },
     {
      "id": 9305,
      "name": "Hands \u00b7 Hello",
-     "file": "autodraft/anims/front/9305.json",
+     "file": "12toons/anims/front/9305.json",
      "length": 4
     },
     {
      "id": 9306,
      "name": "Hands \u00b7 Pray",
-     "file": "autodraft/anims/front/9306.json",
+     "file": "12toons/anims/front/9306.json",
      "length": 2.33
     },
     {
      "id": 9307,
      "name": "Hands \u00b7 Pray 2",
-     "file": "autodraft/anims/front/9307.json",
+     "file": "12toons/anims/front/9307.json",
      "length": 3.93
     },
     {
      "id": 9308,
      "name": "Hands \u00b7 Salute",
-     "file": "autodraft/anims/front/9308.json",
+     "file": "12toons/anims/front/9308.json",
      "length": 4.33
     },
     {
      "id": 9309,
      "name": "Hands \u00b7 Punch",
-     "file": "autodraft/anims/front/9309.json",
+     "file": "12toons/anims/front/9309.json",
      "length": 2
     },
     {
      "id": 9310,
      "name": "Hands \u00b7 Folded",
-     "file": "autodraft/anims/front/9310.json",
+     "file": "12toons/anims/front/9310.json",
      "length": 2
     },
     {
      "id": 9311,
      "name": "Hands \u00b7 Pointing",
-     "file": "autodraft/anims/front/9311.json",
+     "file": "12toons/anims/front/9311.json",
      "length": 2.67
     }
    ],
@@ -1099,49 +1099,49 @@
     {
      "id": 9400,
      "name": "Legs \u00b7 Walk",
-     "file": "autodraft/anims/front/9400.json",
+     "file": "12toons/anims/front/9400.json",
      "length": 4
     },
     {
      "id": 9401,
      "name": "Legs \u00b7 Walk happy",
-     "file": "autodraft/anims/front/9401.json",
+     "file": "12toons/anims/front/9401.json",
      "length": 4
     },
     {
      "id": 9402,
      "name": "Legs \u00b7 Walk angry",
-     "file": "autodraft/anims/front/9402.json",
+     "file": "12toons/anims/front/9402.json",
      "length": 4
     },
     {
      "id": 9403,
      "name": "Legs \u00b7 Walk shocked",
-     "file": "autodraft/anims/front/9403.json",
+     "file": "12toons/anims/front/9403.json",
      "length": 4
     },
     {
      "id": 9404,
      "name": "Legs \u00b7 Walk suspense",
-     "file": "autodraft/anims/front/9404.json",
+     "file": "12toons/anims/front/9404.json",
      "length": 4
     },
     {
      "id": 9405,
      "name": "Legs \u00b7 Walk on the spot",
-     "file": "autodraft/anims/front/9405.json",
+     "file": "12toons/anims/front/9405.json",
      "length": 4
     },
     {
      "id": 9406,
      "name": "Legs \u00b7 Run",
-     "file": "autodraft/anims/front/9406.json",
+     "file": "12toons/anims/front/9406.json",
      "length": 1.33
     },
     {
      "id": 9407,
      "name": "Legs \u00b7 Run looking back",
-     "file": "autodraft/anims/front/9407.json",
+     "file": "12toons/anims/front/9407.json",
      "length": 2.67
     }
    ],
@@ -1149,103 +1149,103 @@
     {
      "id": 9066,
      "name": "Face \u00b7 Angry blink",
-     "file": "autodraft/anims/front/9066.json",
+     "file": "12toons/anims/front/9066.json",
      "length": 3.67
     },
     {
      "id": 9067,
      "name": "Face \u00b7 Shocked blink",
-     "file": "autodraft/anims/front/9067.json",
+     "file": "12toons/anims/front/9067.json",
      "length": 3.67
     },
     {
      "id": 9068,
      "name": "Face \u00b7 Suspense blink",
-     "file": "autodraft/anims/front/9068.json",
+     "file": "12toons/anims/front/9068.json",
      "length": 3.67
     },
     {
      "id": 9069,
      "name": "Face \u00b7 Happy blink",
-     "file": "autodraft/anims/front/9069.json",
+     "file": "12toons/anims/front/9069.json",
      "length": 3.67
     },
     {
      "id": 9070,
      "name": "Face \u00b7 Neutral blink",
-     "file": "autodraft/anims/front/9070.json",
+     "file": "12toons/anims/front/9070.json",
      "length": 3.67
     },
     {
      "id": 9071,
      "name": "Face \u00b7 Sad blink",
-     "file": "autodraft/anims/front/9071.json",
+     "file": "12toons/anims/front/9071.json",
      "length": 3.67
     },
     {
      "id": 9072,
      "name": "Face \u00b7 Scared blink",
-     "file": "autodraft/anims/front/9072.json",
+     "file": "12toons/anims/front/9072.json",
      "length": 3.67
     },
     {
      "id": 9073,
      "name": "Face \u00b7 Scared 1",
-     "file": "autodraft/anims/front/9073.json",
+     "file": "12toons/anims/front/9073.json",
      "length": 5
     },
     {
      "id": 9074,
      "name": "Face \u00b7 Scared 2",
-     "file": "autodraft/anims/front/9074.json",
+     "file": "12toons/anims/front/9074.json",
      "length": 5
     },
     {
      "id": 9075,
      "name": "Eyes \u00b7 Look up (long)",
-     "file": "autodraft/anims/front/9075.json",
+     "file": "12toons/anims/front/9075.json",
      "length": 4
     },
     {
      "id": 9076,
      "name": "Eyes \u00b7 Look down (long)",
-     "file": "autodraft/anims/front/9076.json",
+     "file": "12toons/anims/front/9076.json",
      "length": 4
     },
     {
      "id": 9077,
      "name": "Eyes \u00b7 Look left (long)",
-     "file": "autodraft/anims/front/9077.json",
+     "file": "12toons/anims/front/9077.json",
      "length": 4
     },
     {
      "id": 9078,
      "name": "Eyes \u00b7 Look right (long)",
-     "file": "autodraft/anims/front/9078.json",
+     "file": "12toons/anims/front/9078.json",
      "length": 4
     },
     {
      "id": 9079,
      "name": "Eyes \u00b7 Look down",
-     "file": "autodraft/anims/front/9079.json",
+     "file": "12toons/anims/front/9079.json",
      "length": 2
     },
     {
      "id": 9080,
      "name": "Eyes \u00b7 Look left",
-     "file": "autodraft/anims/front/9080.json",
+     "file": "12toons/anims/front/9080.json",
      "length": 2
     },
     {
      "id": 9081,
      "name": "Eyes \u00b7 Look right",
-     "file": "autodraft/anims/front/9081.json",
+     "file": "12toons/anims/front/9081.json",
      "length": 2
     },
     {
      "id": 9082,
      "name": "Eyes \u00b7 Look up",
-     "file": "autodraft/anims/front/9082.json",
+     "file": "12toons/anims/front/9082.json",
      "length": 2
     }
    ]
@@ -1255,391 +1255,391 @@
     {
      "id": 9000,
      "name": "Walk \u00b7 Angry",
-     "file": "autodraft/anims/back/9000.json",
+     "file": "12toons/anims/back/9000.json",
      "length": 4
     },
     {
      "id": 9001,
      "name": "Walk \u00b7 Prop in both hands",
-     "file": "autodraft/anims/back/9001.json",
+     "file": "12toons/anims/back/9001.json",
      "length": 4
     },
     {
      "id": 9002,
      "name": "Walk \u00b7 Carrying a pot",
-     "file": "autodraft/anims/back/9002.json",
+     "file": "12toons/anims/back/9002.json",
      "length": 4
     },
     {
      "id": 9003,
      "name": "Walk \u00b7 Carrying a pot 2",
-     "file": "autodraft/anims/back/9003.json",
+     "file": "12toons/anims/back/9003.json",
      "length": 4
     },
     {
      "id": 9004,
      "name": "Walk \u00b7 Carrying a stick",
-     "file": "autodraft/anims/back/9004.json",
+     "file": "12toons/anims/back/9004.json",
      "length": 4
     },
     {
      "id": 9005,
      "name": "Walk \u00b7 Carrying a load",
-     "file": "autodraft/anims/back/9005.json",
+     "file": "12toons/anims/back/9005.json",
      "length": 4
     },
     {
      "id": 9006,
      "name": "Walk \u00b7 Happy",
-     "file": "autodraft/anims/back/9006.json",
+     "file": "12toons/anims/back/9006.json",
      "length": 4
     },
     {
      "id": 9007,
      "name": "Walk \u00b7 Prop in left hand",
-     "file": "autodraft/anims/back/9007.json",
+     "file": "12toons/anims/back/9007.json",
      "length": 4
     },
     {
      "id": 9008,
      "name": "Walk \u00b7 Long march",
-     "file": "autodraft/anims/back/9008.json",
+     "file": "12toons/anims/back/9008.json",
      "length": 32.07
     },
     {
      "id": 9009,
      "name": "Walk \u00b7 Prop in right hand",
-     "file": "autodraft/anims/back/9009.json",
+     "file": "12toons/anims/back/9009.json",
      "length": 4
     },
     {
      "id": 9010,
      "name": "Run \u00b7 Fast",
-     "file": "autodraft/anims/back/9010.json",
+     "file": "12toons/anims/back/9010.json",
      "length": 1.33
     },
     {
      "id": 9011,
      "name": "Run \u00b7 Looking back",
-     "file": "autodraft/anims/back/9011.json",
+     "file": "12toons/anims/back/9011.json",
      "length": 2.67
     },
     {
      "id": 9012,
      "name": "Run \u00b7 Looking front and back",
-     "file": "autodraft/anims/back/9012.json",
+     "file": "12toons/anims/back/9012.json",
      "length": 10.67
     },
     {
      "id": 9013,
      "name": "Walk \u00b7 Shocked",
-     "file": "autodraft/anims/back/9013.json",
+     "file": "12toons/anims/back/9013.json",
      "length": 4
     },
     {
      "id": 9014,
      "name": "Walk \u00b7 Suspense",
-     "file": "autodraft/anims/back/9014.json",
+     "file": "12toons/anims/back/9014.json",
      "length": 4
     },
     {
      "id": 9015,
      "name": "Walk \u00b7 Normal",
-     "file": "autodraft/anims/back/9015.json",
+     "file": "12toons/anims/back/9015.json",
      "length": 4
     },
     {
      "id": 9016,
      "name": "Walk \u00b7 Looking around",
-     "file": "autodraft/anims/back/9016.json",
+     "file": "12toons/anims/back/9016.json",
      "length": 12
     },
     {
      "id": 9017,
      "name": "Walk \u00b7 With conversation",
-     "file": "autodraft/anims/back/9017.json",
+     "file": "12toons/anims/back/9017.json",
      "length": 10.67
     },
     {
      "id": 9018,
      "name": "Walk \u00b7 On the spot",
-     "file": "autodraft/anims/back/9018.json",
+     "file": "12toons/anims/back/9018.json",
      "length": 4
     },
     {
      "id": 9019,
      "name": "Talk \u00b7 Style 4",
-     "file": "autodraft/anims/back/9019.json",
+     "file": "12toons/anims/back/9019.json",
      "length": 10
     },
     {
      "id": 9020,
      "name": "Talk \u00b7 Style 1",
-     "file": "autodraft/anims/back/9020.json",
+     "file": "12toons/anims/back/9020.json",
      "length": 10
     },
     {
      "id": 9021,
      "name": "Talk \u00b7 Style 3",
-     "file": "autodraft/anims/back/9021.json",
+     "file": "12toons/anims/back/9021.json",
      "length": 10
     },
     {
      "id": 9022,
      "name": "Talk \u00b7 Style 2",
-     "file": "autodraft/anims/back/9022.json",
+     "file": "12toons/anims/back/9022.json",
      "length": 10
     },
     {
      "id": 9023,
      "name": "Talk \u00b7 Left palm",
-     "file": "autodraft/anims/back/9023.json",
+     "file": "12toons/anims/back/9023.json",
      "length": 2.67
     },
     {
      "id": 9024,
      "name": "Arms folding",
-     "file": "autodraft/anims/back/9024.json",
+     "file": "12toons/anims/back/9024.json",
      "length": 2
     },
     {
      "id": 9025,
      "name": "Hands on hip \u00b7 both",
-     "file": "autodraft/anims/back/9025.json",
+     "file": "12toons/anims/back/9025.json",
      "length": 2
     },
     {
      "id": 9026,
      "name": "Pointing \u00b7 left hand",
-     "file": "autodraft/anims/back/9026.json",
+     "file": "12toons/anims/back/9026.json",
      "length": 2.67
     },
     {
      "id": 9027,
      "name": "Hand on hip \u00b7 left",
-     "file": "autodraft/anims/back/9027.json",
+     "file": "12toons/anims/back/9027.json",
      "length": 2
     },
     {
      "id": 9028,
      "name": "Hand on hip \u00b7 right",
-     "file": "autodraft/anims/back/9028.json",
+     "file": "12toons/anims/back/9028.json",
      "length": 2
     },
     {
      "id": 9029,
      "name": "Idle \u00b7 Calm",
-     "file": "autodraft/anims/back/9029.json",
+     "file": "12toons/anims/back/9029.json",
      "length": 5.33
     },
     {
      "id": 9030,
      "name": "Idle \u00b7 Relaxed",
-     "file": "autodraft/anims/back/9030.json",
+     "file": "12toons/anims/back/9030.json",
      "length": 7.33
     },
     {
      "id": 9031,
      "name": "Sleep \u00b7 Back",
-     "file": "autodraft/anims/back/9031.json",
+     "file": "12toons/anims/back/9031.json",
      "length": 2
     },
     {
      "id": 9032,
      "name": "Sleep \u00b7 Front",
-     "file": "autodraft/anims/back/9032.json",
+     "file": "12toons/anims/back/9032.json",
      "length": 2
     },
     {
      "id": 9033,
      "name": "Sleep \u00b7 Front 2",
-     "file": "autodraft/anims/back/9033.json",
+     "file": "12toons/anims/back/9033.json",
      "length": 2
     },
     {
      "id": 9034,
      "name": "Sleep \u00b7 Nightmare",
-     "file": "autodraft/anims/back/9034.json",
+     "file": "12toons/anims/back/9034.json",
      "length": 6.8
     },
     {
      "id": 9035,
      "name": "Fear \u00b7 Standing",
-     "file": "autodraft/anims/back/9035.json",
+     "file": "12toons/anims/back/9035.json",
      "length": 4
     },
     {
      "id": 9036,
      "name": "Fear \u00b7 Full body",
-     "file": "autodraft/anims/back/9036.json",
+     "file": "12toons/anims/back/9036.json",
      "length": 5
     },
     {
      "id": 9037,
      "name": "Breathing \u00b7 Heavy",
-     "file": "autodraft/anims/back/9037.json",
+     "file": "12toons/anims/back/9037.json",
      "length": 1.33
     },
     {
      "id": 9038,
      "name": "Action \u00b7 Stab",
-     "file": "autodraft/anims/back/9038.json",
+     "file": "12toons/anims/back/9038.json",
      "length": 1.67
     },
     {
      "id": 9039,
      "name": "Mood \u00b7 Bored",
-     "file": "autodraft/anims/back/9039.json",
+     "file": "12toons/anims/back/9039.json",
      "length": 2
     },
     {
      "id": 9040,
      "name": "Action \u00b7 Clap",
-     "file": "autodraft/anims/back/9040.json",
+     "file": "12toons/anims/back/9040.json",
      "length": 4
     },
     {
      "id": 9041,
      "name": "Action \u00b7 Cough",
-     "file": "autodraft/anims/back/9041.json",
+     "file": "12toons/anims/back/9041.json",
      "length": 3.33
     },
     {
      "id": 9042,
      "name": "Dance 1",
-     "file": "autodraft/anims/back/9042.json",
+     "file": "12toons/anims/back/9042.json",
      "length": 2
     },
     {
      "id": 9043,
      "name": "Dance 2",
-     "file": "autodraft/anims/back/9043.json",
+     "file": "12toons/anims/back/9043.json",
      "length": 2
     },
     {
      "id": 9044,
      "name": "Action \u00b7 Dig",
-     "file": "autodraft/anims/back/9044.json",
+     "file": "12toons/anims/back/9044.json",
      "length": 2
     },
     {
      "id": 9045,
      "name": "Mood \u00b7 Disappointed",
-     "file": "autodraft/anims/back/9045.json",
+     "file": "12toons/anims/back/9045.json",
      "length": 3
     },
     {
      "id": 9046,
      "name": "Mood \u00b7 Doubt",
-     "file": "autodraft/anims/back/9046.json",
+     "file": "12toons/anims/back/9046.json",
      "length": 6.67
     },
     {
      "id": 9047,
      "name": "Action \u00b7 Driving",
-     "file": "autodraft/anims/back/9047.json",
+     "file": "12toons/anims/back/9047.json",
      "length": 2
     },
     {
      "id": 9048,
      "name": "Mood \u00b7 Fed up",
-     "file": "autodraft/anims/back/9048.json",
+     "file": "12toons/anims/back/9048.json",
      "length": 6.67
     },
     {
      "id": 9049,
      "name": "Action \u00b7 Fly",
-     "file": "autodraft/anims/back/9049.json",
+     "file": "12toons/anims/back/9049.json",
      "length": 6
     },
     {
      "id": 9051,
      "name": "Greet \u00b7 Hello",
-     "file": "autodraft/anims/back/9051.json",
+     "file": "12toons/anims/back/9051.json",
      "length": 4
     },
     {
      "id": 9052,
      "name": "Action \u00b7 Jump",
-     "file": "autodraft/anims/back/9052.json",
+     "file": "12toons/anims/back/9052.json",
      "length": 3.33
     },
     {
      "id": 9053,
      "name": "Action \u00b7 Kick",
-     "file": "autodraft/anims/back/9053.json",
+     "file": "12toons/anims/back/9053.json",
      "length": 2.33
     },
     {
      "id": 9054,
      "name": "Action \u00b7 Kick a ball",
-     "file": "autodraft/anims/back/9054.json",
+     "file": "12toons/anims/back/9054.json",
      "length": 3
     },
     {
      "id": 9055,
      "name": "Mood \u00b7 Laugh at someone",
-     "file": "autodraft/anims/back/9055.json",
+     "file": "12toons/anims/back/9055.json",
      "length": 5.33
     },
     {
      "id": 9056,
      "name": "Pose \u00b7 Lean on a wall",
-     "file": "autodraft/anims/back/9056.json",
+     "file": "12toons/anims/back/9056.json",
      "length": 2
     },
     {
      "id": 9057,
      "name": "Look \u00b7 Around",
-     "file": "autodraft/anims/back/9057.json",
+     "file": "12toons/anims/back/9057.json",
      "length": 10
     },
     {
      "id": 9058,
      "name": "Action \u00b7 Pick up",
-     "file": "autodraft/anims/back/9058.json",
+     "file": "12toons/anims/back/9058.json",
      "length": 2
     },
     {
      "id": 9059,
      "name": "Greet \u00b7 Pray",
-     "file": "autodraft/anims/back/9059.json",
+     "file": "12toons/anims/back/9059.json",
      "length": 2.33
     },
     {
      "id": 9060,
      "name": "Greet \u00b7 Pray 2",
-     "file": "autodraft/anims/back/9060.json",
+     "file": "12toons/anims/back/9060.json",
      "length": 3.93
     },
     {
      "id": 9061,
      "name": "Action \u00b7 Punch",
-     "file": "autodraft/anims/back/9061.json",
+     "file": "12toons/anims/back/9061.json",
      "length": 2
     },
     {
      "id": 9062,
      "name": "Action \u00b7 Read a paper",
-     "file": "autodraft/anims/back/9062.json",
+     "file": "12toons/anims/back/9062.json",
      "length": 2
     },
     {
      "id": 9063,
      "name": "Greet \u00b7 Salute",
-     "file": "autodraft/anims/back/9063.json",
+     "file": "12toons/anims/back/9063.json",
      "length": 4.33
     },
     {
      "id": 9064,
      "name": "Action \u00b7 Swim",
-     "file": "autodraft/anims/back/9064.json",
+     "file": "12toons/anims/back/9064.json",
      "length": 1
     },
     {
      "id": 9065,
      "name": "Action \u00b7 Yawn",
-     "file": "autodraft/anims/back/9065.json",
+     "file": "12toons/anims/back/9065.json",
      "length": 3
     }
    ],
@@ -1647,73 +1647,73 @@
     {
      "id": 9300,
      "name": "Hands \u00b7 Talk 1",
-     "file": "autodraft/anims/back/9300.json",
+     "file": "12toons/anims/back/9300.json",
      "length": 10
     },
     {
      "id": 9301,
      "name": "Hands \u00b7 Talk 2",
-     "file": "autodraft/anims/back/9301.json",
+     "file": "12toons/anims/back/9301.json",
      "length": 10
     },
     {
      "id": 9302,
      "name": "Hands \u00b7 Talk 3",
-     "file": "autodraft/anims/back/9302.json",
+     "file": "12toons/anims/back/9302.json",
      "length": 10
     },
     {
      "id": 9303,
      "name": "Hands \u00b7 Talk 4",
-     "file": "autodraft/anims/back/9303.json",
+     "file": "12toons/anims/back/9303.json",
      "length": 10
     },
     {
      "id": 9304,
      "name": "Hands \u00b7 Clap",
-     "file": "autodraft/anims/back/9304.json",
+     "file": "12toons/anims/back/9304.json",
      "length": 4
     },
     {
      "id": 9305,
      "name": "Hands \u00b7 Hello",
-     "file": "autodraft/anims/back/9305.json",
+     "file": "12toons/anims/back/9305.json",
      "length": 4
     },
     {
      "id": 9306,
      "name": "Hands \u00b7 Pray",
-     "file": "autodraft/anims/back/9306.json",
+     "file": "12toons/anims/back/9306.json",
      "length": 2.33
     },
     {
      "id": 9307,
      "name": "Hands \u00b7 Pray 2",
-     "file": "autodraft/anims/back/9307.json",
+     "file": "12toons/anims/back/9307.json",
      "length": 3.93
     },
     {
      "id": 9308,
      "name": "Hands \u00b7 Salute",
-     "file": "autodraft/anims/back/9308.json",
+     "file": "12toons/anims/back/9308.json",
      "length": 4.33
     },
     {
      "id": 9309,
      "name": "Hands \u00b7 Punch",
-     "file": "autodraft/anims/back/9309.json",
+     "file": "12toons/anims/back/9309.json",
      "length": 2
     },
     {
      "id": 9310,
      "name": "Hands \u00b7 Folded",
-     "file": "autodraft/anims/back/9310.json",
+     "file": "12toons/anims/back/9310.json",
      "length": 2
     },
     {
      "id": 9311,
      "name": "Hands \u00b7 Pointing",
-     "file": "autodraft/anims/back/9311.json",
+     "file": "12toons/anims/back/9311.json",
      "length": 2.67
     }
    ],
@@ -1721,49 +1721,49 @@
     {
      "id": 9400,
      "name": "Legs \u00b7 Walk",
-     "file": "autodraft/anims/back/9400.json",
+     "file": "12toons/anims/back/9400.json",
      "length": 4
     },
     {
      "id": 9401,
      "name": "Legs \u00b7 Walk happy",
-     "file": "autodraft/anims/back/9401.json",
+     "file": "12toons/anims/back/9401.json",
      "length": 4
     },
     {
      "id": 9402,
      "name": "Legs \u00b7 Walk angry",
-     "file": "autodraft/anims/back/9402.json",
+     "file": "12toons/anims/back/9402.json",
      "length": 4
     },
     {
      "id": 9403,
      "name": "Legs \u00b7 Walk shocked",
-     "file": "autodraft/anims/back/9403.json",
+     "file": "12toons/anims/back/9403.json",
      "length": 4
     },
     {
      "id": 9404,
      "name": "Legs \u00b7 Walk suspense",
-     "file": "autodraft/anims/back/9404.json",
+     "file": "12toons/anims/back/9404.json",
      "length": 4
     },
     {
      "id": 9405,
      "name": "Legs \u00b7 Walk on the spot",
-     "file": "autodraft/anims/back/9405.json",
+     "file": "12toons/anims/back/9405.json",
      "length": 4
     },
     {
      "id": 9406,
      "name": "Legs \u00b7 Run",
-     "file": "autodraft/anims/back/9406.json",
+     "file": "12toons/anims/back/9406.json",
      "length": 1.33
     },
     {
      "id": 9407,
      "name": "Legs \u00b7 Run looking back",
-     "file": "autodraft/anims/back/9407.json",
+     "file": "12toons/anims/back/9407.json",
      "length": 2.67
     }
    ],
@@ -1771,61 +1771,61 @@
     {
      "id": 9073,
      "name": "Face \u00b7 Scared 1",
-     "file": "autodraft/anims/back/9073.json",
+     "file": "12toons/anims/back/9073.json",
      "length": 5
     },
     {
      "id": 9074,
      "name": "Face \u00b7 Scared 2",
-     "file": "autodraft/anims/back/9074.json",
+     "file": "12toons/anims/back/9074.json",
      "length": 5
     },
     {
      "id": 9075,
      "name": "Eyes \u00b7 Look up (long)",
-     "file": "autodraft/anims/back/9075.json",
+     "file": "12toons/anims/back/9075.json",
      "length": 4
     },
     {
      "id": 9076,
      "name": "Eyes \u00b7 Look down (long)",
-     "file": "autodraft/anims/back/9076.json",
+     "file": "12toons/anims/back/9076.json",
      "length": 4
     },
     {
      "id": 9077,
      "name": "Eyes \u00b7 Look left (long)",
-     "file": "autodraft/anims/back/9077.json",
+     "file": "12toons/anims/back/9077.json",
      "length": 4
     },
     {
      "id": 9078,
      "name": "Eyes \u00b7 Look right (long)",
-     "file": "autodraft/anims/back/9078.json",
+     "file": "12toons/anims/back/9078.json",
      "length": 4
     },
     {
      "id": 9079,
      "name": "Eyes \u00b7 Look down",
-     "file": "autodraft/anims/back/9079.json",
+     "file": "12toons/anims/back/9079.json",
      "length": 2
     },
     {
      "id": 9080,
      "name": "Eyes \u00b7 Look left",
-     "file": "autodraft/anims/back/9080.json",
+     "file": "12toons/anims/back/9080.json",
      "length": 2
     },
     {
      "id": 9081,
      "name": "Eyes \u00b7 Look right",
-     "file": "autodraft/anims/back/9081.json",
+     "file": "12toons/anims/back/9081.json",
      "length": 2
     },
     {
      "id": 9082,
      "name": "Eyes \u00b7 Look up",
-     "file": "autodraft/anims/back/9082.json",
+     "file": "12toons/anims/back/9082.json",
      "length": 2
     }
    ]
@@ -1835,391 +1835,391 @@
     {
      "id": 9000,
      "name": "Walk \u00b7 Angry",
-     "file": "autodraft/anims/back-2/9000.json",
+     "file": "12toons/anims/back-2/9000.json",
      "length": 4
     },
     {
      "id": 9001,
      "name": "Walk \u00b7 Prop in both hands",
-     "file": "autodraft/anims/back-2/9001.json",
+     "file": "12toons/anims/back-2/9001.json",
      "length": 4
     },
     {
      "id": 9002,
      "name": "Walk \u00b7 Carrying a pot",
-     "file": "autodraft/anims/back-2/9002.json",
+     "file": "12toons/anims/back-2/9002.json",
      "length": 4
     },
     {
      "id": 9003,
      "name": "Walk \u00b7 Carrying a pot 2",
-     "file": "autodraft/anims/back-2/9003.json",
+     "file": "12toons/anims/back-2/9003.json",
      "length": 4
     },
     {
      "id": 9004,
      "name": "Walk \u00b7 Carrying a stick",
-     "file": "autodraft/anims/back-2/9004.json",
+     "file": "12toons/anims/back-2/9004.json",
      "length": 4
     },
     {
      "id": 9005,
      "name": "Walk \u00b7 Carrying a load",
-     "file": "autodraft/anims/back-2/9005.json",
+     "file": "12toons/anims/back-2/9005.json",
      "length": 4
     },
     {
      "id": 9006,
      "name": "Walk \u00b7 Happy",
-     "file": "autodraft/anims/back-2/9006.json",
+     "file": "12toons/anims/back-2/9006.json",
      "length": 4
     },
     {
      "id": 9007,
      "name": "Walk \u00b7 Prop in left hand",
-     "file": "autodraft/anims/back-2/9007.json",
+     "file": "12toons/anims/back-2/9007.json",
      "length": 4
     },
     {
      "id": 9008,
      "name": "Walk \u00b7 Long march",
-     "file": "autodraft/anims/back-2/9008.json",
+     "file": "12toons/anims/back-2/9008.json",
      "length": 32.07
     },
     {
      "id": 9009,
      "name": "Walk \u00b7 Prop in right hand",
-     "file": "autodraft/anims/back-2/9009.json",
+     "file": "12toons/anims/back-2/9009.json",
      "length": 4
     },
     {
      "id": 9010,
      "name": "Run \u00b7 Fast",
-     "file": "autodraft/anims/back-2/9010.json",
+     "file": "12toons/anims/back-2/9010.json",
      "length": 1.33
     },
     {
      "id": 9011,
      "name": "Run \u00b7 Looking back",
-     "file": "autodraft/anims/back-2/9011.json",
+     "file": "12toons/anims/back-2/9011.json",
      "length": 2.67
     },
     {
      "id": 9012,
      "name": "Run \u00b7 Looking front and back",
-     "file": "autodraft/anims/back-2/9012.json",
+     "file": "12toons/anims/back-2/9012.json",
      "length": 10.67
     },
     {
      "id": 9013,
      "name": "Walk \u00b7 Shocked",
-     "file": "autodraft/anims/back-2/9013.json",
+     "file": "12toons/anims/back-2/9013.json",
      "length": 4
     },
     {
      "id": 9014,
      "name": "Walk \u00b7 Suspense",
-     "file": "autodraft/anims/back-2/9014.json",
+     "file": "12toons/anims/back-2/9014.json",
      "length": 4
     },
     {
      "id": 9015,
      "name": "Walk \u00b7 Normal",
-     "file": "autodraft/anims/back-2/9015.json",
+     "file": "12toons/anims/back-2/9015.json",
      "length": 4
     },
     {
      "id": 9016,
      "name": "Walk \u00b7 Looking around",
-     "file": "autodraft/anims/back-2/9016.json",
+     "file": "12toons/anims/back-2/9016.json",
      "length": 12
     },
     {
      "id": 9017,
      "name": "Walk \u00b7 With conversation",
-     "file": "autodraft/anims/back-2/9017.json",
+     "file": "12toons/anims/back-2/9017.json",
      "length": 10.67
     },
     {
      "id": 9018,
      "name": "Walk \u00b7 On the spot",
-     "file": "autodraft/anims/back-2/9018.json",
+     "file": "12toons/anims/back-2/9018.json",
      "length": 4
     },
     {
      "id": 9019,
      "name": "Talk \u00b7 Style 4",
-     "file": "autodraft/anims/back-2/9019.json",
+     "file": "12toons/anims/back-2/9019.json",
      "length": 10
     },
     {
      "id": 9020,
      "name": "Talk \u00b7 Style 1",
-     "file": "autodraft/anims/back-2/9020.json",
+     "file": "12toons/anims/back-2/9020.json",
      "length": 10
     },
     {
      "id": 9021,
      "name": "Talk \u00b7 Style 3",
-     "file": "autodraft/anims/back-2/9021.json",
+     "file": "12toons/anims/back-2/9021.json",
      "length": 10
     },
     {
      "id": 9022,
      "name": "Talk \u00b7 Style 2",
-     "file": "autodraft/anims/back-2/9022.json",
+     "file": "12toons/anims/back-2/9022.json",
      "length": 10
     },
     {
      "id": 9023,
      "name": "Talk \u00b7 Left palm",
-     "file": "autodraft/anims/back-2/9023.json",
+     "file": "12toons/anims/back-2/9023.json",
      "length": 2.67
     },
     {
      "id": 9024,
      "name": "Arms folding",
-     "file": "autodraft/anims/back-2/9024.json",
+     "file": "12toons/anims/back-2/9024.json",
      "length": 2
     },
     {
      "id": 9025,
      "name": "Hands on hip \u00b7 both",
-     "file": "autodraft/anims/back-2/9025.json",
+     "file": "12toons/anims/back-2/9025.json",
      "length": 2
     },
     {
      "id": 9026,
      "name": "Pointing \u00b7 left hand",
-     "file": "autodraft/anims/back-2/9026.json",
+     "file": "12toons/anims/back-2/9026.json",
      "length": 2.67
     },
     {
      "id": 9027,
      "name": "Hand on hip \u00b7 left",
-     "file": "autodraft/anims/back-2/9027.json",
+     "file": "12toons/anims/back-2/9027.json",
      "length": 2
     },
     {
      "id": 9028,
      "name": "Hand on hip \u00b7 right",
-     "file": "autodraft/anims/back-2/9028.json",
+     "file": "12toons/anims/back-2/9028.json",
      "length": 2
     },
     {
      "id": 9029,
      "name": "Idle \u00b7 Calm",
-     "file": "autodraft/anims/back-2/9029.json",
+     "file": "12toons/anims/back-2/9029.json",
      "length": 5.33
     },
     {
      "id": 9030,
      "name": "Idle \u00b7 Relaxed",
-     "file": "autodraft/anims/back-2/9030.json",
+     "file": "12toons/anims/back-2/9030.json",
      "length": 7.33
     },
     {
      "id": 9031,
      "name": "Sleep \u00b7 Back",
-     "file": "autodraft/anims/back-2/9031.json",
+     "file": "12toons/anims/back-2/9031.json",
      "length": 2
     },
     {
      "id": 9032,
      "name": "Sleep \u00b7 Front",
-     "file": "autodraft/anims/back-2/9032.json",
+     "file": "12toons/anims/back-2/9032.json",
      "length": 2
     },
     {
      "id": 9033,
      "name": "Sleep \u00b7 Front 2",
-     "file": "autodraft/anims/back-2/9033.json",
+     "file": "12toons/anims/back-2/9033.json",
      "length": 2
     },
     {
      "id": 9034,
      "name": "Sleep \u00b7 Nightmare",
-     "file": "autodraft/anims/back-2/9034.json",
+     "file": "12toons/anims/back-2/9034.json",
      "length": 6.8
     },
     {
      "id": 9035,
      "name": "Fear \u00b7 Standing",
-     "file": "autodraft/anims/back-2/9035.json",
+     "file": "12toons/anims/back-2/9035.json",
      "length": 4
     },
     {
      "id": 9036,
      "name": "Fear \u00b7 Full body",
-     "file": "autodraft/anims/back-2/9036.json",
+     "file": "12toons/anims/back-2/9036.json",
      "length": 5
     },
     {
      "id": 9037,
      "name": "Breathing \u00b7 Heavy",
-     "file": "autodraft/anims/back-2/9037.json",
+     "file": "12toons/anims/back-2/9037.json",
      "length": 1.33
     },
     {
      "id": 9038,
      "name": "Action \u00b7 Stab",
-     "file": "autodraft/anims/back-2/9038.json",
+     "file": "12toons/anims/back-2/9038.json",
      "length": 1.67
     },
     {
      "id": 9039,
      "name": "Mood \u00b7 Bored",
-     "file": "autodraft/anims/back-2/9039.json",
+     "file": "12toons/anims/back-2/9039.json",
      "length": 2
     },
     {
      "id": 9040,
      "name": "Action \u00b7 Clap",
-     "file": "autodraft/anims/back-2/9040.json",
+     "file": "12toons/anims/back-2/9040.json",
      "length": 4
     },
     {
      "id": 9041,
      "name": "Action \u00b7 Cough",
-     "file": "autodraft/anims/back-2/9041.json",
+     "file": "12toons/anims/back-2/9041.json",
      "length": 3.33
     },
     {
      "id": 9042,
      "name": "Dance 1",
-     "file": "autodraft/anims/back-2/9042.json",
+     "file": "12toons/anims/back-2/9042.json",
      "length": 2
     },
     {
      "id": 9043,
      "name": "Dance 2",
-     "file": "autodraft/anims/back-2/9043.json",
+     "file": "12toons/anims/back-2/9043.json",
      "length": 2
     },
     {
      "id": 9044,
      "name": "Action \u00b7 Dig",
-     "file": "autodraft/anims/back-2/9044.json",
+     "file": "12toons/anims/back-2/9044.json",
      "length": 2
     },
     {
      "id": 9045,
      "name": "Mood \u00b7 Disappointed",
-     "file": "autodraft/anims/back-2/9045.json",
+     "file": "12toons/anims/back-2/9045.json",
      "length": 3
     },
     {
      "id": 9046,
      "name": "Mood \u00b7 Doubt",
-     "file": "autodraft/anims/back-2/9046.json",
+     "file": "12toons/anims/back-2/9046.json",
      "length": 6.67
     },
     {
      "id": 9047,
      "name": "Action \u00b7 Driving",
-     "file": "autodraft/anims/back-2/9047.json",
+     "file": "12toons/anims/back-2/9047.json",
      "length": 2
     },
     {
      "id": 9048,
      "name": "Mood \u00b7 Fed up",
-     "file": "autodraft/anims/back-2/9048.json",
+     "file": "12toons/anims/back-2/9048.json",
      "length": 6.67
     },
     {
      "id": 9049,
      "name": "Action \u00b7 Fly",
-     "file": "autodraft/anims/back-2/9049.json",
+     "file": "12toons/anims/back-2/9049.json",
      "length": 6
     },
     {
      "id": 9051,
      "name": "Greet \u00b7 Hello",
-     "file": "autodraft/anims/back-2/9051.json",
+     "file": "12toons/anims/back-2/9051.json",
      "length": 4
     },
     {
      "id": 9052,
      "name": "Action \u00b7 Jump",
-     "file": "autodraft/anims/back-2/9052.json",
+     "file": "12toons/anims/back-2/9052.json",
      "length": 3.33
     },
     {
      "id": 9053,
      "name": "Action \u00b7 Kick",
-     "file": "autodraft/anims/back-2/9053.json",
+     "file": "12toons/anims/back-2/9053.json",
      "length": 2.33
     },
     {
      "id": 9054,
      "name": "Action \u00b7 Kick a ball",
-     "file": "autodraft/anims/back-2/9054.json",
+     "file": "12toons/anims/back-2/9054.json",
      "length": 3
     },
     {
      "id": 9055,
      "name": "Mood \u00b7 Laugh at someone",
-     "file": "autodraft/anims/back-2/9055.json",
+     "file": "12toons/anims/back-2/9055.json",
      "length": 5.33
     },
     {
      "id": 9056,
      "name": "Pose \u00b7 Lean on a wall",
-     "file": "autodraft/anims/back-2/9056.json",
+     "file": "12toons/anims/back-2/9056.json",
      "length": 2
     },
     {
      "id": 9057,
      "name": "Look \u00b7 Around",
-     "file": "autodraft/anims/back-2/9057.json",
+     "file": "12toons/anims/back-2/9057.json",
      "length": 10
     },
     {
      "id": 9058,
      "name": "Action \u00b7 Pick up",
-     "file": "autodraft/anims/back-2/9058.json",
+     "file": "12toons/anims/back-2/9058.json",
      "length": 2
     },
     {
      "id": 9059,
      "name": "Greet \u00b7 Pray",
-     "file": "autodraft/anims/back-2/9059.json",
+     "file": "12toons/anims/back-2/9059.json",
      "length": 2.33
     },
     {
      "id": 9060,
      "name": "Greet \u00b7 Pray 2",
-     "file": "autodraft/anims/back-2/9060.json",
+     "file": "12toons/anims/back-2/9060.json",
      "length": 3.93
     },
     {
      "id": 9061,
      "name": "Action \u00b7 Punch",
-     "file": "autodraft/anims/back-2/9061.json",
+     "file": "12toons/anims/back-2/9061.json",
      "length": 2
     },
     {
      "id": 9062,
      "name": "Action \u00b7 Read a paper",
-     "file": "autodraft/anims/back-2/9062.json",
+     "file": "12toons/anims/back-2/9062.json",
      "length": 2
     },
     {
      "id": 9063,
      "name": "Greet \u00b7 Salute",
-     "file": "autodraft/anims/back-2/9063.json",
+     "file": "12toons/anims/back-2/9063.json",
      "length": 4.33
     },
     {
      "id": 9064,
      "name": "Action \u00b7 Swim",
-     "file": "autodraft/anims/back-2/9064.json",
+     "file": "12toons/anims/back-2/9064.json",
      "length": 1
     },
     {
      "id": 9065,
      "name": "Action \u00b7 Yawn",
-     "file": "autodraft/anims/back-2/9065.json",
+     "file": "12toons/anims/back-2/9065.json",
      "length": 3
     }
    ],
@@ -2227,73 +2227,73 @@
     {
      "id": 9300,
      "name": "Hands \u00b7 Talk 1",
-     "file": "autodraft/anims/back-2/9300.json",
+     "file": "12toons/anims/back-2/9300.json",
      "length": 10
     },
     {
      "id": 9301,
      "name": "Hands \u00b7 Talk 2",
-     "file": "autodraft/anims/back-2/9301.json",
+     "file": "12toons/anims/back-2/9301.json",
      "length": 10
     },
     {
      "id": 9302,
      "name": "Hands \u00b7 Talk 3",
-     "file": "autodraft/anims/back-2/9302.json",
+     "file": "12toons/anims/back-2/9302.json",
      "length": 10
     },
     {
      "id": 9303,
      "name": "Hands \u00b7 Talk 4",
-     "file": "autodraft/anims/back-2/9303.json",
+     "file": "12toons/anims/back-2/9303.json",
      "length": 10
     },
     {
      "id": 9304,
      "name": "Hands \u00b7 Clap",
-     "file": "autodraft/anims/back-2/9304.json",
+     "file": "12toons/anims/back-2/9304.json",
      "length": 4
     },
     {
      "id": 9305,
      "name": "Hands \u00b7 Hello",
-     "file": "autodraft/anims/back-2/9305.json",
+     "file": "12toons/anims/back-2/9305.json",
      "length": 4
     },
     {
      "id": 9306,
      "name": "Hands \u00b7 Pray",
-     "file": "autodraft/anims/back-2/9306.json",
+     "file": "12toons/anims/back-2/9306.json",
      "length": 2.33
     },
     {
      "id": 9307,
      "name": "Hands \u00b7 Pray 2",
-     "file": "autodraft/anims/back-2/9307.json",
+     "file": "12toons/anims/back-2/9307.json",
      "length": 3.93
     },
     {
      "id": 9308,
      "name": "Hands \u00b7 Salute",
-     "file": "autodraft/anims/back-2/9308.json",
+     "file": "12toons/anims/back-2/9308.json",
      "length": 4.33
     },
     {
      "id": 9309,
      "name": "Hands \u00b7 Punch",
-     "file": "autodraft/anims/back-2/9309.json",
+     "file": "12toons/anims/back-2/9309.json",
      "length": 2
     },
     {
      "id": 9310,
      "name": "Hands \u00b7 Folded",
-     "file": "autodraft/anims/back-2/9310.json",
+     "file": "12toons/anims/back-2/9310.json",
      "length": 2
     },
     {
      "id": 9311,
      "name": "Hands \u00b7 Pointing",
-     "file": "autodraft/anims/back-2/9311.json",
+     "file": "12toons/anims/back-2/9311.json",
      "length": 2.67
     }
    ],
@@ -2301,49 +2301,49 @@
     {
      "id": 9400,
      "name": "Legs \u00b7 Walk",
-     "file": "autodraft/anims/back-2/9400.json",
+     "file": "12toons/anims/back-2/9400.json",
      "length": 4
     },
     {
      "id": 9401,
      "name": "Legs \u00b7 Walk happy",
-     "file": "autodraft/anims/back-2/9401.json",
+     "file": "12toons/anims/back-2/9401.json",
      "length": 4
     },
     {
      "id": 9402,
      "name": "Legs \u00b7 Walk angry",
-     "file": "autodraft/anims/back-2/9402.json",
+     "file": "12toons/anims/back-2/9402.json",
      "length": 4
     },
     {
      "id": 9403,
      "name": "Legs \u00b7 Walk shocked",
-     "file": "autodraft/anims/back-2/9403.json",
+     "file": "12toons/anims/back-2/9403.json",
      "length": 4
     },
     {
      "id": 9404,
      "name": "Legs \u00b7 Walk suspense",
-     "file": "autodraft/anims/back-2/9404.json",
+     "file": "12toons/anims/back-2/9404.json",
      "length": 4
     },
     {
      "id": 9405,
      "name": "Legs \u00b7 Walk on the spot",
-     "file": "autodraft/anims/back-2/9405.json",
+     "file": "12toons/anims/back-2/9405.json",
      "length": 4
     },
     {
      "id": 9406,
      "name": "Legs \u00b7 Run",
-     "file": "autodraft/anims/back-2/9406.json",
+     "file": "12toons/anims/back-2/9406.json",
      "length": 1.33
     },
     {
      "id": 9407,
      "name": "Legs \u00b7 Run looking back",
-     "file": "autodraft/anims/back-2/9407.json",
+     "file": "12toons/anims/back-2/9407.json",
      "length": 2.67
     }
    ],
@@ -2351,61 +2351,61 @@
     {
      "id": 9073,
      "name": "Face \u00b7 Scared 1",
-     "file": "autodraft/anims/back-2/9073.json",
+     "file": "12toons/anims/back-2/9073.json",
      "length": 5
     },
     {
      "id": 9074,
      "name": "Face \u00b7 Scared 2",
-     "file": "autodraft/anims/back-2/9074.json",
+     "file": "12toons/anims/back-2/9074.json",
      "length": 5
     },
     {
      "id": 9075,
      "name": "Eyes \u00b7 Look up (long)",
-     "file": "autodraft/anims/back-2/9075.json",
+     "file": "12toons/anims/back-2/9075.json",
      "length": 4
     },
     {
      "id": 9076,
      "name": "Eyes \u00b7 Look down (long)",
-     "file": "autodraft/anims/back-2/9076.json",
+     "file": "12toons/anims/back-2/9076.json",
      "length": 4
     },
     {
      "id": 9077,
      "name": "Eyes \u00b7 Look left (long)",
-     "file": "autodraft/anims/back-2/9077.json",
+     "file": "12toons/anims/back-2/9077.json",
      "length": 4
     },
     {
      "id": 9078,
      "name": "Eyes \u00b7 Look right (long)",
-     "file": "autodraft/anims/back-2/9078.json",
+     "file": "12toons/anims/back-2/9078.json",
      "length": 4
     },
     {
      "id": 9079,
      "name": "Eyes \u00b7 Look down",
-     "file": "autodraft/anims/back-2/9079.json",
+     "file": "12toons/anims/back-2/9079.json",
      "length": 2
     },
     {
      "id": 9080,
      "name": "Eyes \u00b7 Look left",
-     "file": "autodraft/anims/back-2/9080.json",
+     "file": "12toons/anims/back-2/9080.json",
      "length": 2
     },
     {
      "id": 9081,
      "name": "Eyes \u00b7 Look right",
-     "file": "autodraft/anims/back-2/9081.json",
+     "file": "12toons/anims/back-2/9081.json",
      "length": 2
     },
     {
      "id": 9082,
      "name": "Eyes \u00b7 Look up",
-     "file": "autodraft/anims/back-2/9082.json",
+     "file": "12toons/anims/back-2/9082.json",
      "length": 2
     }
    ]
@@ -2415,391 +2415,391 @@
     {
      "id": 9000,
      "name": "Walk \u00b7 Angry",
-     "file": "autodraft/anims/side/9000.json",
+     "file": "12toons/anims/side/9000.json",
      "length": 4
     },
     {
      "id": 9001,
      "name": "Walk \u00b7 Prop in both hands",
-     "file": "autodraft/anims/side/9001.json",
+     "file": "12toons/anims/side/9001.json",
      "length": 4
     },
     {
      "id": 9002,
      "name": "Walk \u00b7 Carrying a pot",
-     "file": "autodraft/anims/side/9002.json",
+     "file": "12toons/anims/side/9002.json",
      "length": 4
     },
     {
      "id": 9003,
      "name": "Walk \u00b7 Carrying a pot 2",
-     "file": "autodraft/anims/side/9003.json",
+     "file": "12toons/anims/side/9003.json",
      "length": 4
     },
     {
      "id": 9004,
      "name": "Walk \u00b7 Carrying a stick",
-     "file": "autodraft/anims/side/9004.json",
+     "file": "12toons/anims/side/9004.json",
      "length": 4
     },
     {
      "id": 9005,
      "name": "Walk \u00b7 Carrying a load",
-     "file": "autodraft/anims/side/9005.json",
+     "file": "12toons/anims/side/9005.json",
      "length": 4
     },
     {
      "id": 9006,
      "name": "Walk \u00b7 Happy",
-     "file": "autodraft/anims/side/9006.json",
+     "file": "12toons/anims/side/9006.json",
      "length": 4
     },
     {
      "id": 9007,
      "name": "Walk \u00b7 Prop in left hand",
-     "file": "autodraft/anims/side/9007.json",
+     "file": "12toons/anims/side/9007.json",
      "length": 4
     },
     {
      "id": 9008,
      "name": "Walk \u00b7 Long march",
-     "file": "autodraft/anims/side/9008.json",
+     "file": "12toons/anims/side/9008.json",
      "length": 32.07
     },
     {
      "id": 9009,
      "name": "Walk \u00b7 Prop in right hand",
-     "file": "autodraft/anims/side/9009.json",
+     "file": "12toons/anims/side/9009.json",
      "length": 4
     },
     {
      "id": 9010,
      "name": "Run \u00b7 Fast",
-     "file": "autodraft/anims/side/9010.json",
+     "file": "12toons/anims/side/9010.json",
      "length": 1.33
     },
     {
      "id": 9011,
      "name": "Run \u00b7 Looking back",
-     "file": "autodraft/anims/side/9011.json",
+     "file": "12toons/anims/side/9011.json",
      "length": 2.67
     },
     {
      "id": 9012,
      "name": "Run \u00b7 Looking front and back",
-     "file": "autodraft/anims/side/9012.json",
+     "file": "12toons/anims/side/9012.json",
      "length": 10.67
     },
     {
      "id": 9013,
      "name": "Walk \u00b7 Shocked",
-     "file": "autodraft/anims/side/9013.json",
+     "file": "12toons/anims/side/9013.json",
      "length": 4
     },
     {
      "id": 9014,
      "name": "Walk \u00b7 Suspense",
-     "file": "autodraft/anims/side/9014.json",
+     "file": "12toons/anims/side/9014.json",
      "length": 4
     },
     {
      "id": 9015,
      "name": "Walk \u00b7 Normal",
-     "file": "autodraft/anims/side/9015.json",
+     "file": "12toons/anims/side/9015.json",
      "length": 4
     },
     {
      "id": 9016,
      "name": "Walk \u00b7 Looking around",
-     "file": "autodraft/anims/side/9016.json",
+     "file": "12toons/anims/side/9016.json",
      "length": 12
     },
     {
      "id": 9017,
      "name": "Walk \u00b7 With conversation",
-     "file": "autodraft/anims/side/9017.json",
+     "file": "12toons/anims/side/9017.json",
      "length": 10.67
     },
     {
      "id": 9018,
      "name": "Walk \u00b7 On the spot",
-     "file": "autodraft/anims/side/9018.json",
+     "file": "12toons/anims/side/9018.json",
      "length": 4
     },
     {
      "id": 9019,
      "name": "Talk \u00b7 Style 4",
-     "file": "autodraft/anims/side/9019.json",
+     "file": "12toons/anims/side/9019.json",
      "length": 10
     },
     {
      "id": 9020,
      "name": "Talk \u00b7 Style 1",
-     "file": "autodraft/anims/side/9020.json",
+     "file": "12toons/anims/side/9020.json",
      "length": 10
     },
     {
      "id": 9021,
      "name": "Talk \u00b7 Style 3",
-     "file": "autodraft/anims/side/9021.json",
+     "file": "12toons/anims/side/9021.json",
      "length": 10
     },
     {
      "id": 9022,
      "name": "Talk \u00b7 Style 2",
-     "file": "autodraft/anims/side/9022.json",
+     "file": "12toons/anims/side/9022.json",
      "length": 10
     },
     {
      "id": 9023,
      "name": "Talk \u00b7 Left palm",
-     "file": "autodraft/anims/side/9023.json",
+     "file": "12toons/anims/side/9023.json",
      "length": 2.67
     },
     {
      "id": 9024,
      "name": "Arms folding",
-     "file": "autodraft/anims/side/9024.json",
+     "file": "12toons/anims/side/9024.json",
      "length": 2
     },
     {
      "id": 9025,
      "name": "Hands on hip \u00b7 both",
-     "file": "autodraft/anims/side/9025.json",
+     "file": "12toons/anims/side/9025.json",
      "length": 2
     },
     {
      "id": 9026,
      "name": "Pointing \u00b7 left hand",
-     "file": "autodraft/anims/side/9026.json",
+     "file": "12toons/anims/side/9026.json",
      "length": 2.67
     },
     {
      "id": 9027,
      "name": "Hand on hip \u00b7 left",
-     "file": "autodraft/anims/side/9027.json",
+     "file": "12toons/anims/side/9027.json",
      "length": 2
     },
     {
      "id": 9028,
      "name": "Hand on hip \u00b7 right",
-     "file": "autodraft/anims/side/9028.json",
+     "file": "12toons/anims/side/9028.json",
      "length": 2
     },
     {
      "id": 9029,
      "name": "Idle \u00b7 Calm",
-     "file": "autodraft/anims/side/9029.json",
+     "file": "12toons/anims/side/9029.json",
      "length": 5.33
     },
     {
      "id": 9030,
      "name": "Idle \u00b7 Relaxed",
-     "file": "autodraft/anims/side/9030.json",
+     "file": "12toons/anims/side/9030.json",
      "length": 7.33
     },
     {
      "id": 9031,
      "name": "Sleep \u00b7 Back",
-     "file": "autodraft/anims/side/9031.json",
+     "file": "12toons/anims/side/9031.json",
      "length": 2
     },
     {
      "id": 9032,
      "name": "Sleep \u00b7 Front",
-     "file": "autodraft/anims/side/9032.json",
+     "file": "12toons/anims/side/9032.json",
      "length": 2
     },
     {
      "id": 9033,
      "name": "Sleep \u00b7 Front 2",
-     "file": "autodraft/anims/side/9033.json",
+     "file": "12toons/anims/side/9033.json",
      "length": 2
     },
     {
      "id": 9034,
      "name": "Sleep \u00b7 Nightmare",
-     "file": "autodraft/anims/side/9034.json",
+     "file": "12toons/anims/side/9034.json",
      "length": 6.8
     },
     {
      "id": 9035,
      "name": "Fear \u00b7 Standing",
-     "file": "autodraft/anims/side/9035.json",
+     "file": "12toons/anims/side/9035.json",
      "length": 4
     },
     {
      "id": 9036,
      "name": "Fear \u00b7 Full body",
-     "file": "autodraft/anims/side/9036.json",
+     "file": "12toons/anims/side/9036.json",
      "length": 5
     },
     {
      "id": 9037,
      "name": "Breathing \u00b7 Heavy",
-     "file": "autodraft/anims/side/9037.json",
+     "file": "12toons/anims/side/9037.json",
      "length": 1.33
     },
     {
      "id": 9038,
      "name": "Action \u00b7 Stab",
-     "file": "autodraft/anims/side/9038.json",
+     "file": "12toons/anims/side/9038.json",
      "length": 1.67
     },
     {
      "id": 9039,
      "name": "Mood \u00b7 Bored",
-     "file": "autodraft/anims/side/9039.json",
+     "file": "12toons/anims/side/9039.json",
      "length": 2
     },
     {
      "id": 9040,
      "name": "Action \u00b7 Clap",
-     "file": "autodraft/anims/side/9040.json",
+     "file": "12toons/anims/side/9040.json",
      "length": 4
     },
     {
      "id": 9041,
      "name": "Action \u00b7 Cough",
-     "file": "autodraft/anims/side/9041.json",
+     "file": "12toons/anims/side/9041.json",
      "length": 3.33
     },
     {
      "id": 9042,
      "name": "Dance 1",
-     "file": "autodraft/anims/side/9042.json",
+     "file": "12toons/anims/side/9042.json",
      "length": 2
     },
     {
      "id": 9043,
      "name": "Dance 2",
-     "file": "autodraft/anims/side/9043.json",
+     "file": "12toons/anims/side/9043.json",
      "length": 2
     },
     {
      "id": 9044,
      "name": "Action \u00b7 Dig",
-     "file": "autodraft/anims/side/9044.json",
+     "file": "12toons/anims/side/9044.json",
      "length": 2
     },
     {
      "id": 9045,
      "name": "Mood \u00b7 Disappointed",
-     "file": "autodraft/anims/side/9045.json",
+     "file": "12toons/anims/side/9045.json",
      "length": 3
     },
     {
      "id": 9046,
      "name": "Mood \u00b7 Doubt",
-     "file": "autodraft/anims/side/9046.json",
+     "file": "12toons/anims/side/9046.json",
      "length": 6.67
     },
     {
      "id": 9047,
      "name": "Action \u00b7 Driving",
-     "file": "autodraft/anims/side/9047.json",
+     "file": "12toons/anims/side/9047.json",
      "length": 2
     },
     {
      "id": 9048,
      "name": "Mood \u00b7 Fed up",
-     "file": "autodraft/anims/side/9048.json",
+     "file": "12toons/anims/side/9048.json",
      "length": 6.67
     },
     {
      "id": 9049,
      "name": "Action \u00b7 Fly",
-     "file": "autodraft/anims/side/9049.json",
+     "file": "12toons/anims/side/9049.json",
      "length": 6
     },
     {
      "id": 9051,
      "name": "Greet \u00b7 Hello",
-     "file": "autodraft/anims/side/9051.json",
+     "file": "12toons/anims/side/9051.json",
      "length": 4
     },
     {
      "id": 9052,
      "name": "Action \u00b7 Jump",
-     "file": "autodraft/anims/side/9052.json",
+     "file": "12toons/anims/side/9052.json",
      "length": 3.33
     },
     {
      "id": 9053,
      "name": "Action \u00b7 Kick",
-     "file": "autodraft/anims/side/9053.json",
+     "file": "12toons/anims/side/9053.json",
      "length": 2.33
     },
     {
      "id": 9054,
      "name": "Action \u00b7 Kick a ball",
-     "file": "autodraft/anims/side/9054.json",
+     "file": "12toons/anims/side/9054.json",
      "length": 3
     },
     {
      "id": 9055,
      "name": "Mood \u00b7 Laugh at someone",
-     "file": "autodraft/anims/side/9055.json",
+     "file": "12toons/anims/side/9055.json",
      "length": 5.33
     },
     {
      "id": 9056,
      "name": "Pose \u00b7 Lean on a wall",
-     "file": "autodraft/anims/side/9056.json",
+     "file": "12toons/anims/side/9056.json",
      "length": 2
     },
     {
      "id": 9057,
      "name": "Look \u00b7 Around",
-     "file": "autodraft/anims/side/9057.json",
+     "file": "12toons/anims/side/9057.json",
      "length": 10
     },
     {
      "id": 9058,
      "name": "Action \u00b7 Pick up",
-     "file": "autodraft/anims/side/9058.json",
+     "file": "12toons/anims/side/9058.json",
      "length": 2
     },
     {
      "id": 9059,
      "name": "Greet \u00b7 Pray",
-     "file": "autodraft/anims/side/9059.json",
+     "file": "12toons/anims/side/9059.json",
      "length": 2.33
     },
     {
      "id": 9060,
      "name": "Greet \u00b7 Pray 2",
-     "file": "autodraft/anims/side/9060.json",
+     "file": "12toons/anims/side/9060.json",
      "length": 3.93
     },
     {
      "id": 9061,
      "name": "Action \u00b7 Punch",
-     "file": "autodraft/anims/side/9061.json",
+     "file": "12toons/anims/side/9061.json",
      "length": 2
     },
     {
      "id": 9062,
      "name": "Action \u00b7 Read a paper",
-     "file": "autodraft/anims/side/9062.json",
+     "file": "12toons/anims/side/9062.json",
      "length": 2
     },
     {
      "id": 9063,
      "name": "Greet \u00b7 Salute",
-     "file": "autodraft/anims/side/9063.json",
+     "file": "12toons/anims/side/9063.json",
      "length": 4.33
     },
     {
      "id": 9064,
      "name": "Action \u00b7 Swim",
-     "file": "autodraft/anims/side/9064.json",
+     "file": "12toons/anims/side/9064.json",
      "length": 1
     },
     {
      "id": 9065,
      "name": "Action \u00b7 Yawn",
-     "file": "autodraft/anims/side/9065.json",
+     "file": "12toons/anims/side/9065.json",
      "length": 3
     }
    ],
@@ -2807,73 +2807,73 @@
     {
      "id": 9300,
      "name": "Hands \u00b7 Talk 1",
-     "file": "autodraft/anims/side/9300.json",
+     "file": "12toons/anims/side/9300.json",
      "length": 10
     },
     {
      "id": 9301,
      "name": "Hands \u00b7 Talk 2",
-     "file": "autodraft/anims/side/9301.json",
+     "file": "12toons/anims/side/9301.json",
      "length": 10
     },
     {
      "id": 9302,
      "name": "Hands \u00b7 Talk 3",
-     "file": "autodraft/anims/side/9302.json",
+     "file": "12toons/anims/side/9302.json",
      "length": 10
     },
     {
      "id": 9303,
      "name": "Hands \u00b7 Talk 4",
-     "file": "autodraft/anims/side/9303.json",
+     "file": "12toons/anims/side/9303.json",
      "length": 10
     },
     {
      "id": 9304,
      "name": "Hands \u00b7 Clap",
-     "file": "autodraft/anims/side/9304.json",
+     "file": "12toons/anims/side/9304.json",
      "length": 4
     },
     {
      "id": 9305,
      "name": "Hands \u00b7 Hello",
-     "file": "autodraft/anims/side/9305.json",
+     "file": "12toons/anims/side/9305.json",
      "length": 4
     },
     {
      "id": 9306,
      "name": "Hands \u00b7 Pray",
-     "file": "autodraft/anims/side/9306.json",
+     "file": "12toons/anims/side/9306.json",
      "length": 2.33
     },
     {
      "id": 9307,
      "name": "Hands \u00b7 Pray 2",
-     "file": "autodraft/anims/side/9307.json",
+     "file": "12toons/anims/side/9307.json",
      "length": 3.93
     },
     {
      "id": 9308,
      "name": "Hands \u00b7 Salute",
-     "file": "autodraft/anims/side/9308.json",
+     "file": "12toons/anims/side/9308.json",
      "length": 4.33
     },
     {
      "id": 9309,
      "name": "Hands \u00b7 Punch",
-     "file": "autodraft/anims/side/9309.json",
+     "file": "12toons/anims/side/9309.json",
      "length": 2
     },
     {
      "id": 9310,
      "name": "Hands \u00b7 Folded",
-     "file": "autodraft/anims/side/9310.json",
+     "file": "12toons/anims/side/9310.json",
      "length": 2
     },
     {
      "id": 9311,
      "name": "Hands \u00b7 Pointing",
-     "file": "autodraft/anims/side/9311.json",
+     "file": "12toons/anims/side/9311.json",
      "length": 2.67
     }
    ],
@@ -2881,49 +2881,49 @@
     {
      "id": 9400,
      "name": "Legs \u00b7 Walk",
-     "file": "autodraft/anims/side/9400.json",
+     "file": "12toons/anims/side/9400.json",
      "length": 4
     },
     {
      "id": 9401,
      "name": "Legs \u00b7 Walk happy",
-     "file": "autodraft/anims/side/9401.json",
+     "file": "12toons/anims/side/9401.json",
      "length": 4
     },
     {
      "id": 9402,
      "name": "Legs \u00b7 Walk angry",
-     "file": "autodraft/anims/side/9402.json",
+     "file": "12toons/anims/side/9402.json",
      "length": 4
     },
     {
      "id": 9403,
      "name": "Legs \u00b7 Walk shocked",
-     "file": "autodraft/anims/side/9403.json",
+     "file": "12toons/anims/side/9403.json",
      "length": 4
     },
     {
      "id": 9404,
      "name": "Legs \u00b7 Walk suspense",
-     "file": "autodraft/anims/side/9404.json",
+     "file": "12toons/anims/side/9404.json",
      "length": 4
     },
     {
      "id": 9405,
      "name": "Legs \u00b7 Walk on the spot",
-     "file": "autodraft/anims/side/9405.json",
+     "file": "12toons/anims/side/9405.json",
      "length": 4
     },
     {
      "id": 9406,
      "name": "Legs \u00b7 Run",
-     "file": "autodraft/anims/side/9406.json",
+     "file": "12toons/anims/side/9406.json",
      "length": 1.33
     },
     {
      "id": 9407,
      "name": "Legs \u00b7 Run looking back",
-     "file": "autodraft/anims/side/9407.json",
+     "file": "12toons/anims/side/9407.json",
      "length": 2.67
     }
    ],
@@ -2931,103 +2931,103 @@
     {
      "id": 9066,
      "name": "Face \u00b7 Angry blink",
-     "file": "autodraft/anims/side/9066.json",
+     "file": "12toons/anims/side/9066.json",
      "length": 3.67
     },
     {
      "id": 9067,
      "name": "Face \u00b7 Shocked blink",
-     "file": "autodraft/anims/side/9067.json",
+     "file": "12toons/anims/side/9067.json",
      "length": 3.67
     },
     {
      "id": 9068,
      "name": "Face \u00b7 Suspense blink",
-     "file": "autodraft/anims/side/9068.json",
+     "file": "12toons/anims/side/9068.json",
      "length": 3.67
     },
     {
      "id": 9069,
      "name": "Face \u00b7 Happy blink",
-     "file": "autodraft/anims/side/9069.json",
+     "file": "12toons/anims/side/9069.json",
      "length": 3.67
     },
     {
      "id": 9070,
      "name": "Face \u00b7 Neutral blink",
-     "file": "autodraft/anims/side/9070.json",
+     "file": "12toons/anims/side/9070.json",
      "length": 3.67
     },
     {
      "id": 9071,
      "name": "Face \u00b7 Sad blink",
-     "file": "autodraft/anims/side/9071.json",
+     "file": "12toons/anims/side/9071.json",
      "length": 3.67
     },
     {
      "id": 9072,
      "name": "Face \u00b7 Scared blink",
-     "file": "autodraft/anims/side/9072.json",
+     "file": "12toons/anims/side/9072.json",
      "length": 3.67
     },
     {
      "id": 9073,
      "name": "Face \u00b7 Scared 1",
-     "file": "autodraft/anims/side/9073.json",
+     "file": "12toons/anims/side/9073.json",
      "length": 5
     },
     {
      "id": 9074,
      "name": "Face \u00b7 Scared 2",
-     "file": "autodraft/anims/side/9074.json",
+     "file": "12toons/anims/side/9074.json",
      "length": 5
     },
     {
      "id": 9075,
      "name": "Eyes \u00b7 Look up (long)",
-     "file": "autodraft/anims/side/9075.json",
+     "file": "12toons/anims/side/9075.json",
      "length": 4
     },
     {
      "id": 9076,
      "name": "Eyes \u00b7 Look down (long)",
-     "file": "autodraft/anims/side/9076.json",
+     "file": "12toons/anims/side/9076.json",
      "length": 4
     },
     {
      "id": 9077,
      "name": "Eyes \u00b7 Look left (long)",
-     "file": "autodraft/anims/side/9077.json",
+     "file": "12toons/anims/side/9077.json",
      "length": 4
     },
     {
      "id": 9078,
      "name": "Eyes \u00b7 Look right (long)",
-     "file": "autodraft/anims/side/9078.json",
+     "file": "12toons/anims/side/9078.json",
      "length": 4
     },
     {
      "id": 9079,
      "name": "Eyes \u00b7 Look down",
-     "file": "autodraft/anims/side/9079.json",
+     "file": "12toons/anims/side/9079.json",
      "length": 2
     },
     {
      "id": 9080,
      "name": "Eyes \u00b7 Look left",
-     "file": "autodraft/anims/side/9080.json",
+     "file": "12toons/anims/side/9080.json",
      "length": 2
     },
     {
      "id": 9081,
      "name": "Eyes \u00b7 Look right",
-     "file": "autodraft/anims/side/9081.json",
+     "file": "12toons/anims/side/9081.json",
      "length": 2
     },
     {
      "id": 9082,
      "name": "Eyes \u00b7 Look up",
-     "file": "autodraft/anims/side/9082.json",
+     "file": "12toons/anims/side/9082.json",
      "length": 2
     }
    ]

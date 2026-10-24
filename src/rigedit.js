@@ -84,7 +84,7 @@ export function patchRig(ske, { xf = {}, bones = {}, attach = {} } = {}) {
   return { ...ske, armature: [out] };
 }
 
-/** the face profile (sliders) as bone + attachment edits for an Autodraft-style head */
+/** the face profile (sliders) as bone + attachment edits for an 12toons-style head */
 export const FACE = [
   { key: 'eyes', label: 'Eyes', icon: '👁', sliders: [['y', 'Up / down', -40, 40, 1, 0], ['gap', 'Distance', -25, 25, 1, 0], ['shift', 'Left / right', -40, 40, 1, 0], ['size', 'Size', 0.6, 1.6, 0.02, 1]] },
   { key: 'brows', label: 'Eyebrows', icon: '〰', sliders: [['y', 'Up / down', -40, 40, 1, 0], ['gap', 'Distance', -25, 25, 1, 0], ['shift', 'Left / right', -40, 40, 1, 0], ['tilt', 'Tilt', -25, 25, 1, 0], ['size', 'Size', 0.6, 1.6, 0.02, 1]] },
@@ -94,7 +94,7 @@ export const FACE = [
 ];
 export const faceDefaults = () => Object.fromEntries(FACE.map((g) => [g.key, Object.fromEntries(g.sliders.map(([k, , , , , d]) => [k, d]))]));
 
-/** names of the head pieces in an Autodraft rig (bones for the parts that have one, attachments for the others) */
+/** names of the head pieces in an 12toons rig (bones for the parts that have one, attachments for the others) */
 const HEAD = {
   eyes: { bones: { Eyeball_R: 1, Eyeball_L: -1 }, atts: [['White', 0], ['EB', 0], ['EB2', 0], ['EB3', 0], ['EB4', 0]] },
   brows: { bones: { Eyebrow_R_N: 1, Eyebrow_L_N: -1 }, atts: [] },

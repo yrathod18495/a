@@ -2,7 +2,7 @@ import { h } from './dom.js';
 import './landing.css';
 
 /** Public marketing page. Media URLs below are bundled assets already shipped by 12toons. */
-const pose = (name) => '/autodraft/pose/' + name + '.webp';
+const pose = (name) => '/12toons/pose/' + name + '.webp';
 const scrollToSection = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 const navLink = (label, id) => h('a', { href: '#' + id, onclick: (e) => { e.preventDefault(); scrollToSection(id); } }, label);
 const eyebrow = (text) => h('span', { class: 'lp-eyebrow' }, text);
@@ -44,36 +44,11 @@ const FAQ = [
   ['How do I report a problem?', 'Use the support channel through which you received access to 12toons, and include the page and browser where the issue occurred. Do not send passwords, API keys, or private project files unless requested through a trusted channel.']
 ];
 
-const characterPreviews = [
-  { title: 'Neha', desc: 'Layered character template', image: pose('neha-front-side') },
-  { title: 'My Baby', desc: 'Editable outfits and colours', image: pose('mybaby-front-side') },
-  { title: 'Village Boy', desc: 'Character with its own animations', image: pose('villageboy-front-side') }
-];
 
 function button(label, fn, style = 'primary', royal = false) {
   return h('button', { type: 'button', class: `lp-button ${style === 'primary' ? 'lp-button-primary' : 'lp-button-outline'} ${royal ? 'lp-button-royal' : ''}`, onclick: fn }, label);
 }
 
-function editorPreview() {
-  return h('div', { class: 'lp-editor', 'aria-label': 'Illustrative editor layout with real 12toons character artwork' },
-    h('div', { class: 'lp-editor-top' }, h('span', { class: 'lp-dots', 'aria-hidden': 'true' }, '● ● ●'), h('strong', {}, '12toons Studio'), h('span', { class: 'lp-editor-live' }, 'Scene preview')),
-    h('div', { class: 'lp-editor-main' },
-      h('div', { class: 'lp-editor-rail', 'aria-hidden': 'true' }, h('span', {}, '🎙'), h('span', {}, '🎭'), h('span', {}, '🎥'), h('span', {}, '🎞')),
-      h('div', { class: 'lp-editor-center' },
-        h('div', { class: 'lp-editor-stage' },
-          h('div', { class: 'lp-stage-glow' }),
-          h('img', { src: pose('neha-front-side'), alt: 'Neha 2D character from the 12toons character library', width: '178', height: '240', fetchpriority: 'high' }),
-          h('img', { src: pose('mybaby-front-side'), alt: 'My Baby 2D character from the 12toons character library', width: '178', height: '240', fetchpriority: 'high' }),
-          h('div', { class: 'lp-speech' }, 'Hello! Let’s animate.')
-        ),
-        h('div', { class: 'lp-timeline', 'aria-label': 'Illustration of a timeline with audio and animation tracks' },
-          h('div', { class: 'lp-timeline-label' }, h('span', {}, 'Audio'), h('span', {}, 'Animation'), h('span', {}, 'Camera')),
-          h('div', { class: 'lp-timeline-tracks' }, h('span', { class: 'lp-track lp-track-wave' }), h('span', { class: 'lp-track lp-track-blue' }), h('span', { class: 'lp-track lp-track-purple' }))
-        )),
-      h('div', { class: 'lp-editor-tools' }, h('b', {}, 'CHARACTER'), h('img', { src: pose('neha-front'), alt: 'Front pose preview of Neha', loading: 'lazy', width: '120', height: '152' }), h('span', {}, 'Position · Motion · Face'))
-    ), h('div', { class: 'lp-editor-caption' }, 'Illustrative interface · Actual 12toons character artwork')
-  );
-}
 
 function characterStrip() {
   const characters = [
@@ -88,19 +63,15 @@ function characterStrip() {
 }
 
 export function landingView({ user, cta, profileMenu, logo }) {
-  const gallery = h('div', { class: 'lp-gallery-grid' }, characterPreviews.map(({ title, desc, image }) =>
-    h('article', { class: 'lp-preview-card' }, h('img', { src: image, alt: title + ' character pose', loading: 'lazy' }),
-      h('div', { class: 'lp-preview-text' }, h('h3', {}, title), h('p', {}, desc)))
-  ));
 
   const pricingLink = h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing');
   const brand = logo(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   brand.prepend(h('img', { class: 'lp-brand-crown', src: '/images/royal-crown-emblem.png', alt: '', width: '64', height: '50' }));
   const primaryCta = (label) => h('span', { class: 'lp-button-content' }, h('img', { src: '/images/royal-crown-emblem.png', alt: '', width: '38', height: '38', loading: 'lazy' }), h('span', {}, label));
   const nav = h('nav', { class: 'lp-nav', 'aria-label': 'Main navigation' },
-    navLink('Home', 'top'), navLink('Features', 'features'), navLink('Examples', 'examples'), navLink('How it works', 'how'), pricingLink);
+    navLink('Home', 'top'), navLink('Features', 'features'), navLink('How it works', 'how'), pricingLink);
   const mobileNav = h('nav', { class: 'lp-mobile-nav', 'aria-label': 'Mobile navigation' },
-    navLink('Home', 'top'), navLink('Features', 'features'), navLink('Examples', 'examples'), navLink('How it works', 'how'),
+    navLink('Home', 'top'), navLink('Features', 'features'), navLink('How it works', 'how'),
     h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing'), navLink('FAQ', 'faq'));
 
   return h('div', { class: 'sh lp' },
@@ -121,8 +92,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
             h('span', {}, h('b', {}, '♩'), h('strong', {}, 'Voice & Lip-sync'), h('small', {}, 'Natural dialogue')),
             h('span', {}, h('b', {}, '▦'), h('strong', {}, 'Editable Timeline'), h('small', {}, 'Direct every scene')),
             h('span', {}, h('b', { class: 'lp-export-medallion' }, h('img', { src: '/images/royal-export-medallion.png', alt: '', width: '48', height: '48', loading: 'lazy' })), h('strong', {}, 'Export Anywhere'), h('small', {}, 'Video from browser')))
-        ),
-        h('div', { class: 'lp-hero-visual' }, editorPreview())
+        )
       ),
       h('section', { class: 'lp-section lp-intro', id: 'characters' },
         h('div', { class: 'lp-intro-copy' }, eyebrow('Your cast, your world'), h('h2', {}, 'Characters that bring every scene to life'), h('p', {}, 'Choose from available 2D characters or build your own in Character Studio. Change colours, outfits and facial features, then animate them in your project.')),
@@ -134,11 +104,6 @@ export function landingView({ user, cta, profileMenu, logo }) {
           h('span', { class: 'lp-feature-icon', 'aria-hidden': 'true' }, f.icon),
           h('h3', {}, f.title), h('p', {}, f.body), h('small', {}, f.detail)
         )))
-      ),
-      h('section', { id: 'examples', class: 'lp-section lp-gallery-section' },
-        sectionTitle('Meet the cast', 'Explore character poses', 'Choose a character template, customise its artwork and bring it into your own animated scenes.'),
-        gallery,
-        h('div', { class: 'lp-gallery-note' }, h('span', {}, 'Want to turn movement into a full scene?'), button('Open Animation Studio →', cta, 'outline'))
       ),
       h('section', { id: 'how', class: 'lp-section lp-section-soft' },
         sectionTitle('A simple workflow', 'From idea to animated video', 'Start with a script, audio recording or a blank scene. Make the rest your own.'),

@@ -69,7 +69,7 @@ export async function assetsView({ user, home, back, toast }) {
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin · Studio Assets'), h('span', { class: 'sp' }), h('button', { class: 'btn', type: 'button', onclick: back }, 'Back to Admin')), tabs, content);
   try {
     await loadCatalog();
-    const entries = libraryCharacters().filter((e) => e.autodraft);
+    const entries = libraryCharacters().filter((e) => e.template);
     state.chars = [...new Map(entries.map((e) => [e.charBase, { name: e.name, thumb: e.thumbnail, poses: entries.filter((x) => x.charBase === e.charBase) }])).values()];
     state.assets = await listStudioAssets();
   } catch (error) { toast(`Could not load the studio library: ${error.message}`); }

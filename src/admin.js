@@ -24,7 +24,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
   const affiliatesButton=document.createElement('button');affiliatesButton.className='btn';affiliatesButton.textContent='Affiliates';
   affiliatesButton.onclick=async()=>{try{const {affiliatesView}=await import('./admin-affiliates.js');root.replaceWith(await affiliatesView({user,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Could not open affiliates: ${e.message}`);}};
   await loadCatalog();
-  const entries = libraryCharacters().filter((e) => e.autodraft);
+  const entries = libraryCharacters().filter((e) => e.template);
   const chars = [...new Map(entries.map((e) => [e.charBase, { base: e.charBase, name: e.name, thumb: e.thumbnail, poses: entries.filter((x) => x.charBase === e.charBase) }])).values()];
   // working copy of the rules: Sets per scope ('*' = every character)
   const rules = new Map(Object.entries(getAnimRules() || {}).map(([k, v]) => [k, new Set(v.map(String))]));
@@ -68,8 +68,8 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
 
   async function loadChar(base, poseKey) {
     const ch = chars.find((c) => c.base === base); if (!ch) return;
-    const entry = ch.poses.find((p) => p.autodraft.pose === poseKey) || ch.poses.find((p) => p.autodraft.pose === 'front-side') || ch.poses[0];
-    const my = ++st.gen; st.busy = true; st.base = base; st.pose = entry.autodraft.pose; loaded = false; drawAll();
+    const entry = ch.poses.find((p) => p.template.pose === poseKey) || ch.poses.find((p) => p.template.pose === 'front-side') || ch.poses[0];
+    const my = ++st.gen; st.busy = true; st.base = base; st.pose = entry.template.pose; loaded = false; drawAll();
     try {
       const def = await fetchLibraryCharacter(entry);
       if (my !== st.gen) return;
@@ -152,7 +152,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
 
   /* ---------- the layers of a character (same list the Character Studio shows, all outfits together) ---------- */
   async function adminLayers(def) {
-    if (!st.groups) { try { st.groups = await fetch(assetUrl('autodraft/groups.json')).then((r) => r.json()); } catch { st.groups = []; } }
+    if (!st.groups) { try { st.groups = await fetch(assetUrl('12toons/groups.json')).then((r) => r.json()); } catch { st.groups = []; } }
     const groupOf = new Map();
     for (const g of st.groups) for (const a of g.attachments) groupOf.set(a, g.name);
     const regions = new Set();
@@ -198,7 +198,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       h('div', { class: 'ad-row' }, chars.map((c) => h('button', { class: `ad-char ${c.base === st.base ? 'on' : ''}`, onclick: () => c.base !== st.base && loadChar(c.base, st.pose) },
         c.thumb ? h('img', { src: cdn(c.thumb), alt: '' }) : '🎭', h('span', {}, c.name, h('small', {}, `${c.poses.length} poses`))))),
       h('div', { class: 'ad-row' },
-        h('label', { class: 'ad-sel' }, 'Pose', h('select', { onchange: (e) => loadChar(st.base, e.target.value) }, (ch?.poses || []).map((p) => h('option', { value: p.autodraft.pose, selected: p.autodraft.pose === st.pose }, p.pose)))),
+        h('label', { class: 'ad-sel' }, 'Pose', h('select', { onchange: (e) => loadChar(st.base, e.target.value) }, (ch?.poses || []).map((p) => h('option', { value: p.template.pose, selected: p.template.pose === st.pose }, p.pose)))),
         h('div', { class: 'seg3' }, [['char', `Only ${ch?.name || 'this character'}`], ['all', 'Every character']].map(([k, l]) => h('button', { class: st.scope === k ? 'on' : '', title: 'Who your Show / Hide changes apply to', onclick: () => { st.scope = k; drawAll(); } }, l)))),
       h('div', { class: 'ad-row' },
         h('input', { type: 'search', class: 'ad-search', placeholder: 'Search by name or id…', value: st.q, oninput: (e) => { st.q = e.target.value.trim().toLowerCase(); drawList(); } }),

@@ -44,7 +44,7 @@ export async function view({ user, home }) {
       const options = {
         key: order.keyId, amount: order.amountPaise, currency: order.currency, name: '12toons',
         description: `${plan.credits.toLocaleString('en-IN')} credits · ${plan.name} plan`, order_id: order.orderId,
-        prefill: { name: user.displayName || '', email: user.email || '' }, theme: { color: '#2563eb' },
+        prefill: { name: user.displayName || '', email: user.email || '' }, theme: { color: '#d4a443' },
         handler: async (response) => {
           finished = true; message.textContent = 'Verifying payment…';
           try {
@@ -82,7 +82,7 @@ export async function view({ user, home }) {
         h('p', { class: 'credit-count' }, `${plan.credits.toLocaleString('en-IN')} credits`),
         h('ul', {}, ...plan.features.map((feature) => h('li', {}, feature))), button);
     })),
-    !catalog.configured ? h('p', { class: 'credit-setup' }, 'Checkout is disabled until RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set on the server.') : null,
+    ...(!catalog.configured ? [h('p', { class: 'credit-setup' }, 'Checkout is disabled until RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set on the server.')] : []),
     h('p', { class: 'credit-note' }, 'Credit spending is not connected to the current AI tools yet. They continue to use your own OpenRouter API key and may have separate provider charges.'),
     message,
     h('section', { class: 'credit-history-section' }, h('div', { class: 'credit-section-heading' }, h('h2', {}, 'Payment history'), h('button', { class: 'btn sm', onclick: refreshHistory }, '↻ Refresh')), history));

@@ -20,10 +20,10 @@
             "Salvar",
             "Saree"
           ],
-          "ske": "autodraft/chars/neha/front-side_ske.json",
+          "ske": "12toons/chars/neha/front-side_ske.json",
           "tex": [
-            "autodraft/chars/neha/front-side_tex_0.json",
-            "autodraft/chars/neha/front-side_tex_1.json"
+            "12toons/chars/neha/front-side_tex_0.json",
+            "12toons/chars/neha/front-side_tex_1.json"
           ]
         },
         {
@@ -36,10 +36,10 @@
             "Salvar",
             "Saree"
           ],
-          "ske": "autodraft/chars/neha/front_ske.json",
+          "ske": "12toons/chars/neha/front_ske.json",
           "tex": [
-            "autodraft/chars/neha/front_tex_0.json",
-            "autodraft/chars/neha/front_tex_1.json"
+            "12toons/chars/neha/front_tex_0.json",
+            "12toons/chars/neha/front_tex_1.json"
           ]
         },
         {
@@ -52,11 +52,11 @@
             "Salvar",
             "Saree"
           ],
-          "ske": "autodraft/chars/neha/back_ske.json",
+          "ske": "12toons/chars/neha/back_ske.json",
           "tex": [
-            "autodraft/chars/neha/back_tex_0.json",
-            "autodraft/chars/neha/back_tex_1.json",
-            "autodraft/chars/neha/back_tex_2.json"
+            "12toons/chars/neha/back_tex_0.json",
+            "12toons/chars/neha/back_tex_1.json",
+            "12toons/chars/neha/back_tex_2.json"
           ]
         },
         {
@@ -69,11 +69,11 @@
             "Salvar",
             "Saree"
           ],
-          "ske": "autodraft/chars/neha/back-2_ske.json",
+          "ske": "12toons/chars/neha/back-2_ske.json",
           "tex": [
-            "autodraft/chars/neha/back-2_tex_0.json",
-            "autodraft/chars/neha/back-2_tex_1.json",
-            "autodraft/chars/neha/back-2_tex_2.json"
+            "12toons/chars/neha/back-2_tex_0.json",
+            "12toons/chars/neha/back-2_tex_1.json",
+            "12toons/chars/neha/back-2_tex_2.json"
           ]
         },
         {
@@ -86,15 +86,15 @@
             "Salvar",
             "Saree"
           ],
-          "ske": "autodraft/chars/neha/side_ske.json",
+          "ske": "12toons/chars/neha/side_ske.json",
           "tex": [
-            "autodraft/chars/neha/side_tex_0.json",
-            "autodraft/chars/neha/side_tex_1.json",
-            "autodraft/chars/neha/side_tex_2.json"
+            "12toons/chars/neha/side_tex_0.json",
+            "12toons/chars/neha/side_tex_1.json",
+            "12toons/chars/neha/side_tex_2.json"
           ]
         }
       ],
-      "thumb": "autodraft/chars/neha/thumb.webp"
+      "thumb": "12toons/chars/neha/thumb.webp"
     },
     {
       "id": "mybaby",
@@ -110,10 +110,10 @@
             "Saree",
             "default"
           ],
-          "ske": "autodraft/chars/mybaby/front-side_ske.json",
+          "ske": "12toons/chars/mybaby/front-side_ske.json",
           "tex": [
-            "autodraft/chars/mybaby/front-side_tex_0.json",
-            "autodraft/chars/mybaby/front-side_tex_1.json"
+            "12toons/chars/mybaby/front-side_tex_0.json",
+            "12toons/chars/mybaby/front-side_tex_1.json"
           ]
         },
         {
@@ -126,10 +126,10 @@
             "Saree",
             "default"
           ],
-          "ske": "autodraft/chars/mybaby/front_ske.json",
+          "ske": "12toons/chars/mybaby/front_ske.json",
           "tex": [
-            "autodraft/chars/mybaby/front_tex_0.json",
-            "autodraft/chars/mybaby/front_tex_1.json"
+            "12toons/chars/mybaby/front_tex_0.json",
+            "12toons/chars/mybaby/front_tex_1.json"
           ]
         },
         {
@@ -142,11 +142,11 @@
             "Saree",
             "default"
           ],
-          "ske": "autodraft/chars/mybaby/back_ske.json",
+          "ske": "12toons/chars/mybaby/back_ske.json",
           "tex": [
-            "autodraft/chars/mybaby/back_tex_0.json",
-            "autodraft/chars/mybaby/back_tex_1.json",
-            "autodraft/chars/mybaby/back_tex_2.json"
+            "12toons/chars/mybaby/back_tex_0.json",
+            "12toons/chars/mybaby/back_tex_1.json",
+            "12toons/chars/mybaby/back_tex_2.json"
           ]
         },
         {
@@ -159,11 +159,11 @@
             "Saree",
             "default"
           ],
-          "ske": "autodraft/chars/mybaby/back-2_ske.json",
+          "ske": "12toons/chars/mybaby/back-2_ske.json",
           "tex": [
-            "autodraft/chars/mybaby/back-2_tex_0.json",
-            "autodraft/chars/mybaby/back-2_tex_1.json",
-            "autodraft/chars/mybaby/back-2_tex_2.json"
+            "12toons/chars/mybaby/back-2_tex_0.json",
+            "12toons/chars/mybaby/back-2_tex_1.json",
+            "12toons/chars/mybaby/back-2_tex_2.json"
           ]
         },
         {
@@ -176,20 +176,20 @@
             "Saree",
             "default"
           ],
-          "ske": "autodraft/chars/mybaby/side_ske.json",
+          "ske": "12toons/chars/mybaby/side_ske.json",
           "tex": [
-            "autodraft/chars/mybaby/side_tex_0.json",
-            "autodraft/chars/mybaby/side_tex_1.json",
-            "autodraft/chars/mybaby/side_tex_2.json"
+            "12toons/chars/mybaby/side_tex_0.json",
+            "12toons/chars/mybaby/side_tex_1.json",
+            "12toons/chars/mybaby/side_tex_2.json"
           ]
         }
       ],
-      "thumb": "autodraft/chars/mybaby/thumb.webp"
+      "thumb": "12toons/chars/mybaby/thumb.webp"
     },
     {
       "id": "villageboy",
       "name": "Village Boy",
-      "thumb": "autodraft/chars/villageboy/thumb.webp",
+      "thumb": "12toons/chars/villageboy/thumb.webp",
       "poses": [
         {
           "pose": "front-side",
@@ -199,19 +199,19 @@
             "default"
           ],
           "own": true,
-          "ske": "autodraft/chars/villageboy/front-side_ske.json",
+          "ske": "12toons/chars/villageboy/front-side_ske.json",
           "tex": [
-            "autodraft/chars/villageboy/front-side_tex_0.json"
+            "12toons/chars/villageboy/front-side_tex_0.json"
           ],
-          "animIndex": "autodraft/chars/villageboy/anims.json",
-          "animDir": "autodraft/chars/villageboy/anims/"
+          "animIndex": "12toons/chars/villageboy/anims.json",
+          "animDir": "12toons/chars/villageboy/anims/"
         }
       ]
     },
     {
       "id": "svgmulti",
       "name": "SVG Multi",
-      "thumb": "autodraft/chars/svgmulti/thumb.webp",
+      "thumb": "12toons/chars/svgmulti/thumb.webp",
       "poses": [
         {
           "pose": "front-side",
@@ -228,21 +228,21 @@
           ],
           "defaultSkin": "Deepak",
           "own": true,
-          "ske": "autodraft/chars/svgmulti/front-side_ske.json",
+          "ske": "12toons/chars/svgmulti/front-side_ske.json",
           "tex": [
-            "autodraft/chars/svgmulti/front-side_tex_0.json",
-            "autodraft/chars/svgmulti/front-side_tex_1.json",
-            "autodraft/chars/svgmulti/front-side_tex_2.json"
+            "12toons/chars/svgmulti/front-side_tex_0.json",
+            "12toons/chars/svgmulti/front-side_tex_1.json",
+            "12toons/chars/svgmulti/front-side_tex_2.json"
           ],
-          "animIndex": "autodraft/chars/svgmulti/anims.json",
-          "animDir": "autodraft/chars/svgmulti/anims/"
+          "animIndex": "12toons/chars/svgmulti/anims.json",
+          "animDir": "12toons/chars/svgmulti/anims/"
         }
       ]
     },
     {
       "id": "sadhubaba",
       "name": "Sadhu Baba",
-      "thumb": "autodraft/chars/sadhubaba/thumb.webp",
+      "thumb": "12toons/chars/sadhubaba/thumb.webp",
       "poses": [
         {
           "pose": "front-side",
@@ -260,21 +260,21 @@
           ],
           "defaultSkin": "Sadhu",
           "own": true,
-          "ske": "autodraft/chars/sadhubaba/front-side_ske.json",
+          "ske": "12toons/chars/sadhubaba/front-side_ske.json",
           "tex": [
-            "autodraft/chars/sadhubaba/front-side_tex_0.json",
-            "autodraft/chars/sadhubaba/front-side_tex_1.json",
-            "autodraft/chars/sadhubaba/front-side_tex_2.json"
+            "12toons/chars/sadhubaba/front-side_tex_0.json",
+            "12toons/chars/sadhubaba/front-side_tex_1.json",
+            "12toons/chars/sadhubaba/front-side_tex_2.json"
           ],
-          "animIndex": "autodraft/chars/svgmulti/anims.json",
-          "animDir": "autodraft/chars/svgmulti/anims/"
+          "animIndex": "12toons/chars/svgmulti/anims.json",
+          "animDir": "12toons/chars/svgmulti/anims/"
         }
       ]
     },
     {
       "id": "chudel",
       "name": "Chudel",
-      "thumb": "autodraft/chars/chudel/thumb.webp",
+      "thumb": "12toons/chars/chudel/thumb.webp",
       "poses": [
         {
           "pose": "front-side",
@@ -286,10 +286,10 @@
             "Salvar",
             "Saree"
           ],
-          "ske": "autodraft/chars/chudel/front-side_ske.json",
+          "ske": "12toons/chars/chudel/front-side_ske.json",
           "tex": [
-            "autodraft/chars/chudel/front-side_tex_0.json",
-            "autodraft/chars/chudel/front-side_tex_1.json"
+            "12toons/chars/chudel/front-side_tex_0.json",
+            "12toons/chars/chudel/front-side_tex_1.json"
           ],
           "defaultSkin": "Saree"
         }

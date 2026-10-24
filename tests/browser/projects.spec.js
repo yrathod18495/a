@@ -4,7 +4,7 @@ async function setup(page){
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  // These UI tests exercise local storage only; missing bundled catalogs use empty fixtures.
- await page.route('**/autodraft/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
+ await page.route('**/12toons/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
  await page.goto('/?debug#/toons');
  await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
 }
@@ -24,6 +24,8 @@ test('expanded FAQ and complete legal pages are linked and render by direct URL'
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug#/');
  await expect(page.locator('.lp-faq details')).toHaveCount(17);
+ await expect(page.locator('.lp-editor,.lp-gallery-grid,#examples,.lp-hero-visual')).toHaveCount(0);
+ await expect(page.locator('.lp-hero img,video')).toHaveCount(2);
  await page.getByRole('link',{name:'Terms of Use'}).click();
  await expect(page.getByRole('heading',{name:'Terms of Use'})).toBeVisible();
  await expect(page.getByRole('heading',{name:'4. Your projects and uploaded material'})).toBeVisible();
@@ -34,36 +36,42 @@ test('expanded FAQ and complete legal pages are linked and render by direct URL'
  await expect(page).toHaveURL(/#\/website-license$/);
  await expect(page.getByRole('heading',{name:'Website Licence'})).toBeVisible();
 });
-test('day and night theme toggle persists across landing, legal, and studio picker pages',async({page})=>{
+test('royal palette and brightness preference persist across landing, legal and studios',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
+ await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  await page.goto('/?debug#/');
- const toggle=page.getByRole('button',{name:'Switch to night mode'});
- await expect(toggle).toBeVisible();await toggle.click();
+ expect(await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(255, 255, 255)');
+ await page.locator('.sh-avatar').click();
+ await page.getByRole('button',{name:/Switch to night mode/}).click();
  await expect(page.locator('html')).toHaveAttribute('data-theme','night');
- expect(await page.locator('.lp-faq details').first().evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(16, 32, 59)');
+ expect(await page.locator('.lp-faq details').first().evaluate(e=>getComputedStyle(e).backgroundImage)).toContain('rgb(40, 33, 22)');
  await page.getByRole('link',{name:'Terms of Use'}).first().click();
  await expect(page.getByRole('heading',{name:'Terms of Use'})).toBeVisible();
- expect(await page.locator('.legal-page').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(8, 13, 23)');
+ expect(await page.locator('.legal-page').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(11, 9, 7)');
  await page.goto('/?debug#/toons');
  await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
- await expect(page.locator('html')).toHaveAttribute('data-theme','night');
- expect(await page.locator('.projects-header').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(16, 32, 59)');
+ expect(await page.locator('.projects-header').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(21, 18, 13)');
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();
- expect(await page.locator('.project-dialog').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(16, 32, 59)');
+ expect(await page.locator('.project-dialog').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(21, 18, 13)');
  await page.getByRole('button',{name:'Cancel'}).click();
- await page.getByRole('button',{name:'Switch to day mode'}).click();
- await expect(page.locator('html')).toHaveAttribute('data-theme','day');
  await page.goto('/?debug#/characters');
- await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();
- await page.getByRole('textbox',{name:'Create a project'}).fill('Night Character');
+ await page.getByRole('textbox',{name:'Create a project'}).fill('Royal Character');
  await page.getByRole('button',{name:'Create project'}).click();
  await expect(page.locator('.cs-stage')).toBeVisible();
- await page.getByRole('button',{name:'Switch to night mode'}).click();
- expect(await page.locator('.cs-stage').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(12, 23, 41)');
  await page.reload();
  await expect(page.locator('html')).toHaveAttribute('data-theme','night');
  await expect(page.locator('.cs-stage')).toBeVisible();
+ expect(await page.locator('.cs-stage').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(16, 14, 11)');
+ await page.goto('/?debug#/');
+ await page.locator('.sh-avatar').click();
+ await page.getByRole('button',{name:/Switch to day mode/}).click();
+ await expect(page.locator('html')).toHaveAttribute('data-theme','day');
+ expect(await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(255, 255, 255)');
+ expect(await page.locator('.lp-hero h1').evaluate(e=>getComputedStyle(e).color)).toBe('rgb(24, 20, 14)');
+ expect(await page.locator('.lp-button-primary').first().evaluate(e=>getComputedStyle(e).backgroundImage)).toContain('rgb(244, 215, 142)');
+ await page.locator('.sh-avatar').click();
+ await expect(page.getByRole('button',{name:/Switch to night mode/})).toBeVisible();
 });
 test('affiliate partner form explains data use and confirms successful submission',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
@@ -85,7 +93,7 @@ test('affiliate partner form explains data use and confirms successful submissio
 test('tester starts blank with only the custom character action and no visible brand',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
- await page.route('**/autodraft/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
+ await page.route('**/12toons/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
  await page.goto('/?debug&tester#/tester');
  await expect(page).toHaveTitle('Character Tester');
  await expect(page.locator('link[rel~="icon"]')).not.toHaveAttribute('href',/12%3C/);
@@ -103,11 +111,11 @@ test('tester upload selects the uploaded character and loads its live preview',a
  const ske={version:'5.5',compatibleVersion:'5.5',name:'Rig',frameRate:24,armature:[{name:'Rig',type:'Armature',frameRate:24,bone:[{name:'root',transform:{}}],slot:[{name:'body',parent:'root',displayIndex:0}],skin:[{name:'default',slot:[{name:'body',display:[{name:'body',path:'body',type:'image',transform:{}}]}]}],animation:[]}]};
  const tex={name:'Rig',imagePath:'texture.png',width:32,height:32,SubTexture:[{name:'body',x:0,y:0,width:32,height:32}]};
  const rigPng=Buffer.from(png,'base64');
- await page.route('**/autodraft/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
- await page.route('**/autodraft/characters.json',r=>r.fulfill({json:{characters:[{id:'fixture',poses:[{pose:'front',label:'Fixture',ske:'autodraft/fixture_ske.json',tex:['autodraft/fixture_tex.json'],own:true}]}]}}));
- await page.route('**/autodraft/fixture_ske.json',r=>r.fulfill({json:ske}));
- await page.route('**/autodraft/fixture_tex.json',r=>r.fulfill({json:tex}));
- await page.route('**/autodraft/texture.png',r=>r.fulfill({status:200,contentType:'image/png',body:rigPng}));
+ await page.route('**/12toons/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
+ await page.route('**/12toons/characters.json',r=>r.fulfill({json:{characters:[{id:'fixture',poses:[{pose:'front',label:'Fixture',ske:'12toons/fixture_ske.json',tex:['12toons/fixture_tex.json'],own:true}]}]}}));
+ await page.route('**/12toons/fixture_ske.json',r=>r.fulfill({json:ske}));
+ await page.route('**/12toons/fixture_tex.json',r=>r.fulfill({json:tex}));
+ await page.route('**/12toons/texture.png',r=>r.fulfill({status:200,contentType:'image/png',body:rigPng}));
  await page.goto('/?debug&tester#/tester');
  const z=new JSZip();
  z.file('Fixture_ske.json',JSON.stringify({version:'5.5',compatibleVersion:'5.5',name:'Fixture',frameRate:24,armature:[{name:'Fixture',type:'Armature',frameRate:24,bone:[{name:'root',transform:{}}],slot:[{name:'body',parent:'root',displayIndex:0}],skin:[{name:'default',slot:[{name:'body',display:[{name:'body',path:'body',type:'image',transform:{}}]}]}],animation:[]}]}));

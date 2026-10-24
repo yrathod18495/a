@@ -23,7 +23,7 @@ export const isDefaultFit = (f) => !f || (f.leg === 1 && f.arm === 1 && f.hand =
 const FACE = /^(HEAD\d*$|head|Eye|Brow|Mouth|Lip|Jaw|Nose|Ear|Tongue)/i;
 const FACEBONE = /^(Eye|Brow|Mouth|Lip|Jaw|Nose|Tongue)/i;
 const CLOTH = /^(Lungi|Kurta|Duptta|Dupatta|Hair|Back_Hair|Skirt|Sleeve|Cape|Scarf|Tail|Earring|Saree|Pallu)/i;
-// well-known names: Autodraft family first, then the common naming of other tools (Mixamo, DragonBones, Spine templates ...)
+// well-known names: 12toons family first, then the common naming of other tools (Mixamo, DragonBones, Spine templates ...)
 const NAMES = {
   legs: [/^(2|bone3)$/, /^(thigh|up_?leg|upper_?leg|leg_?up|hip_?[lr]|[lr]_?thigh|[lr]_?up_?leg)/i, /(left|right)?_?(thigh|upleg)/i],
   arms: [/^ARM_[LR]$/, /^(upper_?arm|arm_?up|[lr]_?upper_?arm|[lr]_?arm|shoulder_?[lr]|arm_?[lr]?)$/i, /(left|right)?_?(upperarm|bicep)/i],

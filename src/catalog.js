@@ -1,5 +1,5 @@
 import { testerAnimationAllowed } from './tester-animation-policy.js';
-// Bundled Autodraft characters and their animation library.
+// Bundled 12toons characters and their animation library.
 import { get as dbGet, put as dbPut, del as dbDel, all as dbAll } from './store.js';
 import { loadAnimRules, cachedRules, loadTesterConfig } from './cloud.js';
 import { rigInfo, dirOf } from './db/info.js';
@@ -28,13 +28,13 @@ export async function loadCatalog() {
   try { const r = await Promise.race([loadAnimRules(), new Promise((res) => setTimeout(() => res(null), 2500))]); if (r) setAnimRules(r); } catch { /* keep the cached rules */ }
   library = [];
   adAnims = null;
-  // Autodraft template characters (layered SVG characters, five poses each) + their animation library
+  // 12toons template characters (layered SVG characters, five poses each) + their animation library
   try {
-    const [chars, anims] = await Promise.all([fetch(`${BASE}autodraft/characters.json`).then((r) => r.json()), fetch(`${BASE}autodraft/animations.json`).then((r) => r.json())]);
+    const [chars, anims] = await Promise.all([fetch(`${BASE}12toons/characters.json`).then((r) => r.json()), fetch(`${BASE}12toons/animations.json`).then((r) => r.json())]);
     adAnims = anims;
-    const mine = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `autodraft/pose/${c.id}-${p.pose}.webp`, autodraft: p, paid: false })));
+    const mine = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `12toons/pose/${c.id}-${p.pose}.webp`, template: p, paid: false })));
     library = mine;
-  } catch (e) { console.warn('autodraft data failed to load', e); }
+  } catch (e) { console.warn('12toons data failed to load', e); }
 }
 export const libraryCharacters = () => library;
 export const cdn = (p) => url(p);
@@ -42,8 +42,8 @@ export const cdn = (p) => url(p);
 /** Downloads a character (DragonBones skeleton + texture atlases + pictures) from its files and returns the same shape ingest() produces. */
 export async function fetchLibraryCharacter(entry) {
   const ok = (r) => { if (!r.ok) throw new Error(`${r.status} ${r.url}`); return r; };
-  if (!entry?.autodraft) throw new Error('Character template is no longer available.');
-  const a = entry.autodraft, load = async () => {
+  if (!entry?.template) throw new Error('Character template is no longer available.');
+  const a = entry.template, load = async () => {
     const [ske, texJsons] = await Promise.all([fetch(url(a.ske)).then(ok).then((r) => r.json()), Promise.all(a.tex.map((u) => fetch(url(u)).then(ok).then((r) => r.json())))]);
     const blobs = await Promise.all(texJsons.map((t, i) => fetch(url(dirOf(a.tex[i]) + t.imagePath)).then(ok).then((r) => r.blob())));
     return { ske, tex: texJsons.map((json, i) => ({ json, image: blobs[i] })) };
@@ -77,7 +77,7 @@ export async function hydrateAll(list) { return (await Promise.all(list.map((r) 
 export const url = (p) => (!p ? null : /^(https?:|blob:|data:)/.test(p) ? p : BASE + p);
 /** categories for a rig: [{key, name, overlay, animations:[{ref,...}]}] */
 const AD_LAYER = { HAND: 'hand', LEGS: 'legs', EXPRESSION: 'face' };
-/** Autodraft poses: Body animations (split into Talking / Idle / the rest) plus three layers that run on top of a body animation */
+/** 12toons poses: Body animations (split into Talking / Idle / the rest) plus three layers that run on top of a body animation */
 function adCategories(pose) {
   const tr = adAnims?.poses?.[pose];
   if (!tr) return [];

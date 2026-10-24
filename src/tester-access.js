@@ -32,7 +32,7 @@ export function testerAccessView({ user, status = 'none', error = '', accessOnly
       h('span', { class: 'staff-tag' }, 'TESTER ACCESS'),
       h('h1', {}, heading), h('p', { class: 'sub' }, detail),
       ...(error ? [h('p', { class: 'sub', role: 'alert' }, error)] : []),
-      user ? h('p', { class: 'tester-account' }, user.email || user.displayName || 'Google account') : null,
+      ...(user ? [h('p', { class: 'tester-account' }, user.email || user.displayName || 'Google account')] : []),
       h('div', { class: 'tester-access-actions' }, ...actions),
       user ? h('button', { class: 'btn-link', onclick: signOut }, 'Sign out') : h('button', { class: 'btn-link', onclick: home }, '← Back to home')
     );

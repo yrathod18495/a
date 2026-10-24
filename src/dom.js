@@ -11,4 +11,4 @@ export const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 export const toast = (msg) => { const t = h('div', { class: 'toast' }, msg); document.body.append(t); setTimeout(() => t.remove(), 4500); };
-export const logo = () => h('a', { class: 'logo logo-btn', href: '/#/', style: 'text-decoration:none', title: '12toons home', 'aria-label': '12toons home' }, h('b', {}, '12'), 'toons');
+export const logo = () => h('a', { class: 'logo logo-btn', href: '/#/', style: 'text-decoration:none', title: '12toons home', 'aria-label': '12toons home' }, h('img', { class: 'royal-brand-emblem', src: '/images/royal-crown-emblem.png', alt: '', width: 38, height: 38 }), h('b', {}, '12'), 'toons');

@@ -52,11 +52,11 @@ async function loadImage(blob, maxSide, knownSize) {
   return bmp;
 }
 
-/** how the mouth shapes are called in this rig: our own `lips` slot (lip_*) or Autodraft's `Mouth-X` slot (Mouth/A … Mouth/X) */
+/** how the mouth shapes are called in this rig: our own `lips` slot (lip_*) or 12toons's `Mouth-X` slot (Mouth/A … Mouth/X) */
 const AD_MOUTH = { lip_idle: 'Mouth/X', lip_a_e_i: 'Mouth/D', lip_ee: 'Mouth/B', lip_o: 'Mouth/C', lip_u: 'Mouth/F', lip_b_m_p: 'Mouth/A', lip_c_d_g_k_n_s_t_x_y_z: 'Mouth/B', lip_ch_sh_j: 'Mouth/E', lip_f_v: 'Mouth/A_B', lip_l: 'Mouth/C', lip_r: 'Mouth/E', lip_th: 'Mouth/B', lip_qw: 'Mouth/F' };
 function lipSetup(prep) {
   if (prep.disp.has('lips')) return { slot: 'lips', map: null };
-  for (const [slot, names] of prep.disp) if (names.has('Mouth/X') || names.has('Mouth/A')) return { slot, map: AD_MOUTH };      // Autodraft: slot Mouth-X or Mouth/X, pictures Mouth/A ... Mouth/X
+  for (const [slot, names] of prep.disp) if (names.has('Mouth/X') || names.has('Mouth/A')) return { slot, map: AD_MOUTH };      // 12toons: slot Mouth-X or Mouth/X, pictures Mouth/A ... Mouth/X
   return null;
 }
 const FADE = 0.35; // seconds of cross-fade between two animations

@@ -194,7 +194,7 @@ function chooseCharacter(s, after) {
   close = modal(`Character for ${s.name}`, h('div', {},
     h('div', { class: 'gridc' }, card(null, 'No character', 'Voice only', () => pick(null), !s.charId)),
     h('h2', { style: 'margin:16px 0 8px' }, 'Characters'),
-    libraryCharacters().some((e) => e.autodraft) ? characterPicker({ entries: libraryCharacters(), isOn: (e) => s.charId === `lib:${e.id}`, onPick: (e) => pick(`lib:${e.id}`) }) : null,
+    libraryCharacters().some((e) => e.template) ? characterPicker({ entries: libraryCharacters(), isOn: (e) => s.charId === `lib:${e.id}`, onPick: (e) => pick(`lib:${e.id}`) }) : null,
     S.characters.length ? [h('h2', { style: 'margin:16px 0 8px' }, 'Your characters'), h('div', { class: 'gridc' }, S.characters.map((c) => card(c.thumb || null, c.name, 'from your device', () => pick(c.id), s.charId === c.id)))] : null,
     cloudBox));
   cloudReady().then(async (ok) => {
@@ -250,7 +250,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
       h('button', { class: 'acard add', onclick: () => file.click() }, h('span', {}, '+'), h('b', {}, 'Add New'), h('small', {}, 'animation .json'), file),
       list.map((a) => {
         const sel = sameRef(cur0, a.ref);
-        const th = h('div', { class: `ath${a.poster?.startsWith('autodraft/') ? ' dark' : ''}` }, a.poster ? h('img', { src: assetUrl(a.poster), alt: '', loading: 'lazy' }) : h('span', {}, a.custom ? '🎞' : '🎬'));
+        const th = h('div', { class: `ath${a.poster?.startsWith('12toons/') ? ' dark' : ''}` }, a.poster ? h('img', { src: assetUrl(a.poster), alt: '', loading: 'lazy' }) : h('span', {}, a.custom ? '🎞' : '🎬'));
         if (a.preview) { th.dataset.src = assetUrl(a.preview); watch(th); }
         return h('button', { class: `acard ${sel ? 'on' : ''}`, onclick: async () => { await onPick(s, a.ref, !!a.cat.overlay, a.length); draw(); } }, th, a.length && h('span', { class: 'dur' }, `${(+a.length).toFixed(2)} s`), h('span', { class: 'nm2' }, a.name, a.cat.layer ? ` · ${a.cat.layer}` : a.cat.overlay ? ' · face' : ''),
           a.custom && h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); await removeCustom(a.ref.id); S.customAnims = S.customAnims.filter((c) => c.id !== a.ref.id); draw(); } }, '✕'));
@@ -1063,7 +1063,7 @@ function tabAudio() {
       h('button', { class: 'btn sm', onclick: async () => { if (S.exporting || !confirm('Remove all audio lines?')) return; S.lines = []; await afterAudioChange(); } }, 'Clear all')) : null,
     ...rows);
 }
-/** outfits of a character = its skins except "default" (Autodraft rigs: Saree / Salvar / Business ...) */
+/** outfits of a character = its skins except "default" (12toons rigs: Saree / Salvar / Business ...) */
 const skinNames = (def) => (def?.rig?.skins || []).map((k) => k.name).filter((n) => n !== 'default' && !n.includes('/'));
 function outfitModal(s) {
   const def = charOf(s), names = skinNames(def), cur = s.skins ?? def.skins ?? null;
