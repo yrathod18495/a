@@ -43,7 +43,7 @@ Limits live in `shared/export-limits.js` and are enforced by `api/export.js`; th
 
 - `entitlements/{uid}` – `{ tier: 'free' | 'paid', source, paidSince?, lastOrderId?, by?, updatedAt }`. Server-only writes; the owner may read it. A missing document is created on first use.
   - `source: 'purchase'` – set in the same transaction that credits a captured payment (`server/credit-payments.js`).
-  - `source: 'purchase-backfill'` – an account that paid before tiers existed (credits above 0 or a captured payment) is recognised once and remembered.
+  - `source: 'purchase-backfill'` – an account that paid before tiers existed (Gold Coins above 0 or a captured payment) is recognised once and remembered.
   - `source: 'admin'` – set with `api/export.js` action `adminSetTier` (`{ uid, tier: 'free' | 'paid' }`, admin only, recorded in `securityAudit`). An explicit `free` revokes paid.
   - Admins export with the paid limit.
 - `workspaces/{uid}/exports/{id}` – one row per export request: `{ tier, limitSeconds, seconds, scenes, scope, status: 'granted' | 'denied' | 'completed' | 'failed', createdAt, completedAt? }`. Denied attempts are kept, so abuse is visible. Server-only writes; the owner may read.

@@ -303,7 +303,7 @@ function hubView() {
       h('div', { class: 'sh-tools' },
         card('🎬', '12toons', 'Animation studio. Place characters and backgrounds, add your audio lines (optional), direct the scenes with AI and export a video.', '#/toons', 'Open 12toons →'),
         card('🎭', '12toons Character Studio', 'Build characters. Recolour parts, upload artwork, choose outfits and save them for your animations.', '#/characters', 'Open Character Studio →'),
-        card('💳', 'Buy Credits', 'Choose a one-time credit pack and review your payment history.', '#/credits', 'View credit plans →')),
+        card('🪙', 'Buy Gold Coins', 'Choose a one-time Gold Coins pack and review your payment history.', '#/credits', 'View Gold Coin plans →')),
       cloudLine));
 }
 

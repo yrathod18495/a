@@ -12,7 +12,7 @@ export async function view({ user, home, back, toast }) {
   let payments = [], cursor = null, loading = false;
   const root = h('div', { class: 'sh admin-payments' },
     h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin · Payments'), h('span', { class: 'sp' }), h('button', { class: 'btn', onclick: back }, '← Admin panel'), h('button', { class: 'btn', onclick: home }, '⌂ Home')),
-    h('main', { class: 'payments-main' }, h('div', { class: 'payments-title' }, h('div', {}, h('h1', {}, 'Credit payments'), h('p', { class: 'sub' }, 'Latest payment attempts and confirmed credit purchases.')), h('button', { class: 'btn', onclick: () => load() }, '↻ Refresh')), summary, rows));
+    h('main', { class: 'payments-main' }, h('div', { class: 'payments-title' }, h('div', {}, h('h1', {}, 'Gold Coin payments'), h('p', { class: 'sub' }, 'Latest payment attempts and confirmed Gold Coin purchases.')), h('button', { class: 'btn', onclick: () => load() }, '↻ Refresh')), summary, rows));
   async function load(append = false) {
     if (loading) return;
     loading = true;
@@ -24,10 +24,10 @@ export async function view({ user, home, back, toast }) {
       summary.replaceChildren(
         h('article', { class: 'payments-stat' }, h('small', {}, `Captured payments (loaded ${payments.length})`), h('b', {}, String(captured.length))),
         h('article', { class: 'payments-stat' }, h('small', {}, `Captured revenue (loaded ${payments.length})`), h('b', {}, money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0)))),
-        h('article', { class: 'payments-stat' }, h('small', {}, 'Credits delivered'), h('b', {}, captured.reduce((sum, p) => sum + Number(p.credits || 0), 0).toLocaleString('en-IN'))));
+        h('article', { class: 'payments-stat' }, h('small', {}, 'Gold Coins delivered'), h('b', {}, captured.reduce((sum, p) => sum + Number(p.credits || 0), 0).toLocaleString('en-IN'))));
       if (!payments.length) { rows.replaceChildren(h('p', { class: 'hint' }, 'No payment attempts have been recorded yet.')); return; }
       const table = h('table', { class: 'payments-table' },
-        h('thead', {}, h('tr', {}, ...['Customer', 'Plan', 'Amount', 'Credits', 'Status', 'Created', 'Payment ID'].map((title) => h('th', {}, title)))),
+        h('thead', {}, h('tr', {}, ...['Customer', 'Plan', 'Amount', 'Gold Coins', 'Status', 'Created', 'Payment ID'].map((title) => h('th', {}, title)))),
         h('tbody', {}, ...payments.map((p) => h('tr', {},
           h('td', {}, h('b', {}, p.name || p.email || p.uid), h('small', {}, p.email || p.uid)),
           h('td', {}, p.planName || p.planId || '—'), h('td', {}, money(p.amountPaise)), h('td', {}, Number(p.credits || 0).toLocaleString('en-IN')),

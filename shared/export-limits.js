@@ -14,5 +14,5 @@ export function fmtLimit(seconds) {
 export function limitMessage(seconds, tier) {
   const paid = normalizeTier(tier) === 'paid', limit = limitFor(tier);
   const over = `Aapka video ${fmtLimit(seconds)} lamba hai, lekin ${paid ? 'paid' : 'free'} account se ek baar me sirf ${fmtLimit(limit)} tak ka video export ho sakta hai.`;
-  return paid ? `${over} Video chhota karein ya use hisso me export karein.` : `${over} Video chhota karein, ya credits kharidkar ${fmtLimit(EXPORT_LIMIT_SECONDS.paid)} tak export karein.`;
+  return paid ? `${over} Video chhota karein ya use hisso me export karein.` : `${over} Video chhota karein, ya Gold Coins kharidkar ${fmtLimit(EXPORT_LIMIT_SECONDS.paid)} tak export karein.`;
 }

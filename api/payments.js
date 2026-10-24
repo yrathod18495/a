@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     });
     if (b.action === 'createOrder') {
       const plan = planById.get(String(b.planId));
-      if (!plan) throw new AccessError('invalid_plan', 'Sahi credit plan chunein.', 400);
+      if (!plan) throw new AccessError('invalid_plan', 'Sahi Gold Coins plan chunein.', 400);
       if (!paymentConfigReady()) throw new AccessError('payments_unconfigured', 'Payment ka setup abhi poora nahi hua hai. Thodi der baad try karein.', 503);
       const order = await razorpayRequest('orders', { method: 'POST', body: JSON.stringify({ amount: plan.amountPaise, currency: plan.currency, receipt: `cr_${randomUUID().replace(/-/g, '')}`, notes: { uid: who.uid, planId: plan.id } }) });
       if (!order.id || +order.amount !== plan.amountPaise || order.currency !== plan.currency) throw new AccessError('invalid_gateway_order', 'Razorpay se galat order mila. Dobara try karein.', 502);

@@ -6,7 +6,7 @@ const options = ['new', 'contacted', 'approved', 'declined'];
 export async function affiliatesView({ user, back, toast }) {
   const root = h('div', { class: 'sh admin-affiliates' }), list = h('div', { class: 'affiliate-admin-list' }), count = h('span', { class: 'affiliate-admin-count' }), rate = h('input', { type: 'number', min: '1', max: '50', step: '0.5', class: 'affiliate-rate-input', 'aria-label': 'Commission percentage' }), rateMessage = h('span', { class: 'affiliate-rate-message', role: 'status' });
   const saveRate = h('button', { class: 'btn pri', onclick: saveCommissionRate }, 'Save rate');
-  const settings = h('section', { class: 'affiliate-rate-card' }, h('div', {}, h('h2', {}, 'Commission rate'), h('p', {}, 'Applied to future captured credit purchases. Existing commission records keep their original rate.')), h('div', { class: 'affiliate-rate-controls' }, rate, h('span', {}, '%'), saveRate), rateMessage);
+  const settings = h('section', { class: 'affiliate-rate-card' }, h('div', {}, h('h2', {}, 'Commission rate'), h('p', {}, 'Applied to future captured Gold Coin purchases. Existing commission records keep their original rate.')), h('div', { class: 'affiliate-rate-controls' }, rate, h('span', {}, '%'), saveRate), rateMessage);
   root.append(h('header', { class: 'sh-bar' }, logo(back), h('span', { class: 'sh-crumb' }, 'Admin · Affiliates'), h('span', { class: 'sp' }), h('button', { class: 'btn', onclick: back }, 'Back to Admin')),
     h('main', { class: 'affiliate-admin-main' }, h('div', { class: 'affiliate-admin-heading' }, h('div', {}, h('span', { class: 'projects-eyebrow' }, 'PARTNERSHIPS'), h('h1', {}, 'Affiliate Partners'), h('p', {}, 'Review applications, referrals, commissions and payout status.')), count), settings, list));
   async function loadSettings() {
@@ -42,7 +42,7 @@ export async function affiliatesView({ user, back, toast }) {
         const commissionRows = (row.commissions || []).map(c => {
           const state = h('span', { class: `affiliate-payout-state ${c.payoutStatus === 'paid' ? 'paid' : 'pending'}` }, c.payoutStatus === 'paid' ? 'Paid' : 'Pending');
           const controls = c.payoutStatus === 'paid' ? h('small', {}, `Ref: ${c.payoutReference || '—'}`) : (() => { const input = h('input', { class: 'affiliate-payout-reference', placeholder: 'Payout reference', 'aria-label': `Payout reference for ${c.orderId}` }), button = h('button', { class: 'btn sm', onclick: () => markPaid(row.id, c.id, input, button, state) }, 'Mark paid'); return h('div', { class: 'affiliate-payout-controls' }, input, button); })();
-          return h('div', { class: 'affiliate-admin-commission' }, h('div', {}, h('b', {}, c.planName || 'Credit purchase'), h('small', {}, `${new Date(c.createdAt).toLocaleDateString()} · Purchase ₹${(Number(c.amountPaise || 0) / 100).toFixed(2)} · ${c.commissionPercent}%`)), h('div', {}, h('b', {}, `₹${(Number(c.commissionPaise || 0) / 100).toFixed(2)}`), state, controls));
+          return h('div', { class: 'affiliate-admin-commission' }, h('div', {}, h('b', {}, c.planName || 'Gold Coins purchase'), h('small', {}, `${new Date(c.createdAt).toLocaleDateString()} · Purchase ₹${(Number(c.amountPaise || 0) / 100).toFixed(2)} · ${c.commissionPercent}%`)), h('div', {}, h('b', {}, `₹${(Number(c.commissionPaise || 0) / 100).toFixed(2)}`), state, controls));
         });
         const stats = row.stats || { clicks: 0, referrals: 0, conversions: 0, commissionPaise: 0, pendingPaise: 0, paidPaise: 0 };
         return h('article', { class: 'affiliate-admin-card' },
