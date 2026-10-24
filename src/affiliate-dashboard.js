@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, logo } from './dom.js';
 import { apiCall } from './session.js';
 
@@ -21,7 +22,7 @@ export async function affiliateDashboardView({ user, home, apply }) {
       h('section', { class: 'affiliate-commission-card' }, h('div', { class: 'affiliate-commission-heading' }, h('div', {}, h('h2', {}, 'Commission report'), h('p', {}, 'Commissions are recorded after Razorpay confirms a referred purchase. Payouts are handled manually by the program administrator.'))), h('div', { class: 'affiliate-commission-list' }, ...commissionRows))
     );
   } catch (e) {
-    content.replaceChildren(h('section', { class: 'affiliate-dash-unavailable' }, h('span', { class: 'projects-eyebrow' }, 'AFFILIATE PROGRAM'), h('h1', {}, 'Partner dashboard unavailable'), h('p', {}, e.message || 'This Google account does not have an approved affiliate application.'), h('button', { class: 'btn pri', onclick: apply }, 'Apply to become a partner')));
+    content.replaceChildren(h('section', { class: 'affiliate-dash-unavailable' }, h('span', { class: 'projects-eyebrow' }, 'AFFILIATE PROGRAM'), h('h1', {}, 'Partner dashboard abhi nahi khul paya'), h('p', {}, friendlyError(e, 'Is Google account ki affiliate application abhi approve nahi hui hai.')), h('button', { class: 'btn pri', onclick: apply }, 'Apply to become a partner')));
   }
   return root;
 }

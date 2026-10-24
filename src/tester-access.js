@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 import { h } from './dom.js';
 import { apiCall } from './session.js';
 
@@ -42,7 +43,7 @@ export function testerAccessView({ user, status = 'none', error = '', accessOnly
     if (busy || !user) return;
     busy = true; render();
     try { const result = await apiCall('/api/security', { action: 'testerApply' }, user.uid); state = result.status; }
-    catch (error) { toast(error.message || 'Could not send the tester request.'); }
+    catch (error) { toast(friendlyError(error, 'Tester request bheji nahi ja saki. Dobara try karein.')); }
     finally { busy = false; render(); }
   }
 

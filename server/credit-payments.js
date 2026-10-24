@@ -12,14 +12,14 @@ export const verifyWebhookSignature = (raw, signature, secret) => hexEqual(creat
 const basicAuth = () => `Basic ${Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString('base64')}`;
 export const paymentConfigReady = () => !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
 export async function razorpayRequest(path, options = {}) {
-  if (!paymentConfigReady()) throw Object.assign(new Error('Razorpay keys are not configured.'), { status: 503, code: 'payments_unconfigured' });
+  if (!paymentConfigReady()) throw Object.assign(new Error('Razorpay ki keys set nahi hain.'), { status: 503, code: 'payments_unconfigured' });
   const response = await fetch(`https://api.razorpay.com/v1/${path}`, {
     ...options,
     headers: { Authorization: basicAuth(), 'Content-Type': 'application/json', ...(options.headers || {}) },
     signal: AbortSignal.timeout(15000),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(data.error?.description || 'Razorpay request failed.'), { status: 502, code: 'razorpay_error' });
+  if (!response.ok) throw Object.assign(new Error(data.error?.description || 'Razorpay ki request fail ho gayi. Dobara try karein.'), { status: 502, code: 'razorpay_error' });
   return data;
 }
 
@@ -57,13 +57,13 @@ export async function creditCapturedPayment(db, payment) {
     const [currentPayment, userProfile, affiliateReferral, affiliateSettings, entitlement] = await tx.getAll(paymentRef, workspaceRef, affiliateRef, settingsRef, entitlementRef);
     if (!currentPayment.exists) return;
     const current = currentPayment.data();
-    if (+current.amountPaise !== +payment.amount || current.currency !== payment.currency) throw Object.assign(new Error('Payment amount did not match the order.'), { status: 409, code: 'payment_amount_mismatch' });
+    if (+current.amountPaise !== +payment.amount || current.currency !== payment.currency) throw Object.assign(new Error('Payment ki raqam order se match nahi hui.'), { status: 409, code: 'payment_amount_mismatch' });
     if (paid(current)) return;
     const attribution = affiliateReferral.exists ? affiliateReferral.data() : null;
     const affiliateRefDoc = attribution?.affiliateId ? db.doc(`affiliatePartners/${attribution.affiliateId}`) : null;
     const affiliatePartner = affiliateRefDoc ? await tx.get(affiliateRefDoc) : null;
     const currentCredits = Number(userProfile.data()?.credits || 0);
-    if (!Number.isSafeInteger(currentCredits) || currentCredits < 0 || !Number.isSafeInteger(currentCredits + current.credits)) throw new Error('Invalid account credit balance.');
+    if (!Number.isSafeInteger(currentCredits) || currentCredits < 0 || !Number.isSafeInteger(currentCredits + current.credits)) throw new Error('Account ka credit balance sahi nahi hai. Support se sampark karein.');
     const now = Date.now(), update = { status: 'captured', paymentId, capturedAt: now, updatedAt: now };
     tx.set(workspaceRef, { credits: currentCredits + current.credits }, { merge: true });
     tx.set(paymentRef, update, { merge: true });

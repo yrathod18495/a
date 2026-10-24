@@ -1,5 +1,7 @@
 # 12toons
 
+> **Rule: error messages are user-friendly Hinglish.** Every error a user sees is written in simple Hinglish (Roman Hindi + common English words), never raw English or raw Firebase text. See `docs/ERROR-MESSAGES.md` and `shared/hinglish-errors.js`.
+
 > **Rule: DragonBones only.** The Spine library is not used. All rigs and animation data are DragonBones, and all code uses only the DragonBones runtime. See `CLAUDE.md`.
 
 AI animation studio that runs in the browser.

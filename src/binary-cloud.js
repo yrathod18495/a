@@ -4,7 +4,7 @@ const hex=bytes=>[...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0'
 const hash=async bytes=>hex(await crypto.subtle.digest('SHA-256',bytes));
 function base64(bytes){let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text);}
 export async function uploadBinary(uid,key,blob,deduplicate=false) {
- if(blob.size>40*1024*1024)throw Error('File exceeds the 40 MB limit.');
+ if(blob.size>40*1024*1024)throw Error('File 40 MB ki limit se badi hai.');
  const bytes=await blob.arrayBuffer(),digest=await hash(bytes);
  const existing=await apiCall('/api/r2',{action:'head',key},uid);
  if(existing.exists&&existing.digest===digest)return;
@@ -19,13 +19,13 @@ export async function uploadBinary(uid,key,blob,deduplicate=false) {
 }
 export async function downloadBinary(uid,key) {
  const head=await apiCall('/api/r2',{action:'head',key},uid);
- if(!head.exists||!Number.isSafeInteger(head.size)||head.size>40*1024*1024)throw Error('Cloud file unavailable.');
+ if(!head.exists||!Number.isSafeInteger(head.size)||head.size>40*1024*1024)throw Error('Cloud file abhi nahi mil rahi.');
  const parts=[];
  for(let start=0;start<head.size;start+=SIZE){
   const out=await apiCall('/api/r2',{action:'get',key,start,length:SIZE},uid);
   parts.push(Uint8Array.from(atob(out.data),c=>c.charCodeAt(0)));
  }
  const blob=new Blob(parts,{type:head.type});
- if(blob.size!==head.size||head.digest&&await hash(await blob.arrayBuffer())!==head.digest)throw Error('Cloud file integrity check failed.');
+ if(blob.size!==head.size||head.digest&&await hash(await blob.arrayBuffer())!==head.digest)throw Error('Cloud file kharab nikli (integrity check fail hua). Dobara try karein.');
  return blob;
 }

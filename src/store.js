@@ -3,10 +3,10 @@ export const STORES = ['characters','animations','backgrounds','props','swaps','
 let active, conn;
 const listeners = new Set();
 export const context = () => active && {...active};
-export const selectProject = (uid,id) => { if(!uid || !id) throw Error('Account and project required'); active={uid,id}; };
+export const selectProject = (uid,id) => { if(!uid || !id) throw Error('Account aur project dono zaroori hain'); active={uid,id}; };
 export const clearProject = () => {active=null;};
 export const onStoreChange = fn => {listeners.add(fn); return ()=>listeners.delete(fn);};
-const scope = () => {if(!active) throw Error('Open a project first'); return {...active};};
+const scope = () => {if(!active) throw Error('Pehle koi project kholein'); return {...active};};
 function open() {
  return conn ||= new Promise((resolve,reject)=>{
   const r=indexedDB.open('12toons-projects-v1',2);
@@ -26,7 +26,7 @@ async function tx(names,mode,fn) {
   const t=db.transaction(names,mode); let out;
   try {out=fn(t);}catch(e){t.abort();reject(e);return;}
   t.oncomplete=()=>resolve(typeof out==='function'?out():out?.result);
-  t.onerror=t.onabort=()=>reject(t.error||Error('Local transaction aborted'));
+  t.onerror=t.onabort=()=>reject(t.error||Error('Local save beech me ruk gaya'));
  });
 }
 export const projectMeta=(uid,id)=>tx(['projects'],'readonly',t=>t.objectStore('projects').get([uid,id]));
@@ -34,7 +34,7 @@ export const listProjects=uid=>tx(['projects'],'readonly',t=>{
  const r=t.objectStore('projects').getAll();return ()=>r.result.filter(p=>p.uid===uid);
 });
 export async function createProject(uid,kind,name='Untitled project') {
- if(!uid||!['animation','character'].includes(kind))throw Error('Invalid project');
+ if(!uid||!['animation','character'].includes(kind))throw Error('Project sahi nahi hai');
  const p={uid,id:crypto.randomUUID(),kind,name:name.trim().slice(0,120)||'Untitled project',revision:0,generation:1,dirty:true,updatedAt:Date.now()};
  await tx(['projects'],'readwrite',t=>t.objectStore('projects').add(p)); return p;
 }
@@ -44,7 +44,7 @@ export async function updateProject(uid,id,patch) {
   r.onsuccess=()=>{if(!r.result){t.abort();return;}s.put({...r.result,...patch,uid,id,generation:r.result.generation+1,dirty:true,updatedAt:Date.now()});};
  }); listeners.forEach(fn=>fn({uid,id}));
 }
-export const renameProject=(uid,id,name)=>{if(!name.trim())throw Error('Name required');return updateProject(uid,id,{name:name.trim().slice(0,120)});};
+export const renameProject=(uid,id,name)=>{if(!name.trim())throw Error('Naam likhna zaroori hai');return updateProject(uid,id,{name:name.trim().slice(0,120)});};
 export const deleteProject=(uid,id)=>updateProject(uid,id,{deleted:true});
 export async function all(store) {
  const c=scope();return tx(['records'],'readonly',t=>{
@@ -55,7 +55,7 @@ export async function get(store,id) {
  const c=scope(),r=await tx(['records'],'readonly',t=>t.objectStore('records').get([c.uid,c.id,store,id]));return r?.value;
 }
 async function mutate(store,id,value,remove=false) {
- if(!STORES.includes(store))throw Error('Invalid store');
+ if(!STORES.includes(store))throw Error('Store sahi nahi hai');
  const c=scope();
  await tx(['records','projects'],'readwrite',t=>{
   const ps=t.objectStore('projects'),r=ps.get([c.uid,c.id]);
@@ -114,7 +114,7 @@ export async function copyProject(uid,id) {
  return p;
 }
 export async function restoreSnapshot(uid,meta,records) {
- if(!meta?.id||!Array.isArray(records)||records.some(r=>!STORES.includes(r.store)||!r.value?.id))throw Error('Invalid snapshot');
+ if(!meta?.id||!Array.isArray(records)||records.some(r=>!STORES.includes(r.store)||!r.value?.id))throw Error('Snapshot sahi nahi hai');
  await tx(['records','projects','library'],'readwrite',t=>{
   const ps=t.objectStore('projects'),old=ps.get([uid,meta.id]);
   old.onsuccess=()=>{
@@ -169,7 +169,7 @@ export async function migrateLegacy(uid) {
  });return meta;
 }
 export async function importLegacyCloud(uid, records) {
- if(!Array.isArray(records)||records.some(r=>!STORES.includes(r.store)||!r.value?.id))throw Error('Invalid legacy cloud backup');
+ if(!Array.isArray(records)||records.some(r=>!STORES.includes(r.store)||!r.value?.id))throw Error('Purana cloud backup sahi nahi hai');
  const meta={uid,id:crypto.randomUUID(),kind:'animation',name:'Recovered legacy cloud project',revision:0,generation:1,dirty:true,updatedAt:Date.now()};
  await tx(['records','projects','meta'],'readwrite',t=>{
   const ms=t.objectStore('meta'),r=ms.get('legacy-cloud-'+uid);

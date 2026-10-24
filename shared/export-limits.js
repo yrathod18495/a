@@ -12,6 +12,7 @@ export function fmtLimit(seconds) {
   return m ? (r ? `${m} min ${r} s` : `${m} min`) : `${r} s`;
 }
 export function limitMessage(seconds, tier) {
-  const limit = limitFor(tier), over = `Your video is ${fmtLimit(seconds)} long, but ${normalizeTier(tier) === 'paid' ? 'paid' : 'free'} accounts can export up to ${fmtLimit(limit)} at a time.`;
-  return normalizeTier(tier) === 'paid' ? `${over} Shorten the video or export it in parts.` : `${over} Shorten the video, or buy credits to export up to ${fmtLimit(EXPORT_LIMIT_SECONDS.paid)}.`;
+  const paid = normalizeTier(tier) === 'paid', limit = limitFor(tier);
+  const over = `Aapka video ${fmtLimit(seconds)} lamba hai, lekin ${paid ? 'paid' : 'free'} account se ek baar me sirf ${fmtLimit(limit)} tak ka video export ho sakta hai.`;
+  return paid ? `${over} Video chhota karein ya use hisso me export karein.` : `${over} Video chhota karein, ya credits kharidkar ${fmtLimit(EXPORT_LIMIT_SECONDS.paid)} tak export karein.`;
 }

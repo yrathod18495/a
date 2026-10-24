@@ -1,4 +1,5 @@
 import { auth, idToken } from './firebase.js';
+import { friendlyError } from '../shared/hinglish-errors.js';
 let heartbeat;
 function persistent(key) {
   let value = localStorage.getItem(key);
@@ -6,13 +7,15 @@ function persistent(key) {
   return value;
 }
 export async function apiCall(url, body, owner = auth.currentUser?.uid) {
-  if (!owner || auth.currentUser?.uid !== owner) throw Error('Account changed. Reopen the project.');
+  if (!owner || auth.currentUser?.uid !== owner) throw Error('Account badal gaya hai. Project dobara kholein.');
   const token = await idToken();
-  if (auth.currentUser?.uid !== owner) throw Error('Account changed.');
-  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body) });
+  if (auth.currentUser?.uid !== owner) throw Error('Account badal gaya. Dobara try karein.');
+  let r;
+  try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body) }); }
+  catch (cause) { const e = Error(friendlyError(cause, 'Server tak request nahi pahunchi. Internet check karke dobara try karein.')); e.code = 'network'; throw e; }
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = Error(j.error || 'Cloud request failed'); e.code = j.code; e.status = r.status; throw e; }
-  if (auth.currentUser?.uid !== owner) throw Error('Account changed.');
+  if (!r.ok) { const e = Error(j.error || 'Cloud request fail ho gayi. Dobara try karein.'); e.code = j.code; e.status = r.status; throw e; }
+  if (auth.currentUser?.uid !== owner) throw Error('Account badal gaya. Dobara try karein.');
   return j;
 }
 export async function acquireSession(scope) {

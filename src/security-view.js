@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 import { h } from './dom.js';
 import { apiCall } from './session.js';
 
@@ -43,7 +44,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   async function act(payload,question){
     if(question&&!window.confirm(question))return;
     try{status.textContent='Applying change…';await apiCall('/api/security',payload);toast('Security change saved.');await load(false);}
-    catch(e){status.textContent='Action failed';toast(e.message);}
+    catch(e){status.textContent='Action failed';toast(friendlyError(e));}
   }
   async function assignRole(uid,select,button){
     const role=select.value;
@@ -95,22 +96,22 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
             const result = await apiCall('/api/admin-user-data', {action:'projectDetails',uid,projectId:project.id});
             const files = result.snapshotAvailable
               ? (result.audioFiles.length ? result.audioFiles.map(file => el('p','sa-associated',
-                  (file.filename || 'Filename unavailable') + (file.speaker ? ' · Speaker: '+file.speaker : '') +
+                  (file.filename || 'File ka naam nahi mila') + (file.speaker ? ' · Speaker: '+file.speaker : '') +
                   (file.order != null ? ' · Track '+file.order : '') + (file.available ? ' · Stored' : ' · File reference missing')))
                 : [el('p','sa-associated','No audio files in the current cloud snapshot.')])
-              : [el('p','sa-associated',result.snapshotMessage || 'Cloud snapshot unavailable.')];
+              : [el('p','sa-associated',result.snapshotMessage || 'Cloud snapshot abhi nahi mil raha.')];
             const history = result.history.length
               ? result.history.map(event => el('p','sa-associated',(event.action || 'Saved')+' · revision '+(event.revision || '—')+' · '+date(event.at)+' · '+(event.audioCount || 0)+' audio file(s)'))
               : [el('p','sa-associated','Older saves did not record a detailed history; new cloud saves will be recorded.')];
             detail.replaceChildren(el('p','sa-row-detail','Latest snapshot · '+project.kind+' · revision '+project.revision+' · last saved '+date(project.updatedAt)),el('h4',{},'Uploaded audio'),...files,el('h4',{},'Save history'),...history);
-          } catch(error) { detail.replaceChildren(el('p','sa-associated','Could not load project details: '+error.message)); }
+          } catch(error) { detail.replaceChildren(el('p','sa-associated','Project ki details load nahi ho payin: '+friendlyError(error))); }
           finally { open.disabled = false; open.textContent = 'Hide uploads & save history'; }
         },'sa-positive');
         return el('article','sa-project-row',sectionRow(project.name,project.kind+' · '+(project.deleted?'Deleted':'Cloud saved')+' · revision '+project.revision),open,detail);
       }));
       if (data.hasMore) target.append(el('p','sa-row-detail','Showing the 100 most recently updated cloud projects.'));
       target.dataset.loaded = 'true';
-    } catch(error) { target.replaceChildren(el('p','sa-associated','Could not load cloud projects: '+error.message)); }
+    } catch(error) { target.replaceChildren(el('p','sa-associated','Cloud projects load nahi ho paye: '+friendlyError(error))); }
     finally { button.disabled = false; button.textContent = 'Hide cloud projects & uploads'; }
   }
   function renderUsers(){
@@ -197,7 +198,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
       if(append&&state)for(const key of ['users','sessions','devices','events','audit'])
         data[key]=[...new Map([...(state[key]||[]),...(data[key]||[])].map(v=>[v.id,v])).values()];
       state=data;renderStats();renderTabs();renderContent();status.textContent='Updated just now';
-    }catch(e){status.textContent='Sync failed';if(!state)panel.replaceChildren(empty('Could not load security data',e.message));toast(e.message);}
+    }catch(e){status.textContent='Sync failed';if(!state)panel.replaceChildren(empty('Security data load nahi ho paya',friendlyError(e)));toast(friendlyError(e));}
     finally{loading=false;refresh.disabled=false;}
   }
   await load();

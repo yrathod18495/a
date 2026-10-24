@@ -128,7 +128,7 @@ async function onFiles(files) {
         const raw = await a.e.read();
         const buffer = await audioCtx.decodeAudioData(raw.slice(0));
         S.lines.push({ id: crypto.randomUUID(), order: a.order, file: a.file, speaker: a.speaker, raw, buffer, visemes: analyse(buffer) });
-      } catch { toast(`Could not decode ${a.file}`); }
+      } catch { toast(`${a.file} decode nahi ho payi`); }
     }
     S.lines.sort((x, y) => x.order - y.order || x.file.localeCompare(y.file, undefined, { numeric: true }));
     if (scripts?.length) {
@@ -142,8 +142,8 @@ async function onFiles(files) {
       });
       if (hit) toast(`Script found — text added for ${hit} line${hit > 1 ? 's' : ''}.`);
     }
-    if (!characters.length && !audio.length) toast('No audio or character bundle found in those files.');
-  } catch (e) { toast(`Failed to read: ${e.message}`); }
+    if (!characters.length && !audio.length) toast('In files me koi audio ya character bundle nahi mila.');
+  } catch (e) { toast(`Padh nahi paye: ${e.message}`); }
   b.done(); await afterAudioChange();
 }
 
@@ -193,11 +193,11 @@ async function ensureCharacter(id) {
   const job = (async () => {
     if (saved) {
       const def = await hydrateCharacter(saved);
-      if (!def) throw new Error('The saved character template is unavailable.');
+      if (!def) throw new Error('Saved character ka template available nahi hai.');
       S.characters[S.characters.indexOf(saved)] = def; return def;
     }
     const entry = libraryCharacters().find(e => `lib:${e.id}` === id);
-    if (!entry) throw new Error('This character template is no longer available.');
+    if (!entry) throw new Error('Ye character template ab available nahi hai.');
     const def = await fetchLibraryCharacter(entry); S.libDefs.set(id, def); return def;
   })().finally(() => definitionJobs.delete(id));
   definitionJobs.set(id, job); return job;
@@ -206,7 +206,7 @@ async function useCharacter(s, id) {
   if (id) {
     const loading = busy('Loading character…');
     try { await ensureCharacter(id); }
-    catch (error) { toast(`Could not load character: ${error.message}`); return false; }
+    catch (error) { toast(`Character load nahi ho paya: ${error.message}`); return false; }
     finally { loading.done(); }
   }
   s.charId = id; s._chosen = true; if (id) S.sel = s.key;
@@ -231,7 +231,7 @@ function chooseCharacter(s, after) {
     if (!list.length) return;
     cloudBox.replaceChildren(h('h2', { style: 'margin:16px 0 8px' }, '☁ Saved in your account'), h('div', { class: 'gridc' }, list.map((m) => card(m.thumb || null, m.name, 'tap to download', async () => {
       const b = busy(`Downloading ${m.name}…`);
-      try { const d = await loadCharacterCloud(m); await saveCharacter(d); S.characters.push(d); b.done(); await pick(d.id); } catch (e) { b.done(); toast(`Could not download: ${e.message}`); }
+      try { const d = await loadCharacterCloud(m); await saveCharacter(d); S.characters.push(d); b.done(); await pick(d.id); } catch (e) { b.done(); toast(`Download nahi ho paya: ${e.message}`); }
     }, false))));
   }).catch(() => {});
 }
@@ -282,7 +282,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
   const draw = () => {
     observer?.disconnect(); browserObservers.delete(observer);
     const s = getSpeaker(), def = s && charOf(s);
-    if (!def) { root.replaceChildren(h('p', { class: 'sub' }, 'Pick a character first.')); return; }
+    if (!def) { root.replaceChildren(h('p', { class: 'sub' }, 'Pehle ek character chunein.')); return; }
     const modes = modeEntries(def.rig);
     const cats = [...(modes.animations.length ? [modes] : []), ...categoriesFor(def.rig)];
     if (!cats.length) { root.replaceChildren(h('p', { class: 'sub' }, 'No admin animations are available for this character.')); return; }
@@ -304,7 +304,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
         const apply = h('button', { class: 'animation-apply', 'aria-pressed': String(!!chosen), title: `Apply ${a.name}`, onclick: async () => {
           apply.disabled = true;
           try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
-          catch (error) { toast(`Could not apply animation: ${error.message}`); apply.disabled = false; }
+          catch (error) { toast(`Animation lag nahi payi: ${error.message}`); apply.disabled = false; }
         } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, a.poster ? h('img', { src: assetUrl(a.poster), alt: '', loading: 'lazy', decoding: 'async' }) : '▶'),
         h('span', { class: 'animation-copy' }, h('b', {}, a.name), h('small', {}, `${a.cat.layer || a.cat.name}${a.length ? ` · ${Number(a.length).toFixed(1)} s` : ''}`)), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+'));
         const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${(start + offset) * 64}px` }, apply);
@@ -450,7 +450,7 @@ async function prepareStudio({ quiet = false } = {}) {
     if (!tl.clips.length) tl.total = sceneLen();       // an empty scene is 8 seconds long (longer when clips or camera keys are placed later)
     player.setTimeline(tl);
     await applyLayers();
-  } catch (e) { console.error(e); toast(`Setup failed: ${e.message}`); }
+  } catch (e) { console.error(e); toast(`Setup fail ho gaya: ${e.message}`); }
   S.animFor = S.speakers.find((s) => s.charId)?.key ?? null;
   if (!lineById(S.lineSel)) S.lineSel = player.clips[0]?.id ?? null;
   b.done(); S.dirty = true;
@@ -465,7 +465,7 @@ async function buildLayerSpecs() {
     for (const ref of plan.refs) {
       const name = animKey(ref);
       if (name in anims) continue;
-      try { anims[name] = await animJson(def, ref); } catch (e) { toast(`Animation "${ref.name}" could not be loaded: ${e.message}`); }
+      try { anims[name] = await animJson(def, ref); } catch (e) { toast(`Animation "${ref.name}" load nahi ho payi: ${e.message}`); }
     }
     // gestures that only move the arms get the idle animation underneath, so head / chest keep moving
     const idleKey = plan.idleRef ? animKey(plan.idleRef) : null, drives = (j) => (j?.bone || []).some((b) => /^(head|pelvis|neck|torso\d*)$/i.test(b.name));
@@ -483,7 +483,7 @@ async function applyLayers() {
   for (const id of stage.assets.keys()) if (!activeIds.has(id)) stage.unload(id);
   const unused = [...S.libDefs.keys()].filter(id => !activeIds.has(id));
   for (const id of unused.slice(0, Math.max(0, unused.length - 2))) S.libDefs.delete(id);
-  if (bad.length) toast(`Some animations don't fit that character and were skipped (${bad.map((k) => sOf(k)?.name).join(', ')})`);
+  if (bad.length) toast(`Kuch animations is character par fit nahi hui, isliye chhod di gayi (${bad.map((k) => sOf(k)?.name).join(', ')})`);
   S.dirty = true;
 }
 /** cheap update when only the "in frame" switches changed */
@@ -645,7 +645,7 @@ async function switchScene(id, { play = false } = {}) {
     await activateScene(S.scenes.find(scene => scene.id === id));
     render(); await tick({ sceneCommit: true });
     if (play) await player.play();
-  } catch (error) { toast(`Could not open scene: ${error.message}`); }
+  } catch (error) { toast(`Scene khul nahi paya: ${error.message}`); }
   finally { progress.done(); sceneChanging = false; S.dirty = true; }
 }
 let sceneDialogOpen = false;
@@ -679,7 +679,7 @@ async function editScene(id, action) {
   const index = S.scenes.findIndex(scene => scene.id === id), scene = S.scenes[index];
   let name;
   if (action === 'rename') { name = prompt('Scene name', scene.name)?.trim().slice(0, 80); if (!name) return; }
-  if (action === 'delete' && S.scenes.length === 1) { toast('Keep at least one scene in the project.'); return; }
+  if (action === 'delete' && S.scenes.length === 1) { toast('Project me kam se kam ek scene rakhna zaroori hai.'); return; }
   if (action === 'delete' && !await confirmSceneDelete(scene)) return;
   sceneChanging = true; player.pause();
   const progress = busy('Updating scenes…');
@@ -700,7 +700,7 @@ async function editScene(id, action) {
       if (S.sceneId === id) await activateScene(S.scenes[Math.min(index, S.scenes.length - 1)]);
     }
     render(); await tick({ sceneCommit: true });
-  } catch (error) { toast(`Scene change failed: ${error.message}`); }
+  } catch (error) { toast(`Scene badalna fail ho gaya: ${error.message}`); }
   finally { progress.done(); sceneChanging = false; S.dirty = true; }
 }
 
@@ -833,7 +833,7 @@ async function addClip(s, ref, overlay, length) {
   (S.manual[s.key] ||= []).push(m); S.mclip = m.id;
   updateTotal();
   const b = busy('Adding animation…');
-  try { await applyLayers(); } catch (e) { console.error(e); toast(`Could not add the animation: ${e.message}`); } finally { b.done(); }
+  try { await applyLayers(); } catch (e) { console.error(e); toast(`Animation add nahi ho payi: ${e.message}`); } finally { b.done(); }
   drawTimeline(); S.dirty = true;
 }
 /** opens the animation list for one character; the chosen animation is placed at the playhead */
@@ -871,7 +871,7 @@ function drawClipBar() {
     h('span', { class: 'dot', style: `background:${s?.color || '#888'}` }), h('b', { class: 'cb-name' }, m.ref.name), h('small', {}, `${s?.name || ''} · ${m.kind}`),
     num('Start s', () => m.start, (v) => { m.start = Math.max(0, snap(v)); }), num('Length s', () => m.dur, (v) => { m.dur = Math.max(0.2, v); }),
     btn('⧉ Duplicate', () => { const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(m.start + m.dur) }; list.push(c); S.mclip = c.id; commitClips(); }, 'Same animation again, right after this one'),
-    btn('✂ Split', () => { const t = player.time; if (t <= m.start + 0.1 || t >= m.start + m.dur - 0.1) { toast('Move the playhead inside this clip first.'); return; } const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(t), dur: m.start + m.dur - snap(t), off: (m.off || 0) + (snap(t) - m.start) }; m.dur = snap(t) - m.start; list.push(c); S.mclip = c.id; commitClips(); }, 'Cut this clip at the playhead'),
+    btn('✂ Split', () => { const t = player.time; if (t <= m.start + 0.1 || t >= m.start + m.dur - 0.1) { toast('Pehle playhead ko is clip ke andar le jaayein.'); return; } const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(t), dur: m.start + m.dur - snap(t), off: (m.off || 0) + (snap(t) - m.start) }; m.dur = snap(t) - m.start; list.push(c); S.mclip = c.id; commitClips(); }, 'Cut this clip at the playhead'),
     btn('⇄ Replace', () => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); }), 'Pick another animation for this clip'),
     btn('🗑 Delete', () => { list.splice(list.indexOf(m), 1); S.mclip = null; commitClips(); }),
     btn('✕', () => { S.mclip = null; drawTimeline(); }, 'Close'));
@@ -1013,7 +1013,7 @@ function tabCamera() {
   const goto = (key) => { S.camSel = key.id; player.seek(Math.min(player.total, key.t)); S.dirty = true; drawTimeline(); drawTabs(); };
   const focusOn = (s) => { const l = stage.layers.find((x) => x.key === s.key); if (!l?.box) return; const b = l.box, hgt = b.y1 - b.y0; editKey({ zoom: 2.2, cx: ((b.x0 + b.x1) / 2) / stage.W, cy: (b.y0 + hgt * 0.35) / stage.H }); drawTabs(); };
   const chars = S.order.map(sOf).filter((x) => x?.charId);
-  const custom = h('input', { type: 'text', placeholder: 'w:h  e.g. 2:1', value: ASPECTS[S.aspect] ? '' : S.aspect, class: 'cb-ratio', onchange: (e) => { const v = e.target.value.trim(); if (aspectOf(v).label.startsWith('Custom')) setAspect(v); else toast('Use a ratio like 2:1 or 5:4 (not wider than 8:1).'); } });
+  const custom = h('input', { type: 'text', placeholder: 'w:h  e.g. 2:1', value: ASPECTS[S.aspect] ? '' : S.aspect, class: 'cb-ratio', onchange: (e) => { const v = e.target.value.trim(); if (aspectOf(v).label.startsWith('Custom')) setAspect(v); else toast('2:1 ya 5:4 jaisa ratio likhein (8:1 se chauda nahi).'); } });
   return h('div', { class: 'list' },
     h('div', { class: 'card flat' }, h('h2', {}, '🎥 Camera keyframes'),
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, S.camKeys.length ? 'The camera follows your keyframes. Move the playhead, then drag the frame on the stage (or its corners to zoom) — a keyframe is made there automatically. Only the camera view is rendered into the video.' : 'Now the camera uses the automatic shots (one per audio line). Add a keyframe to take over: move the playhead, then drag the frame on the stage.'),
@@ -1054,7 +1054,7 @@ function tabMask() {
     h('div', { class: 'card flat' }, h('h2', {}, '◩ Character mask'), h('p', { class: 'sub', style: 'font-size:12px' }, 'Show only part of this character. The mask is saved with the scene and appears in video exports.'),
       h('label', { class: 'row', style: 'gap:8px;justify-content:flex-start' }, h('input', { type: 'checkbox', checked: mask.enabled, onchange: (e) => { update('enabled', e.target.checked); drawTabs(); } }), h('b', {}, 'Enable mask')),
       h('div', { class: 'cb-ease' }, h('span', {}, 'Shape'), h('div', { class: 'seg' }, [['rect', 'Rectangle'], ['ellipse', 'Ellipse'], ['polygon','Custom polygon']].map(([v, label]) => h('button', { class: mask.shape === v ? 'on' : '', onclick: () => choose(v) }, label)))),
-      mask.shape==='polygon' ? h('label',{class:'cs-sl'},h('span',{},'Points as x,y percentages; separate with semicolons'),h('input',{type:'text',value:(mask.points||[{x:0,y:0},{x:1,y:0},{x:.8,y:1},{x:.2,y:1}]).map(p=>`${Math.round(p.x*100)},${Math.round(p.y*100)}`).join(';'),onchange:e=>{const pts=e.target.value.split(';').map(v=>v.split(',').map(Number)).filter(v=>v.length===2&&v.every(Number.isFinite)).slice(0,8);if(pts.length<3){toast('Enter at least three valid x,y points.');return}mask.points=pts.map(([x,y])=>({x:Math.max(0,Math.min(100,x))/100,y:Math.max(0,Math.min(100,y))/100}));update('points',mask.points)}})) : null,
+      mask.shape==='polygon' ? h('label',{class:'cs-sl'},h('span',{},'Points as x,y percentages; separate with semicolons'),h('input',{type:'text',value:(mask.points||[{x:0,y:0},{x:1,y:0},{x:.8,y:1},{x:.2,y:1}]).map(p=>`${Math.round(p.x*100)},${Math.round(p.y*100)}`).join(';'),onchange:e=>{const pts=e.target.value.split(';').map(v=>v.split(',').map(Number)).filter(v=>v.length===2&&v.every(Number.isFinite)).slice(0,8);if(pts.length<3){toast('Kam se kam teen sahi x,y points likhein.');return}mask.points=pts.map(([x,y])=>({x:Math.max(0,Math.min(100,x))/100,y:Math.max(0,Math.min(100,y))/100}));update('points',mask.points)}})) : null,
       h('label', { class: 'row', style: 'gap:8px;justify-content:flex-start;margin:10px 0' }, h('input', { type: 'checkbox', checked: mask.invert, onchange: (e) => update('invert', e.target.checked) }), h('span', {}, 'Invert · hide inside the shape')),
       range('x', 'Left position'), range('y', 'Top position'), range('w', 'Width'), range('h', 'Height'),
       h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap;margin-top:8px' }, h('button', { class: 'btn sm ok', onclick: () => { selected.maskKeys ||= []; const key = { t: player.time, x: mask.x, y: mask.y, w: mask.w, h: mask.h }; const i = selected.maskKeys.findIndex((k) => Math.abs(k.t - key.t) < 0.02); if (i >= 0) selected.maskKeys[i] = key; else selected.maskKeys.push(key); selected.maskKeys.sort((a,b)=>a.t-b.t); const layer=stage.layers.find(x=>x.key===selected.key); if(layer) layer.maskKeys=selected.maskKeys; S.dirty=true; drawTimeline(); drawTabs(); } }, '＋ Mask key at playhead'),
@@ -1115,12 +1115,12 @@ async function pickAnimation(s, ref, overlay, length) {
     const o = (S.solo[s.key] ||= {}); o[kind || 'body'] = ref;
     if (!kind) { if (ref.source !== 'mode' && length > 0) o.bodyLen = +(+length).toFixed(2); else delete o.bodyLen; updateTotal(); drawTimeline(); }   // the scene is exactly as long as the animation
   } else {
-    if (!L) { toast('Tap an audio line first.'); return; }
+    if (!L) { toast('Pehle ek audio line par tap karein.'); return; }
     const lines = S.applyAll ? player.clips : [L];
     for (const l of lines) { const o = castOf(l.id, s.key); o.in = o.in; if (kind) o[kind] = ref; else { o.body = ref; delete o.seq; } }
   }
   const b = busy('Applying animation…');
-  try { await applyLayers(); } catch (e) { console.error(e); toast(`Could not apply animation: ${e.message}`); } finally { b.done(); }
+  try { await applyLayers(); } catch (e) { console.error(e); toast(`Animation lag nahi payi: ${e.message}`); } finally { b.done(); }
   drawLineBox();
 }
 
@@ -1136,7 +1136,7 @@ async function changePreviewQuality(value) {
     await stage.setTextureLimit(mode.maxTex);
     S.previewMode = value; S.preview = mode.short; stage.setSize(S.aspect, mode.short);
     await applyLayers(); savePreviewMode(value); fitEditor();
-  } catch (error) { previewSelect.value = S.previewMode; toast(`Could not change preview quality: ${error.message}`); }
+  } catch (error) { previewSelect.value = S.previewMode; toast(`Preview quality badal nahi payi: ${error.message}`); }
   finally {
     previewChanging = false; previewSelect.disabled = false; previewSelect.value = S.previewMode;
     document.querySelector('.ws')?.setAttribute('data-preview-quality', S.previewMode);
@@ -1164,7 +1164,7 @@ let localSaveError = '', saveDetails, saveBody;
 function updateSaveStatus(state = syncStatus) {
   if (state.projectId && state.projectId !== projectContext()?.id) state = { text: 'Saved locally' };
   if (!savedEl || !saveBody) return;
-  const feedback = localSaveError ? { label: 'Local save failed', tone: 'error' } : syncPresentation(state);
+  const feedback = localSaveError ? { label: 'Local save nahi ho paya', tone: 'error' } : syncPresentation(state);
   savedEl.replaceChildren(h('span', { class: 'save-dot', 'aria-hidden': 'true' }), h('span', { class: 'save-label' }, feedback.label));
   savedEl.setAttribute('aria-label', `${feedback.label}. Open save details`);
   saveDetails.dataset.tone = feedback.tone;
@@ -1173,7 +1173,7 @@ function updateSaveStatus(state = syncStatus) {
   const retry = h('button', { class: 'btn sm', disabled: !navigator.onLine && !localSaveError, onclick: async () => {
     retry.disabled = true;
     try { await tick({ sceneCommit: true }); if (localSaveError) return; await syncCurrent(); }
-    catch (error) { toast(`Sync could not finish: ${error.message}`); }
+    catch (error) { toast(`Sync poora nahi ho paya: ${error.message}`); }
     finally { retry.disabled = false; }
   } }, localSaveError ? 'Retry local save' : 'Retry sync');
   saveBody.replaceChildren(h('b', {}, feedback.label),
@@ -1246,7 +1246,7 @@ function mountStage() {
     l.axf = a.x / W; l.ayf = (H - a.y) / H;
     saveXf(l); stage.layout(); updateSel(); S.dirty = true;
   });
-  const end = async () => { if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save prop position: ${e.message}`); } } if (drag && S.tab === 'motion') drawTabs(); drag = null; };
+  const end = async () => { if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Prop ki position save nahi ho payi: ${e.message}`); } } if (drag && S.tab === 'motion') drawTabs(); drag = null; };
   wrapEl.addEventListener('pointerup', end); wrapEl.addEventListener('pointercancel', end);
   S.dirty = true; updateSel();
 }
@@ -1537,9 +1537,9 @@ function applyDirection(L, res, libs) {
 }
 async function runDirector(lines) {
   const ai = S.ai;
-  if (!ai.key) { toast('Add your OpenRouter API key first.'); return; }
+  if (!ai.key) { toast('Pehle apni OpenRouter API key daalein.'); return; }
   const onStage = S.speakers.filter((s) => s.charId && charOf(s));
-  if (!onStage.length) { toast('Add at least one character to the stage first.'); return; }
+  if (!onStage.length) { toast('Pehle stage par kam se kam ek character lagayein.'); return; }
   const need = new Set();
   for (const L of lines) { const i = player.clips.indexOf(L); for (const c of [player.clips[i - 1], L, player.clips[i + 1]]) if (c && !lineText(c.id)) need.add(c); }
   if (need.size) { await runTranscribe([...need]); if ([...need].some((c) => !lineText(c.id))) return; }   // no script in the bundle: the AI listens to the audio first
@@ -1564,7 +1564,7 @@ async function runDirector(lines) {
   } catch (e) { if (e.name !== 'AbortError') { console.error(e); toast(`AI: ${e.message}`); } } finally { b.done(); }
 }
 async function runTranscribe(lines) {
-  if (!S.ai.key) { toast('Add your OpenRouter API key first.'); return; }
+  if (!S.ai.key) { toast('Pehle apni OpenRouter API key daalein.'); return; }
   const ctrl = new AbortController(), b = busy('AI is writing the script…', () => ctrl.abort());
   let done = 0, next = 0, failed = null;
   const worker = async () => {
@@ -1584,7 +1584,7 @@ const lineList = () => S.lines.map((l) => { const key = l.speaker.toLowerCase();
 const download = (name, text) => { const a = h('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' })), download: name }); document.body.append(a); a.click(); a.remove(); };
 async function makeBriefFile() {
   const chars = S.speakers.filter((s) => s.charId && charOf(s));
-  if (!chars.length) { toast('Choose at least one character first.'); return; }
+  if (!chars.length) { toast('Pehle kam se kam ek character chunein.'); return; }
   const b = busy('Preparing the brief…');
   try {
     const libs = new Map(chars.map((s) => [s.key, libraryFor(charOf(s))]));
@@ -1610,15 +1610,15 @@ async function makeBriefFile() {
     });
     download('12toons-brief.txt', text);
     toast('Brief downloaded — give this file to Claude / ChatGPT / Gemini, then import the file it sends back.');
-  } catch (e) { console.error(e); toast(`Could not prepare the brief: ${e.message}`); } finally { b.done(); }
+  } catch (e) { console.error(e); toast(`Brief taiyar nahi ho paya: ${e.message}`); } finally { b.done(); }
 }
 async function importDirectionFile(file) {
   const chars = S.speakers.filter((s) => s.charId && charOf(s));
-  if (!chars.length) { toast('Choose at least one character first.'); return; }
+  if (!chars.length) { toast('Pehle kam se kam ek character chunein.'); return; }
   let data;
   try { data = extractJson(await file.text()); } catch (e) { toast(e.message); return; }
   const entries = Array.isArray(data.lines) ? data.lines : Array.isArray(data) ? data : [];
-  if (!entries.length) { toast('That file has no "lines" list.'); return; }
+  if (!entries.length) { toast('Us file me "lines" ki list nahi hai.'); return; }
   const libs = new Map(chars.map((s) => [s.key, libraryFor(charOf(s))]));
   const list = lineList();
   let applied = 0, dropped = 0;
@@ -1628,7 +1628,7 @@ async function importDirectionFile(file) {
     dropped += applyDirection({ id: l.id, speaker: l.speaker, dur: l.dur }, e, libs); applied++;
   }
   S.dirty = true;
-  if (S.step === 3) { const b = busy('Applying the direction…'); try { await applyLayers(); drawLineBox(); drawTimeline(); } catch (e) { toast(`Could not apply: ${e.message}`); } finally { b.done(); } }
+  if (S.step === 3) { const b = busy('Applying the direction…'); try { await applyLayers(); drawLineBox(); drawTimeline(); } catch (e) { toast(`Lagaya nahi ja paya: ${e.message}`); } finally { b.done(); } }
   const notes = [...(data.animation_notes || []).map((n) => `Animation ${n.anim}: ${n.note}`), ...entries.filter((e) => e.note && /change|fix|problem|issue|wrong/i.test(e.note)).map((e) => `Line ${e.line}: ${e.note}`)];
   modal('Direction imported', h('div', { class: 'list' },
     h('p', {}, `Applied to ${applied} of ${list.length} lines.`),
@@ -1670,7 +1670,7 @@ function tabAi() {
       h('input', { type: 'text', style: 'margin-top:8px', list: 'ai-models', placeholder: 'Model id', value: ai.model, onchange: (e) => set({ model: e.target.value.trim() || ai.model }) }), dl,
       h('button', { class: 'btn sm', style: 'margin-top:8px', onclick: async (e) => {
         const btn = e.currentTarget; btn.disabled = true;
-        try { const ids = await listModels(); dl.replaceChildren(...ids.map((id) => h('option', { value: id }))); toast(`${ids.length} Gemini models found — tap the model field to pick the flash one.`); } catch (er) { toast(`Could not load models: ${er.message}`); }
+        try { const ids = await listModels(); dl.replaceChildren(...ids.map((id) => h('option', { value: id }))); toast(`${ids.length} Gemini models found — tap the model field to pick the flash one.`); } catch (er) { toast(`Models load nahi ho paye: ${er.message}`); }
         btn.disabled = false;
       } }, 'Find Gemini models')),
     h('div', { class: 'card flat' }, h('h2', {}, '2 · Direct with AI'),
@@ -1694,13 +1694,13 @@ function tabCanvas() {
       let rec = S.myBgs.find((item) => item.id === id);
       if (!rec) { rec = { id, name: asset.name, blob }; await dbPut('backgrounds', rec); S.myBgs.push(rec); }
       await pickBg(rec);
-    } catch (e) { toast(`Could not add background: ${e.message}`); }
+    } catch (e) { toast(`Background add nahi ho paya: ${e.message}`); }
   };
   const addSharedProp = async (asset) => {
     try {
       const blob = await downloadStudioAsset(asset), prop = { id: crypto.randomUUID(), assetId: asset.id, name: asset.name, blob, x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true };
       await dbPut('props', prop); S.props.push(prop); S.selectedPropId = prop.id; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
-    } catch (e) { toast(`Could not add prop: ${e.message}`); }
+    } catch (e) { toast(`Prop add nahi ho paya: ${e.message}`); }
   };
   const sharedGrid = (type, choose) => shared(type).length ? h('div', { class: 'studio-shared-grid' }, shared(type).map((asset) => h('button', { class: 'studio-shared-card', type: 'button', onclick: () => choose(asset) }, h('span', {}, type === 'background' ? '🖼' : '🧸'), h('b', {}, asset.name), h('small', {}, 'Shared library · tap to add')))) : h('p', { class: 'sub studio-library-empty' }, 'No shared items have been added by the admin yet.');
   const tab = (mode, label) => h('button', { class: `btn sm ${S.canvasMode === mode ? 'pri' : ''}`, type: 'button', 'aria-pressed': S.canvasMode === mode, onclick: () => { S.canvasMode = mode; redrawPanel(); } }, label);
@@ -1715,7 +1715,7 @@ function tabCanvas() {
     h('button', { class: 'bgc add', onclick: () => file.click() }, h('span', {}, '+'), h('small', {}, 'Add images')),
     S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },
       h('img', { src: URL.createObjectURL(r.blob), alt: r.name, loading: 'lazy' }),
-      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('This background is used by another scene.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
+      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('Ye background kisi doosre scene me use ho raha hai.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
   const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { stage.bg.preset = i; await pickBg(null); } })));
   return h('div', { class: 'list' },
     h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), h('div', { class: 'studio-asset-tabs' }, tab('backgrounds', 'Backgrounds'), tab('props', 'Props')), sharedGrid('background', addSharedBackground), mine, file),
@@ -1805,8 +1805,8 @@ async function doExport() {
     await applyLayers();
     stage.setSize(S.aspect, S.quality);
     const offline = (sequence || S.expMethod === 'fast') && await canExportOffline(stage.W, stage.H, S.fps, S.format, sequence ? !sequence.some(scene => scene.doc.lines?.length) : !player.clips.length);
-    if (sequence && !offline) throw Error('All-scene export needs Fast render with WebCodecs support. Choose Fast render or export the current scene on this device.');
-    if (S.expMethod === 'fast' && !offline) toast('Fast render is not supported on this device — recording live instead.');
+    if (sequence && !offline) throw Error('Saare scenes ek saath export karne ke liye Fast render aur WebCodecs support chahiye. Fast render chunein ya sirf current scene export karein.');
+    if (S.expMethod === 'fast' && !offline) toast('Is device par Fast render supported nahi hai, isliye live recording ho rahi hai.');
     let t0 = performance.now();
     const progress = (p) => {
       const sec = (performance.now() - t0) / 1000, x = p > 0.02 ? (p * player.total) / sec : 0;
@@ -1843,7 +1843,7 @@ async function doExport() {
       } catch (e) {
         if (e.message === 'cancelled') throw e;
         console.warn('parallel export failed, using one thread', e);
-        toast('Parallel rendering is not available here — using a single thread.');
+        toast('Yahan parallel rendering nahi ho sakti, ek thread se render ho raha hai.');
         t0 = performance.now(); res = await single();
       }
     } else res = offline ? await single() : await exportRealtime({ canvas: stage.out, stage, audioStream: player.rec.stream, player, onProgress: progress, level: S.level });
@@ -1853,10 +1853,10 @@ async function doExport() {
     document.body.append(a); a.click(); a.remove();
     exported = true;
     toast(`Done in ${took.toFixed(0)}s (${((sequence ? sequence.at(-1).end : player.total) / took).toFixed(1)}× real time) · ${ext.toUpperCase()} · ${info}`);
-  } catch (e) { toast(e.message === 'cancelled' ? 'Export cancelled' : `Export failed: ${e.message}`); console.error(e); }
-  if (sequence) { try { await activateScene(S.scenes.find(scene => scene.id === originalScene)); } catch (error) { toast(`Could not restore scene: ${error.message}`); } }
+  } catch (e) { toast(e.message === 'cancelled' ? 'Export rok diya gaya.' : `Export fail ho gaya: ${e.message}`); console.error(e); }
+  if (sequence) { try { await activateScene(S.scenes.find(scene => scene.id === originalScene)); } catch (error) { toast(`Scene wapas nahi laya ja paya: ${error.message}`); } }
   wl?.release?.().catch(() => {});
-  try { await stage.setTextureLimit(PREVIEW_MODES[S.previewMode].maxTex); await applyLayers(); } catch (error) { toast(`Preview textures could not be restored: ${error.message}`); }
+  try { await stage.setTextureLimit(PREVIEW_MODES[S.previewMode].maxTex); await applyLayers(); } catch (error) { toast(`Preview ki textures wapas nahi laayi ja sakin: ${error.message}`); }
   finishExport(grant.grantId, exported);
   b.done(); S.exporting = false; if (sequence) render(); stage.setSize(S.aspect, S.preview); player.pause(); player.seek(0); fitEditor(); S.dirty = true;
 }
@@ -1902,7 +1902,7 @@ async function ensureDefs() {
   for (const speaker of S.speakers) {
     if (!speaker.charId) continue;
     try { await ensureCharacter(speaker.charId); }
-    catch (error) { toast(`Could not load the character for ${speaker.name}: ${error.message}`); speaker.charId = null; }
+    catch (error) { toast(`${speaker.name} ka character load nahi ho paya: ${error.message}`); speaker.charId = null; }
   }
 }
 /** put a saved / undone document back into the app */
@@ -2033,7 +2033,7 @@ async function stepHistory(dir) {
     render();
   } catch (error) {
     try { await loadDoc(original); await prepareStudio({ quiet: true }); player.seek(time); render(); } catch (restoreError) { console.error(restoreError); }
-    toast(`Could not ${dir < 0 ? 'undo' : 'redo'}: ${error.message}`);
+    toast(`${dir < 0 ? 'Undo' : 'Redo'} nahi ho paya: ${error.message}`);
   } finally { b.done(); hist.busy = false; updateHistoryButtons(); S.dirty = true; }
   await tick();
 }
@@ -2100,7 +2100,7 @@ if (location.search.includes("debug")) window.__toon = { S, get stage() { return
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
 export const setHome = (fn) => { homeFn = fn; };
-async function goHome() { if (S.exporting) { toast('Wait for the export to finish.'); return; } player?.pause(); try { await tick({ sceneCommit: true }); } catch { /* best effort */ } homeFn?.(); }
+async function goHome() { if (S.exporting) { toast('Export poora hone tak ruk jaayein.'); return; } player?.pause(); try { await tick({ sceneCommit: true }); } catch { /* best effort */ } homeFn?.(); }
 export async function openStudio() {
   $app.hidden = false;
   if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile

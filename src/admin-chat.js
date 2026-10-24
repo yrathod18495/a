@@ -20,7 +20,7 @@ export async function chatView({ user, back, toast }) {
       chats.replaceChildren(...rows.map(c => h('button', { class: `admin-chat-item ${selected === c.id ? 'active' : ''} ${c.unreadAdmin ? 'unread' : ''}`, onclick: () => select(c) }, h('span', { class: 'admin-chat-avatar' }, (c.displayName || c.email || c.id).trim()[0]?.toUpperCase() || '?'), h('span', { class: 'admin-chat-item-copy' }, h('b', {}, c.displayName || c.email || 'User'), h('small', {}, c.lastMessage || 'No messages yet')), c.unreadAdmin ? h('i', { class: 'admin-chat-unread', title: 'Unread message' }) : null)));
       if (!rows.length) chats.replaceChildren(h('p', { class: 'admin-chat-muted admin-chat-empty' }, 'No conversations yet.'));
       if (selected && !rows.some(c => c.id === selected)) { selected = ''; title.textContent = 'Choose a conversation'; detail.textContent = 'User conversations will appear here.'; messages.replaceChildren(); }
-    } catch (e) { toast(`Could not load chat inbox: ${e.message}`); }
+    } catch (e) { toast(`Chat inbox load nahi ho paya: ${e.message}`); }
     finally { listBusy = false; }
   }
   async function select(chat) {
@@ -44,14 +44,14 @@ export async function chatView({ user, back, toast }) {
         h('time', {}, new Date(m.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }))));
       messages.replaceChildren(...rendered);
       messages.scrollTop = messages.scrollHeight;
-    } catch (e) { if (active === selected) toast(`Could not load conversation: ${e.message}`); }
+    } catch (e) { if (active === selected) toast(`Conversation load nahi ho payi: ${e.message}`); }
     finally { messageBusy = false; }
   }
   async function reply(e) {
     e.preventDefault(); const message = input.value.trim(); if (!selected || !message || replyBusy) return;
     replyBusy = true; input.disabled = true; send.disabled = true;
     try { await apiCall('/api/chat', { action: 'adminReply', uid: selected, message }, user.uid); input.value = ''; lastMessageKey = ''; await loadMessages(); await loadChats(); }
-    catch (err) { toast(`Reply failed: ${err.message}`); }
+    catch (err) { toast(`Reply nahi ja paya: ${err.message}`); }
     finally { replyBusy = false; input.disabled = !selected; send.disabled = !selected; }
   }
   input.disabled = true; send.disabled = true;

@@ -72,6 +72,6 @@ test('low preview exports at selected video size, then restores the low GPU budg
   await page.getByLabel('Preview quality').selectOption('high');await expect(page.getByLabel('Preview quality')).toBeEnabled();
   await expect(page.getByLabel('Preview quality')).toHaveValue('low');
   expect(await page.evaluate(()=>[window.__toon.stage.H,window.__toon.stage.maxTex])).toEqual([180,512]);
-  await expect(page.locator('.toast').filter({hasText:/Could not change preview quality/})).toBeVisible();
+  await expect(page.locator('.toast').filter({hasText:/Preview quality badal nahi payi/})).toBeVisible();
   await page.evaluate(()=>{window.createImageBitmap=window.__bitmapBackup;});
 });

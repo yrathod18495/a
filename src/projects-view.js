@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, brandWordmark } from './dom.js';
 import { listProjects, createProject, renameProject, deleteProject, copyProject } from './store.js';
 import { refreshProjects, syncProject, onSyncStatus, resolveConflict } from './project-sync.js';
@@ -28,11 +29,11 @@ export async function projectsView({user,kind,home,toast}) {
     list.replaceChildren(...projects.map(p=>{
       const actions=[
         h('button',{class:'btn project-action',onclick:run(async()=>{const name=await dialog({title:'Rename project',description:'Choose a clear name for this project.',value:p.name,confirmLabel:'Save name'});if(name)await renameProject(user.uid,p.id,name);})},'Rename'),
-        h('button',{class:'btn project-action',onclick:run(async()=>{const copy=await copyProject(user.uid,p.id);toast('Local work preserved as '+copy.name);})},'Keep a Copy')
+        h('button',{class:'btn project-action',onclick:run(async()=>{const copy=await copyProject(user.uid,p.id);toast('Aapka local kaam is naam se bacha liya gaya: '+copy.name);})},'Keep a Copy')
       ];
       if(p.dirty)actions.push(h('button',{class:'btn project-action',onclick:run(async()=>{
         if(!await dialog({title:'Resolve sync conflict?',description:'Your local edits will be saved as a separate project before the latest cloud version is restored here.',confirmLabel:'Keep edits and restore',danger:true,confirmOnly:true}))return;
-        const backup=await resolveConflict(user.uid,p.id);toast('Local edits kept in '+backup.name);
+        const backup=await resolveConflict(user.uid,p.id);toast('Aapke local badlav yahan rakhe gaye: '+backup.name);
       })},'Resolve Conflict'));
       actions.push(h('button',{class:'btn project-action danger',onclick:run(async()=>{if(await dialog({title:'Delete this project?',description:`“${p.name}” will be removed from your project list.`,confirmLabel:'Delete project',danger:true,confirmOnly:true})){await deleteProject(user.uid,p.id);await syncProject(user.uid,p.id);}})},'Delete'));
       return h('article',{class:'project-card'},
@@ -52,6 +53,6 @@ export async function projectsView({user,kind,home,toast}) {
   const off=onSyncStatus(s=>{status.textContent=s.text+(s.error?' — '+s.error:'');});
   root.dispose=off;
   await draw();
-  refreshProjects(user.uid).then(draw).catch(e=>{status.textContent='Cloud unavailable — '+e.message;});
+  refreshProjects(user.uid).then(draw).catch(e=>{status.textContent='Cloud abhi nahi mil raha: '+friendlyError(e);});
   return root;
 }

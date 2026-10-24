@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, logo, toast } from './dom.js';
 import { apiCall } from './session.js';
 
@@ -10,8 +11,8 @@ function loadCheckout() {
   if (window.Razorpay) return Promise.resolve();
   return checkoutScript ||= new Promise((resolve, reject) => {
     const script = document.createElement('script'); script.src = 'https://checkout.razorpay.com/v1/checkout.js'; script.async = true;
-    script.onload = () => window.Razorpay ? resolve() : reject(new Error('Razorpay checkout did not load.'));
-    script.onerror = () => reject(new Error('Could not load Razorpay checkout. Check your connection and try again.'));
+    script.onload = () => window.Razorpay ? resolve() : reject(new Error('Razorpay ka checkout load nahi hua.'));
+    script.onerror = () => reject(new Error('Razorpay checkout load nahi ho paya. Internet check karke dobara try karein.'));
     document.head.append(script);
   });
 }
@@ -22,7 +23,7 @@ export async function view({ user, home }) {
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Buy Credits'), h('span', { class: 'sp' }), h('button', { class: 'btn', onclick: home }, '⌂ Home')), content);
   let catalog;
   try { catalog = await apiCall('/api/payments', { action: 'catalog' }, user.uid); }
-  catch (e) { content.replaceChildren(h('section', { class: 'card credit-error' }, h('h2', {}, 'Could not load credit plans'), h('p', {}, e.message), h('button', { class: 'btn', onclick: home }, 'Back to Home'))); return root; }
+  catch (e) { content.replaceChildren(h('section', { class: 'card credit-error' }, h('h2', {}, 'Credit plans load nahi ho paye'), h('p', {}, friendlyError(e)), h('button', { class: 'btn', onclick: home }, 'Back to Home'))); return root; }
   const balance = h('b', { class: 'credit-balance' }, `${Number(catalog.credits || 0).toLocaleString('en-IN')} credits`);
   const message = h('p', { class: 'credit-message', role: 'status', 'aria-live': 'polite' }, '');
   const history = h('div', { class: 'credit-history' }, h('p', { class: 'hint' }, 'Loading your payment history…'));
@@ -55,7 +56,7 @@ export async function view({ user, home }) {
               message.className = 'credit-message success'; toast(message.textContent);
             } else message.textContent = result.message || 'Payment is waiting for confirmation.';
             await refreshHistory();
-          } catch (e) { message.textContent = `Payment submitted, but confirmation failed: ${e.message}. Your order remains in payment history.`; message.className = 'credit-message error'; await refreshHistory(); }
+          } catch (e) { message.textContent = `Payment submit ho gaya, lekin confirmation nahi ho paya: ${friendlyError(e)}. Aapka order payment history me rahega.`; message.className = 'credit-message error'; await refreshHistory(); }
         },
         modal: { ondismiss: () => { if (!finished) apiCall('/api/payments', { action: 'cancel', orderId: order.orderId }, user.uid).then(refreshHistory).catch(() => {}); } },
       };
@@ -63,7 +64,7 @@ export async function view({ user, home }) {
       checkout.on('payment.failed', (event) => {
         finished = true; const error = event.error || {};
         apiCall('/api/payments', { action: 'failed', orderId: order.orderId, code: error.code, description: error.description }, user.uid).catch(() => {});
-        message.textContent = error.description || 'Payment failed. You can try again.'; message.className = 'credit-message error'; refreshHistory();
+        message.textContent = error.description || 'Payment nahi ho paya. Aap dobara try kar sakte hain.'; message.className = 'credit-message error'; refreshHistory();
       });
       checkout.open(); message.textContent = '';
     } catch (e) { message.textContent = e.message; message.className = 'credit-message error'; }

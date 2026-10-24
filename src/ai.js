@@ -12,12 +12,12 @@ export function saveAi(cfg) { try { localStorage.setItem(LS, JSON.stringify({ ke
 /** public list of models (no key needed), used to suggest the exact id of the flash model */
 export async function listModels() {
   const r = await fetch(`${API}/models`);
-  if (!r.ok) throw new Error(`models ${r.status}`);
+  if (!r.ok) throw new Error(`Models ki list nahi mili (code ${r.status}). API key check karein.`);
   return ((await r.json()).data || []).map((m) => m.id).filter((id) => /gemini/i.test(id)).sort().reverse();
 }
 
 async function chat(cfg, messages, { json = false, signal } = {}) {
-  if (!cfg.key) throw new Error('Add your OpenRouter API key first.');
+  if (!cfg.key) throw new Error('Pehle apni OpenRouter API key daalein.');
   const body = { model: cfg.model || DEFAULT_MODEL, messages, temperature: json ? 0.5 : 0.1 };
   if (json) body.response_format = { type: 'json_object' };
   const r = await fetch(`${API}/chat/completions`, {
@@ -28,7 +28,7 @@ async function chat(cfg, messages, { json = false, signal } = {}) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok || data.error) throw new Error(data.error?.message || `OpenRouter ${r.status}`);
   const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('The model sent an empty answer.');
+  if (!text) throw new Error('AI model ne khali jawab bheja. Dobara try karein.');
   return typeof text === 'string' ? text : text.map((p) => p.text || '').join('');
 }
 
@@ -67,7 +67,7 @@ Answer with JSON only: {"shot":{"type":"wide|medium|close","focus":"key|auto"},"
 
 function parseJson(text) {
   const t = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  try { return JSON.parse(t); } catch { const a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1)); throw new Error('The model did not answer with JSON.'); }
+  try { return JSON.parse(t); } catch { const a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1)); throw new Error('AI model ka jawab JSON format me nahi aaya. Dobara try karein.'); }
 }
 
 /**

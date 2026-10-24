@@ -16,7 +16,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
 
   const switchTo = async (factory) => {
     try { root.replaceWith(await factory()); }
-    catch (error) { toast(`Could not open this section: ${error.message}`); }
+    catch (error) { toast(`Ye section khul nahi paya: ${error.message}`); }
   };
   const showDashboard = () => dashboardView({ user, home, toast, openStudio, openTesters });
   const openRequests = () => import('./security-view.js').then(m => m.securityView({ initialTab: 'testers', home: async () => switchTo(showDashboard), toast }));
@@ -71,7 +71,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
         section('Active sessions', 'LIVE ACCOUNTS', h('div', { class: 'admin-session-list' }, sessions.length ? sessions.slice(0, 6).map(s => {
           const u = userMap.get(s.id) || {};
           return h('article', { class: 'admin-session-row' }, h('span', { class: 'admin-session-avatar' }, (u.name || u.email || s.id || '?').trim()[0]?.toUpperCase() || '?'), h('span', { class: 'admin-session-copy' }, h('b', {}, u.name || u.email || s.id), h('small', {}, `${u.email || 'Account'} · Device ${s.deviceId || '—'}`)), h('span', { class: 'admin-pill live' }, 'Active'));
-        }) : h('p', { class: 'admin-empty' }, state.failures.security ? 'Account and session data could not be loaded.' : 'No active sessions in the current report.'))),
+        }) : h('p', { class: 'admin-empty' }, state.failures.security ? 'Account aur session ka data load nahi ho paya.' : 'No active sessions in the current report.'))),
         section('Service access', 'CONNECTION STATUS', h('div', { class: 'admin-service-list' },
           service('Account security', 'Authenticated admin API', !!state.security),
           service('Payments', 'Razorpay payment records', !!state.payments),
@@ -83,7 +83,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
           h('div', {}, h('small', {}, 'Open affiliate requests'), h('b', {}, number(opened)), h('span', {}, `${number(affiliates.length)} partner records`)),
           h('div', {}, h('small', {}, 'Support inbox'), h('b', {}, number(chats.length)), h('span', {}, `${number(unread)} unread conversations`)))),
         section('Recent account activity', 'SECURITY EVENTS', h('div', { class: 'admin-events-list' }, (sec?.events || []).slice().sort((a, b) => Number(b.at || 0) - Number(a.at || 0)).slice(0, 7).map(e => h('article', { class: 'admin-event-row' }, h('span', { class: 'admin-event-icon' }, e.code === 'device_review' ? '!' : '•'), h('div', {}, h('b', {}, String(e.code || 'Account activity').replaceAll('_', ' ')), h('small', {}, `${e.email || e.id || 'Account'} · ${dateTime(e.at)}`)), e.deviceId ? h('small', { class: 'admin-event-device' }, `Device ${e.deviceId}`) : null)),
-          !sec?.events?.length ? h('p', { class: 'admin-empty' }, state.failures.security ? 'Security events are unavailable.' : 'No recent security events.') : null)),
+          !sec?.events?.length ? h('p', { class: 'admin-empty' }, state.failures.security ? 'Security events abhi nahi mil rahe.' : 'No recent security events.') : null)),
       ),
     );
   }
@@ -108,8 +108,8 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
       renderDashboard();
       const updated = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const errors = Object.keys(state.failures);
-      status.replaceChildren(h('i', { class: `admin-live-dot ${errors.length ? 'warn' : ''}` }), h('span', {}, `${errors.length ? `Some data unavailable · ` : 'Live data connected · '}Updated ${updated} · refreshes every 15 seconds`));
-      if (showToast && errors.length) toast(`Some dashboard data could not load: ${errors.join(', ')}`);
+      status.replaceChildren(h('i', { class: `admin-live-dot ${errors.length ? 'warn' : ''}` }), h('span', {}, `${errors.length ? `Kuch data abhi nahi mil raha · ` : 'Live data connected · '}Updated ${updated} · refreshes every 15 seconds`));
+      if (showToast && errors.length) toast(`Dashboard ka kuch data load nahi ho paya: ${errors.join(', ')}`);
     }
     busy = false;
   }
@@ -126,7 +126,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
       requestNotice.hidden = !requests.length;
       requestNotice.textContent = `${requests.length} tester request${requests.length===1?'':'s'} pending · Review`;
       if (added.length) toast(`${added.length} new tester access request${added.length===1?'':'s'} awaiting approval.`);
-    } catch { requestNotice.hidden = false; requestNotice.textContent = 'Tester requests unavailable · Retry'; }
+    } catch { requestNotice.hidden = false; requestNotice.textContent = 'Tester requests abhi nahi mil rahin · Dobara try karein'; }
     finally { requestBusy = false; }
   }
   renderDashboard();

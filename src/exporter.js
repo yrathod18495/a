@@ -183,7 +183,7 @@ export const pickType = () => (window.MediaRecorder && TYPES.find((t) => MediaRe
 
 export function exportRealtime({ canvas, stage, audioStream, player, onProgress, level = 'high' }) {
   const mime = pickType();
-  if (!mime) throw new Error('This browser cannot export video. Please use Chrome, Edge or a recent Safari.');
+  if (!mime) throw new Error('Is browser me video export nahi ho sakta. Chrome, Edge ya naya Safari use karein.');
   // frames are pushed by hand right after each render, so the video never stalls even when the phone is slow
   const stream = canvas.captureStream(0), vtrack = stream.getVideoTracks()[0];
   if (stage && vtrack?.requestFrame) stage.onFrame = () => vtrack.requestFrame();
@@ -192,7 +192,7 @@ export function exportRealtime({ canvas, stage, audioStream, player, onProgress,
   const chunks = [];
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   return new Promise(async (resolve, reject) => {
-    rec.onerror = (e) => reject(e.error || new Error('recording failed'));
+    rec.onerror = (e) => reject(e.error || new Error('Recording fail ho gayi. Dobara try karein.'));
     rec.onstop = () => { if (stage) stage.onFrame = null; resolve({ blob: new Blob(chunks, { type: mime.split(';')[0] }), ext: mime.startsWith('video/mp4') ? 'mp4' : 'webm', info: 'live recording' }); };
     player.stop(); player.muteSpeakers(true);
     rec.start(250);

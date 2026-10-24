@@ -62,5 +62,5 @@ test('uploaded rigs keep their own animations without a bundled pattern fallback
   assert.equal(cats.flatMap(c => c.animations).length, 1);
   assert.equal(cats[0].animations[0].ref.file, 'custom/walk.json');
   assert.equal(api.categoriesFor({ bones: [{ name: 'root' }] }).length, 0);
-  await assert.rejects(api.fetchLibraryCharacter({ id: 122 }), /no longer available/);
+  await assert.rejects(api.fetchLibraryCharacter({ id: 122 }), /ab available nahi hai/);
 });

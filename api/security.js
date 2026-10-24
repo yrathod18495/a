@@ -17,7 +17,7 @@ async function publishMaintenance(db, now) {
   return maintenanceEnabled();
 }
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'POST required' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
   try {
     const b = await bodyOf(req), { db, auth } = services(), now = Date.now();
     if (b.action === 'maintenanceStatus') {
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     }
     if (b.action === 'testerApply') {
       const claims = await identity(req);
-      if (claims.firebase?.sign_in_provider !== 'google.com') throw new AccessError('google_required', 'Sign in with Google to request tester access.', 403);
+      if (claims.firebase?.sign_in_provider !== 'google.com') throw new AccessError('google_required', 'Tester access maangne ke liye Google se sign in karein.', 403);
       const testerRef = db.doc('securityTesters/' + claims.uid), adminRef = db.doc('securityAdmins/' + claims.uid);
       const result = await db.runTransaction(async tx => {
         const [admin, tester, account] = await tx.getAll(adminRef, testerRef, db.doc('securityUsers/' + claims.uid));
@@ -66,11 +66,11 @@ export default async function handler(req, res) {
       if (maintenanceEnabled()) {
         const [role, tester] = await db.getAll(db.doc('securityAdmins/' + uid), db.doc('securityTesters/' + uid));
         // Tester intent opens only an approved tester session; other APIs retain their maintenance gates.
-        if (role.data()?.enabled !== true && !(b.scope === 'tester' && tester.data()?.status === 'approved')) throw new AccessError('maintenance', '12toons is temporarily under maintenance.', 503);
+        if (role.data()?.enabled !== true && !(b.scope === 'tester' && tester.data()?.status === 'approved')) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
       }
       if (claims.firebase?.sign_in_provider !== 'google.com' || Date.now()/1000 - claims.auth_time > 300)
-        throw new AccessError('fresh_login_required', 'Sign in with Google again to start a session.', 401);
-      if (!validId(b.deviceId) || !validId(b.secret)) throw new AccessError('invalid_device', 'Invalid browser identifier.', 400);
+        throw new AccessError('fresh_login_required', 'Session shuru karne ke liye Google se dobara sign in karein.', 401);
+      if (!validId(b.deviceId) || !validId(b.secret)) throw new AccessError('invalid_device', 'Is browser ki pehchaan sahi nahi hai. Page reload karein.', 400);
       const u = db.doc('securityUsers/' + uid), s = db.doc('securitySessions/' + uid), d = db.doc('securityDevices/' + b.deviceId);
       const event = db.collection('securityEvents').doc(), sid = randomUUID(), secretHash = hash(b.secret);
       const result = await db.runTransaction(async tx => {
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
         let denied;
         try {
           checkAccount(us.data(), now);
-          if (claims.auth_time <= (us.data()?.reauthAfter || 0)) throw new AccessError('fresh_login_required', 'Sign in with Google again.', 401);
+          if (claims.auth_time <= (us.data()?.reauthAfter || 0)) throw new AccessError('fresh_login_required', 'Google se dobara sign in karein.', 401);
           checkAcquisition(ss.data(), ds.data(), uid, secretHash, now);
         } catch (e) { denied = e; }
         const accounts = ds.data()?.accounts || [];
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     if (b.action === 'testerAnimations') {
       if (!who.admin) {
         const tester = await db.doc('securityTesters/' + who.uid).get();
-        if (tester.data()?.status !== 'approved') throw new AccessError('tester_required', 'Approved tester access required.');
+        if (tester.data()?.status !== 'approved') throw new AccessError('tester_required', 'Iske liye approved tester access chahiye.');
       }
       const settings = await db.doc('config/testers').get();
       return send(res, 200, { ...testerAnimations(settings.data()), admin: who.admin });
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
       });
       return send(res, 200, { ok: true });
     }
-    if (maintenanceEnabled() && !who.admin) throw new AccessError('maintenance', '12toons is temporarily under maintenance.', 503);
+    if (maintenanceEnabled() && !who.admin) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
     if (b.action === 'testerRequests') {
       const snap = await db.collection('securityTesters').where('status', '==', 'pending').limit(100).get();
       const requests = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })).sort((a,b) => (b.submittedAt || 0) - (a.submittedAt || 0));
@@ -149,13 +149,13 @@ export default async function handler(req, res) {
       return send(res, 200, out);
     }
     if (b.action === 'moderate') {
-      if (!validId(b.uid) || !['blocked', 'restricted', 'suspended', 'active', 'revoke'].includes(b.status)) throw new AccessError('invalid_action', 'Invalid moderation action.', 400);
-      if (b.uid === who.uid) throw new AccessError('self_moderation', 'Another admin must moderate your account.');
-      if (b.status === 'suspended' && (!Number.isSafeInteger(b.until) || b.until <= now)) throw new AccessError('invalid_expiry', 'Choose a future suspension expiry.', 400);
+      if (!validId(b.uid) || !['blocked', 'restricted', 'suspended', 'active', 'revoke'].includes(b.status)) throw new AccessError('invalid_action', 'Moderation action sahi nahi hai.', 400);
+      if (b.uid === who.uid) throw new AccessError('self_moderation', 'Aapke account par action koi doosra admin hi le sakta hai.');
+      if (b.status === 'suspended' && (!Number.isSafeInteger(b.until) || b.until <= now)) throw new AccessError('invalid_expiry', 'Suspension ki aisi date chunein jo aane wale samay me ho.', 400);
       await db.runTransaction(async tx => {
         // Re-check actor authorization inside the moderation transaction.
         const [role,actor,actorSession] = await tx.getAll(db.doc('securityAdmins/' + who.uid),db.doc('securityUsers/'+who.uid),db.doc('securitySessions/'+who.uid));
-        if (!role.data()?.enabled) throw new AccessError('admin_required', 'Admin permission revoked.');
+        if (!role.data()?.enabled) throw new AccessError('admin_required', 'Aapki admin permission hata di gayi hai.');
         checkAccount(actor.data(),Date.now(),true);checkSession(actorSession.data(),who.claims.sid);
         tx.set(db.doc('securityUsers/' + b.uid), { reauthAfter: Math.floor(now/1000), ...(b.status !== 'revoke' ? { status: b.status, until: b.status === 'suspended' ? b.until : 0 } : {}) }, { merge: true });
         tx.set(db.doc('securitySessions/' + b.uid), { revoked: true, expiresAt: now }, { merge: true });
@@ -164,13 +164,13 @@ export default async function handler(req, res) {
       return send(res, 200, { ok: true });
     }
     if (b.action === 'assignRole') {
-      if (!validId(b.uid) || !['user', 'admin', 'tester'].includes(b.role)) throw new AccessError('invalid_action', 'Choose a valid user role.', 400);
-      if (b.uid === who.uid) throw new AccessError('self_role_change', 'Ask another admin to change your own role.');
+      if (!validId(b.uid) || !['user', 'admin', 'tester'].includes(b.role)) throw new AccessError('invalid_action', 'Sahi user role chunein.', 400);
+      if (b.uid === who.uid) throw new AccessError('self_role_change', 'Apna role badalne ke liye kisi doosre admin se kahein.');
       let target;
       try { target = await auth.getUser(b.uid); }
-      catch (error) { if (error.code === 'auth/user-not-found') throw new AccessError('user_not_found', 'That account no longer exists.', 404); throw error; }
+      catch (error) { if (error.code === 'auth/user-not-found') throw new AccessError('user_not_found', 'Ye account ab maujood nahi hai.', 404); throw error; }
       const email = String(target.email || '').trim().toLowerCase();
-      if (b.role === 'tester' && !email) throw new AccessError('tester_email_required', 'This account needs an email address before it can be a tester.', 400);
+      if (b.role === 'tester' && !email) throw new AccessError('tester_email_required', 'Tester banne ke liye account me email address hona zaroori hai.', 400);
       const targetAdminRef = db.doc('securityAdmins/' + b.uid), targetSessionRef = db.doc('securitySessions/' + b.uid);
       const testerRef = db.doc('config/testers'), auditRef = db.collection('securityAudit').doc();
       await db.runTransaction(async tx => {
@@ -178,7 +178,7 @@ export default async function handler(req, res) {
           db.doc('securityAdmins/' + who.uid), db.doc('securityUsers/' + who.uid), db.doc('securitySessions/' + who.uid),
           targetAdminRef, targetSessionRef, testerRef, db.doc('securityTesters/' + b.uid)
         );
-        if (actorRole.data()?.enabled !== true) throw new AccessError('admin_required', 'Admin permission revoked.');
+        if (actorRole.data()?.enabled !== true) throw new AccessError('admin_required', 'Aapki admin permission hata di gayi hai.');
         checkAccount(actorAccount.data(), Date.now(), true); checkSession(actorSession.data(), who.claims.sid);
         const config = testerDoc.data() || {}, currentEmails = (config.emails || []).map(value => String(value).toLowerCase());
         const emails = currentEmails.filter(value => value !== email);
@@ -193,26 +193,26 @@ export default async function handler(req, res) {
       return send(res, 200, { ok: true, uid: b.uid, role: b.role });
     }
     if (b.action === 'reviewTester') {
-      if (!validId(b.uid) || !['approved', 'rejected'].includes(b.status)) throw new AccessError('invalid_action', 'Choose approve or reject for this request.', 400);
-      if (b.uid === who.uid) throw new AccessError('self_tester_review', 'You cannot approve your own tester request.');
+      if (!validId(b.uid) || !['approved', 'rejected'].includes(b.status)) throw new AccessError('invalid_action', 'Is request ke liye approve ya reject chunein.', 400);
+      if (b.uid === who.uid) throw new AccessError('self_tester_review', 'Aap apni hi tester request approve nahi kar sakte.');
       const targetRef = db.doc('securityTesters/' + b.uid), auditRef = db.collection('securityAudit').doc();
       await db.runTransaction(async tx => {
         const [actorRole, actorAccount, actorSession, request] = await tx.getAll(
           db.doc('securityAdmins/' + who.uid), db.doc('securityUsers/' + who.uid), db.doc('securitySessions/' + who.uid), targetRef
         );
-        if (actorRole.data()?.enabled !== true) throw new AccessError('admin_required', 'Admin permission revoked.');
+        if (actorRole.data()?.enabled !== true) throw new AccessError('admin_required', 'Aapki admin permission hata di gayi hai.');
         checkAccount(actorAccount.data(), Date.now(), true); checkSession(actorSession.data(), who.claims.sid);
-        if (request.data()?.status !== 'pending') throw new AccessError('request_not_pending', 'This tester request is no longer pending.', 409);
+        if (request.data()?.status !== 'pending') throw new AccessError('request_not_pending', 'Ye tester request ab pending nahi hai.', 409);
         tx.set(targetRef, { status: b.status, reviewedAt: now, reviewedBy: who.uid, updatedAt: now, ...(b.status === 'approved' ? { approvedAt: now, approvedBy: who.uid } : {}) }, { merge: true });
         tx.create(auditRef, { admin: who.uid, target: b.uid, action: 'tester_' + b.status, at: now });
       });
       return send(res, 200, { ok: true, uid: b.uid, status: b.status });
     }
     if (b.action === 'deviceDecision') {
-      if (!validId(b.deviceId) || !validId(b.uid) || typeof b.approve !== 'boolean') throw new AccessError('invalid_action', 'Invalid device decision.', 400);
+      if (!validId(b.deviceId) || !validId(b.uid) || typeof b.approve !== 'boolean') throw new AccessError('invalid_action', 'Device ka faisla sahi nahi hai.', 400);
       await db.runTransaction(async tx => {
         const d = db.doc('securityDevices/' + b.deviceId), [snap, role,actor,actorSession] = await tx.getAll(d, db.doc('securityAdmins/' + who.uid),db.doc('securityUsers/'+who.uid),db.doc('securitySessions/'+who.uid));
-        if (!role.data()?.enabled) throw new AccessError('admin_required', 'Admin permission revoked.');
+        if (!role.data()?.enabled) throw new AccessError('admin_required', 'Aapki admin permission hata di gayi hai.');
         checkAccount(actor.data(),Date.now(),true);checkSession(actorSession.data(),who.claims.sid);
         const accounts = new Set(snap.data()?.accounts || []), denied = new Set(snap.data()?.denied || []);
         if (b.approve) { accounts.add(b.uid); denied.delete(b.uid); } else { accounts.delete(b.uid); denied.add(b.uid); }
@@ -223,6 +223,6 @@ export default async function handler(req, res) {
       });
       return send(res, 200, { ok: true });
     }
-    throw new AccessError('unknown_action', 'Unknown action.', 400);
+    throw new AccessError('unknown_action', 'Ye action pehchana nahi gaya.', 400);
   } catch (e) { return failure(res, e); }
 }

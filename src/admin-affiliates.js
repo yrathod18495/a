@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, logo } from './dom.js';
 import { apiCall } from './session.js';
 
@@ -10,7 +11,7 @@ export async function affiliatesView({ user, back, toast }) {
     h('main', { class: 'affiliate-admin-main' }, h('div', { class: 'affiliate-admin-heading' }, h('div', {}, h('span', { class: 'projects-eyebrow' }, 'PARTNERSHIPS'), h('h1', {}, 'Affiliate Partners'), h('p', {}, 'Review applications, referrals, commissions and payout status.')), count), settings, list));
   async function loadSettings() {
     try { const result = await apiCall('/api/affiliates', { action: 'adminSettings' }, user.uid); rate.value = String(result.commissionPercent); }
-    catch (e) { rateMessage.textContent = `Could not load rate: ${e.message}`; }
+    catch (e) { rateMessage.textContent = `Rate load nahi ho paya: ${friendlyError(e)}`; }
   }
   async function saveCommissionRate() {
     const value = Number(rate.value); if (!Number.isFinite(value) || value < 1 || value > 50) { rateMessage.textContent = 'Enter a rate from 1% to 50%.'; return; }
@@ -20,10 +21,10 @@ export async function affiliatesView({ user, back, toast }) {
     finally { saveRate.disabled = false; }
   }
   async function markPaid(affiliateId, commissionId, input, button, state) {
-    if (input.value.trim().length < 2) { toast('Enter the bank or payout transaction reference first.'); input.focus(); return; }
+    if (input.value.trim().length < 2) { toast('Pehle bank ya payout transaction ka reference likhein.'); input.focus(); return; }
     button.disabled = true;
     try { await apiCall('/api/affiliates', { action: 'adminPayout', id: affiliateId, commissionId, status: 'paid', payoutReference: input.value.trim() }, user.uid); toast('Payout recorded.'); await load(); }
-    catch (e) { toast(`Could not update payout: ${e.message}`); button.disabled = false; }
+    catch (e) { toast(`Payout update nahi ho paya: ${friendlyError(e)}`); button.disabled = false; }
   }
   async function load() {
     list.replaceChildren(h('div', { class: 'affiliate-admin-empty' }, 'Loading requests…'));
@@ -35,7 +36,7 @@ export async function affiliatesView({ user, back, toast }) {
         status.addEventListener('change', async () => {
           status.disabled = true;
           try { const result = await apiCall('/api/affiliates', { action: 'adminStatus', id: row.id, status: status.value }, user.uid); row.status = status.value; row.referralCode = result.referralCode || row.referralCode; await load(); }
-          catch (e) { status.value = row.status; toast(`Status update failed: ${e.message}`); }
+          catch (e) { status.value = row.status; toast(`Status update nahi ho paya: ${friendlyError(e)}`); }
           finally { status.disabled = false; }
         });
         const commissionRows = (row.commissions || []).map(c => {
@@ -54,7 +55,7 @@ export async function affiliatesView({ user, back, toast }) {
           commissionRows.length ? h('div', { class: 'affiliate-admin-commissions' }, h('h3', {}, 'Conversions & payouts'), ...commissionRows) : null);
       }));
       if (!rows.length) list.append(h('div', { class: 'affiliate-admin-empty' }, h('span', {}, '✦'), h('h2', {}, 'No requests yet'), h('p', {}, 'New submissions will appear here.')));
-    } catch (e) { list.replaceChildren(h('div', { class: 'affiliate-admin-empty error' }, `Could not load affiliate requests: ${e.message}`)); }
+    } catch (e) { list.replaceChildren(h('div', { class: 'affiliate-admin-empty error' }, `Affiliate requests load nahi ho payin: ${friendlyError(e)}`)); }
   }
   await Promise.all([loadSettings(), load()]);
   return root;

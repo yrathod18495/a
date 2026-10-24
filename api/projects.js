@@ -5,30 +5,30 @@ import { AccessError, nextRevision, checkAccount, checkSession } from '../server
 import { validateManifest, summarizeProjectSnapshot } from '../server/project-manifest.js';
 const idOK = v => typeof v === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(v);
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'POST required' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
   try {
     const b = await bodyOf(req), who = await access(req, { write: b.action === 'commit' }), { db } = services();
-    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons is temporarily under maintenance.', 503);
+    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
     const col = db.collection('workspaces/' + who.uid + '/projects');
     if (b.action === 'list') {
       const snap = await col.get(); return send(res, 200, { projects: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
     }
-    if (!idOK(b.id)) throw new AccessError('invalid_project', 'Invalid project.', 400);
+    if (!idOK(b.id)) throw new AccessError('invalid_project', 'Project sahi nahi hai. Dobara chunein.', 400);
     if (b.action === 'commit') {
       if (!idOK(b.operationId) || !Number.isSafeInteger(b.expected) || b.expected < 0 || !['animation', 'character'].includes(b.kind) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 120)
-        throw new AccessError('invalid_project', 'Invalid project metadata.', 400);
+        throw new AccessError('invalid_project', 'Project ki jaankari sahi nahi hai.', 400);
       const ref = col.doc(b.id), current = await ref.get();
       if (current.data()?.operationId === b.operationId) return send(res, 200, { revision: current.data().revision });
       nextRevision(current.data(), b.expected, b.operationId);
       let snapshotSummary = { audioCount: 0, audioFiles: [], audioFilesTruncated: false };
       if (!b.deleted) {
         const pattern = new RegExp('^projects/' + b.id + '/snapshots/[a-zA-Z0-9_-]+$');
-        if (typeof b.stateKey !== 'string' || !pattern.test(b.stateKey)) throw new AccessError('invalid_snapshot', 'Invalid snapshot path.', 400);
+        if (typeof b.stateKey !== 'string' || !pattern.test(b.stateKey)) throw new AccessError('invalid_snapshot', 'Project snapshot ka path sahi nahi hai.', 400);
         const manifest = JSON.parse((await readObject(who.uid,b.stateKey)).toString('utf8'));
         for (const asset of validateManifest(manifest)) {
-          if (!/^assets\/[a-f0-9]{64}$/.test(asset.key) || !Number.isSafeInteger(asset.size)) throw new AccessError('invalid_asset', 'Invalid asset.', 400);
+          if (!/^assets\/[a-f0-9]{64}$/.test(asset.key) || !Number.isSafeInteger(asset.size)) throw new AccessError('invalid_asset', 'Asset sahi nahi hai.', 400);
           const head = await objectHead(who.uid,asset.key);
-          if (!head.exists || head.size !== asset.size || head.digest !== asset.key.slice(7)) throw new AccessError('incomplete_upload', 'Asset upload incomplete.', 409);
+          if (!head.exists || head.size !== asset.size || head.digest !== asset.key.slice(7)) throw new AccessError('incomplete_upload', 'Asset ka upload poora nahi hua. Dobara try karein.', 409);
         }
         snapshotSummary = summarizeProjectSnapshot(manifest);
       }
@@ -53,6 +53,6 @@ export default async function handler(req, res) {
       });
       return send(res, 200, { revision });
     }
-    throw new AccessError('unknown_action', 'Unknown action.', 400);
+    throw new AccessError('unknown_action', 'Ye action pehchana nahi gaya.', 400);
   } catch (e) { return failure(res, e); }
 }

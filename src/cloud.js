@@ -42,12 +42,12 @@ export async function cloudReady() { return !!uidOf() && (await r2Configured());
  */
 export async function saveCharacterCloud(def) {
   const uid = uidOf();
-  if (!uid) throw new Error('Log in to save characters to your account.');
-  if (!(await r2Configured())) throw new Error('Cloud storage is not set up yet — the character is saved on this device.');
-  if (!def.base) throw new Error('This character was saved in an old format — open it in the Character Studio and save it again.');
+  if (!uid) throw new Error('Character account me save karne ke liye pehle log in karein.');
+  if (!(await r2Configured())) throw new Error('Cloud storage abhi set nahi hai, isliye character sirf is device par save hua.');
+  if (!def.base) throw new Error('Ye character purane format me save hua tha. Character Studio me kholkar dobara save karein.');
   const base = `characters/${def.id}/${crypto.randomUUID()}`, paths = Object.keys(def.pages || {});
   for (let i = 0; i < paths.length; i++) await uploadFile(`${base}/page_${i}`, def.pages[paths[i]],uid);
-  if(auth.currentUser?.uid!==uid)throw Error('Account changed.');
+  if(auth.currentUser?.uid!==uid)throw Error('Account badal gaya. Dobara try karein.');
   await setDoc(wsDoc(uid, 'characters', def.id), { id: def.id, name: def.name, pose: def.pose || '', base: def.base, pages: paths, assetBase: base, format: 'lean', profile: JSON.stringify(def.profile || {}), thumb: def.thumb || '', updatedAt: new Date().toISOString() });
 }
 export async function listCharactersCloud() {
@@ -56,7 +56,7 @@ export async function listCharactersCloud() {
   try { return (await getDocs(collection(db, 'workspaces', uid, 'characters'))).docs.map((d) => d.data()); } catch { return []; }
 }
 export async function loadCharacterCloud(meta) {
-  if (meta.format !== 'lean') throw new Error('This character was saved in an old format. Please make it again in the Character Studio.');
+  if (meta.format !== 'lean') throw new Error('Ye character purane format me save hua tha. Isse Character Studio me dobara banayein.');
   const pages = {};
   await Promise.all((meta.pages || []).map(async (path, i) => { const b = await downloadFile(`${meta.assetBase || `characters/${meta.id}`}/page_${i}`); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); }));
   let profile = {}; try { profile = JSON.parse(meta.profile || '{}'); } catch { /* old record */ }
@@ -98,7 +98,7 @@ export async function isAdmin(user) {
 export async function maintenanceStatus() {
  try {
   const r = await fetch('/api/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'maintenanceStatus' }) });
-  if (!r.ok) throw Error('Maintenance status unavailable');
+  if (!r.ok) throw Error('Maintenance ka status abhi nahi mil raha.');
   return await r.json();
  }
  catch { return { maintenance: true, unavailable: true }; }
@@ -167,7 +167,7 @@ export async function loadTesterConfig() {
   return config;
 }
 export async function saveTesterConfig(cfg, user) {
-  if (!user || auth.currentUser?.uid !== user.uid) throw Error('Verified admin sign-in required.');
+  if (!user || auth.currentUser?.uid !== user.uid) throw Error('Iske liye verified admin se sign in karna zaroori hai.');
   const config = await apiCall('/api/security', { action: 'saveTesterAnimations', anims: cfg.anims, limit: cfg.limit, blockedAnims: cfg.blockedAnims, hiddenGroups: cfg.hiddenGroups, blockedDownloads: cfg.blockedDownloads }, user.uid);
   try { localStorage.setItem(TESTER_KEY, JSON.stringify(config)); } catch { /* optional */ }
   return config;

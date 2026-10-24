@@ -1,3 +1,4 @@
+import { hinglishify } from '../shared/hinglish-errors.js';
 /** tiny element builder shared by the shell and the Character Studio */
 export const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
@@ -10,7 +11,7 @@ export const h = (tag, attrs = {}, ...kids) => {
   for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(k));
   return el;
 };
-export const toast = (msg) => { const t = h('div', { class: 'toast' }, msg); document.body.append(t); setTimeout(() => t.remove(), 4500); };
+export const toast = (msg) => { const t = h('div', { class: 'toast' }, typeof msg === 'string' ? hinglishify(msg) : msg); document.body.append(t); setTimeout(() => t.remove(), 4500); };
 /** The crown belongs to the number, so every header uses the same wordmark. */
 export const brandWordmark = () => [
   h('span', { class: 'brand-number' },

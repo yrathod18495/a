@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 // Firebase (login + database). The web config below is public by design (it only names the project);
 // what protects the data are the Firestore rules (firebase/firestore.rules) and the server check in api/r2.js.
 import { initializeApp } from 'firebase/app';
@@ -90,7 +91,7 @@ export const onUser = (cb) => {
       if (auth.currentUser?.uid === user.uid) cb(user);
     } catch (e) {
       if (sessionStorage.getItem('12toons-staff-login') === '1') {
-        sessionStorage.setItem('12toons-staff-error', e.message || 'Staff access could not be verified. Please try again.');
+        sessionStorage.setItem('12toons-staff-error', friendlyError(e, 'Staff access verify nahi ho paya. Dobara try karein.'));
         await signOut(auth);
         return;
       }

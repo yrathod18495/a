@@ -1,6 +1,6 @@
 import { AccessError } from './security-policy.js';
 export function validateManifest(manifest) {
- const bad=()=>{throw new AccessError('invalid_snapshot','Invalid project snapshot.',400);};
+ const bad=()=>{throw new AccessError('invalid_snapshot','Project snapshot sahi nahi hai.',400);};
  const stores=new Set(['characters','animations','backgrounds','swaps','project','audio','draft']);
  if(manifest.version!==1||!Array.isArray(manifest.records)||!Array.isArray(manifest.assets)||manifest.assets.length>10000)bad();
  const assets=new Map();

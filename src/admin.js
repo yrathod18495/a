@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 import { testerAnimationAllowed, changeTesterAnimation } from './tester-animation-policy.js';
 // Admin panel: decide which animation of which character users get to see.
 // The rules are stored in Firestore config/animations ({ '*': [...], neha: [...], mybaby: [...] }) and applied in catalog.categoriesFor().
@@ -18,11 +19,11 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
   const securityButton=document.createElement('button');securityButton.className='btn';securityButton.textContent='Users & Security';
   securityButton.onclick=async()=>{try{root.replaceChildren(await securityView({home:async()=>{const next=await view({user,home,toast});root.replaceWith(next);},toast}));}catch(e){toast(e.message);}};
   const paymentsButton=document.createElement('button');paymentsButton.className='btn';paymentsButton.textContent='Payments';
-  paymentsButton.onclick=async()=>{try{const {view:paymentsView}=await import('./admin-payments.js');root.replaceWith(await paymentsView({user,home,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Could not open payments: ${e.message}`);}};
+  paymentsButton.onclick=async()=>{try{const {view:paymentsView}=await import('./admin-payments.js');root.replaceWith(await paymentsView({user,home,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Payments khul nahi paye: ${e.message}`);}};
   const chatButton=document.createElement('button');chatButton.className='btn';chatButton.textContent='Live Chat';
-  chatButton.onclick=async()=>{try{const {chatView}=await import('./admin-chat.js');root.replaceWith(await chatView({user,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Could not open live chat: ${e.message}`);}};
+  chatButton.onclick=async()=>{try{const {chatView}=await import('./admin-chat.js');root.replaceWith(await chatView({user,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Live chat khul nahi paya: ${e.message}`);}};
   const affiliatesButton=document.createElement('button');affiliatesButton.className='btn';affiliatesButton.textContent='Affiliates';
-  affiliatesButton.onclick=async()=>{try{const {affiliatesView}=await import('./admin-affiliates.js');root.replaceWith(await affiliatesView({user,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Could not open affiliates: ${e.message}`);}};
+  affiliatesButton.onclick=async()=>{try{const {affiliatesView}=await import('./admin-affiliates.js');root.replaceWith(await affiliatesView({user,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Affiliates khul nahi paye: ${e.message}`);}};
   await loadCatalog();
   const entries = libraryCharacters().filter((e) => e.template);
   const chars = [...new Map(entries.map((e) => [e.charBase, { base: e.charBase, name: e.name, thumb: e.thumbnail, poses: entries.filter((x) => x.charBase === e.charBase) }])).values()];
@@ -79,7 +80,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       const first = withCat.find((a) => !a.cat.overlay && /^idle/i.test(a.name)) || withCat[0];
       st.busy = false; drawAll();
       if (first) await play(first);
-    } catch (e) { st.busy = false; toast(`Could not load the character: ${e.message}`); drawAll(); }
+    } catch (e) { st.busy = false; toast(`Character load nahi ho paya: ${e.message}`); drawAll(); }
   }
 
   /** play an animation on the character (layer animations run on top of an idle body) */
@@ -98,7 +99,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       stage.setRig(st.def.id, st.def.ske);
       stage.setLayers([{ key: 'c', charId: st.def.id, anims, clips, flip: false, slot: 0, visible: true, xf: null, skins: st.def.skins, hide: [] }]);
       t0 = performance.now(); loaded = true;
-    } catch (e) { st.note = 'Preview not available for this animation (its file is missing) — you can still show or hide it.'; loaded = false; drawCaption(); }
+    } catch (e) { st.note = 'Is animation ka preview available nahi hai (uski file nahi mili). Aap ise phir bhi dikha ya chhupa sakte hain.'; loaded = false; drawCaption(); }
   }
 
   /* ---------- editing the rules ---------- */
@@ -136,7 +137,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       }
       st.dirty = false;
       toast(local ? 'Saved on this device (test mode).' : 'Published — tester permissions update live.');
-    } catch (e) { toast(e.code === 'permission-denied' ? 'Not allowed: your e-mail must be an admin in the Firestore rules.' : `Could not publish: ${e.message}`); }
+    } catch (e) { toast(e.code === 'permission-denied' ? 'Aapko ye karne ki ijazat nahi hai. Aapka email Firestore rules me admin ke roop me hona chahiye.' : `Publish nahi ho paya: ${friendlyError(e)}`); }
     st.busy = false; drawBar();
   }
   async function discard() {
@@ -240,7 +241,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
     const isDenied = (map, id) => (map['*'] || []).includes(id) || (map[st.base] || []).includes(id);
     const changePart = (map, id, deny) => {
       const scope = scopeKey();
-      if (!deny && scope !== '*' && (map['*'] || []).includes(id)) { toast('Hidden for every character. Change the Every character setting first.'); drawTesterList(); return; }
+      if (!deny && scope !== '*' && (map['*'] || []).includes(id)) { toast('Ye har character ke liye chhupa hua hai. Pehle Every character wali setting badlein.'); drawTesterList(); return; }
       if (!deny && scope === '*') for (const key of Object.keys(map)) map[key] = map[key].filter(value => value !== id);
       else map[scope] = [...new Set([...(map[scope] || []).filter(value => value !== id), ...(deny ? [id] : [])])];
       mark('testers'); drawTesterList();

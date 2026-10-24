@@ -13,17 +13,17 @@ export function replyNotificationsEnabled(uid) {
 
 async function messagingSupport() {
   if (!('Notification' in window) || !('serviceWorker' in navigator) || !(await isSupported())) {
-    throw new Error('This browser does not support push notifications.');
+    throw new Error('Ye browser push notifications support nahi karta.');
   }
 }
 
 async function registerPush(user) {
-  if (!vapidKey) throw new Error('Push setup is incomplete. Add VITE_FIREBASE_VAPID_KEY from Firebase Console → Project settings → Cloud Messaging → Web Push certificates.');
+  if (!vapidKey) throw new Error('Push ka setup poora nahi hai. Firebase Console → Project settings → Cloud Messaging → Web Push certificates se VITE_FIREBASE_VAPID_KEY lekar jodein.');
   const swConfig = encodeURIComponent(JSON.stringify(firebaseConfig));
   const registration = await navigator.serviceWorker.register(`/firebase-messaging-sw.js?config=${swConfig}`, { scope: '/' });
   const messaging = getMessaging(app);
   const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
-  if (!token) throw new Error('The browser did not create a push subscription. Try enabling notifications again.');
+  if (!token) throw new Error('Browser ne push subscription nahi banayi. Notifications dobara on karke dekhein.');
   await apiCall('/api/notifications', { action: 'register', token }, user.uid);
   try { localStorage.setItem(tokenKey(user.uid), token); localStorage.setItem(enabledKey(user.uid), '1'); } catch { /* Server registration still works for this session. */ }
   if (!foregroundReady) {
@@ -39,12 +39,12 @@ async function registerPush(user) {
 }
 
 export async function enableReplyNotifications(user) {
-  if (!('Notification' in window) || !('serviceWorker' in navigator)) throw new Error('This browser does not support push notifications.');
-  if (Notification.permission === 'denied') throw new Error('Notifications are blocked in browser settings. Allow them for this site, then try again.');
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) throw new Error('Ye browser push notifications support nahi karta.');
+  if (Notification.permission === 'denied') throw new Error('Browser settings me notifications block hain. Is site ke liye allow karke dobara try karein.');
   // Start the browser prompt directly in the profile-menu click gesture.
   const permissionRequest = Notification.permission === 'granted' ? Promise.resolve('granted') : Notification.requestPermission();
   await messagingSupport();
-  if (await permissionRequest !== 'granted') throw new Error('Notification permission was not granted. You can enable it later in browser settings.');
+  if (await permissionRequest !== 'granted') throw new Error('Notification ki permission nahi mili. Baad me browser settings se on kar sakte hain.');
   await registerPush(user);
   return 'Reply notifications are enabled on this device.';
 }

@@ -68,9 +68,9 @@ export async function refreshProjects(uid) {
 }
 export const syncCurrent=()=>{const c=context();return c?syncProject(c.uid,c.id):Promise.resolve();};
 export async function resolveConflict(uid,id) {
- if(!navigator.onLine)throw Error('Reconnect to resolve the conflict. Your local work is safe.');
+ if(!navigator.onLine)throw Error('Conflict hatane ke liye internet se dobara judein. Aapka local kaam safe hai.');
  const local=await snapshot(uid,id),{projects}=await apiCall('/api/projects',{action:'list'},uid),remote=projects.find(p=>p.id===id);
- if(!remote||remote.revision===local.meta.revision)throw Error('No newer cloud version exists. Retry syncing this project.');
+ if(!remote||remote.revision===local.meta.revision)throw Error('Cloud par isse naya version nahi hai. Is project ko dobara sync karke dekhein.');
  const records=remote.deleted?[]:await unpackRecords(JSON.parse(await(await download(uid,remote.stateKey)).text()),k=>download(uid,k));
  const backup=await copyProject(uid,id);
  await acknowledge(uid,id,local.meta.generation,local.meta.revision);

@@ -44,8 +44,8 @@ export const cdn = (p) => url(p);
 
 /** Downloads a character (DragonBones skeleton + texture atlases + pictures) from its files and returns the same shape ingest() produces. */
 export async function fetchLibraryCharacter(entry) {
-  const ok = (r) => { if (!r.ok) throw new Error(`${r.status} ${r.url}`); return r; };
-  if (!entry?.template) throw new Error('Character template is no longer available.');
+  const ok = (r) => { if (!r.ok) throw new Error(`File load nahi hui (code ${r.status}): ${r.url}`); return r; };
+  if (!entry?.template) throw new Error('Ye character template ab available nahi hai.');
   const a = entry.template, load = async () => {
     const [ske, texJsons] = await Promise.all([fetch(url(a.ske)).then(ok).then((r) => r.json()), Promise.all(a.tex.map((u) => fetch(url(u)).then(ok).then((r) => r.json())))]);
     const blobs = await Promise.all(texJsons.map((t, i) => fetch(url(dirOf(a.tex[i]) + t.imagePath)).then(ok).then((r) => r.blob())));
@@ -137,7 +137,7 @@ const cache = new AssetCache();
 export function fetchAnimation(file) {
   if (file.startsWith('managed:')) return cache.load(file, () => loadStudioAnimation(file.slice(8)));
   return cache.load(file, () => fetch(url(file), { signal: AbortSignal.timeout(20000) })
-    .then(r => { if (!r.ok) throw new Error(`animation ${r.status}`); return r.json(); })
+    .then(r => { if (!r.ok) throw new Error(`Animation load nahi hui (code ${r.status}).`); return r.json(); })
     .then(j => j && j.bone ? j : Object.values(j)[0]));
 }
 

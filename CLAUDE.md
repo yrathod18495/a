@@ -11,3 +11,14 @@
 - If something is missing in DragonBones (e.g. Spine-style physics), implement it in our own code on top of DragonBones bones — do not bring Spine back.
 
 When in doubt: DragonBones. This rule applies to every future change, by anyone (human or AI).
+
+## Error messages are user-friendly Hinglish (permanent rule)
+
+Every error a user can see — toasts, form errors, failed/empty states and API error responses — must be written in **simple Hinglish** (Roman-script Hindi with common English tech words), never raw English or raw library text.
+
+- Write our own messages in Hinglish where they are thrown: what happened + what to do next, polite ("aap", "karein", "dobara try karein"). Example: `'Pehle verified account se sign in karein.'`
+- Raw errors from Firebase, Firestore rules (`permission-denied`, `Missing or insufficient permissions`), auth, network, quota or the browser go through `friendlyError(e)` / `hinglishify(text)` from `shared/hinglish-errors.js`. `toast()` already applies it as a safety net.
+- Keep error `code` values, logs, field names and HTTP statuses in English; never compare against message text, use `code` / `status`.
+- `tests/hinglish-errors.test.js` fails if `api/` or `server/` contain English error messages.
+- Full style guide, examples and checklist: `docs/ERROR-MESSAGES.md`.
+

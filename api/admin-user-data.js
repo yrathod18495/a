@@ -9,11 +9,11 @@ const validProjectId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{16,
 const MAX_SNAPSHOT_PREVIEW = 8 * 1024 * 1024;
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'POST required' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
   try {
     const b = await bodyOf(req, 12000), who = await access(req, { admin: true }), { db } = services();
-    if (b.action !== 'userProjects' && b.action !== 'projectDetails') throw new AccessError('invalid_action', 'Unsupported user data action.', 400);
-    if (!validUid(b.uid)) throw new AccessError('invalid_user', 'Invalid user.', 400);
+    if (b.action !== 'userProjects' && b.action !== 'projectDetails') throw new AccessError('invalid_action', 'Ye action abhi supported nahi hai.', 400);
+    if (!validUid(b.uid)) throw new AccessError('invalid_user', 'User sahi nahi hai. Dobara chunein.', 400);
 
     if (b.action === 'userProjects') {
       const snap = await db.collection(`workspaces/${b.uid}/projects`).orderBy('updatedAt', 'desc').limit(100).get();
@@ -26,9 +26,9 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!validProjectId(b.projectId)) throw new AccessError('invalid_project', 'Invalid project.', 400);
+    if (!validProjectId(b.projectId)) throw new AccessError('invalid_project', 'Project sahi nahi hai. Dobara chunein.', 400);
     const projectRef = db.doc(`workspaces/${b.uid}/projects/${b.projectId}`), projectSnap = await projectRef.get();
-    if (!projectSnap.exists) throw new AccessError('not_found', 'Project not found.', 404);
+    if (!projectSnap.exists) throw new AccessError('not_found', 'Ye project nahi mila.', 404);
     const project = projectSnap.data(), detail = { audioCount: 0, audioFiles: [], audioFilesTruncated: false, snapshotAvailable: false };
     if (project.deleted) detail.snapshotMessage = 'This project is marked deleted; no current cloud snapshot is available.';
     if (!project.deleted && typeof project.stateKey === 'string' && new RegExp(`^projects/${b.projectId}/snapshots/[A-Za-z0-9_-]+$`).test(project.stateKey)) {
@@ -39,9 +39,9 @@ export default async function handler(req, res) {
           const manifest = JSON.parse(state.toString('utf8'));
           validateManifest(manifest);
           Object.assign(detail, summarizeProjectSnapshot(manifest), { snapshotAvailable: true });
-        } else detail.snapshotMessage = head.exists ? 'Project snapshot exceeds the preview size limit.' : 'Project snapshot is no longer available in cloud storage.';
+        } else detail.snapshotMessage = head.exists ? 'Project snapshot preview ke liye bahut bada hai.' : 'Project snapshot ab cloud storage me maujood nahi hai.';
       } catch (error) {
-        detail.snapshotMessage = error.status ? error.message : 'Could not read this cloud project snapshot.';
+        detail.snapshotMessage = error.status ? error.message : 'Is cloud project ka snapshot padha nahi ja saka.';
       }
     } else if (!project.deleted) detail.snapshotMessage = 'This project has no saved cloud snapshot.';
 

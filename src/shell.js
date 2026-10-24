@@ -1,3 +1,4 @@
+import { friendlyError } from '../shared/hinglish-errors.js';
 import './style.css';
 import { landingView as marketingLandingView } from './landing.js';
 import './day-theme.css';
@@ -56,7 +57,7 @@ let routing = Promise.resolve();
 function route() {
   routing = routing.then(renderRoute).catch(e => {
     if (reloadForNewVersion(e)) return;
-    toast(`Could not open page: ${e.message}`);
+    toast(`Page khul nahi paya: ${e.message}`);
   });
   return routing;
 }
@@ -146,7 +147,7 @@ async function renderRoute() {
     $shell.replaceChildren(await m.view({ user, tester: true, toast, home: () => {}, logout: async () => { await signOutUser(); role = 'user'; go('#/'); } })); return;
   }
   if (hash === '#/admin') {
-    if (!(await isAdmin(user))) { toast('The admin panel is only for admins.'); go('#/hub'); return; }
+    if (!(await isAdmin(user))) { toast('Admin panel sirf admin ke liye hai.'); go('#/hub'); return; }
     const m = await import('./admin.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/hub'), toast })); return;
   }
   if (hash === '#/characters') { const m = await import('./charstudio.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/characters'), toast })); return; }
@@ -155,7 +156,7 @@ async function renderRoute() {
 
 /* ---------------- shared bits ---------------- */
 async function login() {
-  try { const u = await signInGoogle(); if (u) go('#/hub'); } catch (e) { if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'This website address is not allowed to log in yet. Add it under Firebase → Authentication → Settings → Authorized domains.' : `Login failed: ${e.message}`); }
+  try { const u = await signInGoogle(); if (u) go('#/hub'); } catch (e) { if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Is website ke address se login abhi allowed nahi hai. Firebase → Authentication → Settings → Authorized domains me ise jodna hoga.' : `Login nahi ho paya: ${friendlyError(e)}`); }
 }
 async function loginStaff() {
   staffLoginPending = true; sessionStorage.setItem('12toons-staff-login', '1'); staffMessage = '';
@@ -163,7 +164,7 @@ async function loginStaff() {
   catch (e) {
     staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
     if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-      staffMessage = e.code === 'auth/unauthorized-domain' ? 'This website address is not allowed to log in yet. Add it under Firebase Authentication authorized domains.' : `Google sign-in failed: ${e.message}`;
+      staffMessage = e.code === 'auth/unauthorized-domain' ? 'Is website ke address se login abhi allowed nahi hai. Firebase Authentication ke authorized domains me ise jodna hoga.' : `Google se sign in nahi ho paya: ${friendlyError(e)}`;
     }
     route();
   }
@@ -174,7 +175,7 @@ async function loginTester() {
   try { const signedIn = await signInGoogle(); if (signedIn) await refreshUser(); }
   catch (e) {
     sessionStorage.removeItem('12toons-tester-login');
-    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'This website address is not allowed to log in yet. Add it under Firebase Authentication authorized domains.' : `Google sign-in failed: ${e.message}`);
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Is website ke address se login abhi allowed nahi hai. Firebase Authentication ke authorized domains me ise jodna hoga.' : `Google se sign in nahi ho paya: ${friendlyError(e)}`);
   }
 }
 const initial = (u) => (u.displayName || u.email || '?').trim()[0].toUpperCase();
@@ -270,7 +271,7 @@ function maintenanceView() {
   return h('main', { class: 'sh sh-center' }, h('section', { class: 'sh-login maintenance-card' },
     logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, '🔧'),
     h('h1', {}, 'We’ll be back soon'),
-    h('p', { class: 'sub' }, '12toons is temporarily under maintenance. Please check back shortly.'),
+    h('p', { class: 'sub' }, '12toons par abhi maintenance chal raha hai. Thodi der baad dobara aayein.'),
     h('a', { class: 'btn-link', href: '/#/staff-login' }, 'Staff sign in')));
 }
 
@@ -330,7 +331,7 @@ async function start() {
       const admin = await isAdmin(u);
       if (staffLoginPending && !admin) {
         staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
-        staffMessage = sessionStorage.getItem('12toons-staff-error') || 'Staff access could not be verified. Please try again.';
+        staffMessage = sessionStorage.getItem('12toons-staff-error') || 'Staff access verify nahi ho paya. Dobara try karein.';
         sessionStorage.removeItem('12toons-staff-error');
         await signOutUser({ release: false }); user = null; role = 'user'; ready = true; route(); return;
       }
@@ -347,7 +348,7 @@ async function start() {
       role = 'user';
       if (staffLoginPending) {
         staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
-        staffMessage = sessionStorage.getItem('12toons-staff-error') || 'Staff access could not be verified. Please try again.';
+        staffMessage = sessionStorage.getItem('12toons-staff-error') || 'Staff access verify nahi ho paya. Dobara try karein.';
         sessionStorage.removeItem('12toons-staff-error');
       }
     }

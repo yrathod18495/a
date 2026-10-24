@@ -26,8 +26,8 @@ test('limits are 2 minutes for free and 10 minutes for paid accounts', () => {
   assert.equal(withinLimit(120, 'free'), true); assert.equal(withinLimit(120.04, 'free'), true); assert.equal(withinLimit(120.5, 'free'), false);
   assert.equal(withinLimit(600, 'paid'), true); assert.equal(withinLimit(601, 'paid'), false); assert.equal(withinLimit(0, 'paid'), false); assert.equal(withinLimit(NaN, 'free'), false);
   assert.equal(fmtLimit(120), '2 min'); assert.equal(fmtLimit(90), '1 min 30 s'); assert.equal(fmtLimit(45), '45 s');
-  assert.match(limitMessage(130, 'free'), /free accounts can export up to 2 min/); assert.match(limitMessage(130, 'free'), /buy credits/);
-  assert.match(limitMessage(700, 'paid'), /up to 10 min/);
+  assert.match(limitMessage(130, 'free'), /free account se ek baar me sirf 2 min/); assert.match(limitMessage(130, 'free'), /credits kharidkar/);
+  assert.match(limitMessage(700, 'paid'), /paid account se ek baar me sirf 10 min/);
 });
 
 test('a free account is limited to 2 minutes, whether it exports one scene or all scenes joined', async () => {
@@ -39,7 +39,7 @@ test('a free account is limited to 2 minutes, whether it exports one scene or al
   assert.equal(db.data.get(`workspaces/${freeUser}/exports/${ok.body.grantId}`).status, 'granted');
   for (const body of [{ seconds: 121, scenes: 1, scope: 'current' }, { seconds: 300, scenes: 4, scope: 'all' }]) {
     const denied = await call(freeUser, { action: 'authorize', ...body });
-    assert.equal(denied.statusCode, 403); assert.equal(denied.body.code, 'export_limit'); assert.equal(denied.body.limitSeconds, 120); assert.match(denied.body.error, /buy credits/);
+    assert.equal(denied.statusCode, 403); assert.equal(denied.body.code, 'export_limit'); assert.equal(denied.body.limitSeconds, 120); assert.match(denied.body.error, /credits kharidkar/);
   }
   const logged = [...db.data.entries()].filter(([k, v]) => k.startsWith(`workspaces/${freeUser}/exports/`) && v.status === 'denied');
   assert.equal(logged.length, 2);
@@ -67,7 +67,7 @@ test('a captured purchase makes the account paid with a 10 minute limit; users c
   const ok = await call(paidUser, { action: 'authorize', seconds: 599, scenes: 5, scope: 'all' });
   assert.equal(ok.statusCode, 200); assert.equal(ok.body.tier, 'paid'); assert.equal(ok.body.limitSeconds, 600);
   const over = await call(paidUser, { action: 'authorize', seconds: 601 });
-  assert.equal(over.statusCode, 403); assert.equal(over.body.limitSeconds, 600); assert.doesNotMatch(over.body.error, /buy credits/);
+  assert.equal(over.statusCode, 403); assert.equal(over.body.limitSeconds, 600); assert.doesNotMatch(over.body.error, /credits kharidkar/);
   assert.equal((await call(freeUser, { action: 'complete', grantId: ok.body.grantId })).statusCode, 404);
 });
 

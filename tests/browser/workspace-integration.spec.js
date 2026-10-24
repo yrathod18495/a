@@ -59,9 +59,9 @@ test('free accounts cannot export more than 2 minutes, one scene or all scenes j
  await page.evaluate(k=>{window.__toon.S.camKeys.push(k);window.__toon.S.dirty=true;},key(130));
  await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.locator('.exp-plan')).toContainText('Free account');await expect(page.locator('.exp-plan')).toContainText('up to 2 min');
- await expect(page.locator('.exp-plan.over')).toContainText('free accounts can export up to 2 min');
+ await expect(page.locator('.exp-plan.over')).toContainText('free account se ek baar me sirf 2 min');
  await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
- await expect(page.getByText(/free accounts can export up to 2 min/).first()).toBeVisible();
+ await expect(page.getByText(/free account se ek baar me sirf 2 min/).first()).toBeVisible();
  expect(await page.evaluate(()=>window.__toon.S.exporting)).toBe(false);await expect(page.locator('.busy')).toHaveCount(0);
  // two scenes of 70 s each: fine one by one, too long joined
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'a',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});

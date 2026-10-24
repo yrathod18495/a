@@ -6,25 +6,25 @@ import { AccessError } from '../server/security-policy.js';
 const tokenId = token => createHash('sha256').update(token).digest('hex');
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'POST required' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
   try {
     const b = await bodyOf(req, 12000);
     const who = await access(req, { write: true });
     const { db } = services();
-    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons is temporarily under maintenance.', 503);
+    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
 
     if (b.action === 'register') {
-      if (typeof b.token !== 'string' || b.token.length < 20 || b.token.length > 4096) throw new AccessError('invalid_token', 'Invalid notification registration.', 400);
+      if (typeof b.token !== 'string' || b.token.length < 20 || b.token.length > 4096) throw new AccessError('invalid_token', 'Notification ka registration sahi nahi hai. Notification dobara on karein.', 400);
       const id = tokenId(b.token), ref = db.collection('pushTokens').doc(id), now = Date.now();
       await ref.set({ uid: who.uid, token: b.token, updatedAt: now }, { merge: true });
       return send(res, 200, { enabled: true });
     }
     if (b.action === 'remove') {
-      if (typeof b.token !== 'string' || b.token.length < 20 || b.token.length > 4096) throw new AccessError('invalid_token', 'Invalid notification registration.', 400);
+      if (typeof b.token !== 'string' || b.token.length < 20 || b.token.length > 4096) throw new AccessError('invalid_token', 'Notification ka registration sahi nahi hai. Notification dobara on karein.', 400);
       const ref = db.collection('pushTokens').doc(tokenId(b.token)), snapshot = await ref.get();
       if (snapshot.data()?.uid === who.uid) await ref.delete();
       return send(res, 200, { enabled: false });
     }
-    throw new AccessError('invalid_action', 'Unsupported notification action.', 400);
+    throw new AccessError('invalid_action', 'Ye notification action supported nahi hai.', 400);
   } catch (e) { return failure(res, e); }
 }
