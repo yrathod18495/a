@@ -1,12 +1,11 @@
 # 12toons
 
-> **Rule: DragonBones only.** The Spine library is not used. All rigs and animation data are DragonBones, and all code uses only the DragonBones runtime. See `CLAUDE.md`. Spine files live in `sources/spine/` and are only the input of `scripts/build-db-data.py`.
+> **Rule: DragonBones only.** The Spine library is not used. All rigs and animation data are DragonBones, and all code uses only the DragonBones runtime. See `CLAUDE.md`.
 
 AI animation studio that runs in the browser.
 
 - **12toons** – animation workbench: characters, backgrounds, audio lines (ZIP, optional) → AI direction → camera → export (WebM / MP4, up to 4K).
 - **12toons Character Studio** – start from a template (Neha / My Baby, 5 poses each) or any DragonBones character ZIP (skeleton `_ske.json` + texture `_tex.json` + picture); every layer can be uploaded (png / svg), downloaded, removed, locked, recoloured and nudged; face fitting (eyes, brows, nose, lips, ears); outfits; live preview with animations and mouth test. Save = baked character in this device's database and in your account (Firestore + R2); the animation studio loads exactly that character.
-- **Autodraft data** (see `scripts/README-autodraft.md`): two template characters, 700+ animations in four tracks (body, hands, legs, face layers) with previews.
 - **Auto-direct with any AI (no key):** step 2 / AI tab → *Download brief (.txt)* → give it to Claude / ChatGPT / Gemini → *Import AI file*. The AI picks shot, who is on screen and which animation plays at which second for every dialogue.
 - Flow: landing page → Google login → hub (choose one of the two tools).
 - Theme: white background, blue accents, black + blue buttons.
@@ -22,9 +21,6 @@ npm run build
 
 Both studios now open My Projects. Drafts are saved in account/project-scoped IndexedDB and automatically synchronized through authenticated backend APIs. See [Security rollout](docs/SECURITY-ROLLOUT.md) before deploying: Firebase Admin credentials, server-managed sessions and matching Firestore rules are required for production login.
 
-## Autodraft animations
-The animation library of the Autodraft characters (Neha, My Baby) is built by `python3 scripts/convert-stpro-anims.py` (own names; body / hand / leg / face-expression tracks per pose). Neck + head sway gently on their own in every pose.
-
 ## Admin panel (hide / show animations)
 Open **Hub → 🛠 Admin panel** (`#/admin`). Pick a character and a pose, preview any animation live on that character, then switch it on or off
 (for that character, or for every character) and press **Publish to users**. Users no longer see hidden animations in the pickers, the AI brief and the
@@ -39,7 +35,6 @@ Character Studio preview (animations already placed in an existing project keep 
 - **Camera keyframes:** the Camera tab (and the 🎥 lane). Move the playhead and drag the orange frame on the stage (corners = zoom): a keyframe is made there. Each key has zoom, position and how it moves to the next key (smooth / even / slow start / slow end / cut). The editor shows the whole canvas with the frame; only what the camera sees is rendered into the video ("Camera view" previews it). No keys = the automatic shots per audio line as before. Camera roll (tilt) is not supported.
 - **Character keyframes** (🏃 Move tab and a ◆ lane under the character): keyframes for position, height, size and facing. Press ＋ Keyframe here, move the playhead, then drag / resize the character on the stage (a keyframe is made automatically) — the character glides between keyframes (smooth / even / slow start / slow end / jump). Camera and character keyframes are independent.
 - **Canvas size:** 9:16, 16:9, 1:1, 4:5, 3:4, 4:3, 21:9 or any custom ratio (Camera tab).
-- Characters and poses: Character Studio and the character picker show a full-body picture per pose (`public/autodraft/pose/`).
 
 - **Layers page** (🧩 in the admin panel): rename any Character Studio layer or group and switch layers on / off for users (for one character or all). Off = the layer is not in the users' list (the picture stays on the character). Stored in Firestore `config/layers`; the layer size line (`174×405`) is no longer shown in the Character Studio.
 
