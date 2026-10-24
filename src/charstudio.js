@@ -83,6 +83,8 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   let rigGuideStatus = null;
   const animBar = h('div', { class: 'cs-anim' });
   const restrictedTester = () => tester && !testerCanSave(getTesterRules());
+  /** testers only get Sadhu Baba in the 3/4 front pose; the full character / pose list stays with the admin Character Studio */
+  const templateChoices = () => libraryCharacters().filter((e) => e.template && (!tester || (e.charBase === 'sadhubaba' && e.id.endsWith('-front-side'))));
   const partVisible = l => !tester || testerGroupVisible(getTesterRules(), baseOf(), l.group);
   const partDownloadable = l => !tester || (partVisible(l) && !layerHidden(baseOf(), l.slot, l.key) && testerLayerDownloadable(getTesterRules(), baseOf(), l));
   const saveButton = h('button', { class: 'btn ok', hidden: restrictedTester(), onclick: () => { if (restrictedTester()) return; if (st.def) { st.tab = 'save'; draw(); } else toast('Pick a character first.'); } }, '💾 Save');
@@ -366,7 +368,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         h('div', { class: 'cs-grid' }, h('button', { class: 'cs-mode on', onclick: async () => {
             st.createMode = true; st.outline = false; st.autoLen = false;
             if (st.def) { rebuild(); st.tab = 'create'; draw(); focusRig(createRows()[0]); return; }
-            const base = libraryCharacters().find((e) => e.template);
+            const base = templateChoices().find((e) => e.template);
             if (!base) { toast('No animation rig is configured yet.'); return; }
             try { await pick(await fetchLibraryCharacter(base), 'custom character base'); rebuild(); st.tab = 'create'; draw(); focusRig(createRows()[0]); }
             catch (er) { toast(`Could not load the animation rig: ${er.message}`); }
@@ -641,11 +643,11 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         partDownloadable(l) ? h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, '⬇') : null, h('button', { class: `btn sm ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); focusRig(l); file.click(); } }, e?.img ? 'Replace' : '⬆ Upload'), file);
     };
     return [
-      tester ? h('label', { class: 'cs-guide-status' }, 'Character template', h('select', {
+      tester && templateChoices().length > 1 ? h('label', { class: 'cs-guide-status' }, 'Character template', h('select', {
         'aria-label': 'Character template', disabled: !!st.loadingTemplate,
         onchange: async (ev) => {
           if (st.loadingTemplate) return;
-          const entry = libraryCharacters().find(e => String(e.id) === ev.target.value);
+          const entry = templateChoices().find(e => String(e.id) === ev.target.value);
           if (!entry) return;
           st.loadingTemplate = true; draw();
           try {
@@ -656,7 +658,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
           } catch (error) { toast(`Could not load the template: ${error.message}`); }
           finally { st.loadingTemplate = false; draw(); }
         },
-      }, libraryCharacters().filter(e => e.template).map(e => h('option', {
+      }, templateChoices().map(e => h('option', {
         value: e.id, selected: st.def.id === `lib:${e.id}` || st.tpl?.id === e.id,
       }, `${e.name} · ${e.pose}`))), h('small', {}, 'Selecting a template starts a fresh character. Upload parts to replace its artwork.')) : null,
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Draw these parts in your own style (same angle as the template, transparent background), upload them one by one, or all together with the template sheet / a PSD. The skeleton, animations, lip-sync and physics come with the base body, so every animation works on your character.'),
@@ -928,7 +930,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   draw(); drawAnimBar();
   if (tester) {
     try {
-      const base = libraryCharacters().find((e) => e.template);
+      const base = templateChoices().find((e) => e.template);
       if (base) {
         await pick(await fetchLibraryCharacter(base), 'custom character rig');
         st.createMode = true;
