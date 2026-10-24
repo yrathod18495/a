@@ -80,7 +80,7 @@ function mux({ codecs, W, H, FPS }, video, audio) {
  * Frame-by-frame export on one thread: every frame is rendered and encoded exactly once and the audio is mixed offline,
  * so the result is always complete (same length as the audio) no matter how slow the phone is.
  */
-export async function exportOffline({ stage, clips, plan, total, onProgress, cancelled, fps: FPS = 30, level = 'high', format = 'webm' }) {
+export async function exportOffline({ stage, clips, plan, total, onProgress, cancelled, fps: FPS = 30, level = 'high', format = 'webm', beforeFrame }) {
   const W = stage.W, H = stage.H;
   const silent = !hasVoice(clips);
   let codecs = await pickCodecs(W, H, bitrateFor(W, H, level, format), FPS, format, silent);
@@ -93,7 +93,8 @@ export async function exportOffline({ stage, clips, plan, total, onProgress, can
   for (let i = 0; i < frames; i++) {
     if (cancelled()) throw new Error('cancelled');
     if (failure) throw failure;
-    stage.render(i / FPS, i === 0 ? 0 : 1 / FPS, clips, plan);
+    const frame = beforeFrame ? await beforeFrame(i / FPS) : { time: i / FPS, clips, plan };
+    stage.render(frame.time, i === 0 ? 0 : 1 / FPS, frame.clips, frame.plan);
     const vf = new VideoFrame(stage.out, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
     venc.encode(vf, { keyFrame: i % (FPS * 2) === 0 }); vf.close();
     while (venc.encodeQueueSize > 6) await new Promise((r) => setTimeout(r, 4)); // back-pressure keeps memory flat

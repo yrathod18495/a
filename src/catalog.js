@@ -1,14 +1,15 @@
+import { listStudioAssets, loadStudioAnimation } from './studio-assets.js';
 import { AssetCache } from './asset-cache.js';
 import { testerAnimationAllowed } from './tester-animation-policy.js';
 // Bundled 12toons characters and their animation library.
-import { get as dbGet, put as dbPut, del as dbDel, all as dbAll } from './store.js';
+
 import { loadAnimRules, cachedRules, loadTesterConfig } from './cloud.js';
 import { rigInfo, dirOf } from './db/info.js';
 import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
 
 const BASE = import.meta.env.BASE_URL;
-let library = [], adAnims = null;
+let library = [], adAnims = null, managedAnimations = [];
 
 /* ---- admin rules: animations the admin switched off. { '*': [ids for every character], neha: [ids], mybaby: [ids] } ---- */
 let hiddenRules = {};
@@ -28,7 +29,8 @@ export async function loadCatalog() {
   setAnimRules(cachedRules());   // last published rules kept on this device, then the fresh ones (waits at most 2.5 s)
   try { const r = await Promise.race([loadAnimRules(), new Promise((res) => setTimeout(() => res(null), 2500))]); if (r) setAnimRules(r); } catch { /* keep the cached rules */ }
   library = [];
-  adAnims = null;
+  adAnims = null; managedAnimations = [];
+  try { managedAnimations = (await listStudioAssets()).filter(asset => asset.type === 'animation'); } catch { /* Bundled catalog stays available without account storage. */ }
   // 12toons template characters (layered SVG characters, five poses each) + their animation library
   try {
     const [chars, anims] = await Promise.all([fetch(`${BASE}12toons/characters.json`).then((r) => r.json()), fetch(`${BASE}12toons/animations.json`).then((r) => r.json())]);
@@ -53,7 +55,7 @@ export async function fetchLibraryCharacter(entry) {
   // own = the rig brings its animations (Village Boy, SVG Multi): listed in animIndex, one file each in animDir
   let animList = null;
   if (a.own && a.animIndex) animList = await fetch(url(a.animIndex)).then(ok).then((r) => r.json());
-  const rig = rigInfo(ske, { toonChar: entry.charBase, ...(a.own ? { animList, animDir: a.animDir } : { toonPattern: entry.patternId }) });
+  const rig = rigInfo(ske, { templateId: entry.id, toonChar: entry.charBase, ...(a.own ? { animList, animDir: a.animDir } : { toonPattern: entry.patternId }) });
   return { skins: a.defaultSkin ? ['default', a.defaultSkin] : a.skins?.includes('Saree') ? ['Saree'] : null, id: `lib:${entry.id}`, name: entry.name, pose: entry.pose, patternId: entry.patternId, lib: true, thumbnail: url(entry.thumbnail), ske, tex, rig, anims: [] };
 }
 /**
@@ -123,30 +125,21 @@ function embeddedCategories(rig) {
     cat('face', 'Face expressions (layer)', all.filter((a) => a.kind === 'face'), true, 'face')].filter((x) => x.animations.length);
 }
 function allCategories(rig) {
-  if (String(rig?.toonPattern || '').startsWith('ad:')) return adCategories(rig.toonPattern.slice(3));
-  if (rig?.animList?.length) return embeddedCategories(rig);
-  return [];
+  const bundled = String(rig?.toonPattern || '').startsWith('ad:') ? adCategories(rig.toonPattern.slice(3)) : rig?.animList?.length ? embeddedCategories(rig) : [];
+  const clips = managedAnimations.filter(asset => asset.target === rig?.templateId);
+  const labels = { body: 'Body', hand: 'Arms & hands', legs: 'Legs', face: 'Face' };
+  const managed = Object.entries(labels).map(([layer, label]) => ({ key: `managed:${layer}`, name: `Admin animations · ${label}`, overlay: layer !== 'body', layer: layer === 'body' ? undefined : layer,
+    animations: clips.filter(asset => asset.layer === layer).map(asset => ({ name: asset.name, length: asset.length, ref: { source: 'lib', id: asset.id, name: asset.name, file: `managed:${asset.id}`, overlay: layer !== 'body', layer: layer === 'body' ? undefined : layer } })) })).filter(category => category.animations.length);
+  return [...bundled, ...managed];
 }
 
 const cache = new AssetCache();
 export function fetchAnimation(file) {
+  if (file.startsWith('managed:')) return cache.load(file, () => loadStudioAnimation(file.slice(8)));
   return cache.load(file, () => fetch(url(file), { signal: AbortSignal.timeout(20000) })
     .then(r => { if (!r.ok) throw new Error(`animation ${r.status}`); return r.json(); })
     .then(j => j && j.bone ? j : Object.values(j)[0]));
 }
-
-/* ---- custom animations (uploaded DragonBones animation json, kept on this device) ---- */
-export const loadCustom = () => dbAll('animations');
-export async function addCustom(file) {
-  const raw = JSON.parse(await file.text());
-  // a DragonBones animation: the animation itself, { name: animation } (our converter) or a DragonBones skeleton file (its first animation)
-  const json = raw.bone || raw.slot ? raw : raw.armature?.[0]?.animation?.[0] || Object.values(raw).find((v) => v && (v.bone || v.slot));
-  if (!json) throw new Error('not a DragonBones animation json');
-  const rec = { id: `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: file.name.replace(/\.json$/i, '').replace(/^anim_/i, '').replace(/_/g, ' '), json };
-  await dbPut('animations', rec);
-  return rec;
-}
-export const removeCustom = (id) => dbDel('animations', id);
 
 /* ---- modes: animations that are built from several library animations ---- */
 export const MODE_REFS = {

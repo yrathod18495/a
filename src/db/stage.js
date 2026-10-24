@@ -70,6 +70,7 @@ export class Stage {
     this.out = makeCanvas(2, 2);                           // the only canvas: shown to the user and recorded
     this.r = new GLRenderer(this.out);
     this.gl = this.r.gl;
+    this.maxTex = Math.min(maxTex, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
     this.assets = new Map();  // charId -> { def, pages: Map(imagePath -> GLTex) }
     this.swapTex = new Map(); // Blob / key -> GLTex
     this.propTex = new Map(); // shared image props by project prop id
@@ -98,6 +99,26 @@ export class Stage {
     const pages = new Map();
     for (const t of def.tex) pages.set(t.json.imagePath, this.r.texture(await loadImage(t.image, this.maxTex, { w: t.json.width, h: t.json.height })));
     this.assets.set(def.id, { def, pages });
+  }
+  /** Rebuild GPU pages from original blobs; sources and atlas coordinates stay intact. */
+  async setTextureLimit(limit) {
+    limit = Math.min(limit, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
+    if (limit === this.maxTex) return;
+    const created = [], pages = new Map(), swaps = new Map(), props = new Map();
+    const texture = async (blob, bounds) => { const bitmap = await loadImage(blob, limit, bounds); try { const t = this.r.texture(bitmap); created.push(t); return t; } finally { bitmap.close(); } };
+    try {
+      for (const [id, asset] of this.assets) {
+        const next = new Map();
+        for (const t of asset.def.tex) next.set(t.json.imagePath, await texture(t.image, { w: t.json.width, h: t.json.height }));
+        pages.set(id, next);
+      }
+      for (const [key] of this.swapTex) if (key instanceof Blob) swaps.set(key, await texture(key));
+      for (const prop of this.props) if (prop.blob) props.set(prop.id, await texture(prop.blob));
+    } catch (error) { created.forEach(t => t.dispose()); throw error; }
+    for (const [id, next] of pages) { const asset = this.assets.get(id); asset.pages.forEach(t => t.dispose()); asset.pages = next; }
+    for (const [key, next] of swaps) { this.swapTex.get(key)?.dispose(); this.swapTex.set(key, next); }
+    this.propTex.forEach(t => t.dispose()); this.propTex = props;
+    this.maxTex = limit;
   }
   /** forget a loaded character (its pictures changed) */
   unload(charId) { const a = this.assets.get(charId); if (a) { a.pages.forEach((t) => t.dispose()); this.assets.delete(charId); } for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); }

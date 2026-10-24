@@ -64,12 +64,8 @@ export async function ingest(files) {
     for (const x of sibs.filter((s2) => /\.(png|webp|jpe?g)$/i.test(s2.path)))
       pictures[base(x.path)] = new Blob([await x.read()], { type: /webp/i.test(x.path) ? 'image/webp' : /png/i.test(x.path) ? 'image/png' : 'image/jpeg' });
     if (!texJsons.every((t) => pictures[base(t.imagePath)])) continue;
+    // Character uploads provide artwork and a rig; new motion is published by admins.
     const localAnims = {};
-    for (const a of sibs.filter((s2) => /^anim_.*\.json$/i.test(base(s2.path)))) {
-      const j = await jsonOf(a); const an = j && (j.bone || j.slot ? j : Object.values(j).find((v) => v && (v.bone || v.slot)));
-      if (an) localAnims[noExt(base(a.path)).replace(/^anim_/i, '')] = an;
-    }
-    for (const an of ske.armature[0].animation || []) localAnims[an.name] = an;     // animations inside a DragonBones skeleton file
     delete ske.armature[0].animation;
     const name = (ske.armature[0].name || noExt(base(e.path)).replace(/_ske$/i, '') || e.zip || 'Character').replace(/_/g, ' ');
     characters.push({ id: 'c' + Math.random().toString(36).slice(2, 8), name, ske, tex: texJsons.map((json) => ({ json, image: pictures[base(json.imagePath)] })), rig: rigInfo(ske), localAnims, anims: Object.keys(localAnims) });

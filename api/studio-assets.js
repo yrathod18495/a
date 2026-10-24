@@ -1,6 +1,8 @@
+import manifest from '../public/12toons/characters.json' with { type: 'json' };
+import { animationData, animationTarget, ANIMATION_LAYERS, MAX_ANIMATION_BYTES } from '../src/managed-animation.js';
 import { services } from '../server/firebase-admin.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
-import { configured, objectHead, readRange, CHUNK_SIZE } from '../server/r2-storage.js';
+import { configured, objectHead, readRange, readObject, CHUNK_SIZE } from '../server/r2-storage.js';
 import { AccessError } from '../server/security-policy.js';
 
 const idOK = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{12,80}$/.test(value);
@@ -22,21 +24,38 @@ export default async function handler(req, res) {
     }
 
     if (b.action === 'save') {
-      if (!idOK(b.id) || !['background', 'prop'].includes(b.type) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 100 ||
-          typeof b.key !== 'string' || !/^assets\/[a-f0-9]{64}$/.test(b.key) || !Number.isSafeInteger(b.size) || b.size < 1 || b.size > 40 * 1024 * 1024 ||
-          typeof b.mime !== 'string' || !b.mime.startsWith('image/')) throw new AccessError('invalid_asset', 'Choose a valid image asset.', 400);
+      const animation = b.type === 'animation';
+      if (!idOK(b.id) || !['background', 'prop', 'animation'].includes(b.type) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 100 ||
+          typeof b.key !== 'string' || !/^assets\/[a-f0-9]{64}$/.test(b.key) || !Number.isSafeInteger(b.size) || b.size < 1 || b.size > (animation ? MAX_ANIMATION_BYTES : 40 * 1024 * 1024) ||
+          typeof b.mime !== 'string' || (animation ? b.mime !== 'application/json' || !animationTarget(b.target, manifest) || !ANIMATION_LAYERS.includes(b.layer) || !Number.isFinite(b.frameRate) || b.frameRate < 1 || b.frameRate > 120 : !b.mime.startsWith('image/')))
+        throw new AccessError('invalid_asset', 'Choose a valid asset and character pose.', 400);
       if (!configured()) throw new AccessError('storage_unavailable', 'Cloud storage is not configured.', 503);
       const head = await objectHead(who.uid, b.key);
       if (!head.exists || head.size !== b.size || head.digest !== b.key.slice(7)) throw new AccessError('incomplete_upload', 'The image upload could not be verified.', 409);
-      const asset = { id: b.id, type: b.type, name: b.name.trim(), key: b.key, size: b.size, mime: b.mime, ownerUid: who.uid, enabled: true, updatedAt: new Date().toISOString() };
+      let animationMeta = {};
+      if (animation) {
+        let data; try { data = animationData(JSON.parse((await readObject(who.uid, b.key)).toString('utf8'))); } catch { throw new AccessError('invalid_animation', 'Choose valid DragonBones animation JSON.', 400); }
+        animationMeta = { target: b.target, layer: b.layer, frameRate: b.frameRate, length: data.duration / b.frameRate };
+      }
+      const asset = { ...animationMeta, id: b.id, type: b.type, name: b.name.trim(), key: b.key, size: b.size, mime: b.mime, ownerUid: who.uid, enabled: true, updatedAt: new Date().toISOString() };
       await col.doc(b.id).set(asset);
       return send(res, 200, { asset });
     }
 
     if (b.action === 'delete') {
       if (!idOK(b.id)) throw new AccessError('invalid_asset', 'Invalid asset.', 400);
-      await col.doc(b.id).delete();
+      const ref = col.doc(b.id), existing = (await ref.get()).data();
+      if (existing?.type === 'animation') await ref.set({ enabled: false }, { merge: true });
+      else await ref.delete();
       return send(res, 200, { ok: true });
+    }
+
+    if (b.action === 'animation') {
+      if (!idOK(b.id)) throw new AccessError('invalid_asset', 'Invalid animation.', 400);
+      const asset = (await col.doc(b.id).get()).data();
+      // Retired clips remain readable by existing projects, but leave the library list.
+      if (asset?.type !== 'animation' || asset.size > MAX_ANIMATION_BYTES) throw new AccessError('not_found', 'Animation not found.', 404);
+      return send(res, 200, { animation: { ...animationData(JSON.parse((await readObject(asset.ownerUid, asset.key)).toString('utf8'))), _sourceFrameRate: asset.frameRate } });
     }
 
     if (b.action === 'get') {

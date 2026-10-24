@@ -1,3 +1,4 @@
+import { PREVIEW_MODES, readPreviewMode, savePreviewMode, previewFrameDue } from './preview-quality.js';
 import './style.css';
 import './studio.css';
 import { syncPresentation } from './sync-feedback.js';
@@ -8,20 +9,24 @@ import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
 import { Player, buildTimeline } from './player.js';
 import { characterPicker } from './charpick.js';
 import { exportOffline, exportParallel, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
-import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, resetAll, context as projectContext } from './store.js';
+import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext } from './store.js';
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
-import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, loadCustom, addCustom, removeCustom, libraryCharacters, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS } from './catalog.js';
+import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS } from './catalog.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
+import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
+
+const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
 const S = {
-  step: 3, characters: [], customAnims: [], libDefs: new Map(), swaps: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
+  scenes: [], sceneId: null, exportScope: 'all',
+  step: 3, characters: [], libDefs: new Map(), swaps: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
-  aspect: '16:9', preview: 720, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
+  aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
   manual: {}, mclip: null, addMode: false,            // animations the user placed on the timeline: { <character key>: [{id, kind, ref, start, dur, off}] }
   charKeys: {}, ckSel: null, motionFor: null,          // movement keyframes per character: { <character key>: [{id, t, x, y, mul, flip, ease}] }
@@ -30,6 +35,8 @@ const S = {
 const uid = () => Math.random().toString(36).slice(2, 9);
 const clone = (o) => JSON.parse(JSON.stringify(o));   // undo / redo snapshots must not share objects with the live state
 let audioCtx, stage, player;
+let sceneChanging = false;
+const sceneAudio = new Map();
 const $app = document.getElementById('app');
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -62,18 +69,19 @@ function modal(title, body, onClose) {
 
 async function boot() {
   let swaps;
-  [S.characters, S.customAnims, S.myBgs, S.props, swaps] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), loadCustom(), dbAll('backgrounds'), dbAll('props'), dbAll('swaps')]);
+  [S.characters, S.myBgs, S.props, swaps] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), dbAll('backgrounds'), dbAll('props'), dbAll('swaps')]);
   await loadCatalog();
   S.sharedAssets = await listStudioAssets().catch((e) => { console.warn('Shared studio library unavailable:', e.message); return []; });
   swaps.forEach((r) => { S.swaps.set(r.id, r.pages); Object.values(r.pages).forEach(bid); });
   S.props.forEach((p) => p.blob && bid(p.blob));
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  stage = new Stage();
+  stage = new Stage({ maxTex: PREVIEW_MODES[S.previewMode].maxTex });
   stage.setSize(S.aspect, S.preview);
   await stage.setProps(S.props);
   player = new Player(audioCtx);
   requestStudioFrame();
   const restored = await restoreProject();
+  if (!S.scenes.length) { S.sceneId = uid(); S.scenes = [{ id: S.sceneId, name: 'Scene 1', doc: null }]; }
   S.ready = true;
   hist.cur = docOf(); hist.curStr = JSON.stringify(hist.cur);
   setInterval(() => { if (!document.hidden) tick(); }, 1000);
@@ -83,7 +91,7 @@ async function boot() {
 /* ---------------- the workbench ---------------- */
 function render() {
   $app.replaceChildren(h('div', { class: 'wrap s3 ws' }, topBar(), viewStudio()));
-  mountStage();
+  mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode;
 }
 function topBar() {
   return h('header', { class: 'topbar' },
@@ -162,12 +170,12 @@ function defaultBody(def) {
   const cats = categoriesFor(def.rig).filter((c) => !c.overlay);
   const a = (cats.find((c) => /idle/i.test(c.name)) || cats[0])?.animations[0];
   if (a) return { ...a.ref };
-  return def.anims?.length ? { source: 'local', name: def.anims[0] } : null;
+  return null;
 }
 const animKey = (r) => (r.source === 'lib' ? `a${r.id}` : r.source === 'custom' ? `c${r.id}` : r.name);
 async function animJson(def, r) {
   if (r.source === 'lib') return fetchAnimation(r.file);
-  if (r.source === 'custom') return S.customAnims.find((c) => c.id === r.id)?.json;
+  if (r.source === 'custom') return (await dbGet('animations', r.id))?.json; // Read-only playback for older projects.
   if (r.source === 'rig') return fetchAnimation(r.file || `${def.rig.animDir}${r.name.replace(/\//g, '_')}.json`);
   return def.localAnims?.[r.name];
 }
@@ -236,18 +244,13 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     observer?.disconnect(); browserObservers.delete(observer);
     const s = getSpeaker(), def = s && charOf(s);
     if (!def) { root.replaceChildren(h('p', { class: 'sub' }, 'Pick a character first.')); return; }
-    const zip = def.anims?.length ? [{ key: 'zip', name: 'From character ZIP', animations: def.anims.map(name => ({ ref: { source: 'local', name }, name: name.replace(/_/g, ' ') })) }] : [];
-    const custom = { key: 'custom', name: 'Custom', animations: S.customAnims.map(c => ({ ref: { source: 'custom', id: c.id, name: c.name }, name: c.name, custom: true })) };
     const modes = modeEntries(def.rig);
-    const cats = [...zip, ...(modes.animations.length ? [modes] : []), ...categoriesFor(def.rig), custom];
+    const cats = [...(modes.animations.length ? [modes] : []), ...categoriesFor(def.rig)];
+    if (!cats.length) { root.replaceChildren(h('p', { class: 'sub' }, 'No admin animations are available for this character.')); return; }
     const curRef = selectedRef();
     if (!cat || !cats.some(c => c.key === cat)) cat = (cats.find(c => curRef && c.animations.some(a => sameRef(a.ref, curRef))) || cats[0]).key;
     const current = cats.find(c => c.key === cat);
     const list = (q.trim() ? cats : [current]).flatMap(c => c.animations.map(a => ({ ...a, cat: c }))).filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase()));
-    const file = h('input', { type: 'file', accept: '.json,application/json', multiple: true, hidden: true, onchange: async e => {
-      for (const f of e.target.files) try { S.customAnims.push(await addCustom(f)); cat = 'custom'; } catch (error) { toast(`${f.name}: ${error.message}`); }
-      scrollTop = 0; draw();
-    } });
     const viewport = h('div', { class: 'animation-list', tabindex: '0', 'aria-label': 'Animation results' });
     const windowEl = h('div', { class: 'animation-window', style: `height:${list.length * 64}px` });
     viewport.append(windowEl);
@@ -270,14 +273,13 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
           activePreview?.pause(); const video = h('video', { src: assetUrl(a.preview), controls: true, muted: true, playsinline: true, preload: 'none', style: 'max-width:100%' });
           activePreview = video; modal(a.name, video, () => video.pause()); video.play().catch(() => {});
         } }, '▷'));
-        if (a.custom) row.append(h('button', { class: 'ib', title: `Delete ${a.name}`, onclick: async () => { if (!confirm(`Delete custom animation “${a.name}”?`)) return; await removeCustom(a.ref.id); S.customAnims = S.customAnims.filter(c => c.id !== a.ref.id); draw(); } }, '×'));
         return row;
       }));
     };
     viewport.addEventListener('scroll', () => { scrollTop = viewport.scrollTop; paint(); }, { passive: true });
     root.replaceChildren(h('div', { class: 'animation-filters' },
       ...(chips ? [chips(draw)] : []),
-      h('div', { class: 'row' }, h('select', { 'aria-label': 'Animation category', onchange: e => { cat = e.target.value; q = ''; scrollTop = 0; draw(); } }, cats.map(c => h('option', { value: c.key, selected: c.key === cat }, `${c.name} (${c.animations.length})`))), h('button', { class: 'btn sm', onclick: () => file.click() }, '+ Import'), file),
+      h('div', { class: 'row' }, h('select', { 'aria-label': 'Animation category', onchange: e => { cat = e.target.value; q = ''; scrollTop = 0; draw(); } }, cats.map(c => h('option', { value: c.key, selected: c.key === cat }, `${c.name} (${c.animations.length})`)))),
       h('input', { type: 'search', class: 'search', 'aria-label': 'Search animations', placeholder: 'Search animations…', value: q, oninput: e => { q = e.target.value; const caret = e.target.selectionStart; scrollTop = 0; draw(); const search = root.querySelector('.search'); search.focus(); search.setSelectionRange(caret, caret); } }),
       h('small', { class: 'animation-count', role: 'status' }, `${list.length} animation${list.length === 1 ? '' : 's'} · click to apply`)),
       list.length ? viewport : h('p', { class: 'sub' }, 'No matching animations. Try another category or search.'));
@@ -396,8 +398,8 @@ function basePlan(s) {
   return { clips, present, refs, idleRef };
 }
 
-async function prepareStudio() {
-  const b = busy('Setting up characters & lip-sync…');
+async function prepareStudio({ quiet = false } = {}) {
+  const b = quiet ? { done() {} } : busy('Setting up characters & lip-sync…');
   try {
     for (const s of S.speakers) { const d = charOf(s); if (d) await stage.loadCharacter(d); }
     const tl = buildTimeline(S.lines.map((l) => ({ id: l.id, speaker: l.speaker.toLowerCase(), file: l.file, buffer: l.buffer, visemes: l.visemes })));
@@ -498,13 +500,90 @@ function viewStudio() {
   return h('div', { class: 'workbench' },
     h('div', { class: 'studio' },
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard()),
-        h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn', title: 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, '⏮'), timeEl, h('span', { class: 'sp' }),
+        h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn', title: 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, '⏮'), timeEl, h('label', { class: 'preview-quality' }, h('span', {}, 'Preview'), previewSelect = h('select', { 'aria-label': 'Preview quality', title: 'Low is faster and softer. Export quality is set separately.', onchange: e => changePreviewQuality(e.target.value) }, Object.entries(PREVIEW_MODES).map(([value, mode]) => h('option', { value, selected: value === S.previewMode }, mode.label)))), h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm', title: 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, '−'), h('button', { class: 'btn sm', title: 'Fit scene in editor', onclick: () => setEditorZoom(1) }, 'Fit scene'), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm', title: 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, '+'))),
         hintEl = h('p', { class: 'hint' }, '👆 Tap a character or prop to select it · drag to move'),
         selBar = h('div', { class: 'selbar', hidden: true })),
-      h('div', { class: 'tlwrap' }, tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
+      h('div', { class: 'tlwrap' }, sceneTabs(), tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
       h('div', { class: 'side' }, tabsEl, panelEl)));
 }
+function sceneTabs() {
+  const strip = h('div', { class: 'scene-tabs', role: 'tablist', 'aria-label': 'Scenes' });
+  const active = S.scenes.findIndex(scene => scene.id === S.sceneId);
+  for (const scene of S.scenes) {
+    const selected = scene.id === S.sceneId;
+    strip.append(h('div', { class: `scene-tab${selected ? ' active' : ''}` },
+      h('button', { role: 'tab', 'aria-selected': String(selected), onclick: () => switchScene(scene.id) }, scene.name),
+      h('details', { class: 'scene-menu', ontoggle: e => { const menu = e.currentTarget; if (!menu.open) return; const box = menu.querySelector('.scene-menu-items'), rect = menu.getBoundingClientRect(); box.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - 156))}px`; box.style.top = `${Math.max(8, rect.top - box.offsetHeight - 4)}px`; } }, h('summary', { 'aria-label': `Options for ${scene.name}` }, '⋮'),
+        h('div', { class: 'scene-menu-items' },
+          ...[['Rename', () => editScene(scene.id, 'rename')], ['Duplicate', () => editScene(scene.id, 'duplicate')], ['Move left', () => editScene(scene.id, 'left')], ['Move right', () => editScene(scene.id, 'right')], ['Delete', () => editScene(scene.id, 'delete')]].map(([label, action]) => h('button', { onclick: action }, label))))));
+  }
+  strip.append(h('button', { class: 'new-scene', onclick: () => editScene(null, 'new') }, '+ New Scene'));
+  strip.addEventListener('keydown', e => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) || e.target.getAttribute('role') !== 'tab') return;
+    e.preventDefault();
+    const index = e.key === 'Home' ? 0 : e.key === 'End' ? S.scenes.length - 1 : (active + (e.key === 'ArrowRight' ? 1 : -1) + S.scenes.length) % S.scenes.length;
+    switchScene(S.scenes[index].id);
+  });
+  queueMicrotask(() => strip.querySelector('[aria-selected=true]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+  return strip;
+}
+function rememberScene() {
+  const scene = S.scenes.find(scene => scene.id === S.sceneId);
+  if (scene) scene.doc = clone(sceneDoc());
+}
+async function activateScene(scene) {
+  S.sceneId = scene.id;
+  S.sel = S.animFor = S.lineSel = S.mclip = S.camSel = S.ckSel = null;
+  await loadSceneDoc(clone(scene.doc || emptyScene(S.aspect)));
+  await prepareStudio({ quiet: true });
+  player.seek(0); S.dirty = true;
+}
+async function switchScene(id, { play = false } = {}) {
+  if (sceneChanging || S.exporting || previewChanging || hist.busy || !S.scenes.some(scene => scene.id === id)) return;
+  if (id === S.sceneId) return;
+  sceneChanging = true; player.pause();
+  const progress = busy('Opening scene…');
+  try {
+    while (saving) await new Promise(resolve => setTimeout(resolve, 20));
+    await tick({ sceneCommit: true }); hist.last = 0;
+    rememberScene();
+    await activateScene(S.scenes.find(scene => scene.id === id));
+    render(); await tick({ sceneCommit: true });
+    if (play) await player.play();
+  } catch (error) { toast(`Could not open scene: ${error.message}`); }
+  finally { progress.done(); sceneChanging = false; S.dirty = true; }
+}
+async function editScene(id, action) {
+  if (sceneChanging || S.exporting || previewChanging || hist.busy) return;
+  const index = S.scenes.findIndex(scene => scene.id === id), scene = S.scenes[index];
+  let name;
+  if (action === 'rename') { name = prompt('Scene name', scene.name)?.trim().slice(0, 80); if (!name) return; }
+  if (action === 'delete' && S.scenes.length === 1) { toast('Keep at least one scene in the project.'); return; }
+  if (action === 'delete' && !confirm(`Delete ${scene.name}? You can undo this.`)) return;
+  sceneChanging = true; player.pause();
+  const progress = busy('Updating scenes…');
+  try {
+    while (saving) await new Promise(resolve => setTimeout(resolve, 20));
+    await tick({ sceneCommit: true }); hist.last = 0;
+    rememberScene();
+    if (action === 'rename') scene.name = name;
+    if (action === 'left' && index > 0) [S.scenes[index - 1], S.scenes[index]] = [scene, S.scenes[index - 1]];
+    if (action === 'right' && index < S.scenes.length - 1) [S.scenes[index + 1], S.scenes[index]] = [scene, S.scenes[index + 1]];
+    if (action === 'new' || action === 'duplicate') {
+      const next = { id: uid(), name: uniqueSceneName(S.scenes, action === 'duplicate' ? `${scene.name} copy` : null), doc: action === 'duplicate' ? clone(scene.doc) : emptyScene(S.aspect) };
+      S.scenes.splice(action === 'duplicate' ? index + 1 : S.scenes.length, 0, next);
+      await activateScene(next);
+    }
+    if (action === 'delete') {
+      S.scenes.splice(index, 1);
+      if (S.sceneId === id) await activateScene(S.scenes[Math.min(index, S.scenes.length - 1)]);
+    }
+    render(); await tick({ sceneCommit: true });
+  } catch (error) { toast(`Scene change failed: ${error.message}`); }
+  finally { progress.done(); sceneChanging = false; S.dirty = true; }
+}
+
 function drawTabs() {
   stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
@@ -916,6 +995,25 @@ async function pickAnimation(s, ref, overlay, length) {
 }
 
 /* ---- on-canvas handles: drag to move, corner squares to resize ---- */
+let previewSelect, previewChanging = false;
+async function changePreviewQuality(value) {
+  if (!PREVIEW_MODES[value] || value === S.previewMode || previewChanging || S.exporting) return;
+  previewChanging = true; previewSelect.disabled = true;
+  const resume = player.playing;
+  player.pause(); const loading = busy('Changing preview quality…');
+  try {
+    const mode = PREVIEW_MODES[value];
+    await stage.setTextureLimit(mode.maxTex);
+    S.previewMode = value; S.preview = mode.short; stage.setSize(S.aspect, mode.short);
+    await applyLayers(); savePreviewMode(value); fitEditor();
+  } catch (error) { previewSelect.value = S.previewMode; toast(`Could not change preview quality: ${error.message}`); }
+  finally {
+    previewChanging = false; previewSelect.disabled = false; previewSelect.value = S.previewMode;
+    document.querySelector('.ws')?.setAttribute('data-preview-quality', S.previewMode);
+    if (resume) await player.play(); S.dirty = true; loading.done();
+  }
+}
+
 /* Editor zoom changes CSS dimensions only; the render/export camera is untouched. */
 let stageObserver, zoomLabel;
 function fitEditor() {
@@ -1190,7 +1288,7 @@ function libraryFor(def) {
   const cats = categoriesFor(def.rig), byId = new Map(), animations = {}, expressions = [], hands = [], legs = [];
   for (const c of cats) for (const a of c.animations) {
     if (a.ref.source !== 'lib') continue;
-    byId.set(a.ref.id, a.ref);
+    byId.set(String(a.ref.id), a.ref);
     if (c.overlay) (c.layer === 'hand' ? hands : c.layer === 'legs' ? legs : expressions).push([a.ref.id, a.name, a.length]); else (animations[c.name] ||= []).push([a.ref.id, a.name, a.length]);
   }
   return { byId, animations, expressions, hands, legs };
@@ -1211,10 +1309,10 @@ function applyDirection(L, res, libs) {
     o.in = want.has(s.key); delete o.body; delete o.seq; delete o.face; delete o.hand; delete o.legs;
     if (!o.in) continue;
     const raw = Array.isArray(res.actions?.[s.key]) ? res.actions[s.key] : [];
-    const list = raw.map((g) => ({ at: Math.max(0, Math.min(dur - 0.3, +g.at || 0)), ref: lib.byId.get(+g.anim) })).filter((g) => { if (!g.ref) dropped++; return g.ref; }).sort((a, b) => a.at - b.at);
+    const list = raw.map((g) => ({ at: Math.max(0, Math.min(dur - 0.3, +g.at || 0)), ref: lib.byId.get(String(g.anim)) })).filter((g) => { if (!g.ref) dropped++; return g.ref; }).sort((a, b) => a.at - b.at);
     if (list.length) { list[0].at = 0; o.seq = list.map((g) => ({ at: +g.at.toFixed(2), ref: { ...g.ref } })); }
     for (const [kind, field] of [['face', 'expression'], ['hand', 'hand'], ['legs', 'legs']]) {
-      const ref = lib.byId.get(+res[field]?.[s.key]);
+      const ref = lib.byId.get(String(res[field]?.[s.key]));
       if (ref && (ref.layer || 'face') === kind) o[kind] = { ...ref };
     }
   }
@@ -1402,7 +1500,7 @@ function tabCanvas() {
     h('button', { class: 'bgc add', onclick: () => file.click() }, h('span', {}, '+'), h('small', {}, 'Add images')),
     S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },
       h('img', { src: URL.createObjectURL(r.blob), alt: r.name, loading: 'lazy' }),
-      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
+      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('This background is used by another scene.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
   const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { stage.bg.preset = i; await pickBg(null); } })));
   return h('div', { class: 'list' },
     h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), h('div', { class: 'studio-asset-tabs' }, tab('backgrounds', 'Backgrounds'), tab('props', 'Props')), sharedGrid('background', addSharedBackground), mine, file),
@@ -1412,41 +1510,52 @@ function tabCanvas() {
 /** export size for the chosen orientation + quality */
 function sizeFor() { const { w, h } = aspectOf(S.aspect), k = S.quality / Math.min(w, h); return { W: Math.round((w * k) / 2) * 2, H: Math.round((h * k) / 2) * 2 }; }
 function tabExport() {
+  const exportScenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
+  const multi = exportScenes.length > 1, hasAudio = exportScenes.some(scene => scene.doc.lines?.length);
+  const duration = sequencePlan(exportScenes, sceneAudio).at(-1)?.end || player.total;
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: cur() === k ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', items[i][0] === k)); redrawPanel(); } }, l)));
   const q = seg([[360, 'Draft · 360p'], [480, 'Low · 480p'], [720, 'HD · 720p'], [1080, 'Full HD · 1080p'], [2160, '4K · 2160p']], () => S.quality, (v) => { S.quality = v; });
-  const m = seg([['fast', '⚡ Fast render'], ['live', '⏺ Record live']], () => S.expMethod, (v) => { S.expMethod = v; });
+  const m = seg(multi ? [['fast', '⚡ Fast render']] : [['fast', '⚡ Fast render'], ['live', '⏺ Record live']], () => multi ? 'fast' : S.expMethod, (v) => { S.expMethod = v; });
   const fm = seg([['webm', 'WebM · smaller, sharper'], ['mp4', 'MP4 · plays everywhere']], () => S.format, (v) => { S.format = v; });
   const lv = seg([['std', 'Standard'], ['high', 'High'], ['max', 'Maximum']], () => S.level, (v) => { S.level = v; });
   const f = seg([[12, '12 fps · draft'], [15, '15 fps · fast'], [24, '24 fps'], [30, '30 fps · smooth']], () => S.fps, (v) => { S.fps = v; });
   return h('div', { class: 'list' },
-    !player.clips.length ? h('div', { class: 'card flat' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, '🔇 No audio added — the video will be 8 seconds long and silent. Add audio any time to make it as long as your voice.')) : null,
+    h('div', { class: 'card flat' }, h('h2', {}, 'Scenes'), h('select', { 'aria-label': 'Export scenes', onchange: e => { S.exportScope = e.target.value; redrawPanel(); } }, h('option', { value: 'all', selected: S.exportScope === 'all' }, `All scenes (${S.scenes.length})`), h('option', { value: 'current', selected: S.exportScope === 'current' }, 'Current scene only')), h('p', { class: 'sub' }, 'All scenes join in tab order with Fast render, using the current scene’s aspect ratio. Live recording is available for the current scene.')),
+    !hasAudio ? h('div', { class: 'card flat' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, `🔇 No audio added — this video will be ${duration.toFixed(1)} seconds long and silent. Add audio any time.`)) : null,
     h('div', { class: 'card flat' }, h('h2', {}, 'Method'), m,
-      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.expMethod === 'fast'
-        ? `Builds the video frame by frame on ${workerCount() || 1} CPU core${workerCount() > 1 ? 's at the same time' : ''}, as fast as your device can. The result plays at normal speed and is always complete.`
+      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, multi || S.expMethod === 'fast'
+        ? `Builds the video frame by frame on ${multi ? 1 : workerCount() || 1} CPU core${!multi && workerCount() > 1 ? 's at the same time' : ''}, as fast as your device can. The result plays at normal speed and is always complete.`
         : 'Plays the video once in real time and records the screen — takes as long as the video. Use it only if Fast render does not work on your device.')),
     h('div', { class: 'card flat' }, h('h2', {}, 'Quality'), q, S.quality >= 2160 ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, '4K needs a strong phone or computer and takes longer. Try 1080p first.') : null),
     h('div', { class: 'card flat' }, h('h2', {}, 'File format'), fm, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.format === 'webm' ? 'WebM (VP9): same sharpness in about half the size. Plays in Chrome, Edge, Firefox, VLC and most editors; some phone galleries and WhatsApp may not open it.' : 'MP4 (H.264): opens everywhere — gallery, WhatsApp, editors — but the file is bigger for the same sharpness.')),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Video quality'), lv, (() => { const { W, H } = sizeFor(); const mbps = bitrateFor(W, H, S.level, S.format) / 1e6, mb = (mbps * (player.total || 0)) / 8; return h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `${W}×${H} · about ${mbps.toFixed(1)} Mbps → roughly ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB for this video. Higher = sharper picture and a bigger file.`); })()),
+    h('div', { class: 'card flat' }, h('h2', {}, 'Video quality'), lv, (() => { const { W, H } = sizeFor(); const mbps = bitrateFor(W, H, S.level, S.format) / 1e6, mb = (mbps * duration) / 8; return h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `${W}×${H} · about ${mbps.toFixed(1)} Mbps → roughly ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB for this video. Higher = sharper picture and a bigger file.`); })()),
     h('div', { class: 'card flat' }, h('h2', {}, 'Smoothness'), f, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'Fewer frames per second = faster export.')),
     h('button', { class: 'btn ok', style: 'width:100%;padding:14px', disabled: !pickType() && !window.VideoEncoder, onclick: doExport }, '⬇ Export video'));
 }
 const redrawPanel = () => { const k = panelEl.scrollTop; drawTabs(); panelEl.scrollTop = k; };
 
 async function togglePlay() {
-  if (S.exporting) return;
+  if (S.exporting || previewChanging || sceneChanging) return;
   if (player.playing) player.pause(); else await player.play();
   S.dirty = true;
 }
 
 async function doExport() {
-  if (S.exporting) return;
+  if (S.exporting || previewChanging || sceneChanging) return;
   S.exporting = true; requestStudioFrame(); player.pause(); player.seek(0); if (selEl) selEl.hidden = true; stage.fullView = false; syncCam();
+  rememberScene();
+  const originalScene = S.sceneId, exportAspect = S.aspect;
+  const sequence = S.exportScope === 'all' && S.scenes.length > 1 ? sequencePlan(S.scenes, sceneAudio) : null;
+  let exportScene = null;
   let stop = false, wl = null;
   const b = busy('Preparing…', () => { stop = true; });
   try { wl = await navigator.wakeLock?.request('screen'); } catch { /* optional */ }
   try {
+    await stage.setTextureLimit(S.quality >= 2160 ? 4096 : 2048);
+    await applyLayers();
     stage.setSize(S.aspect, S.quality);
-    const offline = S.expMethod === 'fast' && await canExportOffline(stage.W, stage.H, S.fps, S.format, !player.clips.length);
+    const offline = (sequence || S.expMethod === 'fast') && await canExportOffline(stage.W, stage.H, S.fps, S.format, sequence ? !sequence.some(scene => scene.doc.lines?.length) : !player.clips.length);
+    if (sequence && !offline) throw Error('All-scene export needs Fast render with WebCodecs support. Choose Fast render or export the current scene on this device.');
     if (S.expMethod === 'fast' && !offline) toast('Fast render is not supported on this device — recording live instead.');
     let t0 = performance.now();
     const progress = (p) => {
@@ -1455,7 +1564,21 @@ async function doExport() {
     };
     const single = () => exportOffline({ stage, clips: player.clips, plan: shotPlan(), total: player.total, onProgress: progress, cancelled: () => stop, fps: S.fps, level: S.level, format: S.format });
     let res;
-    if (offline && workerCount() > 0) {
+    if (sequence) {
+      const total = sequence.at(-1).end;
+      const clips = sequence.flatMap(scene => buildTimeline((scene.doc.lines || []).map(meta => sceneAudio.get(meta.id)).filter(Boolean).map(line => ({ ...line, speaker: line.speaker.toLowerCase() }))).clips.map(clip => ({ ...clip, start: clip.start + scene.start, end: clip.end + scene.start })));
+      res = await exportOffline({ stage, clips, plan: [], total, fps: S.fps, level: S.level, format: S.format, cancelled: () => stop,
+        onProgress: p => b.set(`Rendering all scenes ${Math.round(p * 100)}%`, p),
+        beforeFrame: async time => {
+          const scene = sequence.find(scene => time < scene.end) || sequence.at(-1);
+          if (scene.id !== exportScene) {
+            await activateScene(scene); exportScene = scene.id;
+            stage.setSize(exportAspect, S.quality); stage.fullView = false;
+          }
+          return { time: time - scene.start, clips: player.clips, plan: shotPlan() };
+        }
+      });
+    } else if (offline && workerCount() > 0) {
       try {
         const layers = await buildLayerSpecs();
         const ids = [...new Set(layers.map((l) => l.charId))];
@@ -1475,12 +1598,14 @@ async function doExport() {
     } else res = offline ? await single() : await exportRealtime({ canvas: stage.out, stage, audioStream: player.rec.stream, player, onProgress: progress, level: S.level });
     const { blob, ext, info } = res;
     const took = (performance.now() - t0) / 1000;
-    const a = h('a', { href: URL.createObjectURL(blob), download: `toon-${S.aspect.replace(':', 'x')}-${Date.now()}.${ext}` });
+    const a = h('a', { href: URL.createObjectURL(blob), download: `toon-${exportAspect.replace(':', 'x')}-${Date.now()}.${ext}` });
     document.body.append(a); a.click(); a.remove();
-    toast(`Done in ${took.toFixed(0)}s (${(player.total / took).toFixed(1)}× real time) · ${ext.toUpperCase()} · ${info}`);
+    toast(`Done in ${took.toFixed(0)}s (${((sequence ? sequence.at(-1).end : player.total) / took).toFixed(1)}× real time) · ${ext.toUpperCase()} · ${info}`);
   } catch (e) { toast(e.message === 'cancelled' ? 'Export cancelled' : `Export failed: ${e.message}`); console.error(e); }
+  if (sequence) { try { await activateScene(S.scenes.find(scene => scene.id === originalScene)); } catch (error) { toast(`Could not restore scene: ${error.message}`); } }
   wl?.release?.().catch(() => {});
-  b.done(); S.exporting = false; stage.setSize(S.aspect, S.preview); player.pause(); player.seek(0); S.dirty = true;
+  try { await stage.setTextureLimit(PREVIEW_MODES[S.previewMode].maxTex); await applyLayers(); } catch (error) { toast(`Preview textures could not be restored: ${error.message}`); }
+  b.done(); S.exporting = false; if (sequence) render(); stage.setSize(S.aspect, S.preview); player.pause(); player.seek(0); fitEditor(); S.dirty = true;
 }
 
 /* ---------------- autosave, undo / redo, reset ---------------- */
@@ -1491,14 +1616,32 @@ let hdrUndo, hdrRedo, savedEl, lastSaved = '', saving = false, savedTimer;
 const savedAudio = new Set();
 
 /** the part of the project that undo / redo travels through */
-function docOf() {
+function sceneDoc() {
+  for (const line of S.lines) sceneAudio.set(line.id, line);
   return {
+    lines: S.lines.map(({id, order, file, speaker}) => ({id, order, file, speaker})),
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '' })),
     order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgPreset: stage?.bg.preset ?? 0,
     swaps: Object.fromEntries([...S.swaps].map(([k, pages]) => [k, Object.fromEntries(Object.entries(pages).map(([pg, b]) => [pg, bid(b)]))])),
     props: S.props.map((prop) => ({ ...prop, blob: bid(prop.blob) })),
   };
+}
+function docOf() {
+  const current = sceneDoc();
+  return clone({ version: 3, sceneId: S.sceneId, scenes: S.scenes.map(scene => ({ ...scene, doc: scene.id === S.sceneId ? current : scene.doc })) });
+}
+async function loadDoc(doc, options = {}) {
+  if (Array.isArray(doc.scenes) && doc.scenes.length) {
+    S.scenes = clone(doc.scenes);
+    S.sceneId = S.scenes.some(scene => scene.id === doc.sceneId) ? doc.sceneId : S.scenes[0].id;
+    await loadSceneDoc(S.scenes.find(scene => scene.id === S.sceneId).doc, { ...options, fromDisk: false });
+  } else {
+    S.sceneId = uid();
+    const legacy = { ...doc, lines: doc.lines || S.lines.map(({id,order,file,speaker}) => ({id,order,file,speaker})) };
+    S.scenes = [{ id: S.sceneId, name: 'Scene 1', doc: legacy }];
+    await loadSceneDoc(legacy, options);
+  }
 }
 async function ensureDefs() {
   for (const speaker of S.speakers) {
@@ -1508,7 +1651,10 @@ async function ensureDefs() {
   }
 }
 /** put a saved / undone document back into the app */
-async function loadDoc(doc, { fromDisk = false } = {}) {
+function recBlobSwaps(doc) { return Object.fromEntries(Object.entries(doc.swaps || {}).filter(([,pages]) => Object.values(pages).some(id => blobReg.has(id)))); }
+async function loadSceneDoc(doc, { fromDisk = false } = {}) {
+  doc = clone(doc);
+  S.lines = (doc.lines || []).map(meta => sceneAudio.has(meta.id) ? { ...sceneAudio.get(meta.id), ...meta } : null).filter(Boolean);
   for(const [id,fit] of Object.entries(doc.fits||{}))setFit(id,fit);
   S.speakers = doc.speakers.map((s) => ({ ...s }));
   S.order = [...doc.order];
@@ -1525,11 +1671,8 @@ async function loadDoc(doc, { fromDisk = false } = {}) {
   if (S.mclip && !findManual(S.mclip)) S.mclip = null;
   if (S.camSel && !S.camKeys.some((k) => k.id === S.camSel)) S.camSel = null;
   syncCam(); syncChars();
-  if (!fromDisk) {
-    const prev = [...S.swaps.keys()];
+  if (!fromDisk || Object.keys(recBlobSwaps(doc)).length) {
     S.swaps = new Map(Object.entries(doc.swaps || {}).map(([k, pages]) => [k, Object.fromEntries(Object.entries(pages).map(([pg, id]) => [pg, blobReg.get(id)]).filter(([, b]) => b))]));
-    for (const [k, pages] of S.swaps) await dbPut('swaps', { id: k, pages });
-    for (const k of prev) if (!S.swaps.has(k)) await dbDel('swaps', k);
   }
   if (doc.aspect && doc.aspect !== S.aspect) { S.aspect = doc.aspect; stage.setSize(S.aspect, S.preview); }
   S.bgId = doc.bgId ?? null; stage.bg.preset = doc.bgPreset ?? 0;
@@ -1543,11 +1686,12 @@ async function restoreProject() {
   if (!rec?.doc) return false;
   const b = busy('Restoring your project…');
   try {
+    for (const [id, blob] of Object.entries(rec.blobs || {})) { blobReg.set(id, blob); blobIds.set(blob, id); }
     const audio = new Map((await dbAll('audio')).map((r) => [r.id, r]));
     for (const m of rec.lines) {
       const a = audio.get(m.id);
       if (!a) continue;
-      try { const buffer = await audioCtx.decodeAudioData(a.raw.slice(0)); S.lines.push({ ...m, raw: a.raw, buffer, visemes: analyse(buffer) }); savedAudio.add(m.id); } catch { /* skip broken audio */ }
+      try { const buffer = await audioCtx.decodeAudioData(a.raw.slice(0)); S.lines.push({ ...m, raw: a.raw, buffer, visemes: analyse(buffer) }); sceneAudio.set(m.id, S.lines.at(-1)); savedAudio.add(m.id); } catch { /* skip broken audio */ }
     }
     Object.assign(S, { quality: rec.ui.v >= 2 ? (rec.ui.quality ?? S.quality) : Math.max(720, rec.ui.quality ?? 720), /* older saves defaulted to 480p on phones */ expMethod: rec.ui.expMethod ?? S.expMethod, fps: rec.ui.fps ?? S.fps, level: rec.ui.level ?? S.level, format: rec.ui.format ?? S.format, applyAll: !!rec.ui.applyAll, tab: rec.ui.tab ?? S.tab, lineSel: rec.ui.lineSel ?? null, animFor: rec.ui.animFor ?? null });
     await loadDoc(rec.doc, { fromDisk: true });
@@ -1561,17 +1705,19 @@ async function restoreProject() {
 
 async function saveProject(doc, docStr) {
   const ui = { step: S.step, maxStep: S.maxStep, tab: S.tab, lineSel: S.lineSel, animFor: S.animFor, quality: S.quality, expMethod: S.expMethod, fps: S.fps, level: S.level, format: S.format, applyAll: S.applyAll, v: 2 };
-  const lines = S.lines.map(({ id, order, file, speaker }) => ({ id, order, file, speaker }));
+  const lines = [...new Map(doc.scenes.flatMap(scene => scene.doc.lines || []).map(line => [line.id, line])).values()];
   const sig = JSON.stringify({ ui, lines }) + docStr;
   if (sig === lastSaved) return;
-  for (const l of S.lines) if (!savedAudio.has(l.id) && l.raw) { await dbPut('audio', { id: l.id, raw: l.raw }); savedAudio.add(l.id); }
-  for (const id of [...savedAudio]) if (!S.lines.some((l) => l.id === id)) { await dbDel('audio', id); savedAudio.delete(id); }
-  await dbPut('project', { id: 'current', doc, ui, lines, ts: Date.now() });
+  for (const {id} of lines) { const l = sceneAudio.get(id); if (l && !savedAudio.has(l.id) && l.raw) { await dbPut('audio', { id: l.id, raw: l.raw }); savedAudio.add(l.id); } }
+  const refs = new Set(doc.scenes.flatMap(scene => [...(scene.doc.props || []).map(prop => prop.blob), ...Object.values(scene.doc.swaps || {}).flatMap(pages => Object.values(pages))]));
+  const blobs = Object.fromEntries([...refs].filter(id => blobReg.has(id)).map(id => [id, blobReg.get(id)]));
+  await dbPut('project', { id: 'current', doc, ui, lines, blobs, ts: Date.now() });
+  for (const id of [...savedAudio]) if (!lines.some((l) => l.id === id)) { await dbDel('audio', id); savedAudio.delete(id); }
   lastSaved = sig;
   localSaveError = ''; updateSaveStatus({ text: navigator.onLine ? 'Saving' : 'Offline' });
 }
-async function tick() {
-  if (!S.ready || hist.busy || saving || S.exporting || $app.hidden) return;
+async function tick({ sceneCommit = false } = {}) {
+  if (!S.ready || hist.busy || saving || S.exporting || (sceneChanging && !sceneCommit) || $app.hidden) return;
   saving = true;
   try {
     const doc = docOf(), str = JSON.stringify(doc);
@@ -1588,14 +1734,14 @@ async function tick() {
 function updateHistoryButtons() { if (hdrUndo) { hdrUndo.disabled = !hist.undo.length; hdrRedo.disabled = !hist.redo.length; } }
 async function stepHistory(dir) {
   const from = dir < 0 ? hist.undo : hist.redo, to = dir < 0 ? hist.redo : hist.undo;
-  if (!from.length || S.exporting || hist.busy) return;
+  if (!from.length || S.exporting || hist.busy || sceneChanging || previewChanging) return;
   hist.busy = true;
   const b = busy(dir < 0 ? 'Undo…' : 'Redo…');
   try {
     player.pause();
     to.push(hist.cur);
     await loadDoc(from.pop());
-    if (S.step === 3) { for (const s of S.speakers) { const d = charOf(s); if (d) await stage.loadCharacter(d); } await applyLayers(); }
+    if (S.step === 3) await prepareStudio();
     render();
   } catch (e) { console.error(e); toast(`Could not ${dir < 0 ? 'undo' : 'redo'}: ${e.message}`); }
   b.done();
@@ -1627,25 +1773,27 @@ window.addEventListener('keydown', (e) => {
 document.addEventListener('visibilitychange', () => { if (document.hidden) tick(); else { last = performance.now(); S.dirty = true; } });
 
 /* ---------------- main loop ---------------- */
-let last = performance.now(), frameId = 0, renderCount = 0, dirty = true;
+let last = performance.now(), frameId = 0, renderCount = 0, dirty = true, lastPreviewFrame = -Infinity;
 function requestStudioFrame() {
   if (!frameId && player && !$app.hidden && (!document.hidden || S.exporting)) frameId = requestAnimationFrame(loop);
 }
 Object.defineProperty(S, 'dirty', { get: () => dirty, set: value => { dirty = value; if (value) requestStudioFrame(); } });
 function loop(now) {
   frameId = 0;
-  if ($app.hidden || document.hidden && !S.exporting) return;
+  if ($app.hidden || previewChanging || document.hidden && !S.exporting) return;
   if (player.playing || S.exporting) requestStudioFrame();
+  if (player.playing && !previewFrameDue(now, lastPreviewFrame, S.previewMode, S.exporting)) return;
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (S.step !== 3 || !stage.layers) return;
+  if (sceneChanging) return;
   if (S.exporting && !player.playing) return; // offline export drives the stage itself
-  if (player.playing && player.time >= player.total && !S.exporting) { player.pause(); S.dirty = true; }
+  if (player.playing && player.time >= player.total && !S.exporting) { player.pause(); const next = S.scenes[S.scenes.findIndex(scene => scene.id === S.sceneId) + 1]; if (next && !sceneChanging) { switchScene(next.id, { play: true }); return; } S.dirty = true; }
   const fv = S.tab === 'camera' && S.panelOpen && !S.camPeek;
   if (stage.fullView !== fv) { stage.fullView = fv; S.dirty = true; }
   if (!player.playing && !S.dirty) return;
   S.dirty = false;
   const t = player.time;
-  try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; } catch (e) { console.error(e); }
+  try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; lastPreviewFrame = now; } catch (e) { console.error(e); }
   if (player.playing) followLine();
   updateSel(); updateCamBox();
   if (headEl) {

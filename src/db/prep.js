@@ -1,3 +1,4 @@
+import { retimeAnimation } from '../managed-animation.js';
 // DragonBones data preparation (pure JSON, no runtime): merge the outfits (skins) a character wears into one skin, and bind animations
 // (stored by bone / slot / picture NAME, see scripts/spine_to_dragonbones.py) to the armature that will play them.
 
@@ -27,6 +28,7 @@ const meshLen = (d) => (d.weights ? weightedLen(d) : d.vertices.length);
 
 /** one name-based animation -> DragonBones animation for this prepared armature (frames for missing bones / slots / pictures are dropped) */
 export function bindAnimation(p, name, a) {
+  a = retimeAnimation(a, p.arm.frameRate || p.ske.frameRate || 24);
   const out = { name, duration: a.duration, playTimes: 0, bone: (a.bone || []).filter((b) => p.bones.has(b.name)), slot: [] };
   for (const s of a.slot || []) {
     const map = p.disp.get(s.name), si = p.arm.slot.find((x) => x.name === s.name);

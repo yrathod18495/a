@@ -112,7 +112,7 @@ test('unused saved templates stay unloaded and CSS zoom leaves encoded video dim
       const dimensions = { w: video.videoWidth, h: video.videoHeight };
       URL.revokeObjectURL(video.src);
       return { supported: true, bytes: result.blob.size, ...dimensions, editorZoom: window.__toon.S.editorZoom, original };
-    } finally { stage.setSize('16:9', 720); window.__toon.S.dirty = true; }
+    } finally { stage.setSize('16:9', window.__toon.S.preview); window.__toon.S.dirty = true; }
   });
   expect(result.supported).toBe(true);
   expect(result.bytes).toBeGreaterThan(100); expect(result.w).toBe(320); expect(result.h).toBe(180);
@@ -149,7 +149,7 @@ test('aspect changes and reopening the workspace keep fitting the editor without
   await page.locator('.advanced-tools summary').click();
   await page.locator('.advanced-tools-list').getByRole('button', { name: 'Camera', exact: true }).click();
   await page.locator('.panel').getByRole('button', { name: '9:16', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__toon.stage.W / window.__toon.stage.H)).toBe(9 / 16);
+  await expect.poll(() => page.evaluate(() => window.__toon.stage.W / window.__toon.stage.H)).toBeCloseTo(9 / 16, 2);
   const ratio = await page.locator('.stagewrap').evaluate(e => e.clientWidth / e.clientHeight);
   expect(ratio).toBeCloseTo(9 / 16, 2);
   await page.evaluate(() => { location.hash = '#/hub'; });

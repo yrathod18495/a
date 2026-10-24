@@ -143,3 +143,9 @@
 :root[data-theme="day"] body .sh-profile .sh-mi-logout .sh-mi-label{color:#9b3027}
 @media(max-width:420px){:root[data-theme] body .sh-profile .sh-menu{width:300px}.sh-menu-section,.sh-menu-footer{padding:6px}}
 .sh-mi-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.admin-animation-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:20px}
+.admin-animation-field{display:flex;flex-direction:column;gap:6px;font-size:12px;min-width:0;color:var(--text)}
+.admin-animation-field input,.admin-animation-field select{min-width:0;width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--card2);color:var(--text)}
+.admin-animation-list{display:grid;gap:8px}.admin-animation-record{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.admin-animation-record>div{display:flex;flex-direction:column;gap:4px}.admin-animation-record small{color:var(--mute);font-size:11px}
+@media(max-width:600px){.admin-animation-form{grid-template-columns:1fr;padding:14px}}

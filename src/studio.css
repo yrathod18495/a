@@ -92,7 +92,7 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws{padding:6px}
   #app .ws .topbar{min-height:46px;gap:4px;margin-bottom:6px;flex-wrap:wrap}
   #app .ws .topbar .logo-btn{font-size:17px}
-  #app .ws .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(110px,1fr) minmax(150px,1fr) 130px 52px;grid-template-areas:'prev' 'side' 'tl' 'rail';gap:5px}
+  #app .ws .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(110px,1fr) minmax(150px,1fr) 150px 52px;grid-template-areas:'prev' 'side' 'tl' 'rail';gap:5px}
   #app .ws:has(.panel:not(.open)) .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) 0 150px 52px}
   #app .ws .tabs.big{display:flex;flex-direction:row;align-items:stretch;overflow:visible;padding:3px;border:1px solid var(--line);position:relative;bottom:auto}
   #app .ws .tabs.big>button{min-height:42px;flex:1;min-width:0;width:auto;font-size:9px;padding:3px}
@@ -123,7 +123,7 @@ body:has(#app:not([hidden])){overflow:hidden}
   .animation-list{min-height:48px}
 }
 @media(max-height:500px) and (max-width:860px){
-  #app .ws .studio{grid-template-columns:52px minmax(0,1fr) 240px;grid-template-rows:minmax(0,1fr) 110px}
+  #app .ws .studio{grid-template-columns:52px minmax(0,1fr) 240px;grid-template-rows:minmax(0,1fr) 145px}
   #app .ws .tabs.big>button{min-height:32px;font-size:8px;padding:2px}
   #app .ws .tabs.big .ti{font-size:12px}
   #app .ws .advanced-tools>summary{font-size:8px;padding:3px}
@@ -131,3 +131,21 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .ws .advanced-tools.has-active>summary{background:var(--royal-button);color:#201607}
 .animation-filters .search{border:1px solid var(--line);border-radius:8px;background:var(--card2);color:var(--text)}
 #app .ws .studio-menu>summary{list-style:none}
+#app .ws .preview-quality{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--mute)}
+#app .ws .preview-quality select{width:146px;padding:5px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--text);font-size:11px}
+#app .ws[data-preview-quality=low] .stagebox canvas{image-rendering:pixelated}
+@media(max-width:860px){#app .ws .preview-quality>span{display:none}#app .ws .preview-quality select{width:120px;font-size:10px;padding:3px}}
+
+/* Scene strip sits directly above the timeline ruler. */
+#app .scene-tabs{display:flex;align-items:stretch;gap:3px;flex:0 0 32px;min-width:0;overflow-x:auto;scrollbar-width:thin;border-bottom:1px solid var(--line,#b89545)}
+#app .scene-tab{display:flex;flex:none;align-items:stretch;border-bottom:2px solid transparent;border-radius:5px 5px 0 0;background:color-mix(in srgb,currentColor 5%,transparent)}
+#app .scene-tab.active{border-color:#c59532;background:linear-gradient(110deg,#f5d77d,#c59532);color:#211800}
+#app .scene-tab>button,#app .new-scene,#app .scene-menu summary{background:none;border:0;color:inherit;font:inherit;font-size:12px;padding:5px 9px;cursor:pointer;white-space:nowrap}
+#app .scene-tab>button{max-width:160px;overflow:hidden;text-overflow:ellipsis}
+#app .scene-menu summary{list-style:none;padding-left:3px;padding-right:7px}
+#app .scene-menu-items{position:fixed;z-index:80;display:flex;flex-direction:column;min-width:140px;background:var(--card,#211b12);color:var(--text,#f5e9d0);border:1px solid #b89545;border-radius:8px;box-shadow:0 8px 28px #0005;padding:5px}
+#app .scene-menu-items button{background:none;color:inherit;border:0;text-align:left;padding:8px 12px;cursor:pointer;border-radius:4px}
+#app .scene-menu-items button:hover{background:#b8954533}
+#app .new-scene{color:#b08428;flex:none}
+#app .scene-tabs button:focus-visible,#app .scene-menu summary:focus-visible{outline:2px solid #b89545;outline-offset:-2px}
+#app .scene-tabs [role=tab]{touch-action:manipulation}

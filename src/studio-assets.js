@@ -1,3 +1,4 @@
+import { animationData, MAX_ANIMATION_BYTES } from './managed-animation.js';
 import { auth } from './firebase.js';
 import { apiCall } from './session.js';
 import { uploadFile } from './cloud.js';
@@ -37,3 +38,15 @@ export async function downloadStudioAsset(asset) {
   if (blob.size !== asset.size) throw new Error('Downloaded image size did not match the library record.');
   return blob;
 }
+
+export async function saveStudioAnimation(name, file, { target, layer = 'body', frameRate = 24 }) {
+  const owner = uid();
+  if (!owner) throw Error('Admin sign-in required.');
+  if (!file || file.size > MAX_ANIMATION_BYTES) throw Error('Animation JSON must be 4 MB or smaller.');
+  const animation = animationData(JSON.parse(await file.text()));
+  const blob = new Blob([JSON.stringify(animation)], { type: 'application/json' });
+  const key = `assets/${await digest(blob)}`, id = crypto.randomUUID();
+  await uploadFile(key, blob, owner);
+  return (await apiCall('/api/studio-assets', { action: 'save', id, type: 'animation', name: name.trim().slice(0, 100) || file.name, key, size: blob.size, mime: 'application/json', target, layer, frameRate: Number(frameRate) }, owner)).asset;
+}
+export const loadStudioAnimation = async id => (await apiCall('/api/studio-assets', { action: 'animation', id }, uid())).animation;

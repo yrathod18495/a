@@ -14,6 +14,7 @@ async function catalog() {
   const requests = [];
   const sandbox = {
     testerAnimationAllowed, AssetCache,
+    listStudioAssets: async () => [],
     cachedRules: () => null,
     loadAnimRules: async () => null,
     setTimeout: () => 0,
