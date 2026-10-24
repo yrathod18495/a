@@ -73,7 +73,7 @@ export class Stage {
     this.gl = this.r.gl;
     this.maxTex = Math.min(maxTex, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
     this.assets = new Map();  // charId -> { def, pages: Map(imagePath -> GLTex) }
-    this.swapTex = new Map(); // Blob / key -> GLTex
+    this.artworkTextures = new Map(); // Character Studio canvas key -> GLTex
     this.propTex = new Map(); // shared image props by project prop id
     this.props = [];
     this.tearTex = null; this.tearBlob = null;
@@ -106,7 +106,7 @@ export class Stage {
   async setTextureLimit(limit) {
     limit = Math.min(limit, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
     if (limit === this.maxTex) return;
-    const created = [], pages = new Map(), swaps = new Map(), props = new Map();
+    const created = [], pages = new Map(), props = new Map();
     const texture = async (blob, bounds) => { const bitmap = await loadImage(blob, limit, bounds); try { const t = this.r.texture(bitmap); created.push(t); return t; } finally { bitmap.close(); } };
     try {
       for (const [id, asset] of this.assets) {
@@ -114,28 +114,24 @@ export class Stage {
         for (const t of asset.def.tex) next.set(t.json.imagePath, await texture(t.image, { w: t.json.width, h: t.json.height }));
         pages.set(id, next);
       }
-      for (const [key] of this.swapTex) if (key instanceof Blob) swaps.set(key, await texture(key));
       for (const prop of this.props) if (prop.blob) props.set(prop.id, await texture(prop.blob));
     } catch (error) { created.forEach(t => t.dispose()); throw error; }
     for (const [id, next] of pages) { const asset = this.assets.get(id); asset.pages.forEach(t => t.dispose()); asset.pages = next; }
-    for (const [key, next] of swaps) { this.swapTex.get(key)?.dispose(); this.swapTex.set(key, next); }
     this.propTex.forEach(t => t.dispose()); this.propTex = props;
     this.maxTex = limit;
   }
   /** forget a loaded character (its pictures changed) */
   unload(charId) { const a = this.assets.get(charId); if (a) { a.pages.forEach((t) => t.dispose()); this.assets.delete(charId); } for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); }
-  /** swap the armature data of a loaded character (Character Studio edits) without reloading its textures */
+  /** replace the armature data of a loaded character (Character Studio edits) without reloading its textures */
   setRig(charId, ske) { const a = this.assets.get(charId); if (a) { a.def = { ...a.def, ske }; this.prepCache.delete(charId); } }
-  pageNames(def) { return def.tex.map((t) => t.json.imagePath); }
-  /** a user-supplied replacement picture (same layout as the original texture page) */
-  async loadSwapCanvas(key, canvas) {
+  /** an edited Character Studio canvas page */
+  async loadArtworkCanvas(key, canvas) {
     const k = Math.min(1, this.maxTex / Math.max(canvas.width, canvas.height));
     const opts = { premultiplyAlpha: 'premultiply', colorSpaceConversion: 'none' };
     const bmp = await createImageBitmap(canvas, k < 1 ? { ...opts, resizeWidth: Math.round(canvas.width * k), resizeHeight: Math.round(canvas.height * k), resizeQuality: 'medium' } : opts);
-    this.swapTex.set(key, this.r.texture(bmp));
+    this.artworkTextures.set(key, this.r.texture(bmp));
   }
-  dropSwap(key) { const t = this.swapTex.get(key); if (t) { t.dispose(); this.swapTex.delete(key); } }
-  async loadSwap(blob) { if (!this.swapTex.has(blob)) this.swapTex.set(blob, this.r.texture(await loadImage(blob, this.maxTex))); }
+  dropArtworkCanvas(key) { const t = this.artworkTextures.get(key); if (t) { t.dispose(); this.artworkTextures.delete(key); } }
 
   /** merged-outfit armature data of a character (cached) */
   prepOf(charId, skins) {
@@ -165,7 +161,7 @@ export class Stage {
   }
 
   /**
-   * speakers: [{key, charId, swap, anims:{name: dragonBonesAnimation}, clips:[{id, kind:'body'|'face', name, start, dur, off}], flip, slot, visible, xf, fit, skins, hide}]
+   * speakers: [{key, charId, artworkPages, anims:{name: dragonBonesAnimation}, clips:[{id, kind:'body'|'face', name, start, dur, off}], flip, slot, visible, xf, fit, skins, hide}]
    * in back->front order. Returns the keys of layers that could not be built.
    */
   setLayers(speakers) {
@@ -177,7 +173,7 @@ export class Stage {
       for (const t of a.def.tex) f.parseTextureAtlasData(t.json, null, dbName);
       const arm = f.buildArmature(prep.arm.name, dbName, 'all', dbName); arm.advanceTime(0);
       const tex = new Map(a.pages);
-      for (const [page, key] of Object.entries(s.swap || {})) { const t = this.swapTex.get(key); if (t) tex.set(page, t); }
+      for (const [page, key] of Object.entries(s.artworkPages || {})) { const t = this.artworkTextures.get(key); if (t) tex.set(page, t); }
       const bone = (...names) => names.map((n) => arm.getBone(n)).find(Boolean) || null;
       const layer = { tears: s.tears || null, key: s.key, flip: s.flip, slot: s.slot, visible: s.visible, mask: s.mask || null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', mul: s.xf?.mul ?? 1, axf: s.xf?.axf ?? null, ayf: s.xf?.ayf ?? null, charId: s.charId,
         hide: new Set(s.hide || []), arm, factory: f, dbName, prep, tex, anim: new Set(arm.armatureData.animationNames), clips: [], present: s.present || null, shown: true, bounds: null, lipOk: new Map(),

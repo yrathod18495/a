@@ -75,7 +75,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   stage.setSize('4:5', 720);
   const st = {
     outline: false, autoLen: !tester, guideFocus: null, createMode: !!tester, def: null, tpl: null, skins: null, hide: new Set(), edit: new Map(), xf: {}, attach: {}, face: faceDefaults(), locked: new Set(),
-    regions: new Map(), pages: [], orig: {}, work: {}, swap: {}, dirty: new Set(), cbox: new Map(), anim: null, tab: 'start', open: null, openGroup: null, filter: '',
+    regions: new Map(), pages: [], orig: {}, work: {}, artworkPages: {}, dirty: new Set(), cbox: new Map(), anim: null, tab: 'start', open: null, openGroup: null, filter: '',
     permissionsError: '', busy: false, mouth: false, zoom: 'wide', name: '', cloud: [],
   };
   let gen = 0, pending = new Set(), applyTimer = 0, rigTimer = 0, t0 = performance.now(), raf = 0, lastFrame = 0;
@@ -240,11 +240,11 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       for (const r of regs) { await paintRegion(r); if (g !== gen) return; }
       for (const pg of new Set(regs.map((r) => st.regions.get(r).page))) {
         const key = { page: pg };
-        await stage.loadSwapCanvas(key, st.work[pg]);
-        if (g !== gen) { stage.dropSwap(key); return; }
-        olds.push(st.swap[pg]); st.swap[pg] = key; st.dirty.add(pg);
+        await stage.loadArtworkCanvas(key, st.work[pg]);
+        if (g !== gen) { stage.dropArtworkCanvas(key); return; }
+        olds.push(st.artworkPages[pg]); st.artworkPages[pg] = key; st.dirty.add(pg);
       }
-      rebuild(); refreshThumbs(regs); olds.forEach((k) => k && stage.dropSwap(k));
+      rebuild(); refreshThumbs(regs); olds.forEach((k) => k && stage.dropArtworkCanvas(k));
     } catch (e) { console.warn('edit failed', e); } finally { st.busy = false; }
   }
   /** crop of a layer, upright */
@@ -283,19 +283,19 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     stage.setRig(st.def.id, currentRig());
     const anims = st.anim && st.anim.json ? { [st.anim.key]: st.anim.json } : {};
     if (st.over && st.anim && st.over.json) anims[st.over.key] = st.over.json;
-    stage.setLayers([{ key: 'c', charId: st.def.id, swap: { ...st.swap }, anims, clips: st.anim ? [{ id: 'a', kind: 'body', name: st.anim.key, start: 0, dur: 36000, off: 0 }, ...(st.over ? [{ id: 'o', kind: st.over.kind, name: st.over.key, start: 0, dur: 36000, off: 0 }] : [])] : [], flip: false, slot: 0, visible: true, xf: null, skins: st.skins, hide: [...st.hide], fit: st.fit }]);
+    stage.setLayers([{ key: 'c', charId: st.def.id, artworkPages: { ...st.artworkPages }, anims, clips: st.anim ? [{ id: 'a', kind: 'body', name: st.anim.key, start: 0, dur: 36000, off: 0 }, ...(st.over ? [{ id: 'o', kind: st.over.kind, name: st.over.key, start: 0, dur: 36000, off: 0 }] : [])] : [], flip: false, slot: 0, visible: true, xf: null, skins: st.skins, hide: [...st.hide], fit: st.fit }]);
   }
   const queueRig = () => { clearTimeout(rigTimer); rigTimer = setTimeout(rebuild, 120); };
 
   /* ---------- picking a character ---------- */
   async function pick(d, label) {
-    gen++; pending = new Set(); clearTimeout(applyTimer); Object.values(st.swap).forEach((k) => stage.dropSwap(k));
+    gen++; pending = new Set(); clearTimeout(applyTimer); Object.values(st.artworkPages).forEach((k) => stage.dropArtworkCanvas(k));
     if (st.def && st.def.id !== d.id) stage.unload(st.def.id);
     stage.unload(d.id);
     // a saved character is opened on its template's skeleton again, with its settings, so everything stays editable
     const saved = !!d.baseSke, pr = d.profile || {}, src = saved ? { ...d, ske: d.baseSke } : d;
     d = src;
-    Object.assign(st, { fit: getFit(d.id), over: null, def: d, savedId: saved ? d.id : null, skins: saved ? (pr.skins ?? null) : (d.skins ?? null), hide: new Set(saved ? pr.hide || [] : []), edit: new Map(), xf: saved ? pr.xf || {} : {}, attach: pr.attach || {}, face: saved && pr.face ? pr.face : faceDefaults(), locked: new Set(saved ? pr.locked || [] : []), work: {}, orig: {}, swap: {}, dirty: new Set(), cbox: new Map(), anim: null, open: null, openGroup: null, filter: '', name: `${d.name}${d.profile?.template ? '' : ' (mine)'}` });
+    Object.assign(st, { fit: getFit(d.id), over: null, def: d, savedId: saved ? d.id : null, skins: saved ? (pr.skins ?? null) : (d.skins ?? null), hide: new Set(saved ? pr.hide || [] : []), edit: new Map(), xf: saved ? pr.xf || {} : {}, attach: pr.attach || {}, face: saved && pr.face ? pr.face : faceDefaults(), locked: new Set(saved ? pr.locked || [] : []), work: {}, orig: {}, artworkPages: {}, dirty: new Set(), cbox: new Map(), anim: null, open: null, openGroup: null, filter: '', name: `${d.name}${d.profile?.template ? '' : ' (mine)'}` });
     if (d.profile?.template) st.tpl = d.profile.template; else st.tpl = null;
     st.pages = d.tex.map((t) => t.json.imagePath); st.regions = new Map(); thumbs.clear();
     for (const t of d.tex) for (const r of t.json.SubTexture) st.regions.set(r.name, { page: t.json.imagePath, x: r.x, y: r.y, w: r.width, h: r.height, deg: 0 });
@@ -785,7 +785,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     if (!names.length) return [h('p', { class: 'sub' }, 'This character has no separate outfit parts.')];
     const combined = names.some((n) => n.includes('/'));
     const worn = () => new Set(st.skins || names);
-    const reset = () => { gen++; pending = new Set(); st.edit = new Map(); Object.values(st.swap).forEach((k) => stage.dropSwap(k)); st.work = {}; st.orig = {}; st.swap = {}; st.dirty = new Set(); st.cbox = new Map(); st.hide = new Set(); st.open = null; thumbs.clear(); Promise.all(st.pages.map(pageCanvas)).then(() => { rebuild(); draw(); }); };
+    const reset = () => { gen++; pending = new Set(); st.edit = new Map(); Object.values(st.artworkPages).forEach((k) => stage.dropArtworkCanvas(k)); st.work = {}; st.orig = {}; st.artworkPages = {}; st.dirty = new Set(); st.cbox = new Map(); st.hide = new Set(); st.open = null; thumbs.clear(); Promise.all(st.pages.map(pageCanvas)).then(() => { rebuild(); draw(); }); };
     if (!combined) {                // whole outfits (Saree / Salvar / Business ...): one at a time
       const pickSkin = (n) => { st.skins = [n]; reset(); };
       return [h('p', { class: 'sub', style: 'font-size:12px' }, 'Choose an outfit. Your colour edits restart for the new outfit.'),

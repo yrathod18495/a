@@ -27,7 +27,7 @@ const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
 const S = {
   scenes: [], sceneId: null, exportScope: 'all',
-  step: 3, characters: [], libDefs: new Map(), swaps: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
+  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
@@ -71,11 +71,9 @@ function modal(title, body, onClose) {
 }
 
 async function boot() {
-  let swaps;
-  [S.characters, S.myBgs, S.props, swaps] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), dbAll('backgrounds'), dbAll('props'), dbAll('swaps')]);
+  [S.characters, S.myBgs, S.props] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), dbAll('backgrounds'), dbAll('props')]);
   await loadCatalog();
   S.sharedAssets = await listStudioAssets().catch((e) => { console.warn('Shared studio library unavailable:', e.message); return []; });
-  swaps.forEach((r) => { S.swaps.set(r.id, r.pages); Object.values(r.pages).forEach(bid); });
   S.props.forEach((p) => p.blob && bid(p.blob));
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   stage = new Stage({ maxTex: PREVIEW_MODES[S.previewMode].maxTex });
@@ -184,7 +182,7 @@ async function animJson(def, r) {
 }
 const sameRef = (a, b) => a && b && a.source === b.source && (a.source === 'local' ? a.name === b.name : a.id === b.id);
 
-/* ---- character chooser (characters are downloaded from their links; animations, expressions and image swap live in the studio) ---- */
+/* ---- character chooser (characters are downloaded from their links; animations and expressions live in the studio) ---- */
 const definitionJobs = new Map();
 async function ensureCharacter(id) {
   const saved = S.characters.find(c => c.id === id), ready = saved || S.libDefs.get(id);
@@ -426,18 +424,16 @@ async function buildLayerSpecs() {
       if (name in anims) continue;
       try { anims[name] = await animJson(def, ref); } catch (e) { toast(`Animation "${ref.name}" could not be loaded: ${e.message}`); }
     }
-    const swap = S.swaps.get(`${s.charId}::${s.key}`) || null;
     // gestures that only move the arms get the idle animation underneath, so head / chest keep moving
     const idleKey = plan.idleRef ? animKey(plan.idleRef) : null, drives = (j) => (j?.bone || []).some((b) => /^(head|pelvis|neck|torso\d*)$/i.test(b.name));
     const clips = plan.clips.filter((c) => anims[c.name]).map((c) => ({ ...c, base: c.kind === 'body' && idleKey && anims[idleKey] && c.name !== idleKey && !drives(anims[c.name]) ? idleKey : undefined }));
-    layers.push({ fit: getFit(s.charId), skins: s.skins ?? def.skins ?? null, key: s.key, charId: s.charId, swap, anims, clips, present: plan.present, flip: s.flip, xf: s.xf ? { ...s.xf } : null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null, tearFacingBack: /\bback\b/i.test(def.pose || ''), slot: withChar.indexOf(s), visible: s.visible, keys: (S.charKeys[s.key] || []).map((k) => ({ t: k.t, x: k.x, y: k.y, mul: k.mul, flip: !!k.flip, ease: k.ease })) });
+    layers.push({ fit: getFit(s.charId), skins: s.skins ?? def.skins ?? null, key: s.key, charId: s.charId, anims, clips, present: plan.present, flip: s.flip, xf: s.xf ? { ...s.xf } : null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null, tearFacingBack: /\bback\b/i.test(def.pose || ''), slot: withChar.indexOf(s), visible: s.visible, keys: (S.charKeys[s.key] || []).map((k) => ({ t: k.t, x: k.x, y: k.y, mul: k.mul, flip: !!k.flip, ease: k.ease })) });
   }
   return layers.reverse(); // front-first -> back-first
 }
 /** (re)builds the characters on the stage (needed when animations or images change) */
 async function applyLayers() {
   const layers = await buildLayerSpecs();
-  for (const l of layers) for (const blob of Object.values(l.swap || {})) await stage.loadSwap(blob);
   await stage.setTearSprite(layers.some(layer => layer.tears?.style) ? await loadTearSprite() : null);
   const bad = stage.setLayers(layers);
   const activeIds = new Set(layers.map(l => l.charId));
@@ -451,35 +447,6 @@ async function applyLayers() {
 function refreshPresence() {
   for (const s of S.speakers) if (s.charId) { const p = layerPlan(s); stage.setClips(s.key, p.clips, p.present); }
   S.dirty = true;
-}
-
-/* ---- swap a character's image (same layout as the original, any size) ---- */
-function swapModal(s) {
-  const def = charOf(s), key = `${s.charId}::${s.key}`;
-  const pages = stage.pageNames(def), origOf = (pg) => (def.tex.find((t) => t.json.imagePath === pg) || def.tex[0]).image;
-  let close;
-  const body = h('div');
-  const save = async (pagesMap) => {
-    if (pagesMap && Object.keys(pagesMap).length) { S.swaps.set(key, pagesMap); await dbPut('swaps', { id: key, pages: pagesMap }); } else { S.swaps.delete(key); await dbDel('swaps', key); }
-    const b = busy('Applying image…'); try { await applyLayers(); } catch (e) { console.error(e); toast(`Could not apply image: ${e.message}`); } finally { b.done(); } draw();
-  };
-  const draw = () => {
-    const cur = S.swaps.get(key) || {};
-    body.replaceChildren(
-      h('p', { class: 'sub', style: 'font-size:13px' }, 'Download the original image, edit it (keep the same layout — any size works), then swap it back in. The change applies only to this voice.'),
-      ...pages.map((pg) => {
-        const orig = origOf(pg), input = h('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: async (e) => { const f = e.target.files[0]; if (f) await save({ ...cur, [pg]: f }); } });
-        return h('div', { class: 'item', style: 'align-items:flex-start' },
-          h('div', { class: 'th sm', style: 'width:84px;height:84px;flex:none' }, h('img', { src: URL.createObjectURL(cur[pg] || orig), alt: '' })),
-          h('div', { class: 'sp' }, h('b', {}, pages.length > 1 ? `Image ${pages.indexOf(pg) + 1}` : 'Character image'), h('div', { class: 'chip', style: 'margin:4px 0 8px' }, cur[pg] ? 'swapped' : 'original'),
-            h('div', { class: 'row', style: 'gap:6px' },
-              h('a', { class: 'btn sm', href: URL.createObjectURL(orig), download: pg }, '⬇ Original'),
-              h('button', { class: 'btn sm pri', onclick: () => input.click() }, '🖼 Swap image…'),
-              cur[pg] && h('button', { class: 'btn sm', onclick: () => { const n = { ...cur }; delete n[pg]; save(n); } }, 'Restore'), input)));
-      }));
-  };
-  draw();
-  close = modal(`Swap image · ${s.name}`, h('div', {}, body, h('div', { class: 'foot', style: 'margin-top:14px' }, h('span'), h('button', { class: 'btn pri', onclick: () => close() }, 'Done'))));
 }
 
 /* ---------------- workspace layout: wide canvas, hideable panels, focus mode, guides ---------------- */
@@ -1083,7 +1050,6 @@ function drawLineBox() {
       h('button', { class: 'lmain', onclick: () => { S.animFor = s.key; S.tab = 'anim'; S.panelOpen = true; S.sel = s.key; updateSel(); drawTabs(); drawLineBox(); } },
         h('span', { class: 'dot', style: `background:${s.color}` }), h('span', { class: 'ln' }, s.name, h('small', {}, r.inFrame ? (r.speaking ? '🎤 speaking' : 'listening') : 'not in this line')),
         h('span', { class: 'la' }, r.inFrame ? (r.body ? r.body.name : 'No animation') : '—', r.inFrame && !r.auto ? h('em', {}, ' ✎') : null, r.hand ? h('small', {}, ` · ✋ ${r.hand.name}`) : null, r.legs ? h('small', {}, ` · 🦵 ${r.legs.name}`) : null, r.face ? h('small', {}, ` · 😀 ${r.face.name}`) : null)),
-      h('button', { class: 'ib', title: 'Swap this character\'s image', onclick: () => swapModal(s) }, '🖼'),
       r.inFrame && (!r.auto || r.face || r.hand || r.legs) ? h('button', { class: 'ib', title: 'Back to automatic (speaker / listener mode)', onclick: () => { const o = castOf(L.id, s.key); delete o.body; delete o.seq; delete o.face; delete o.hand; delete o.legs; applyLayers().then(drawLineBox); } }, '↺') : null);
   });
   lineBox.replaceChildren(head, shotRow, chars.length ? h('div', { class: 'lrows' }, rows) : h('p', { class: 'sub', style: 'margin:6px 0 0' }, 'No characters on stage yet. Add one in the Characters tab.'),
@@ -1283,7 +1249,6 @@ function drawSelBar(l) {
       cur.axf ??= cur.anchor.x / stage.W; cur.ayf ??= (stage.H - cur.anchor.y) / stage.H; // keep feet where they are
       cur.mul = m; saveXf(cur); stage.layout(); updateSel(); S.dirty = true;
     } }),
-    h('button', { class: 'btn sm', title: 'Swap image', onclick: () => swapModal(s) }, '🖼'),
     h('button', { class: 'btn sm', title: 'Mirror', onclick: () => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; } }, '⇋'),
     h('button', { class: 'btn sm', title: 'Hide the box', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, '✕'),
     h('button', { class: 'btn sm', title: 'Reset size & position', onclick: () => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; } }, 'Reset'));
@@ -1366,7 +1331,6 @@ function tabChars() {
     return h('div', { class: 'layer' }, h('span', { class: 'th xs' }, entry ? h('img', { src: cdn(entry.thumbnail), alt: '' }) : c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'),
       h('div', { class: 't', style: 'cursor:pointer', onclick: () => { S.animFor = s.key; S.sel = s.key; updateSel(); drawLineBox(); S.dirty = true; } }, s.name, h('small', {}, c.name)),
       skinNames(c).length > 1 ? h('button', { class: 'ib', title: 'Outfit', onclick: () => outfitModal(s) }, '👗') : null,
-      h('button', { class: 'ib', title: 'Swap image', onclick: () => swapModal(s) }, '🖼'),
       h('button', { class: 'ib', title: 'Change character', onclick: () => addCharacterTo(s) }, '⇄'),
       h('button', { class: 'ib', title: 'Bring forward', disabled: i === 0, onclick: () => mv(-1) }, '↑'),
       h('button', { class: 'ib', title: 'Send back', disabled: i === onStage.length - 1, onclick: () => mv(1) }, '↓'),
@@ -1377,7 +1341,7 @@ function tabChars() {
     h('button', { class: 'btn sm', onclick: () => addCharacterTo(s) }, '＋ Pick character'),
     s.manual ? h('button', { class: 'ib', title: 'Remove', onclick: () => { S.speakers = S.speakers.filter((x) => x !== s); S.order = S.order.filter((k) => k !== s.key); drawTabs(); } }, '✕') : null));
   return h('div', { class: 'list' }, h('button', { class: 'btn ok', onclick: addManualCharacter }, '＋ Add character'),
-    h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Characters on stage (top = in front). Every voice you add as audio shows up here too. 🖼 swaps the character image, 🗑 removes it.'), rows, without);
+    h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Characters on stage (top = in front). Every voice you add as audio shows up here too. Use 🗑 to remove a character from the stage.'), rows, without);
 }
 
 let tearHandlesEl;
@@ -1834,7 +1798,6 @@ function sceneDoc() {
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
     order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgPreset: stage?.bg.preset ?? 0,
-    swaps: Object.fromEntries([...S.swaps].map(([k, pages]) => [k, Object.fromEntries(Object.entries(pages).map(([pg, b]) => [pg, bid(b)]))])),
     props: S.props.map((prop) => ({ ...prop, blob: bid(prop.blob) })),
   };
 }
@@ -1842,18 +1805,18 @@ function docOf() {
   const current = sceneDoc();
   return clone({ version: 3, settings: { quality: S.quality, expMethod: S.expMethod, fps: S.fps, level: S.level, format: S.format }, backgrounds: S.myBgs.map(background => ({ ...background, blob: bid(background.blob) })), sceneId: S.sceneId, scenes: S.scenes.map(scene => ({ ...scene, doc: scene.id === S.sceneId ? current : scene.doc })) });
 }
-async function loadDoc(doc, options = {}) {
+async function loadDoc(doc) {
   if (doc.settings) Object.assign(S, doc.settings);
   if (doc.backgrounds) S.myBgs = doc.backgrounds.map(background => ({ ...background, blob: blobReg.get(background.blob) })).filter(background => background.blob);
   if (Array.isArray(doc.scenes) && doc.scenes.length) {
     S.scenes = clone(doc.scenes);
     S.sceneId = S.scenes.some(scene => scene.id === doc.sceneId) ? doc.sceneId : S.scenes[0].id;
-    await loadSceneDoc(S.scenes.find(scene => scene.id === S.sceneId).doc, { ...options, fromDisk: false });
+    await loadSceneDoc(S.scenes.find(scene => scene.id === S.sceneId).doc);
   } else {
     S.sceneId = uid();
     const legacy = { ...doc, lines: doc.lines || S.lines.map(({id,order,file,speaker}) => ({id,order,file,speaker})) };
     S.scenes = [{ id: S.sceneId, name: 'Scene 1', doc: legacy }];
-    await loadSceneDoc(legacy, options);
+    await loadSceneDoc(legacy);
   }
 }
 async function ensureDefs() {
@@ -1864,8 +1827,7 @@ async function ensureDefs() {
   }
 }
 /** put a saved / undone document back into the app */
-function recBlobSwaps(doc) { return Object.fromEntries(Object.entries(doc.swaps || {}).filter(([,pages]) => Object.values(pages).some(id => blobReg.has(id)))); }
-async function loadSceneDoc(doc, { fromDisk = false } = {}) {
+async function loadSceneDoc(doc) {
   doc = clone(doc);
   S.lines = (doc.lines || []).map(meta => sceneAudio.has(meta.id) ? { ...sceneAudio.get(meta.id), ...meta } : null).filter(Boolean);
   for(const [id,fit] of Object.entries(doc.fits||{}))setFit(id,fit);
@@ -1884,9 +1846,6 @@ async function loadSceneDoc(doc, { fromDisk = false } = {}) {
   if (S.mclip && !findManual(S.mclip)) S.mclip = null;
   if (S.camSel && !S.camKeys.some((k) => k.id === S.camSel)) S.camSel = null;
   syncCam(); syncChars();
-  if (!fromDisk || Object.keys(recBlobSwaps(doc)).length) {
-    S.swaps = new Map(Object.entries(doc.swaps || {}).map(([k, pages]) => [k, Object.fromEntries(Object.entries(pages).map(([pg, id]) => [pg, blobReg.get(id)]).filter(([, b]) => b))]));
-  }
   if (doc.aspect && doc.aspect !== S.aspect) { S.aspect = doc.aspect; stage.setSize(S.aspect, S.preview); }
   S.bgId = doc.bgId ?? null; stage.bg.preset = doc.bgPreset ?? 0;
   await stage.setBackgroundImage(S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null);
@@ -1907,7 +1866,7 @@ async function restoreProject() {
       try { const buffer = await audioCtx.decodeAudioData(a.raw.slice(0)); S.lines.push({ ...m, raw: a.raw, buffer, visemes: analyse(buffer) }); sceneAudio.set(m.id, S.lines.at(-1)); savedAudio.add(m.id); } catch { /* skip broken audio */ }
     }
     Object.assign(S, { quality: rec.ui.v >= 2 ? (rec.ui.quality ?? S.quality) : Math.max(720, rec.ui.quality ?? 720), /* older saves defaulted to 480p on phones */ expMethod: rec.ui.expMethod ?? S.expMethod, fps: rec.ui.fps ?? S.fps, level: rec.ui.level ?? S.level, format: rec.ui.format ?? S.format, applyAll: !!rec.ui.applyAll, tab: rec.ui.tab ?? S.tab, lineSel: rec.ui.lineSel ?? null, animFor: rec.ui.animFor ?? null });
-    await loadDoc(rec.doc, { fromDisk: true });
+    await loadDoc(rec.doc);
     S.step = 3;
     await prepareStudio();
     b.done(); render();
@@ -1922,7 +1881,7 @@ async function saveProject(doc, docStr) {
   const sig = JSON.stringify({ ui, lines }) + docStr;
   if (sig === lastSaved) return;
   for (const {id} of lines) { const l = sceneAudio.get(id); if (l && !savedAudio.has(l.id) && l.raw) { await dbPut('audio', { id: l.id, raw: l.raw }); savedAudio.add(l.id); } }
-  const refs = new Set([...(doc.backgrounds || []).map(background => background.blob), ...doc.scenes.flatMap(scene => [...(scene.doc.props || []).map(prop => prop.blob), ...Object.values(scene.doc.swaps || {}).flatMap(pages => Object.values(pages))])]);
+  const refs = new Set([...(doc.backgrounds || []).map(background => background.blob), ...doc.scenes.flatMap(scene => [...(scene.doc.props || []).map(prop => prop.blob)])]);
   const blobs = Object.fromEntries([...refs].filter(id => blobReg.has(id)).map(id => [id, blobReg.get(id)]));
   await dbPut('project', { id: 'current', doc, ui, lines, blobs, ts: Date.now() });
   for (const id of [...savedAudio]) if (!lines.some((l) => l.id === id)) { await dbDel('audio', id); savedAudio.delete(id); }

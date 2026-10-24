@@ -1,7 +1,7 @@
 import { GAP, LEAD, TAIL } from './player.js';
 
 export function emptyScene(aspect = '16:9') {
-  return { lines: [], speakers: [], order: [], fits: {}, cast: {}, shots: {}, script: {}, solo: {}, manual: {}, charKeys: {}, camKeys: [], aspect, bgId: null, bgPreset: 0, swaps: {}, props: [] };
+  return { lines: [], speakers: [], order: [], fits: {}, cast: {}, shots: {}, script: {}, solo: {}, manual: {}, charKeys: {}, camKeys: [], aspect, bgId: null, bgPreset: 0, props: [] };
 }
 export function sceneDuration(doc, audio) {
   const lines = (doc.lines || []).map(line => audio.get(line.id)).filter(Boolean);

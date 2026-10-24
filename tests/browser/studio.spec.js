@@ -42,6 +42,7 @@ for (const mode of ['day', 'night']) for (const viewport of [{ width: 1366, heig
 test('animation rows are virtualized; selection, playback, editor zoom and reset preserve scene data', async ({ page }, testInfo) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page); await addCharacter(page);
+  await expect(page.getByTitle(/swap.*image/i)).toHaveCount(0);
   await page.getByLabel('Selected character name').fill('Rani'); await page.getByLabel('Selected character name').press('Tab');
   await expect.poll(() => page.evaluate(() => window.__toon.S.speakers[0].name)).toBe('Rani');
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Animations', exact: true }).click();
