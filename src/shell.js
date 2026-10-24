@@ -54,9 +54,25 @@ window.addEventListener('hashchange', route);
 
 let routing = Promise.resolve();
 function route() {
-  routing = routing.then(renderRoute).catch(e => toast(`Could not open page: ${e.message}`));
+  routing = routing.then(renderRoute).catch(e => {
+    if (reloadForNewVersion(e)) return;
+    toast(`Could not open page: ${e.message}`);
+  });
   return routing;
 }
+// After a redeploy, an already-open tab still points at old hashed chunks that no longer exist.
+// Reload once to pick up the new build; the guard stops a reload loop if the chunk is truly missing.
+function reloadForNewVersion(e) {
+  if (!/dynamically imported module|Importing a module script failed|error loading dynamically/i.test(String(e?.message || e))) return false;
+  try {
+    const last = Number(sessionStorage.getItem('chunk-reload-at') || 0);
+    if (Date.now() - last < 30000) return false;
+    sessionStorage.setItem('chunk-reload-at', String(Date.now()));
+  } catch { return false; }
+  location.reload();
+  return true;
+}
+window.addEventListener('vite:preloadError', e => { if (reloadForNewVersion(new Error('dynamically imported module'))) e.preventDefault(); });
 async function renderRoute() {
   if (!ready) return;
   const parts = (location.hash || '#/').split('/'), hash = parts.slice(0,2).join('/'), projectId = parts[2];

@@ -1,0 +1,24 @@
+import {test,expect} from '@playwright/test';
+test('latest workspace controls coexist with undo, export presets and themed scene deletion',async({page},info)=>{
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));await page.setViewportSize({width:1366,height:768});
+ await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.goto('/?debug&workers=0#/toons');await expect(page.locator('.projects-toolbar button')).toHaveText(['Create New Project']);
+ await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Workspace integration');await page.getByRole('button',{name:'Create project',exact:true}).click();
+ await expect(page.locator('#app .stagebox canvas')).toBeVisible();
+ const clipped=await page.locator('.prev').evaluate(host=>{const bounds=host.getBoundingClientRect();return [...host.querySelectorAll('.layout-tools button')].filter(button=>{const box=button.getBoundingClientRect();return box.left<bounds.left || box.right>bounds.right+1;}).map(button=>button.title);});expect(clipped).toEqual([]);
+ await page.getByLabel('Canvas guides',{exact:true}).selectOption('all');await expect(page.locator('.guides i')).toHaveCount(8);await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeDisabled();
+ const focus=page.getByRole('button',{name:'Focus mode — canvas only (F)',exact:true});await focus.click();await expect(page.locator('.ws')).toHaveAttribute('data-focus','true');
+ await page.keyboard.press('Escape');await expect(page.locator('.ws')).toHaveAttribute('data-focus','false');
+ await page.getByRole('button',{name:'Timeline (T)',exact:true}).click();await expect(page.locator('.ws')).toHaveAttribute('data-timeline','min');await page.getByRole('button',{name:'Timeline (T)',exact:true}).click();
+ await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
+ const before=await page.evaluate(()=>{const {quality,fps,format,level}=window.__toon.S;return{quality,fps,format,level};});
+ await page.getByRole('button',{name:'Quick draft',exact:false}).click();expect(await page.evaluate(()=>window.__toon.S.quality)).toBe(360);
+ await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);
+ expect(await page.evaluate(()=>{const {quality,fps,format,level}=window.__toon.S;return{quality,fps,format,level};})).toEqual(before);
+ await expect(page.getByLabel('Canvas guides',{exact:true})).toHaveValue('all');
+ await page.getByRole('button',{name:'Redo',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__toon.S.quality)).toBe(360);
+ await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
+ await page.getByLabel('Options for Scene 2',{exact:true}).click();await page.locator('.scene-tab').filter({has:page.getByRole('tab',{name:'Scene 2',exact:true})}).getByRole('button',{name:'Delete',exact:true}).click();
+ await expect(page.getByRole('dialog',{name:'Delete scene?',exact:true})).toBeVisible();await page.keyboard.press('f');await expect(page.locator('.ws')).toHaveAttribute('data-focus','false');await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
+ await page.screenshot({path:info.outputPath('merged-workspace.png')});expect(errors).toEqual([]);
+});
