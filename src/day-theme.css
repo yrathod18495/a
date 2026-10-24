@@ -579,3 +579,6 @@
 :root[data-theme="day"] body .btn.ok:hover,
 :root[data-theme="day"] body .project-dialog-confirm:hover,
 :root[data-theme="day"] body .lp .lp-button-primary:hover{background:linear-gradient(135deg,#ffe7ad,#e5bb64);color:#1b1308;border-color:#d7b15b}
+:root[data-theme="day"] body .admin-alert-row{background:#fff1ec;border-color:#d99a86}
+:root[data-theme="day"] body .admin-alert-row b{color:#7a2d18}
+:root[data-theme="day"] body .admin-alert-row small{color:#625642}

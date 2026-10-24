@@ -11,6 +11,7 @@ import { selectProject, projectMeta, listProjects, createProject } from './store
 import { projectsView } from './projects-view.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
+import { createShield } from './shield.js';
 
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
@@ -289,8 +290,7 @@ function staffLoginView() {
 /* ---------------- hub ---------------- */
 function hubView() {
   const name = (user.displayName || 'Creator').split(' ')[0];
-  const cloudLine = h('p', { class: 'sh-cloud' }, 'Checking cloud…'), adminSlot = h('div', { class: 'sh-admin' });
-  isAdmin(user).then((ok) => { if (ok) adminSlot.append(h('button', { class: 'btn', onclick: () => go('#/admin') }, '🛠 Admin panel'), ' ', h('button', { class: 'btn', onclick: () => go('#/tester') }, '🧪 Tester page')); });
+  const cloudLine = h('p', { class: 'sh-cloud' }, 'Checking cloud…');
   r2Configured().then(async (ok) => {
     if (!ok) { cloudLine.textContent = 'Cloud save is not switched on yet — your work is saved on this device.'; return; }
     const info = await cloudInfo();
@@ -304,7 +304,17 @@ function hubView() {
         card('🎬', '12toons', 'Animation studio. Place characters and backgrounds, add your audio lines (optional), direct the scenes with AI and export a video.', '#/toons', 'Open 12toons →'),
         card('🎭', '12toons Character Studio', 'Build characters. Recolour parts, upload artwork, choose outfits and save them for your animations.', '#/characters', 'Open Character Studio →'),
         card('💳', 'Buy Credits', 'Choose a one-time credit pack and review your payment history.', '#/credits', 'View credit plans →')),
-      adminSlot, cloudLine));
+      cloudLine));
+}
+
+/* ---------------- shield ---------------- */
+// Signed-in creators (never admins) are watched for developer tools / view-source; the admin dashboard shows the alerts.
+let shield = null;
+function guardSession(u) {
+  shield?.stop(); shield = null;
+  if (!u || role === 'admin' || DEBUG || !import.meta.env.PROD) return;
+  shield = createShield({ report: (report) => apiCall('/api/security', { action: 'tamperReport', ...report }, u.uid), notice: toast });
+  shield.start();
 }
 
 /* ---------------- start ---------------- */
@@ -369,6 +379,7 @@ async function start() {
       try { const { chatWidget } = await import('./chat-widget.js'); document.body.append(chatWidget(user, () => go('#/login'))); }
       catch (e) { console.warn('Live chat unavailable:', e.message); }
     }
+    guardSession(u);
     if (u && role !== 'tester') { ensureProfile(u); syncAll().catch(e=>console.warn('Pending cloud sync:',e.message)); }
     if (first) { first = false; route(); } else if (!u && PRIVATE.includes(location.hash) && !maintenance) go('#/login'); else if (u && (location.hash === '#/login' || location.hash === '#/staff-login')) go(maintenance ? '#/admin' : '#/hub'); else route();
   });

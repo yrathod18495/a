@@ -503,7 +503,6 @@ header .logo-btn{font-size:20px}
 .acard .nm2,.acard .dur{color:#f3ead6}
 
 /* ---------- admin panel ---------- */
-.sh-admin { margin-top: 14px; text-align: center; }
 .ad .ad-body { align-items: flex-start; }
 .ad .ad-stage { background: #191610; }
 .ad-cap { padding: 10px 4px; }
@@ -845,3 +844,8 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .admin-console-loading{padding:56px 18px;text-align:center;color:var(--muted,#c3b494);font-size:13px}
 .admin-console-error{width:min(720px,calc(100% - 36px));margin:36px auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
 .admin-console-nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
+.admin-alert-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.admin-alert-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid #8a4b3a;border-radius:12px;background:#2a1612}
+.admin-alert-row b{display:block;color:#ffd7c9}.admin-alert-row small{display:block;color:#c3b494;font-size:11px;margin-top:2px;word-break:break-word}
+.admin-alert-actions{display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:620px){.admin-alert-row{flex-direction:column;align-items:flex-start}}

@@ -3,6 +3,7 @@ import { services } from '../server/firebase-admin.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
 import { LEASE_MS, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { testerAnimations } from '../server/tester-animations.js';
+import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
 const hash = value => createHash('sha256').update(value).digest('hex');
 const maintenanceEnabled = () => process.env.MAINTENANCE_MODE !== 'false';
@@ -95,7 +96,7 @@ export default async function handler(req, res) {
       const token = await auth.createCustomToken(uid, { sid: result.sid });
       return send(res, 200, { token, expiresAt: now + LEASE_MS });
     }
-    const who = await access(req, { write: b.action === 'saveTesterAnimations', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'reviewTester', 'testerRequests', 'saveTesterAnimations'].includes(b.action) });
+    const who = await access(req, { write: b.action === 'saveTesterAnimations', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'reviewTester', 'testerRequests', 'saveTesterAnimations', 'tamperAlerts', 'tamperAck'].includes(b.action) });
     if (b.action === 'testerAnimations') {
       if (!who.admin) {
         const tester = await db.doc('securityTesters/' + who.uid).get();
@@ -111,6 +112,15 @@ export default async function handler(req, res) {
       return send(res, 200, { ...config, at: updatedAt, admin: who.admin });
     }
     if (b.action === 'status') return send(res, 200, { admin: who.admin });
+    // the studio reports that someone opened the developer tools / view-source: stored for the admin dashboard and pushed to admin devices
+    if (b.action === 'tamperReport') {
+      if (who.admin) return send(res, 200, { ok: true, stored: false });             // admins may inspect their own site
+      const result = await recordTamper(db, who, cleanReport(b), { userAgent: req.headers['user-agent'], ip: req.headers['x-forwarded-for'] || req.headers['x-real-ip'], country: req.headers['x-vercel-ip-country'] });
+      if (result.notify) await notifyAdmins(db, services().messaging, result.alert);
+      return send(res, 200, { ok: true, stored: result.stored });
+    }
+    if (b.action === 'tamperAlerts') return send(res, 200, await listAlerts(db));
+    if (b.action === 'tamperAck') return send(res, 200, { ok: true, acknowledged: await acknowledgeAlerts(db, b.id, who.uid) });
     if (b.action === 'heartbeat' || b.action === 'logout') {
       await db.runTransaction(async tx => {
         const ref = db.doc('securitySessions/' + who.uid), s = await tx.get(ref);

@@ -57,7 +57,8 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     const root = h('div', { class: 'admin-overview' });
     const status = h('div', { class: 'admin-live-status', role: 'status' });
     const content = h('main', { class: 'admin-console-main' });
-    const state = { security: null, payments: null, chats: null, affiliates: null, failures: {} };
+    const state = { security: null, payments: null, chats: null, affiliates: null, alerts: null, failures: {} };
+    let knownAlerts = null;
     let busy = false;
     const requestNotice = h('button', { class: 'btn sm', type: 'button', hidden: true, 'aria-live': 'polite', onclick: () => show('Tester Requests', openRequests) });
     root.append(
@@ -73,6 +74,23 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     }
     function service(name, detail, ok) {
       return h('div', { class: 'admin-service-row' }, h('i', { class: `admin-service-dot ${ok ? 'ok' : 'off'}` }), h('div', {}, h('b', {}, name), h('small', {}, detail)), h('span', { class: `admin-service-state ${ok ? 'ok' : 'off'}` }, ok ? 'Connected' : 'Unavailable'));
+    }
+    const KIND_TEXT = { devtools: 'Developer tools khole', shortcut: 'Inspect shortcut dabaya', 'view-source': 'Page source dekhne ki koshish', console: 'Console use kiya', integrity: 'Code ke saath chhed-chhad' };
+    async function acknowledge(id) {
+      try { await apiCall('/api/security', { action: 'tamperAck', id }, user.uid); await refresh(true); }
+      catch (e) { toast(`Alert band nahi ho paya: ${friendlyError(e)}`); }
+    }
+    /** creators who opened the developer tools or tried to view the source (reported by src/shield.js) */
+    function alertsSection() {
+      const list = state.alerts?.alerts || [];
+      if (!list.length) return null;
+      return section(`Security alerts (${number(state.alerts.unacknowledged)})`, 'INSPECT / DEVELOPER TOOLS',
+        h('div', { class: 'admin-alert-list' }, list.slice(0, 8).map((a) => h('article', { class: 'admin-alert-row' },
+          h('div', {}, h('b', {}, a.name || a.email || a.uid), h('small', {}, `${KIND_TEXT[a.kind] || a.kind}${a.detail ? ` · ${a.detail}` : ''} · ${a.path || '/'}`), h('small', {}, `${dateTime(a.at)}${a.country ? ` · ${a.country}` : ''} · ${a.email || ''}`)),
+          h('div', { class: 'admin-alert-actions' },
+            h('button', { class: 'btn sm', type: 'button', onclick: () => show('Users', () => import('./security-view.js').then((m) => m.securityView({ home: goOverview, toast }))) }, 'Users kholein'),
+            h('button', { class: 'btn sm', type: 'button', onclick: () => acknowledge(a.id) }, 'Dekh liya')))),
+        h('button', { class: 'btn sm', type: 'button', onclick: () => acknowledge('all') }, 'Sab dekh liye')));
     }
     function renderDashboard() {
       content.replaceChildren();
@@ -91,6 +109,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
           stat('Active sessions in report', number(sessions.length), 'Sessions not revoked and not expired.', '⌁', 'blue'),
           stat('Captured payments · latest report', number(captured.length), `${money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0))} recorded in this report.`, '₹', 'violet'),
           stat('Unread support conversations', number(unread), `${number(chats.length)} conversations returned by the live chat inbox.`, '✉', 'green')),
+        alertsSection(),
         h('div', { class: 'admin-dashboard-grid' },
           section('Active sessions', 'LIVE ACCOUNTS', h('div', { class: 'admin-session-list' }, sessions.length ? sessions.slice(0, 6).map(s => {
             const u = userMap.get(s.id) || {};
@@ -120,6 +139,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
         ['payments', () => apiCall('/api/payments', { action: 'adminList' }, user.uid)],
         ['chats', () => apiCall('/api/chat', { action: 'adminList' }, user.uid)],
         ['affiliates', () => apiCall('/api/affiliates', { action: 'adminList' }, user.uid)],
+        ['alerts', () => apiCall('/api/security', { action: 'tamperAlerts' }, user.uid)],
       ];
       const results = await Promise.allSettled(calls.map(([, call]) => call()));
       state.failures = {};
@@ -129,6 +149,9 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
         else { state.failures[key] = result.reason?.message || 'Unavailable'; state[key] = null; }
       });
       if (root.isConnected) {
+        const ids = new Set((state.alerts?.alerts || []).map((a) => a.id)), fresh = knownAlerts ? (state.alerts?.alerts || []).filter((a) => !knownAlerts.has(a.id)) : [];
+        knownAlerts = ids;
+        if (fresh.length) toast(`⚠ Security alert: ${fresh[0].name || fresh[0].email || 'ek user'} ne developer tools / inspect use kiya${fresh.length > 1 ? ` (+${fresh.length - 1} aur)` : ''}.`);
         renderDashboard();
         const updated = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const errors = Object.keys(state.failures);
