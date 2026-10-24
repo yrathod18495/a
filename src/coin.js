@@ -12,24 +12,22 @@ const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="t
   <radialGradient id="gc-face" cx=".38" cy=".3" r=".9"><stop offset="0" stop-color="#ffe98a"/><stop offset=".45" stop-color="#f0bd3a"/><stop offset=".8" stop-color="#c58a1c"/><stop offset="1" stop-color="#9a6410"/></radialGradient>
   <linearGradient id="gc-emboss" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff7c4"/><stop offset=".5" stop-color="#d9a22b"/><stop offset="1" stop-color="#8a5a0b"/></linearGradient>
   <linearGradient id="gc-shine" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
-  <path id="gc-arc" d="M 17 50 A 33 33 0 0 1 83 50"/>
-</defs></svg>`;
+  </defs></svg>`;
 
-/** the coin as an SVG string: reeded edge, raised rim, small "12TOON" lettering round the top, a crown in the middle and stars below */
+/** the coin as an SVG string: reeded edge, raised rim, "12TOONS" embossed in the middle between two gold lines and small stars */
 const coinSvg = (size) => `<svg xmlns="${NS}" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="12toons Gold Coin">
   <circle cx="50" cy="50" r="48.5" fill="url(#gc-edge)"/>
   <circle cx="50" cy="50" r="47" fill="none" stroke="#6b4408" stroke-width="2.4" stroke-dasharray="1.6 1.9" opacity=".75"/>
   <circle cx="50" cy="50" r="44" fill="url(#gc-rim)"/>
   <circle cx="50" cy="50" r="38.5" fill="url(#gc-face)" stroke="#8a5a0b" stroke-width="1"/>
   <circle cx="50" cy="50" r="35.5" fill="none" stroke="#fff1a8" stroke-width=".7" opacity=".8"/>
-  <text font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="10" letter-spacing="2" fill="#7a4d08" stroke="#fff0a0" stroke-width=".25" text-anchor="middle"><textPath href="#gc-arc" startOffset="50%">12TOON</textPath></text>
-  <g transform="translate(50 47)" fill="url(#gc-emboss)" stroke="#7a4d08" stroke-width=".9" stroke-linejoin="round">
-    <path d="M-15 8 L-17 -9 L-8 -1 L0 -13 L8 -1 L17 -9 L15 8 Z"/>
-    <rect x="-15" y="8.5" width="30" height="4.2" rx="1.2"/>
-    <circle cx="-17" cy="-10.5" r="2.2"/><circle cx="0" cy="-15" r="2.4"/><circle cx="17" cy="-10.5" r="2.2"/>
+  <g font-family="Georgia,'Times New Roman',serif" font-weight="800" font-size="13.4" letter-spacing=".3" text-anchor="middle">
+    <text x="50.8" y="56.4" fill="#6b4408" opacity=".75">12TOONS</text>
+    <text x="50" y="55.6" fill="url(#gc-emboss)" stroke="#6b4408" stroke-width=".7" paint-order="stroke">12TOONS</text>
   </g>
-  <circle cx="50" cy="53.4" r="1.7" fill="#c8342f" stroke="#7a4d08" stroke-width=".5"/>
-  <g fill="#7a4d08" stroke="#fff0a0" stroke-width=".25" opacity=".92"><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(35 76.5)"/><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(50 76.5)"/><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(65 76.5)"/></g>
+  <g fill="#7a4d08" stroke="#fff0a0" stroke-width=".25" opacity=".92"><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(50 27.5) scale(1.05)"/><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(36 30.5) scale(.65)"/><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(64 30.5) scale(.65)"/><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(36 72) scale(.65)"/><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(64 72) scale(.65)"/><path d="M0-4.2 1.2-1.3 4.2-1.1 1.9 .9 2.6 3.9 0 2.3-2.6 3.9-1.9 .9-4.2-1.1-1.2-1.3z" transform="translate(50 74.5) scale(1.05)"/></g>
+  <path d="M27 62.5 H73" stroke="#7a4d08" stroke-width=".9" stroke-linecap="round" opacity=".8"/><path d="M31 64.5 H69" stroke="#fff0a0" stroke-width=".5" stroke-linecap="round" opacity=".8"/>
+  <path d="M27 44 H73" stroke="#7a4d08" stroke-width=".9" stroke-linecap="round" opacity=".8"/><path d="M31 42.2 H69" stroke="#fff0a0" stroke-width=".5" stroke-linecap="round" opacity=".8"/>
   <path d="M 18 40 A 34 34 0 0 1 52 14 A 40 40 0 0 0 22 52 Z" fill="url(#gc-shine)"/>
 </svg>`;
 
