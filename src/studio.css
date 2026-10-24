@@ -250,3 +250,5 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .tear-eye-handle{position:absolute;display:grid;place-items:center;transform:translate(-50%,-50%);width:23px;height:23px;padding:0;border:2px solid #fff;border-radius:50%;background:#147fa9;color:white;box-shadow:0 0 0 1px #174153;pointer-events:auto;touch-action:none;font:700 10px system-ui;cursor:move}
 #app .tear-eye-handle.active{background:var(--acc);color:#211800}
 #app .tear-eye-handle[hidden],#app .tear-handles[hidden]{display:none}
+
+.tclip.bg{background:#191610;border:2px solid #594729;color:#efd08a;font-size:11px;cursor:pointer}

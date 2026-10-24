@@ -730,15 +730,20 @@ function drawTimeline() {
   ruler.addEventListener('pointerdown', (e) => { if (S.exporting) return; scrubbing = true; ruler.setPointerCapture(e.pointerId); scrub(e); });
   ruler.addEventListener('pointermove', (e) => scrubbing && scrub(e));
   ruler.addEventListener('pointerup', () => { scrubbing = false; });
+  const fileLabel = (id) => { const f = S.lines.find((l) => l.id === id)?.file; return String(f?.name ?? f ?? '').replace(/\.[^.]+$/, ''); };
   const lane = h('div', { class: 'lane2 audio', style: 'height:40px' });
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
     lane.append(h('div', { class: `tclip voice ${c.id === S.lineSel ? 'sel' : ''}`, style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
-      h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}`)));
+      h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`)));
   });
   // no audio yet: show only the ruler and the animation lanes (audio can still be added in the Audio tab)
   const hasAudio = player.clips.length > 0;
   const labels = [h('div', { class: 'rl ruler', style: `height:${RULER}px` }, 'Time'), ...(hasAudio ? [h('div', { class: 'rl audio', style: 'height:40px' }, '🔊 Audio')] : [])], lanes = [ruler, ...(hasAudio ? [lane] : [])];
+  // the scene background, named like the audio and animation clips
+  const bgName = S.bgId ? (S.myBgs.find((r) => r.id === S.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[stage.bg.preset] || BACKGROUNDS[0]).name;
+  labels.push(h('div', { class: 'rl audio', style: 'height:30px', onclick: () => openTab('canvas') }, '🖼 Background'));
+  lanes.push(h('div', { class: 'lane2 bg', style: 'height:30px', onclick: () => openTab('canvas') }, h('div', { class: 'tclip bg', title: `Background · ${bgName}`, style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`))));
   const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 34;
   for (const s of S.order.map(sOf).filter((x) => x?.charId && charOf(x))) {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
@@ -746,13 +751,13 @@ function drawTimeline() {
       const ln = h('div', { class: 'lane2 char', style: `height:${LH}px` });
       for (const c of plan.clips.filter((x) => x.kind === kind && !x.manual)) {
         const name = (nameOf.get(c.name) || c.name).replace(/^Listener · /, '');
-        const el = h('div', { class: `tclip ${kind} auto`, title: `${name} (automatic)`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, h('span', { class: 'tn' }, name));
+        const el = h('div', { class: `tclip ${kind} auto`, title: `${s.name} · ${name} (automatic)`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, h('span', { class: 'tn' }, `${s.name} · ${name}`));
         el.addEventListener('click', () => { const L = lineAt(c.start + 0.01); if (L && player.clips.length) selectLine(L.id); });
         ln.append(el);
       }
       for (const m of (S.manual[s.key] || []).filter((x) => x.kind === kind)) {
         const name = m.ref.name.replace(/^Listener · /, ''), rz = h('i', { class: 'rz' });
-        const el = h('div', { class: `tclip ${kind} mine ${m.id === S.mclip ? 'sel' : ''}`, title: `${name} — drag to move, drag the right edge to stretch`, style: `left:${m.start * pps}px;width:${Math.max(6, m.dur * pps)}px` }, h('span', { class: 'tn' }, name), rz);
+        const el = h('div', { class: `tclip ${kind} mine ${m.id === S.mclip ? 'sel' : ''}`, title: `${s.name} · ${name} — drag to move, drag the right edge to stretch`, style: `left:${m.start * pps}px;width:${Math.max(6, m.dur * pps)}px` }, h('span', { class: 'tn' }, `${s.name} · ${name}`), rz);
         el.addEventListener('pointerdown', (e) => dragClip(e, m, e.target === rz ? 'size' : 'move', el));
         ln.append(el);
       }
