@@ -180,9 +180,10 @@ test('DragonBones character draft with image and colour edit restores and remain
  });
  await page.goto('/?debug#/characters/'+id);await page.reload();
  await expect(page.locator('.cs-panel')).toBeVisible();
- await page.locator('.cs-tabs').getByRole('button',{name:'Body',exact:true}).click();
- const slider=page.locator('.cs-panel input[type=range]').first();await expect(slider).toBeVisible();
- await slider.evaluate(el=>{el.value=String(Number(el.min)+(Number(el.max)-Number(el.min))/3);el.dispatchEvent(new Event('input',{bubbles:true}));});
+ // creators only get Start / Create / Save: a draft saved on the old 'layers' tab opens on Start instead of a tab that no longer exists
+ await expect(page.locator('.cs-tabs button')).toHaveText(['Start','Create','Save']);await expect(page.locator('.cs-tabs button.on')).toHaveText('Start');
+ for(const gone of ['Layers','Face','Animations','Body','Outfit'])await expect(page.locator('.cs-tabs').getByRole('button',{name:gone,exact:true})).toHaveCount(0);
+ await expect(page.getByText('Edit a template')).toHaveCount(0);
  await page.waitForTimeout(1600);
  const saved=await page.evaluate(async()=>{const s=await import('/src/store.js');return (await s.get('draft','current')).state.fit;});
  await page.reload();await expect(page.locator('.cs-panel')).toBeVisible();

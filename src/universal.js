@@ -3,11 +3,6 @@
 
 export const FIT_DEFAULT = { leg: 1, arm: 1, hand: 1, phys: true, map: {} };
 export const FIT_LIMITS = { leg: [0.6, 1.2], arm: [0.6, 1.2], hand: [0.5, 1.3] };
-export const FIT_PRESETS = [
-  ['Original', { leg: 1, arm: 1, hand: 1 }],
-  ['Shorter legs & hands', { leg: 0.82, arm: 0.88, hand: 0.8 }],
-  ['Kid', { leg: 0.7, arm: 0.75, hand: 0.75 }],
-];
 
 const KEY = '12toons.fit.';
 import { context } from './store.js';

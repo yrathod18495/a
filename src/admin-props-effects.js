@@ -77,7 +77,7 @@ export async function propsEffectsView({ back, home, toast }) {
     tabs.replaceChildren(...KINDS.map(([key, label]) => h('button', { class: `admin-assets-tab ${state.kind === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.kind === key, onclick: () => { state.kind = key; state.filter = 'all'; draw(); } }, label)));
     const effect = state.kind === 'effect', list = records(), cats = categories();
     const shown = list.filter((asset) => state.filter === 'all' || (asset.category || '') === state.filter);
-    content.replaceChildren(
+    content.replaceChildren(...[
       h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, effect ? 'Effects' : 'Props'),
         h('p', {}, effect ? 'Rain, sparkle, light leak jaise effects yahan se upload karein. Creators inhe studio ke Effects tab me dekhte aur scene par lagate hain. Sprite sheet dene par effect animate hota hai.' : 'Props yahan se upload karein. Creators inhe studio ke Props tab me category ke hisaab se dekhte aur scene me lagate hain.')),
       form(),
@@ -85,7 +85,8 @@ export async function propsEffectsView({ back, home, toast }) {
       state.loading && !list.length ? h('p', { class: 'admin-assets-empty' }, 'Library load ho rahi hai…')
         : shown.length ? h('div', { class: 'admin-assets-grid' }, shown.map(card))
           : h('div', { class: 'admin-assets-empty' }, h('span', {}, effect ? '💫' : '🧸'), h('b', {}, `Abhi koi ${effect ? 'effect' : 'prop'} nahi hai`), h('p', {}, 'Upar se pehla upload karein; wo creators ko turant dikhega.')),
-      h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'));
+      h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'),
+    ].filter(Boolean));
   }
 
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin · Props & Effects'), h('span', { class: 'sp' }), h('button', { class: 'btn', type: 'button', onclick: back }, 'Back to Admin')), tabs, content);

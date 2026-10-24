@@ -29,3 +29,10 @@ Validation lives in `shared/studio-effects.js` (`cleanAssetMeta`) and runs on th
 
 ## Floating menus
 The tool menu and side panel can be dragged anywhere (grip on the menu, title bar on the panel); positions are kept in `localStorage` (`12toons.studio.layout`). They slide away after 5 s without use, leaving a round button in place; double-click the grip or title bar to dock them back. Below 861 px wide the old stacked layout is used.
+
+## Holding a prop in a hand
+In the Props tab, a selected prop has **🤚 Haath me pakdayein**: *Stage par* (free), *Left hand* or *Right hand* (and, with several characters, which one). The prop then follows that character's palm bone (`L_Palm` / `R_Palm`, present in every rig) every frame, in the preview and in the exported video.
+- `prop.attach = { key: <speaker key>, hand: 'L' | 'R' }`; the placement maths is `heldAt` / `heldPlacement` in `shared/studio-effects.js`, used by `Stage.drawProps`.
+- *Pakad point* (`prop.grip`, default the middle of the picture) is the spot of the picture that sits in the palm; *Haath ke saath ghumayein* (`prop.follow`) turns the prop with the hand, `rotation` is an extra turn (default −90° so an upright prop stays upright in a hanging hand).
+- A mirrored (flipped) character mirrors the prop. The prop is hidden while its character is not on screen.
+- A held prop has no on-canvas box or position sliders; size, rotation and the time range still apply.

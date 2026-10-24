@@ -86,3 +86,53 @@ test('effects can be removed and props can be sent behind characters', async ({ 
   await page.getByRole('button', { name: 'Effect hatayein' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(0);
 });
+
+test('a prop can be held in the left or right hand of a character and follows that hand', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await studio(page); await publish(page);
+  const rail = page.locator('#app .tabs.big');
+  await rail.getByRole('button', { name: 'Characters', exact: true }).click();
+  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
+  await page.locator('.cp-poses .pose').first().click();
+  await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
+  await rail.getByRole('button', { name: 'Props', exact: true }).click();
+  await page.locator('.lib-card').click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
+  // no character picked as holder yet: it stays where it is on the stage
+  expect(await page.evaluate(() => window.__toon.S.props[0].attach)).toBeUndefined();
+  const where = (hand) => page.evaluate(async (hand) => {
+    const { S, stage } = window.__toon, { heldAt } = await import('/shared/studio-effects.js');
+    stage.render(0, 0, [], []);
+    const prop = S.props[0], held = heldAt(stage.layers[0], hand);
+    const px = new Uint8Array(4), gl = stage.gl; const x = Math.round(held.x), y = Math.round(stage.H - held.y);
+    gl.readPixels(Math.min(stage.W - 1, Math.max(0, x)), Math.min(stage.H - 1, Math.max(0, y)), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return { x, y, color: [...px], attach: prop.attach };
+  }, hand);
+  await page.getByRole('button', { name: 'Left hand', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.props[0].attach?.hand)).toBe('L');
+  const left = await where('L');
+  expect(left.attach).toEqual({ key: await page.evaluate(() => window.__toon.S.speakers.find((s) => s.charId).key), hand: 'L' });
+  expect(left.color[1]).toBeGreaterThan(150);                   // the green prop is drawn on the left palm
+  await page.getByRole('button', { name: 'Right hand', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.props[0].attach?.hand)).toBe('R');
+  const right = await where('R');
+  expect(right.color[1]).toBeGreaterThan(150);                  // ... and on the right palm after switching
+  expect(Math.abs(right.x - left.x)).toBeGreaterThan(20);       // the two hands are in different places
+  // the prop has no free-position sliders while it is held, and goes back to the stage when released
+  await expect(page.getByText('Position · left / right')).toHaveCount(0);
+  await expect(page.getByText('Pakad point · left / right')).toBeVisible();
+  await page.getByRole('button', { name: 'Stage par', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.props[0].attach)).toBeUndefined();
+  await expect(page.getByText('Position · left / right')).toBeVisible();
+  // the held prop moves when the hand moves (a different animation puts the hand elsewhere)
+  await page.getByRole('button', { name: 'Left hand', exact: true }).click();
+  const before = await page.evaluate(async () => { const { stage } = window.__toon, { heldAt } = await import('/shared/studio-effects.js'); stage.render(2.4, 0, [], []); const h = heldAt(stage.layers[0], 'L'); return [h.x, h.y]; });
+  await rail.getByRole('button', { name: 'Animations', exact: true }).click();
+  await page.getByLabel('Animation category').selectOption({ index: 4 });
+  await page.locator('.animation-apply').first().click();
+  await page.waitForTimeout(900);
+  const after = await page.evaluate(async () => { const { stage } = window.__toon, { heldAt } = await import('/shared/studio-effects.js'); stage.render(2.4, 0, [], []); const h = heldAt(stage.layers[0], 'L'); return [h.x, h.y]; });
+  expect(Math.hypot(after[0] - before[0], after[1] - before[1])).toBeGreaterThan(3);
+  expect(errors).toEqual([]);
+});

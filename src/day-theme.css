@@ -191,7 +191,6 @@
 :root[data-theme="day"] body .cs-tabs button.on{background:#ffffff;color:#18140e}
 :root[data-theme="day"] body .cs-card{background:#ffffff}
 :root[data-theme="day"] body .cs-th{background:#ffffff}
-:root[data-theme="day"] body .cs-part{background:#ffffff}
 @media (max-width:860px){
 :root[data-theme="day"] body .cs-left{background:#ffffff}
 }
@@ -206,8 +205,6 @@
 :root[data-theme="day"] body .cs-lgroup{background:#ffffff}
 :root[data-theme="day"] body .cs-ghead{background:#ffffff}
 :root[data-theme="day"] body .cs-ghead small{background:#ffffff}
-:root[data-theme="day"] body .cs-layer{background:#ffffff}
-:root[data-theme="day"] body .cs-layer.locked{background:#ffffff}
 :root[data-theme="day"] body .cs-lth{background:repeating-conic-gradient(#ffffff 0 25%,#ffffff 0 50%) 50%/12px 12px}
 :root[data-theme="day"] body .ath.dark{background:#ffffff}
 :root[data-theme="day"] body .acard .nm2,

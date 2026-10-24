@@ -22,7 +22,7 @@ import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
-import { propFromAsset, isEffect } from '../shared/studio-effects.js';
+import { propFromAsset, isEffect, isHeld } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
@@ -1259,7 +1259,7 @@ function mountStage() {
     if (stage.fullView) return;
     const p = pt(e), hd = e.target.dataset?.c;
     if (stage.camZoom <= 1.02 && !hd) {
-      const prop = [...S.props].reverse().find((x) => x.visible !== false && !coversFrame(x) && Math.abs(p.x - x.x * stage.W) <= (x.w || .18) * stage.W / 2 && Math.abs(p.y - x.y * stage.H) <= (x.h || .18) * stage.H / 2);
+      const prop = [...S.props].reverse().find((x) => x.visible !== false && !coversFrame(x) && !isHeld(x) && Math.abs(p.x - x.x * stage.W) <= (x.w || .18) * stage.W / 2 && Math.abs(p.y - x.y * stage.H) <= (x.h || .18) * stage.H / 2);
       if (prop) {
         S.selectedPropId = prop.id; S.sel = null;
         drag = { mode: 'prop', prop, p0: p, x0: prop.x ?? .5, y0: prop.y ?? .65 };
@@ -1315,7 +1315,7 @@ function updateSel() {
   if (emptyEl) emptyEl.hidden = S.lines.length > 0 || S.speakers.some((x) => x.charId);
   if (!selEl) return;
   const prop = S.props.find((item) => item.id === S.selectedPropId);
-  if (prop && S.step === 3 && !stage.fullView && stage.camZoom <= 1.02 && !player.playing) {
+  if (prop && !isHeld(prop) && S.step === 3 && !stage.fullView && stage.camZoom <= 1.02 && !player.playing) {      // a held prop has no box: it moves with the hand
     selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; });
     if (selBar) selBar.hidden = true;
     if (hintEl) hintEl.hidden = true;
@@ -1794,12 +1794,21 @@ function libraryTab(kind) {
     return h('label', { class: 'studio-prop-range' }, h('span', {}, text, out), h('input', { type: 'range', min, max, step, value, oninput: (e) => { set(Number(e.target.value)); out.textContent = format(Number(e.target.value)); } }));
   };
   const seconds = (key, text) => h('label', { class: 'prop-time' }, h('span', {}, text), h('input', { type: 'number', min: 0, step: 0.1, placeholder: 'poori scene', value: selected[key] ?? '', 'aria-label': text, onchange: (e) => edit(key, e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))) }));
-  const freeform = !(effects && coversFrame(selected || {}));
+  const held = !effects && selected && isHeld(selected), freeform = !(effects && coversFrame(selected || {}));
+  const actors = S.speakers.filter((speaker) => speaker.charId);
+  const holdWith = (hand) => change(() => { if (!hand) { delete selected.attach; if (selected.rotation === -90) selected.rotation = 0; return; } if (!isHeld(selected) && !selected.rotation) selected.rotation = -90; selected.attach = { key: selected.attach?.key && actors.some((a) => a.key === selected.attach.key) ? selected.attach.key : actors[0].key, hand }; });
+  const holdBlock = effects || !selected ? [] : [h('div', { class: 'card flat prop-hold' }, h('h4', {}, '🤚 Haath me pakdayein'),
+    h('div', { class: 'seg', role: 'group', 'aria-label': 'Prop kahan rahe' }, [[null, 'Stage par'], ['L', 'Left hand'], ['R', 'Right hand']].map(([hand, text]) => h('button', { type: 'button', disabled: !!hand && !actors.length, class: (hand ? selected.attach?.hand === hand && held : !held) ? 'on' : '', onclick: () => { holdWith(hand); redrawPanel(); } }, text))),
+    !actors.length ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Pehle koi character lagayein, tab prop uske haath me aayega.') : null,
+    held && actors.length > 1 ? h('label', { class: 'prop-time' }, h('span', {}, 'Kis character ke haath me'), h('select', { 'aria-label': 'Character', onchange: (e) => change(() => { selected.attach = { ...selected.attach, key: e.target.value }; }) }, actors.map((a) => h('option', { value: a.key, selected: a.key === selected.attach.key }, a.name)))) : null,
+    ...(held ? [range('grip.x', 'Pakad point · left / right', 0, 1, 0.01, selected.grip?.x ?? .5, percent, (v) => change(() => { selected.grip = { ...(selected.grip || { x: .5, y: .5 }), x: v }; })), range('grip.y', 'Pakad point · up / down', 0, 1, 0.01, selected.grip?.y ?? .5, percent, (v) => change(() => { selected.grip = { ...(selected.grip || { x: .5, y: .5 }), y: v }; })),
+      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.follow !== false, onchange: (e) => edit('follow', e.target.checked ? undefined : false) }), 'Haath ke saath ghumayein')] : []))];
   const editor = !selected ? null : h('div', { class: 'card flat studio-prop-editor' }, h('h3', {}, selected.name),
     range('opacity', 'Opacity', 0.05, 1, 0.01, 1),
     ...(effects ? [h('div', { class: 'seg', role: 'group', 'aria-label': 'Blend mode' }, [['normal', 'Normal'], ['add', 'Glow'], ['screen', 'Screen']].map(([value, text]) => h('button', { type: 'button', class: (selected.blend || 'normal') === value ? 'on' : '', onclick: () => { edit('blend', value); redrawPanel(); } }, text))),
       freeform ? h('button', { class: 'btn sm', type: 'button', onclick: () => { change(() => Object.assign(selected, { x: .5, y: .5, w: 1, h: 1, rotation: 0 })); redrawPanel(); } }, 'Poori frame par failayein') : null] : []),
-    ...(freeform ? [range('x', 'Position · left / right', 0, 1, 0.01, .5), range('y', 'Position · top / bottom', 0, 1, 0.01, .66), range('w', 'Width', 0.04, effects ? 1 : 0.8, 0.01, .18), range('h', 'Height', 0.04, effects ? 1 : 0.8, 0.01, .18), range('rotation', 'Rotation', -180, 180, 1, 0, (v) => `${Math.round(v)}°`)] : []),
+    ...holdBlock,
+    ...(freeform ? [...(held ? [] : [range('x', 'Position · left / right', 0, 1, 0.01, .5), range('y', 'Position · top / bottom', 0, 1, 0.01, .66)]), range('w', 'Width', 0.04, effects ? 1 : 0.8, 0.01, .18), range('h', 'Height', 0.04, effects ? 1 : 0.8, 0.01, .18), range('rotation', 'Rotation', -180, 180, 1, 0, (v) => `${Math.round(v)}°`)] : []),
     ...(selected.sheet ? [range('sheet', 'Animation speed', 1, 60, 1, selected.sheet.fps, (v) => `${Math.round(v)} fps`, (v) => change(() => { selected.sheet = { ...selected.sheet, fps: v }; }))] : []),
     ...(effects ? [] : [h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.behind === true, onchange: (e) => edit('behind', e.target.checked ? true : undefined) }), 'Character ke peeche rakhein')]),
     h('div', { class: 'prop-times' }, seconds('start', 'Dikhe: shuru (s)'), seconds('end', 'Dikhe: khatam (s)')),

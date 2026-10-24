@@ -442,9 +442,6 @@ header .logo-btn{font-size:20px}
 .cs-card .ib{position:absolute;top:4px;right:4px;width:22px;height:22px}
 .cs-th{aspect-ratio:1;border-radius:10px;background:#191610;display:grid;place-items:center;font-size:28px;overflow:hidden}
 .cs-th img{width:100%;height:100%;object-fit:cover}
-.cs-part{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#191610}.cs-part.off{opacity:.55}
-.cs-prow{display:flex;align-items:center;gap:8px}.cs-prow .nm{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.cs-ctl{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .cs-sl{display:grid;grid-template-columns:70px 1fr 48px;gap:8px;align-items:center;font-size:12px;color:var(--mute)}
 .cs-sl input{accent-color:var(--acc);width:100%}.cs-sl .v{text-align:right;font-variant-numeric:tabular-nums}
 .hint{color:var(--mute);font-size:13px;text-align:center;margin-top:8px}
@@ -454,7 +451,6 @@ header .logo-btn{font-size:20px}
   .cs-body{grid-template-columns:1fr;padding-top:8px}.cs-left{position:sticky;top:60px;z-index:6;background:#191610;padding-bottom:6px}.cs-stage canvas{max-height:36vh}.cs-left .hint{display:none}
   .sh-hero{padding-top:32px}
 }
-.cs-fixed{font-weight:500;color:var(--mute);font-size:12px}
 .cs-card .cs-th{aspect-ratio:2/1;font-size:24px}
 .cs-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
 .adc{border-color:#594729;background:#191610}.adc-steps{margin:0 0 12px 20px;color:var(--text);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
@@ -497,11 +493,10 @@ header .logo-btn{font-size:20px}
 .cs-ghead{display:flex;align-items:center;gap:8px;width:100%;padding:11px 12px;background:#191610;border:0;cursor:pointer;text-align:left;color:var(--text);font:inherit}
 .cs-ghead small{color:var(--mute);background:#191610;border-radius:99px;padding:0 8px;font-size:11px}
 .cs-lrows{display:flex;flex-direction:column;gap:6px;padding:8px}
-.cs-layer{border:1px solid var(--line);border-radius:12px;padding:6px 8px;background:#191610}.cs-layer.off{opacity:.55}.cs-layer.locked{background:#191610}
 .cs-lrow{display:flex;align-items:center;gap:6px}
 .cs-lth{width:44px;height:44px;border-radius:8px;background:repeating-conic-gradient(#191610 0 25%,#191610 0 50%) 50%/12px 12px;flex:none}
 .cs-lname{flex:1;min-width:0;display:flex;flex-direction:column}.cs-lname b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cs-lname small{color:var(--mute);font-size:11px}
-.cs-lgroup .cs-ctl{padding:4px 12px 12px}.cs-layer .cs-ctl{padding:6px 2px 4px}
+
 @media(max-width:860px){.cs .sh-crumb{display:none}.cs .sh-bar{flex-wrap:nowrap}.cs-left{top:58px}}
 /* 12toons previews are drawn for a dark background (white clothes / lines on transparent) */
 .ath.dark{background:#201b13}.ath.dark img{object-fit:contain;width:100%;height:100%;image-rendering:auto}
@@ -609,7 +604,6 @@ header .logo-btn{font-size:20px}
 @media(max-width:640px){.affiliate-rate-card{align-items:flex-start;flex-direction:column}.affiliate-rate-controls{width:100%}.affiliate-rate-message{min-height:13px}.affiliate-admin-commission{flex-direction:column}.affiliate-payout-reference{width:min(220px,55vw)}}
 
 /* Character Studio: create my own character */
-.cs-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cs-mode{border:2px solid var(--line);border-radius:14px;background:#191610;padding:10px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px}
 .cs-mode.on{border-color:var(--acc);background:#191610}.cs-mode b{font-size:13px}.cs-mode small{font-size:11px;color:var(--mute)}
 .cs-prog{display:flex;flex-direction:column;gap:4px;font-size:12px}.cs-bar{height:8px;border-radius:6px;background:#191610;overflow:hidden}.cs-bar i{display:block;height:100%;background:linear-gradient(90deg,#bd913e,#bd913e)}
@@ -621,7 +615,7 @@ header .logo-btn{font-size:20px}
 :root[data-theme="night"]{--bg:#0b0907;--card:#15120d;--card2:#211b12}
 :root[data-theme="night"] body,:root[data-theme="night"] #shell,:root[data-theme="night"] #app{background:var(--bg);color:var(--text)}
 :root[data-theme="night"] .sh,:root[data-theme="night"] .projects-page,:root[data-theme="night"] .affiliate-page,:root[data-theme="night"] .affiliate-dashboard,:root[data-theme="night"] .credits-page{background:var(--bg);color:var(--text)}
-:root[data-theme="night"] .sh-bar,:root[data-theme="night"] .projects-header,:root[data-theme="night"] .projects-toolbar,:root[data-theme="night"] .project-card,:root[data-theme="night"] .project-dialog,:root[data-theme="night"] .projects-empty,:root[data-theme="night"] .affiliate-card,:root[data-theme="night"] .affiliate-admin-card,:root[data-theme="night"] .affiliate-rate-card,:root[data-theme="night"] .affiliate-link-card,:root[data-theme="night"] .affiliate-commission-card,:root[data-theme="night"] .affiliate-kpi,:root[data-theme="night"] .affiliate-dash-unavailable,:root[data-theme="night"] .credit-balance-card,:root[data-theme="night"] .credit-plan,:root[data-theme="night"] .credit-history-section,:root[data-theme="night"] .payments-stat,:root[data-theme="night"] .payments-table-wrap,:root[data-theme="night"] .sh-login,:root[data-theme="night"] .sh-menu,:root[data-theme="night"] .sh-card,:root[data-theme="night"] .sh-step,:root[data-theme="night"] .sh-tool,:root[data-theme="night"] .sh-faq details,:root[data-theme="night"] .cs-card,:root[data-theme="night"] .cs-part,:root[data-theme="night"] .cs-layer,:root[data-theme="night"] .cs-lgroup,:root[data-theme="night"] .ad-char,:root[data-theme="night"] .ad-lrow,:root[data-theme="night"] .ad-cat,:root[data-theme="night"] .ad-card,:root[data-theme="night"] .support-panel,:root[data-theme="night"] .support-head,:root[data-theme="night"] .chat-widget-panel{background:var(--card);color:var(--text);border-color:var(--line)}
+:root[data-theme="night"] .sh-bar,:root[data-theme="night"] .projects-header,:root[data-theme="night"] .projects-toolbar,:root[data-theme="night"] .project-card,:root[data-theme="night"] .project-dialog,:root[data-theme="night"] .projects-empty,:root[data-theme="night"] .affiliate-card,:root[data-theme="night"] .affiliate-admin-card,:root[data-theme="night"] .affiliate-rate-card,:root[data-theme="night"] .affiliate-link-card,:root[data-theme="night"] .affiliate-commission-card,:root[data-theme="night"] .affiliate-kpi,:root[data-theme="night"] .affiliate-dash-unavailable,:root[data-theme="night"] .credit-balance-card,:root[data-theme="night"] .credit-plan,:root[data-theme="night"] .credit-history-section,:root[data-theme="night"] .payments-stat,:root[data-theme="night"] .payments-table-wrap,:root[data-theme="night"] .sh-login,:root[data-theme="night"] .sh-menu,:root[data-theme="night"] .sh-card,:root[data-theme="night"] .sh-step,:root[data-theme="night"] .sh-tool,:root[data-theme="night"] .sh-faq details,:root[data-theme="night"] .cs-card,:root[data-theme="night"] .cs-lgroup,:root[data-theme="night"] .ad-char,:root[data-theme="night"] .ad-lrow,:root[data-theme="night"] .ad-cat,:root[data-theme="night"] .ad-card,:root[data-theme="night"] .support-panel,:root[data-theme="night"] .support-head,:root[data-theme="night"] .chat-widget-panel{background:var(--card);color:var(--text);border-color:var(--line)}
 :root[data-theme="night"] .sh-hero,:root[data-theme="night"] .sh-sec.alt,:root[data-theme="night"] .projects-main,:root[data-theme="night"] .affiliate-main,:root[data-theme="night"] .affiliate-dash-main,:root[data-theme="night"] .credit-main,:root[data-theme="night"] .payments-main{background:var(--bg);color:var(--text)}
 :root[data-theme="night"] .sh-hero{background:linear-gradient(180deg,#201b13,#100e0b)}
 :root[data-theme="night"] .sh-bar,:root[data-theme="night"] .projects-header{box-shadow:0 4px 18px #08060355}
@@ -635,12 +629,12 @@ header .logo-btn{font-size:20px}
 :root[data-theme="night"] .affiliate-admin-message,:root[data-theme="night"] .affiliate-admin-totals span,:root[data-theme="night"] .credit-status,:root[data-theme="night"] .credit-setup,:root[data-theme="night"] .clipbar,:root[data-theme="night"] .ad-stage,:root[data-theme="night"] .cs-stage,:root[data-theme="night"] .stagebox,:root[data-theme="night"] .stagebox{background:#100e0b;color:var(--text);border-color:var(--line)}
 :root[data-theme="night"] .credit-setup,:root[data-theme="night"] .credit-message.success,:root[data-theme="night"] .affiliate-message.success,:root[data-theme="night"] .projects-status:not(:empty){background:#201b13;color:#efd08a;border-color:#765c30}
 :root[data-theme="night"] .credit-note,:root[data-theme="night"] .credit-message.error,:root[data-theme="night"] .affiliate-message.error{background:#451b2b;color:#fecdd3}
-:root[data-theme="night"] .cs-left,:root[data-theme="night"] .cs-ghead,:root[data-theme="night"] .cs-layer.locked,:root[data-theme="night"] .ad-cathead,:root[data-theme="night"] .ad-bar,:root[data-theme="night"] .tl-labels,:root[data-theme="night"] .ruler,:root[data-theme="night"] .lane2.voice,:root[data-theme="night"] .lane2.audio,:root[data-theme="night"] .lane2.cam,:root[data-theme="night"] .lane2.move{background:#201b13;color:var(--text);border-color:var(--line)}
+:root[data-theme="night"] .cs-left,:root[data-theme="night"] .cs-ghead,:root[data-theme="night"] .ad-cathead,:root[data-theme="night"] .ad-bar,:root[data-theme="night"] .tl-labels,:root[data-theme="night"] .ruler,:root[data-theme="night"] .lane2.voice,:root[data-theme="night"] .lane2.audio,:root[data-theme="night"] .lane2.cam,:root[data-theme="night"] .lane2.move{background:#201b13;color:var(--text);border-color:var(--line)}
 :root[data-theme="night"] .tabs.big,:root[data-theme="night"] .ws .tabs.big,:root[data-theme="night"] .ws .panel,:root[data-theme="night"] .panel.open{background:var(--card);color:var(--text);border-color:var(--line)}
 :root[data-theme="night"] .tabs button,:root[data-theme="night"] .seg button,:root[data-theme="night"] .seg3 button,:root[data-theme="night"] .shotfocus button{background:var(--card2);color:var(--text);border-color:var(--line)}
 :root[data-theme="night"] .tabs button.on,:root[data-theme="night"] .seg button.on,:root[data-theme="night"] .seg3 button.on,:root[data-theme="night"] .shotfocus button.on,:root[data-theme="night"] .cs-tabs button.on{background:#bd913e;color:#f3ead6;border-color:#765c30}
 :root[data-theme="night"] .drop:hover,:root[data-theme="night"] .drop.over,:root[data-theme="night"] .tst-a.on,:root[data-theme="night"] .cs-mode.on,:root[data-theme="night"] .rl.on,:root[data-theme="night"] .rl.char.on,:root[data-theme="night"] .ad-tmail,:root[data-theme="night"] .ad-tmail button{background:#201b13;color:#efd08a;border-color:#765c30}
-:root[data-theme="night"] .tl2,:root[data-theme="night"] .tl,:root[data-theme="night"] .linebox,:root[data-theme="night"] .selbar,:root[data-theme="night"] .lrow,:root[data-theme="night"] .cs-layer,:root[data-theme="night"] .cs-part,:root[data-theme="night"] .cs-ghead{background-color:var(--card)}
+:root[data-theme="night"] .tl2,:root[data-theme="night"] .tl,:root[data-theme="night"] .linebox,:root[data-theme="night"] .selbar,:root[data-theme="night"] .lrow,:root[data-theme="night"] .cs-ghead{background-color:var(--card)}
 :root[data-theme="night"] .cs-th,:root[data-theme="night"] .th,:root[data-theme="night"] .acard .ath,:root[data-theme="night"] .bgc,:root[data-theme="night"] .cp-img,:root[data-theme="night"] .ad-char img{background-color:#201b13}
 :root[data-theme="night"] .project-actions,:root[data-theme="night"] .affiliate-commission-row,:root[data-theme="night"] .affiliate-admin-commissions,:root[data-theme="night"] .credit-history-row,:root[data-theme="night"] .payments-table td,:root[data-theme="night"] .payments-table th{border-color:var(--line)}
 :root[data-theme="night"] .affiliate-admin-code,:root[data-theme="night"] .affiliate-admin-count,:root[data-theme="night"] .affiliate-status,:root[data-theme="night"] .credit-popular{background:#201b13;color:#efd08a;border-color:#765c30}
@@ -842,3 +836,12 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 }
 .logo .brand-name,.projects-brand .brand-name,.legal-brand .brand-name{line-height:1}
 .projects-brand,.legal-brand{display:inline-flex;align-items:baseline;gap:0;overflow:visible}
+/* admin console: one persistent top bar + section tabs; each section opens inside the host below them */
+.admin-console-host{min-height:60vh}
+.admin-console-host>*{min-height:0!important}
+.admin-console-host>.sh,.admin-console-host>div{background:transparent!important}
+.admin-console-host .sh-bar{display:none}
+.admin-console-host .admin-assets-tabs{padding-left:max(16px,calc((100vw - 1260px)/2))}
+.admin-console-loading{padding:56px 18px;text-align:center;color:var(--muted,#c3b494);font-size:13px}
+.admin-console-error{width:min(720px,calc(100% - 36px));margin:36px auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.admin-console-nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}

@@ -4,26 +4,17 @@ import { testerAnimationAllowed, changeTesterAnimation } from './tester-animatio
 // The rules are stored in Firestore config/animations ({ '*': [...], neha: [...], mybaby: [...] }) and applied in catalog.categoriesFor().
 // A second page, "Layers", renames the Character Studio layers and switches them on / off for users (Firestore config/layers).
 // The big preview plays the chosen animation on the real character, so the admin can judge it before showing it to users.
-import { h, logo } from './dom.js';
+import { h } from './dom.js';
 import { Stage } from './db/stage.js';
 import { loadCatalog, libraryCharacters, fetchLibraryCharacter, categoriesFor, fetchAnimation, getAnimRules, setAnimRules, setTesterRules, cdn, url as assetUrl } from './catalog.js';
 import { saveAnimRules, loadAnimRules, saveLayerRules, loadLayerRules, loadTesterConfig, saveTesterConfig, listTesterSubmissions } from './cloud.js';
 import { groupName, layerName } from './layerrules.js';
 import { getLayerRules, setLayerRules, layerId } from './layerrules.js';
-import { securityView } from './security-view.js';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const fmt = (n) => (n ? `${(+n).toFixed(1)}s` : '—');
 
 async function studioView({ user, home, toast, initialMode = 'anim' }) {
-  const securityButton=document.createElement('button');securityButton.className='btn';securityButton.textContent='Users & Security';
-  securityButton.onclick=async()=>{try{root.replaceChildren(await securityView({home:async()=>{const next=await view({user,home,toast});root.replaceWith(next);},toast}));}catch(e){toast(e.message);}};
-  const paymentsButton=document.createElement('button');paymentsButton.className='btn';paymentsButton.textContent='Payments';
-  paymentsButton.onclick=async()=>{try{const {view:paymentsView}=await import('./admin-payments.js');root.replaceWith(await paymentsView({user,home,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Payments khul nahi paye: ${e.message}`);}};
-  const chatButton=document.createElement('button');chatButton.className='btn';chatButton.textContent='Live Chat';
-  chatButton.onclick=async()=>{try{const {chatView}=await import('./admin-chat.js');root.replaceWith(await chatView({user,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Live chat khul nahi paya: ${e.message}`);}};
-  const affiliatesButton=document.createElement('button');affiliatesButton.className='btn';affiliatesButton.textContent='Affiliates';
-  affiliatesButton.onclick=async()=>{try{const {affiliatesView}=await import('./admin-affiliates.js');root.replaceWith(await affiliatesView({user,toast,back:async()=>{const next=await view({user,home,toast});root.replaceWith(next);}}));}catch(e){toast(`Affiliates khul nahi paye: ${e.message}`);}};
   await loadCatalog();
   const entries = libraryCharacters().filter((e) => e.template);
   const chars = [...new Map(entries.map((e) => [e.charBase, { base: e.charBase, name: e.name, thumb: e.thumbnail, poses: entries.filter((x) => x.charBase === e.charBase) }])).values()];
@@ -49,7 +40,6 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
   stage.setSize('4:5', 640);
   let t0 = performance.now(), raf = 0, loaded = false, lastFrame = 0;
   const root = h('div', { class: 'sh ad' });
-  queueMicrotask(()=>root.prepend(securityButton));
   const loop = (now) => {
     if (!root.isConnected) { cancelAnimationFrame(raf); return; }
     raf = requestAnimationFrame(loop);
@@ -312,7 +302,6 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
   function drawAll() { drawTop(); drawList(); drawCaption(); drawBar(); }
 
   root.append(
-    h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin'), h('span', { class: 'sp' }), affiliatesButton, chatButton, paymentsButton, h('button', { class: 'btn', onclick: home }, '⌂ Home')),
     h('div', { class: 'cs-body ad-body' },
       h('div', { class: 'cs-left' }, stageBox, capEl),
       h('div', { class: 'cs-right ad-right' }, topEl, listEl, barEl)));

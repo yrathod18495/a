@@ -6,7 +6,7 @@ import { prepareArmature, assemble } from './prep.js';
 import { GLRenderer } from './renderer.js';
 import { Motion, limbsFromArmature } from './motion.js';
 import { HOP, visemeName } from '../lipsync.js';
-import { EFFECT_BLENDS, propActive, sheetUv } from '../../shared/studio-effects.js';
+import { EFFECT_BLENDS, propActive, sheetUv, isHeld, heldAt, heldPlacement } from '../../shared/studio-effects.js';
 
 export const ASPECTS = {
   '9:16': { w: 9, h: 16, label: 'Portrait 9:16' },
@@ -459,10 +459,16 @@ export class Stage {
       const tex = this.propTex.get(prop.id);
       if (!tex || !propActive(prop, t) || (prop.behind === true && prop.kind !== 'effect') !== behind) continue;
       const w = Math.max(8, (prop.w || 0.18) * W), h = Math.max(8, (prop.h || 0.18) * H);
-      const x = (prop.x ?? 0.5) * W - w / 2, y = (prop.y ?? 0.65) * H - h / 2, a = (prop.rotation || 0) * Math.PI / 180;
-      const c = Math.cos(a), s = Math.sin(a), cx = x + w / 2, cy = y + h / 2;
+      let cx = (prop.x ?? 0.5) * W, cy = (prop.y ?? 0.65) * H, a = (prop.rotation || 0) * Math.PI / 180, flip = false;
+      if (isHeld(prop)) {                                                          // held: it travels with the hand bone of that character
+        const held = heldAt(this.layers.find((l) => l.key === prop.attach.key), prop.attach.hand);
+        if (held === 'hidden') continue;
+        if (held) { const at = heldPlacement(prop, held, w, h); cx = at.cx; cy = at.cy; a = at.angle; flip = at.mirrored; }
+      }
+      const c = Math.cos(a), s = Math.sin(a);
       const m = [c, s, -s, c, cx - c * w / 2 + s * h / 2, cy - s * w / 2 - c * h / 2];
-      const [u0, v0, u1, v1] = sheetUv(prop.sheet, t - (prop.start || 0));       // sprite-sheet effects play their frames
+      let [u0, v0, u1, v1] = sheetUv(prop.sheet, t - (prop.start || 0));       // sprite-sheet effects play their frames
+      if (flip) [u0, u1] = [u1, u0];
       r.add({ verts: new Float32Array([0, 0, w, 0, w, h, 0, h]), uvs: new Float32Array([u0, v0, u1, v0, u1, v1, u0, v1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: Math.min(1, Math.max(0, prop.opacity ?? 1)), r: 1, g: 1, b: 1, blend: EFFECT_BLENDS[prop.blend] ?? 0 }, tex, m);
     }
   }

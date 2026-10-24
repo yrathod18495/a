@@ -53,3 +53,24 @@ export function propFromAsset(asset, blob, id) {
   const full = asset.placement !== 'sticker';
   return { ...base, kind: 'effect', x: 0.5, y: full ? 0.5 : 0.4, w: full ? 1 : 0.3, h: full ? 1 : 0.3, opacity: asset.opacity ?? 1, blend: asset.blend || 'normal', ...(asset.sheet ? { sheet: { ...asset.sheet } } : {}), ...(asset.category ? { category: asset.category } : {}) };
 }
+
+/* ---- props held in a character's hand: the prop follows the hand bone of that character ---- */
+export const HAND_BONES = Object.freeze({ L: 'L_Palm', R: 'R_Palm' });
+export const isHeld = (prop) => !!prop?.attach?.key && prop.attach.hand in HAND_BONES;
+/** where a held prop sits: the palm of `layer`'s character in canvas pixels, plus the direction the hand points (upright prop = 0).
+    A mirrored character mirrors the prop too. Returns null when the character has no such hand, 'hidden' while the character is off screen. */
+export function heldAt(layer, hand) {
+  if (!layer || layer.visible === false || layer.shown === false) return 'hidden';
+  const bone = layer.arm?.getBone(HAND_BONES[hand]);
+  if (!bone) return null;
+  const m = bone.globalTransformMatrix, M = layer.mat, mirrored = M[0] * M[3] - M[1] * M[2] < 0;
+  const vx = M[0] * m.a + M[2] * m.b, vy = M[1] * m.a + M[3] * m.b;
+  return { x: M[0] * m.tx + M[2] * m.ty + M[4], y: M[1] * m.tx + M[3] * m.ty + M[5], angle: mirrored ? -Math.atan2(vy, -vx) : Math.atan2(vy, vx), mirrored };
+}
+/** centre and angle of a held prop of size w x h: the grip point of the picture (default its middle) sits in the palm */
+export function heldPlacement(prop, held, w, h) {
+  const grip = prop.grip || { x: 0.5, y: 0.5 }, turn = (prop.follow === false ? 0 : held.angle) + (held.mirrored ? -1 : 1) * (prop.rotation || 0) * Math.PI / 180;
+  const gx = (grip.x - 0.5) * w * (held.mirrored ? -1 : 1), gy = (grip.y - 0.5) * h, c = Math.cos(turn), s = Math.sin(turn);
+  return { cx: held.x - (c * gx - s * gy), cy: held.y - (s * gx + c * gy), angle: turn, mirrored: held.mirrored };
+}
+
