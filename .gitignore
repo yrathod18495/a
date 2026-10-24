@@ -11,3 +11,9 @@ dist
 .env.local
 .vercel
 
+# Removed source assets and generated Python files
+/sources/spine/
+/sheets/
+artwork-audit.json
+__pycache__/
+*.pyc
