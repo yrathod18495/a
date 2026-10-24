@@ -21,8 +21,7 @@ import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
-import { currentPlan, refreshPlan, authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
-import { fmtLimit, limitMessage, EXPORT_LIMIT_SECONDS } from '../shared/export-limits.js';
+import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
 const initialPreviewMode = readPreviewMode();
@@ -595,7 +594,7 @@ function viewStudio() {
   return h('div', { class: 'workbench' },
     h('div', { class: 'studio' },
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard()),
-        h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn', title: 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, '⏮'), timeEl, h('label', { class: 'preview-quality' }, h('span', {}, 'Preview'), previewSelect = h('select', { 'aria-label': 'Preview quality', title: 'Low is faster and softer. Export quality is set separately.', onchange: e => changePreviewQuality(e.target.value) }, Object.entries(PREVIEW_MODES).map(([value, mode]) => h('option', { value, selected: value === S.previewMode }, mode.label)))), h('span', { class: 'sp' }),
+        h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn', title: 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, '⏮'), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm', title: 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, '−'), h('button', { class: 'btn sm', title: 'Fit scene in editor', onclick: () => setEditorZoom(1) }, 'Fit scene'), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm', title: 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, '+')), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, sceneTabs(), tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
@@ -1747,18 +1746,11 @@ function tabExport() {
   const cDone = h('button', { class: 'btn ok', style: 'width:100%;padding:14px', disabled: !pickType() && !window.VideoEncoder, onclick: doExport }, '⬇ Export video');
   const { W: outW, H: outH } = sizeFor(), preset = presetMatch(S);
   const mbps = bitrateFor(outW, outH, S.level, S.format) / 1e6, mb = (mbps * duration) / 8;
-  const plan = currentPlan(), over = duration > plan.limitSeconds + 0.05, shown = `${plan.tier}${plan.limitSeconds}`;
-  refreshPlan().then((next) => { if (S.tab === 'export' && S.panelOpen && `${next.tier}${next.limitSeconds}` !== shown) redrawPanel(); });
-  const planCard = h('div', { class: `exp-plan${over ? ' over' : ''}` },
-    h('div', { class: 'exp-plan-head' }, h('b', {}, plan.tier === 'paid' ? '⭐ Paid account' : 'Free account'), h('span', {}, `up to ${fmtLimit(plan.limitSeconds)} per export`)),
-    h('div', { class: 'exp-meter', role: 'img', 'aria-label': `This video is ${fmtLimit(duration)} of ${fmtLimit(plan.limitSeconds)}` }, h('i', { style: `width:${Math.min(100, (duration / plan.limitSeconds) * 100)}%` })),
-    over ? h('p', { class: 'exp-warn', role: 'alert' }, limitMessage(duration, plan.tier)) : h('small', {}, `This video: ${fmtLimit(duration)}${plan.tier === 'free' ? ` · paid accounts export up to ${fmtLimit(EXPORT_LIMIT_SECONDS.paid)}` : ''}`),
-    plan.tier === 'free' ? h('a', { class: 'btn sm', href: '/buy-credits', target: '_blank', rel: 'noopener' }, 'Buy credits for longer exports') : null);
   const group = (key, icon, title, ...body) => h('details', { class: 'exp-group', open: S.expOpen[key], ontoggle: e => { S.expOpen[key] = e.currentTarget.open; } }, h('summary', {}, h('span', { 'aria-hidden': 'true' }, icon), title), h('div', { class: 'exp-body' }, ...body));
   const stat = (label, value) => h('div', {}, label, h('b', {}, value));
   return h('div', { class: 'list' },
-    group('quick', '⚡', 'Quick setup', planCard,
-      h('div', { class: 'exp-summary' }, stat('Resolution', `${outW}×${outH}`), stat('Length', `${duration.toFixed(1)} s`), stat('Format', `${S.format.toUpperCase()} · ${S.fps} fps`), stat('Approx. size', `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)),
+    group('quick', '⚡', 'Quick setup',
+      h('div', { class: 'exp-summary' }, stat('Resolution', `${outW}×${outH}`), stat(`Length · ${exportScenes.length} scene${exportScenes.length > 1 ? 's' : ''}`, `${duration.toFixed(1)} s`), stat('Format', `${S.format.toUpperCase()} · ${S.fps} fps`), stat('Approx. size', `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)),
       h('div', { class: 'exp-presets' }, EXPORT_PRESETS.map(p => h('button', { type: 'button', 'aria-pressed': String(preset === p.id), onclick: () => { Object.assign(S, { quality: p.quality, format: p.format, fps: p.fps, level: p.level }); redrawPanel(); } }, p.label, h('small', {}, p.note))))),
     group('out', '🎞', 'Scenes & method', cScenes, cNoAudio, cMethod),
     group('pic', '🖼', 'Picture', cQuality, cFps),
@@ -1787,7 +1779,7 @@ async function doExport() {
     const { seconds, scenes } = exportLength();
     grant = await authorizeExport({ seconds, scenes, scope: scenes > 1 ? 'all' : 'current' });
   } catch (error) {
-    toast(error.message); if (error instanceof ExportLimitError) { openTab('export'); refreshPlan({ fresh: true }); }
+    toast(error.message); if (error instanceof ExportLimitError) { openTab('export'); }
     return;
   } finally { exportChecking = false; }
   if (S.exporting || previewChanging || sceneChanging) return;
@@ -1898,6 +1890,18 @@ async function loadDoc(doc) {
     await loadSceneDoc(legacy);
   }
 }
+/** projects saved before a scene's length followed its animation: read the chosen animation's length from the catalog */
+const defById = (id) => S.characters.find((c) => c.id === id) || S.libDefs.get(id);
+function fillSoloLengths(doc) {
+  if (!doc) return;
+  for (const [key, o] of Object.entries(doc.solo || {})) {
+    if (!o?.body || o.bodyLen > 0 || o.body.source === 'mode') continue;
+    const charId = (doc.speakers || []).find((s) => s.key === key)?.charId, def = charId && defById(charId);
+    if (!def?.rig) continue;
+    const hit = categoriesFor(def.rig).filter((c) => !c.overlay).flatMap((c) => c.animations).find((a) => sameRef(a.ref, o.body));
+    if (hit?.length > 0) o.bodyLen = +(+hit.length).toFixed(2);
+  }
+}
 async function ensureDefs() {
   for (const speaker of S.speakers) {
     if (!speaker.charId) continue;
@@ -1929,6 +1933,7 @@ async function loadSceneDoc(doc) {
   S.bgId = doc.bgId ?? null; stage.bg.preset = doc.bgPreset ?? 0;
   await stage.setBackgroundImage(S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null);
   await ensureDefs();
+  fillSoloLengths({ solo: S.solo, speakers: S.speakers });
   if (!S.speakers.some((s) => s.key === S.animFor && s.charId)) S.animFor = S.speakers.find((s) => s.charId)?.key ?? null;
   if (S.sel && !S.speakers.some((s) => s.key === S.sel && s.charId)) S.sel = null;
 }
@@ -2043,6 +2048,11 @@ async function resetEverything() {
   await resetAll();
   location.reload();
 }
+/** preview quality lives in the header, so it stays reachable while the canvas and timeline get the space */
+function previewControl() {
+  previewSelect = h('select', { 'aria-label': 'Preview quality', title: 'Low is faster and softer. Export quality is set separately.', onchange: e => changePreviewQuality(e.target.value) }, Object.entries(PREVIEW_MODES).map(([value, mode]) => h('option', { value, selected: value === S.previewMode }, mode.label)));
+  return h('label', { class: 'preview-quality' }, h('span', {}, 'Quality'), previewSelect);
+}
 function headerTools() {
   hdrUndo = h('button', { class: 'btn sm history-button', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z / ⌘Z)', onclick: () => stepHistory(-1) }, h('span', { 'aria-hidden': true }, '↶'), h('span', { class: 'history-label' }, 'Undo'));
   hdrRedo = h('button', { class: 'btn sm history-button', 'data-history-control': true, 'aria-label': 'Redo', title: 'Redo (Ctrl+Y / Ctrl+Shift+Z / ⌘⇧Z)', onclick: () => stepHistory(1) }, h('span', { 'aria-hidden': true }, '↷'), h('span', { class: 'history-label' }, 'Redo'));
@@ -2052,7 +2062,7 @@ function headerTools() {
   updateSaveStatus();
   queueMicrotask(updateHistoryButtons);
   exportBtn = h('button', { class: 'btn ok', onclick: doExport }, '⬇ Export');
-  return h('div', { class: 'hdr-tools' }, saveDetails, hdrUndo, hdrRedo, h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm', 'aria-label': 'More studio actions' }, '⋯'), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, 'Reset this project…'))), exportBtn);
+  return h('div', { class: 'hdr-tools' }, previewControl(), saveDetails, hdrUndo, hdrRedo, h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm', 'aria-label': 'More studio actions' }, '⋯'), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, 'Reset this project…'))), exportBtn);
 }
 window.addEventListener('keydown', (e) => {
   if ($app.hidden || !(e.ctrlKey || e.metaKey) || e.target.closest('input,select,textarea,[contenteditable=true],dialog[open],.modal')) return;
@@ -2095,7 +2105,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
@@ -2105,7 +2115,8 @@ export async function openStudio() {
   $app.hidden = false;
   if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile
   startAutoSync();
-  S.ready = true; S.dirty = true; fitEditor(); dockShow('rail'); dockShow('panel'); refreshPlan({ fresh: true });
+  S.scenes.forEach((scene) => fillSoloLengths(scene.doc));
+  S.ready = true; S.dirty = true; fitEditor(); dockShow('rail'); dockShow('panel');
   const box = document.getElementById('stagebox'); if (box) stageObserver?.observe(box);
 }
 export async function closeStudio() {

@@ -50,25 +50,40 @@ test('side menus slide away after 5 s idle and return from the screen edge; time
  await page.mouse.move(600,200);await page.keyboard.press('[');await expect(ws).toHaveAttribute('data-dock-rail','out');
 });
 
-test('free accounts cannot export more than 2 minutes, one scene or all scenes joined, and the export panel explains why',async({page})=>{
+test('free accounts cannot export more than 2 minutes, one scene or all scenes joined; the export panel shows no plan card',async({page})=>{
  await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Limit');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  const key=t=>({id:`k${t}`,t,cx:.5,cy:.5,zoom:1,ease:'linear'});
- // one 130 s scene
  await page.evaluate(k=>{window.__toon.S.camKeys.push(k);window.__toon.S.dirty=true;},key(130));
  await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
- await expect(page.locator('.exp-plan')).toContainText('Free account');await expect(page.locator('.exp-plan')).toContainText('up to 2 min');
- await expect(page.locator('.exp-plan.over')).toContainText('free account se ek baar me sirf 2 min');
+ await expect(page.locator('.exp-plan')).toHaveCount(0);await expect(page.getByText(/Paid account|Free account|per export/)).toHaveCount(0);
  await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
  await expect(page.getByText(/free account se ek baar me sirf 2 min/).first()).toBeVisible();
  expect(await page.evaluate(()=>window.__toon.S.exporting)).toBe(false);await expect(page.locator('.busy')).toHaveCount(0);
- // two scenes of 70 s each: fine one by one, too long joined
+ // two scenes of 70 s each: 140 s joined is too long
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'a',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
  await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'b',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
  await page.locator('.tabs.big').getByRole('button',{name:'Audio',exact:true}).click();await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
- await expect(page.locator('.exp-plan.over')).toBeVisible();
- await page.locator('.exp-group select[aria-label="Export scenes"]').selectOption('current');await expect(page.locator('.exp-plan.over')).toHaveCount(0);
- await page.locator('.exp-group select[aria-label="Export scenes"]').selectOption('all');await expect(page.locator('.exp-plan.over')).toBeVisible();
+ await expect(page.locator('.exp-summary')).toContainText('Length · 2 scenes');await expect(page.locator('.exp-summary')).toContainText('141.0 s');
+ await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
+ await expect(page.getByText(/Aapka video 2 min 21 s lamba hai/).first()).toBeVisible();
+ expect(await page.evaluate(()=>window.__toon.S.exporting)).toBe(false);
+});
+
+test('preview quality sits in the header, and projects saved before animation-length scenes get the length of their animation',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Quality');await page.getByRole('button',{name:'Create project',exact:true}).click();
+ await expect(page.locator('#app .stagebox canvas')).toBeVisible();
+ await expect(page.locator('.toast').filter({hasText:/khul nahi paya|nahi ho paya/})).toHaveCount(0);
+ await expect(page.locator('.hdr-tools').getByLabel('Preview quality')).toBeVisible();await expect(page.locator('.controls').getByLabel('Preview quality')).toHaveCount(0);
+ await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'＋ Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
+ await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
+ await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
+ const category=page.getByLabel('Animation category');const arms=await category.locator('option').evaluateAll(o=>o.find(x=>/Hands & arms/i.test(x.textContent))?.value);expect(arms).toBeTruthy();await category.selectOption(arms);
+ await page.locator('.animation-apply').first().click();
+ const length=await page.evaluate(()=>Object.values(window.__toon.S.solo)[0].bodyLen);expect(length).toBeGreaterThan(0);expect(length).toBeLessThan(8);
+ const restored=await page.evaluate(()=>{const {S,fillSoloLengths}=window.__toon;const solo=Object.values(S.solo)[0];delete solo.bodyLen;fillSoloLengths({solo:S.solo,speakers:S.speakers});return solo.bodyLen;});
+ expect(restored).toBe(length);
 });
