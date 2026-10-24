@@ -83,7 +83,7 @@ export class Stage {
     this.camKeys = [];        // camera keyframes [{t, cx, cy, zoom, ease}] (cx, cy = 0..1 of the canvas); empty = automatic shots
     this.userCam = null;      // Character Studio: free zoom / pan {zoom, cx, cy} in canvas pixels (zoom below 1 = out, nothing is clamped)
     this.fullView = false;    // editing: show the whole canvas instead of what the camera sees
-    this.bgKey = ''; this.bgVer = 0; this.bgTex = null;
+    this.bgTex = null; this.bgCache = new Map(); this.bgClips = []; this.imgIds = new WeakMap(); this.imgSeq = 0;   // backgrounds can change over time: one texture per (colour, picture, size)
     this.prepCache = new Map(); this.uid = 0;
     this.setSize('16:9', 720);
   }
@@ -270,7 +270,6 @@ export class Stage {
 
   async setBackgroundImage(file) {
     this.bg.image = file ? await loadImage(file) : null;
-    this.bgVer++;
   }
 
   async setTearSprite(blob) {
@@ -290,21 +289,34 @@ export class Stage {
   }
 
   /** the background (gradient and/or image) is painted once into a texture and drawn as one quad per frame */
-  ensureBackground() {
-    const key = `${this.bg.preset}|${this.bgVer}|${this.W}x${this.H}`;
-    if (key === this.bgKey) return;
+  /** background clips of the scene: [{start, dur, preset, blob|null}] — while one is on, it replaces the scene's base background */
+  async setBackgroundClips(clips = []) {
+    const next = [];
+    for (const c of clips) next.push({ start: c.start, end: c.start + c.dur, preset: c.preset ?? 0, image: c.blob ? await loadImage(c.blob) : null });
+    this.bgClips = next;
+    for (const c of next) this.bgTexture(c.preset, c.image);          // build the pictures now, not in the middle of playback
+  }
+  bgTexture(preset, image) {
+    let id = 0;
+    if (image) { id = this.imgIds.get(image); if (!id) this.imgIds.set(image, (id = ++this.imgSeq)); }
+    const key = `${preset}|${id}|${this.W}x${this.H}`, hit = this.bgCache.get(key);
+    if (hit) { this.bgCache.delete(key); this.bgCache.set(key, hit); return hit; }
     const { W, H } = this, c = makeCanvas(W, H), g = c.getContext('2d');
-    const p = BACKGROUNDS[this.bg.preset] || BACKGROUNDS[0];
+    const p = BACKGROUNDS[preset] || BACKGROUNDS[0];
     const grad = g.createLinearGradient(0, 0, W * 0.3, H); grad.addColorStop(0, p.a); grad.addColorStop(1, p.b);
     g.fillStyle = grad; g.fillRect(0, 0, W, H);
-    const im = this.bg.image;
-    if (im) {
-      const k = Math.max(W / im.width, H / im.height);
-      g.drawImage(im, (W - im.width * k) / 2, (H - im.height * k) / 2, im.width * k, im.height * k);
+    if (image) {
+      const k = Math.max(W / image.width, H / image.height);
+      g.drawImage(image, (W - image.width * k) / 2, (H - image.height * k) / 2, image.width * k, image.height * k);
     }
-    this.bgTex?.dispose();
-    this.bgTex = this.r.texture(c, false);
-    this.bgKey = key;
+    const tex = this.r.texture(c, false);
+    this.bgCache.set(key, tex);
+    while (this.bgCache.size > 10) { const [oldKey, old] = this.bgCache.entries().next().value; if (old === this.bgTex) break; old.dispose(); this.bgCache.delete(oldKey); }
+    return tex;
+  }
+  ensureBackground(t = 0) {
+    const clip = this.bgClips.find((c) => t >= c.start && t < c.end);
+    this.bgTex = this.bgTexture(clip ? clip.preset : this.bg.preset, clip ? clip.image : this.bg.image);
   }
 
   /**
@@ -428,7 +440,7 @@ export class Stage {
       else l.mask={...l.mask,x:a.x,y:a.y,w:a.w,h:a.h};
       if(l.maskFollow){const bone=l.arm.getBone(l.maskFollow);if(bone){const m=bone.globalTransformMatrix, p={x:l.mat[0]*m.tx+l.mat[2]*m.ty+l.mat[4],y:l.mat[1]*m.tx+l.mat[3]*m.ty+l.mat[5]};l.mask={...l.mask,x:(p.x-l.mask.w*this.W/2)/this.W,y:(p.y-l.mask.h*this.H/2)/this.H};}}
     }
-    this.ensureBackground();
+    this.ensureBackground(t);
     r.clear(...(this.userCam ? [0.93, 0.95, 0.97] : [0, 0, 0]));
     const cam = this.cameraAt(plan, t), vw = W / cam.zoom, vh = H / cam.zoom;
     this.camZoom = cam.zoom;

@@ -1,16 +1,15 @@
 import { GAP, LEAD, TAIL } from './player.js';
+import { contentLength } from '../shared/timeline-edit.js';
 
 export function emptyScene(aspect = '16:9') {
-  return { lines: [], speakers: [], order: [], fits: {}, cast: {}, shots: {}, script: {}, solo: {}, manual: {}, charKeys: {}, camKeys: [], aspect, bgId: null, bgPreset: 0, props: [] };
+  return { lines: [], speakers: [], order: [], fits: {}, cast: {}, shots: {}, script: {}, solo: {}, manual: {}, charKeys: {}, camKeys: [], aspect, bgId: null, bgPreset: 0, bgClips: [], props: [] };
 }
+/** the length of one audio line after the creator trimmed its start and end on the timeline */
+export const lineLength = (buffer, meta = {}) => Math.max(0.2, buffer.duration - (meta.trimStart || 0) - (meta.trimEnd || 0));
 export function sceneDuration(doc, audio) {
-  const lines = (doc.lines || []).map(line => audio.get(line.id)).filter(Boolean);
-  if (lines.length) return LEAD + lines.reduce((sum, line) => sum + line.buffer.duration, 0) + GAP * (lines.length - 1) + TAIL;
-  const solo = Object.entries(doc.solo || {}).filter(([key, value]) => value?.bodyLen > 0 && (doc.speakers || []).some(speaker => speaker.key === key && speaker.charId)).map(([, value]) => value.bodyLen);
-  let end = solo.length ? Math.max(1, ...solo) : 8;
-  for (const clips of Object.values(doc.manual || {})) for (const clip of clips) end = Math.max(end, clip.start + clip.dur);
-  for (const key of [...(doc.camKeys || []), ...Object.values(doc.charKeys || {}).flat()]) end = Math.max(end, key.t + .5);
-  return Math.ceil(end * 100) / 100;
+  const lines = (doc.lines || []).filter(line => audio.get(line.id));
+  if (lines.length) return LEAD + lines.reduce((sum, line) => sum + lineLength(audio.get(line.id).buffer, line), 0) + GAP * (lines.length - 1) + TAIL;
+  return contentLength(doc);
 }
 export function sequencePlan(scenes, audio) {
   let end = 0;

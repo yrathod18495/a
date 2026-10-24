@@ -24,13 +24,14 @@ import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
 import { propFromAsset, isEffect, isHeld } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
+import { resizeClip, contentLength, snap as snapTo, MIN_CLIP } from '../shared/timeline-edit.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
 const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
 const S = {
   scenes: [], sceneId: null, exportScope: 'all',
-  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
+  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
@@ -818,7 +819,22 @@ function drawTimeline() {
   // the scene background, named like the audio and animation clips
   const bgName = S.bgId ? (S.myBgs.find((r) => r.id === S.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[stage.bg.preset] || BACKGROUNDS[0]).name;
   labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, '🖼 Background'));
-  lanes.push(h('div', { class: 'lane2 bg', style: 'height:38px', onclick: () => openTab('canvas') }, h('div', { class: 'tclip bg', title: `Background · ${bgName}`, style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`))));
+  const bgLane = h('div', { class: 'lane2 bg', style: 'height:38px' }, h('div', { class: 'tclip bg base', title: `Background · ${bgName} (poori scene)`, onclick: () => openTab('canvas'), style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)));
+  for (const c of S.bgClips) {
+    const nm = (c.bgId ? (S.myBgs.find((r) => r.id === c.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[c.preset] || BACKGROUNDS[0]).name), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
+    const el = h('div', { class: `tclip bg mine ${c.id === S.bgSel ? 'sel' : ''}`, title: `${nm} — drag to move, drag an edge to resize`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `🖼 ${nm}`), rz);
+    el.addEventListener('pointerdown', (e) => dragBgClip(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
+    bgLane.append(el);
+  }
+  lanes.push(bgLane);
+  // props and effects: one row each, visible from start to end
+  for (const prop of S.props.filter((p) => p.visible !== false)) {
+    const start = prop.start || 0, end = prop.end ?? total, lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
+    const el = h('div', { class: `tclip prop ${isEffect(prop) ? 'fx' : ''} mine ${prop.id === S.propSel ? 'sel' : ''}`, title: `${prop.name} — drag to move, drag an edge to resize`, style: `left:${start * pps}px;width:${Math.max(6, (end - start) * pps)}px` }, lz, h('span', { class: 'tn' }, `${isEffect(prop) ? '✨' : '🧸'} ${prop.name}`), rz);
+    el.addEventListener('pointerdown', (e) => dragPropRange(e, prop, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
+    labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, isEffect(prop) ? 'Effect' : 'Prop')));
+    lanes.push(h('div', { class: 'lane2 prop', style: 'height:30px' }, el));
+  }
   const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 46;
   for (const s of S.order.map(sOf).filter((x) => x?.charId && charOf(x))) {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
@@ -826,14 +842,22 @@ function drawTimeline() {
       const ln = h('div', { class: 'lane2 char', style: `height:${LH}px` });
       for (const c of plan.clips.filter((x) => x.kind === kind && !x.manual)) {
         const name = (nameOf.get(c.name) || c.name).replace(/^Listener · /, '');
-        const el = h('div', { class: `tclip ${kind} auto`, title: `${s.name} · ${name} (automatic)`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, h('span', { class: 'tn' }, `${s.name} · ${name}`));
+        const pickable = !hasAudio && kind === 'body' && c.id.startsWith('solo:body') && S.solo[s.key]?.bodyLen > 0, lz = pickable && h('i', { class: 'lz' }), rz = pickable && h('i', { class: 'rz' });
+        const el = h('div', { class: `tclip ${kind} auto`, title: `${s.name} · ${name}${pickable ? ' — drag to move, drag an edge to resize' : ' (automatic)'}`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz || null, h('span', { class: 'tn' }, `${s.name} · ${name}`), rz || null);
         el.addEventListener('click', () => { const L = lineAt(c.start + 0.01); if (L && player.clips.length) selectLine(L.id); });
+        if (pickable) el.addEventListener('pointerdown', (e) => {
+          const mode = e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', m = takeSoloBody(s);
+          if (!m) return;
+          e.preventDefault(); e.stopPropagation(); drawTimeline();
+          const fresh = [...tlInner.querySelectorAll('.tclip.mine')].find((x) => x.dataset.mid === m.id);
+          if (fresh) dragClip(e, m, mode, fresh);
+        });
         ln.append(el);
       }
       for (const m of (S.manual[s.key] || []).filter((x) => x.kind === kind)) {
-        const name = m.ref.name.replace(/^Listener · /, ''), rz = h('i', { class: 'rz' });
-        const el = h('div', { class: `tclip ${kind} mine ${m.id === S.mclip ? 'sel' : ''}`, title: `${s.name} · ${name} — drag to move, drag the right edge to stretch`, style: `left:${m.start * pps}px;width:${Math.max(6, m.dur * pps)}px` }, h('span', { class: 'tn' }, `${s.name} · ${name}`), rz);
-        el.addEventListener('pointerdown', (e) => dragClip(e, m, e.target === rz ? 'size' : 'move', el));
+        const name = m.ref.name.replace(/^Listener · /, ''), rz = h('i', { class: 'rz' }), lz = h('i', { class: 'lz' });
+        const el = h('div', { 'data-mid': m.id, class: `tclip ${kind} mine ${m.id === S.mclip ? 'sel' : ''}`, title: `${s.name} · ${name} — drag to move, drag an edge to resize`, style: `left:${m.start * pps}px;width:${Math.max(6, m.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `${s.name} · ${name}`), rz);
+        el.addEventListener('pointerdown', (e) => dragClip(e, m, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
         ln.append(el);
       }
       labels.push(h('div', { class: 'rl char', style: `height:${LH}px` }, i === 0 ? [h('span', { class: 'dot', style: `background:${s.color}` }), h('span', { class: 'lt' }, s.name), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋')] : h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`)));
@@ -867,15 +891,11 @@ function drawTimeline() {
 
 /* ---------- the user's own animation clips on the timeline ---------- */
 const findManual = (id) => { for (const [k, list] of Object.entries(S.manual)) { const m = list.find((x) => x.id === id); if (m) return { s: sOf(k), m, list }; } return null; };
-/** an empty scene is 8 s, or as long as the animation picked for a character (S.solo[key].bodyLen); clips / camera keys placed later stretch it. With audio the voice decides the length. */
-function sceneLen() {
-  const solo = Object.entries(S.solo).filter(([key, o]) => o?.bodyLen > 0 && sOf(key)?.charId).map(([, o]) => o.bodyLen);
-  let end = solo.length ? Math.max(1, ...solo) : 8;
-  for (const l of Object.values(S.manual)) for (const m of l) end = Math.max(end, m.start + m.dur);
-  for (const k of S.camKeys) end = Math.max(end, k.t + 0.5);
-  for (const l of Object.values(S.charKeys)) for (const k of l) end = Math.max(end, k.t + 0.5);
-  return Math.ceil(end * 100) / 100;
-}
+/** an empty scene is 8 s; otherwise the end of the last clip (animation, background clip, effect with an end) decides. Trimming clips shortens the scene. With audio the voice decides the length. */
+const sceneLen = () => contentLength({ solo: S.solo, speakers: S.speakers, manual: S.manual, bgClips: S.bgClips, props: S.props, camKeys: S.camKeys, charKeys: S.charKeys });
+/** background clips as the stage wants them: the picture is looked up in the user's own backgrounds */
+const bgClipJobs = () => S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset ?? 0, blob: c.bgId ? S.myBgs.find((r) => r.id === c.bgId)?.blob ?? null : null }));
+const syncBgClips = async () => { await stage.setBackgroundClips(bgClipJobs()); S.dirty = true; };
 function updateTotal() {
   if (player.clips.length) return;
   const len = sceneLen();
@@ -899,25 +919,65 @@ function clipPicker(s, onPick) {
   const ab = animBrowser({ getSpeaker: () => s, chips: null, selectedRef: () => null, onPick: async (sp, ref, overlay, length) => { close(); await (onPick ? onPick(ref, overlay, length) : addClip(sp, ref, overlay, length)); } });
   close = modal(`Add an animation · ${s.name}`, h('div', {}, h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, onPick ? 'Pick the animation that replaces this clip.' : `It is placed at the playhead (${fmt(player.time)}). Add the same animation as many times as you like.`), ab.el), () => ab.dispose());
 }
-function dragClip(e, m, mode, el) {
+/**
+ * Drag one timeline item. mode: 'move' | 'left' | 'right'. `io` says how to read / write the item:
+ * get() -> {start, dur, off}, set({start, dur, off}), room (how far the head may be pulled back), select(), after() (once, when released).
+ */
+function dragItem(e, mode, el, io) {
   if (S.exporting) return;
   e.preventDefault(); e.stopPropagation();
-  S.mclip = m.id; drawClipBar();
-  document.querySelectorAll('.tclip.mine.sel').forEach((x) => x.classList.remove('sel')); el.classList.add('sel');
-  const x0 = e.clientX, s0 = m.start, d0 = m.dur, pps = S.pps; let moved = false, raf = 0;
-  el.setPointerCapture(e.pointerId);
+  io.select?.();
+  const x0 = e.clientX, from = io.get(), pps = S.pps; let moved = false, raf = 0;
+  el.setPointerCapture?.(e.pointerId);
   const mv = (ev) => {
-    const dx = (ev.clientX - x0) / pps;
     if (Math.abs(ev.clientX - x0) > 2) moved = true;
-    if (mode === 'move') m.start = Math.max(0, snap(s0 + dx)); else m.dur = Math.max(0.2, snap(d0 + dx));
-    el.style.left = `${m.start * pps}px`; el.style.width = `${Math.max(6, m.dur * pps)}px`;
+    const r = resizeClip({ mode, ...from, delta: (ev.clientX - x0) / pps, min: io.min ?? MIN_CLIP, room: io.room ?? from.off ?? 0 });
+    io.set(r);
+    el.style.left = `${r.start * pps}px`; el.style.width = `${Math.max(6, r.dur * pps)}px`;
     if (!raf) raf = requestAnimationFrame(() => { raf = 0; refreshPresence(); });
   };
-  const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); if (moved) commitClips(); else drawClipBar(); };
+  const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); if (moved) { io.after?.(); commitClips(); } else drawClipBar(); };
   el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+const selectOnly = (kind, id) => { S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; document.querySelectorAll('.tclip.sel:not(.voice)').forEach((x) => x.classList.remove('sel')); drawClipBar(); };
+function dragClip(e, m, mode, el) {
+  dragItem(e, mode === 'size' ? 'right' : mode, el, {
+    get: () => ({ start: m.start, dur: m.dur, off: m.off || 0 }),
+    set: (r) => { m.start = r.start; m.dur = r.dur; m.off = r.off; },
+    select: () => { selectOnly('clip', m.id); el.classList.add('sel'); },
+  });
+}
+/** an automatic one-animation clip (no audio yet) becomes the user's own clip the first time it is dragged, so it can be moved, trimmed or stretched */
+function takeSoloBody(s) {
+  const o = S.solo[s.key];
+  if (!(o?.body && o.bodyLen > 0)) return null;
+  const m = { id: uid(), kind: 'body', ref: { ...o.body }, start: 0, dur: o.bodyLen, off: 0 };
+  (S.manual[s.key] ||= []).push(m); delete o.body; delete o.bodyLen;
+  return m;
+}
+function dragBgClip(e, c, mode, el) {
+  dragItem(e, mode, el, {
+    room: Infinity, off: 0,
+    get: () => ({ start: c.start, dur: c.dur, off: 0 }),
+    set: (r) => { c.start = r.start; c.dur = r.dur; },
+    select: () => { selectOnly('bg', c.id); el.classList.add('sel'); },
+    after: () => { syncBgClips(); },
+  });
+}
+/** a prop / effect is visible from start to end; with no end it stays to the end of the scene */
+function dragPropRange(e, prop, mode, el) {
+  dragItem(e, mode, el, {
+    room: Infinity,
+    get: () => { const start = prop.start || 0; return { start, dur: Math.max(MIN_CLIP, (prop.end ?? player.total) - start), off: 0 }; },
+    set: (r) => { prop.start = r.start; prop.end = +(r.start + r.dur).toFixed(2); },
+    select: () => { selectOnly('prop', prop.id); el.classList.add('sel'); },
+    after: () => { stage.setProps(S.props); S.dirty = true; dbPut('props', prop); },
+  });
 }
 function drawClipBar() {
   if (!clipBar) return;
+  const bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = !bc && S.propSel && S.props.find((x) => x.id === S.propSel);
+  if (bc || pr) return rangeBar(bc, pr);
   const f = S.mclip && findManual(S.mclip);
   if (!f) { clipBar.hidden = true; return; }
   const { s, m, list } = f;
@@ -927,11 +987,53 @@ function drawClipBar() {
   clipBar.replaceChildren(
     h('span', { class: 'dot', style: `background:${s?.color || '#888'}` }), h('b', { class: 'cb-name' }, m.ref.name), h('small', {}, `${s?.name || ''} · ${m.kind}`),
     num('Start s', () => m.start, (v) => { m.start = Math.max(0, snap(v)); }), num('Length s', () => m.dur, (v) => { m.dur = Math.max(0.2, v); }),
+    btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — playhead par'),
     btn('⧉ Duplicate', () => { const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(m.start + m.dur) }; list.push(c); S.mclip = c.id; commitClips(); }, 'Same animation again, right after this one'),
     btn('✂ Split', () => { const t = player.time; if (t <= m.start + 0.1 || t >= m.start + m.dur - 0.1) { toast('Pehle playhead ko is clip ke andar le jaayein.'); return; } const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(t), dur: m.start + m.dur - snap(t), off: (m.off || 0) + (snap(t) - m.start) }; m.dur = snap(t) - m.start; list.push(c); S.mclip = c.id; commitClips(); }, 'Cut this clip at the playhead'),
     btn('⇄ Replace', () => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); }), 'Pick another animation for this clip'),
     btn('🗑 Delete', () => { list.splice(list.indexOf(m), 1); S.mclip = null; commitClips(); }),
     btn('✕', () => { S.mclip = null; drawTimeline(); }, 'Close'));
+}
+
+/** copy the selected timeline item (animation clip, background clip, prop / effect); paste puts a copy at the playhead */
+function copySelected() {
+  const f = S.mclip && findManual(S.mclip), bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = S.propSel && S.props.find((x) => x.id === S.propSel);
+  if (f) S.clipboard = { type: 'clip', key: f.s?.key, data: clone(f.m) };
+  else if (bc) S.clipboard = { type: 'bg', data: clone(bc) };
+  else if (pr) S.clipboard = { type: 'prop', data: { ...pr } };
+  else { toast('Pehle timeline par koi clip chunein, phir copy karein.'); return false; }
+  toast('Clip copy ho gaya. Paste ke liye playhead rakhein aur Ctrl+V dabayein.'); drawClipBar(); return true;
+}
+async function pasteClip() {
+  const cb = S.clipboard;
+  if (!cb) { toast('Pehle koi clip copy karein.'); return; }
+  const at = snapTo(player.time);
+  if (cb.type === 'clip') {
+    const s = sOf(cb.key) || S.speakers.find((x) => x.charId);
+    if (!s?.charId) { toast('Is clip ke liye character scene me nahi hai.'); return; }
+    const m = { ...clone(cb.data), id: uid(), start: at }; (S.manual[s.key] ||= []).push(m); selectOnly('clip', m.id);
+    const b = busy('Clip paste ho raha hai…'); try { await applyLayers(); } catch (e) { toast(`Clip paste nahi ho paya: ${e.message}`); } finally { b.done(); }
+  } else if (cb.type === 'bg') {
+    const c = { ...clone(cb.data), id: uid(), start: at }; S.bgClips.push(c); selectOnly('bg', c.id); await syncBgClips();
+  } else {
+    const len = Math.max(MIN_CLIP, (cb.data.end ?? player.total) - (cb.data.start || 0)), prop = { ...cb.data, id: uid(), start: at, end: +(at + len).toFixed(2) };
+    if (cb.data.attach) prop.attach = { ...cb.data.attach };
+    S.props.push(prop); selectOnly('prop', prop.id); await dbPut('props', prop); await stage.setProps(S.props);
+  }
+  updateTotal(); S.dirty = true; drawTimeline(); refreshPresence();
+}
+/** the bar under the timeline for a selected background clip or prop / effect: exact start and length */
+function rangeBar(bc, pr) {
+  const num = (label, get, set) => h('label', { class: 'cb-n' }, label, h('input', { type: 'number', step: 0.05, min: 0, value: get().toFixed(2), onchange: (e) => { set(+e.target.value || 0); if (bc) syncBgClips(); else { stage.setProps(S.props); dbPut('props', pr); } setTimeout(commitClips, 0); } }));
+  const btn = (txt, fn, title) => h('button', { class: 'btn sm', title, onclick: fn }, txt);
+  const name = bc ? (bc.bgId ? S.myBgs.find((r) => r.id === bc.bgId)?.name || 'Background image' : (BACKGROUNDS[bc.preset] || BACKGROUNDS[0]).name) : pr.name;
+  clipBar.hidden = false;
+  clipBar.replaceChildren(h('b', { class: 'cb-name' }, name), h('small', {}, bc ? 'Background' : isEffect(pr) ? 'Effect' : 'Prop'),
+    bc ? num('Start s', () => bc.start, (v) => { bc.start = Math.max(0, snapTo(v)); }) : num('Start s', () => pr.start || 0, (v) => { pr.start = Math.max(0, snapTo(v)); }),
+    bc ? num('Length s', () => bc.dur, (v) => { bc.dur = Math.max(MIN_CLIP, v); }) : num('Length s', () => (pr.end ?? player.total) - (pr.start || 0), (v) => { pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }),
+    btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — playhead par'),
+    bc ? btn('🗑 Delete', () => { S.bgClips = S.bgClips.filter((x) => x !== bc); S.bgSel = null; syncBgClips(); commitClips(); }) : btn('↔ Poori scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Start / end hata do: poori scene me dikhe'),
+    btn('✕', () => { S.bgSel = null; S.propSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
 }
 
 /* ---------- movement keyframes of a character (position, size, facing) ---------- */
@@ -1831,7 +1933,12 @@ function tabCanvas() {
     for (const f of e.target.files) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: f.name, blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); S.bgId = rec.id; await stage.setBackgroundImage(f); }
     S.dirty = true; drawTabs();
   } });
-  const pickBg = async (rec) => { S.bgId = rec?.id ?? null; await stage.setBackgroundImage(rec?.blob ?? null); S.dirty = true; drawTabs(); };
+  const addBgClip = async (rec, preset = 0) => {
+    const start = snapTo(Math.min(player.time, Math.max(0, player.total - 1))), c = { id: uid(), bgId: rec?.id ?? null, preset, start, dur: Math.max(1, Math.min(3, snapTo(player.total - start))) };
+    S.bgClips.push(c); S.bgSel = c.id; await syncBgClips(); updateTotal(); drawTimeline(); drawTabs();
+  };
+  const pickBg = async (rec, preset) => {
+    if (S.bgAtTime) return addBgClip(rec, preset ?? stage.bg.preset); S.bgId = rec?.id ?? null; await stage.setBackgroundImage(rec?.blob ?? null); S.dirty = true; drawTabs(); };
   const shared = (type) => S.sharedAssets.filter((asset) => asset.type === type);
   const addSharedBackground = async (asset) => {
     try {
@@ -1847,8 +1954,10 @@ function tabCanvas() {
     S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },
       h('img', { src: URL.createObjectURL(r.blob), alt: r.name, loading: 'lazy' }),
       h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('Ye background kisi doosre scene me use ho raha hai.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
-  const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { stage.bg.preset = i; await pickBg(null); } })));
+  const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })));
   return h('div', { class: 'list' },
+    h('div', { class: 'card flat' }, h('h2', {}, 'Background kahan lagana hai?'), seg([[0, 'Poori scene'], [1, 'Timeline par (playhead se)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `Jo background chunoge wo playhead (${fmt(player.time)}) se timeline par judega. Jitne chaaho utne daalo, edge kheench kar chota-bada karo.` : 'Jo background chunoge wo poori scene me peeche rahega.')),
     h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), sharedGrid('background', addSharedBackground), mine, file),
     h('div', { class: 'card flat' }, h('h2', {}, 'Plain colours'), sw));
 }
@@ -1960,7 +2069,7 @@ async function doExport() {
           aspect: S.aspect, short: S.quality, fps: S.fps, level: S.level, format: S.format, W: stage.W, H: stage.H, maxTex: S.quality >= 2160 ? 4096 : 2048,
           chars: ids.map((id) => { const d = S.characters.find((c) => c.id === id) || S.libDefs.get(id); return { id, ske: d.ske, tex: d.tex }; }),
           tearSprite: layers.some(layer => layer.tears?.style) ? await loadTearSprite() : null,
-          bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, props: S.props.map((prop) => ({ ...prop })),
+          bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), props: S.props.map((prop) => ({ ...prop })),
           layers, plan: shotPlan(), camKeys: stage.camKeys, voice: player.clips.map((c) => ({ speaker: c.speaker, start: c.start, end: c.end, visemes: c.visemes })),
         };
         res = await exportParallel({ job, clips: player.clips, total: player.total, onProgress: progress, cancelled: () => stop, workers: workerCount() });
@@ -2000,7 +2109,7 @@ function sceneDoc() {
     lines: S.lines.map(({id, order, file, speaker}) => ({id, order, file, speaker})),
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
-    order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgPreset: stage?.bg.preset ?? 0,
+    order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
     props: S.props.map((prop) => ({ ...prop, blob: bid(prop.blob) })),
   };
 }
@@ -2063,7 +2172,9 @@ async function loadSceneDoc(doc) {
   syncCam(); syncChars();
   if (doc.aspect && doc.aspect !== S.aspect) { S.aspect = doc.aspect; stage.setSize(S.aspect, S.preview); }
   S.bgId = doc.bgId ?? null; stage.bg.preset = doc.bgPreset ?? 0;
+  S.bgClips = JSON.parse(JSON.stringify(doc.bgClips || [])); S.bgSel = null; S.propSel = null;
   await stage.setBackgroundImage(S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null);
+  await syncBgClips();
   await ensureDefs();
   fillSoloLengths({ solo: S.solo, speakers: S.speakers });
   if (!S.speakers.some((s) => s.key === S.animFor && s.charId)) S.animFor = S.speakers.find((s) => s.charId)?.key ?? null;
@@ -2199,7 +2310,8 @@ function headerTools() {
 window.addEventListener('keydown', (e) => {
   if ($app.hidden || !(e.ctrlKey || e.metaKey) || e.target.closest('input,select,textarea,[contenteditable=true],dialog[open],.modal')) return;
   const k = e.key.toLowerCase();
-  if (k === 'z' && !e.shiftKey) { e.preventDefault(); stepHistory(-1); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); stepHistory(1); }
+  if (k === 'c' && S.step === 3 && !window.getSelection?.().toString() && (S.mclip || S.bgSel || S.propSel)) { e.preventDefault(); copySelected(); } else if (k === 'v' && S.step === 3 && S.clipboard) { e.preventDefault(); pasteClip(); }
+  else if (k === 'z' && !e.shiftKey) { e.preventDefault(); stepHistory(-1); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); stepHistory(1); }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) tick(); else { last = performance.now(); S.dirty = true; } });
 
@@ -2237,7 +2349,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, sharedBlobs, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

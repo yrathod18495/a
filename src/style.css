@@ -849,3 +849,10 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .admin-alert-row b{display:block;color:#ffd7c9}.admin-alert-row small{display:block;color:#c3b494;font-size:11px;margin-top:2px;word-break:break-word}
 .admin-alert-actions{display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:620px){.admin-alert-row{flex-direction:column;align-items:flex-start}}
+.tclip .lz{position:absolute;left:0;top:0;bottom:0;width:14px;cursor:ew-resize;background:linear-gradient(270deg,transparent,#19161033);z-index:1}
+.tclip.mine .tn,.tclip.prop .tn{pointer-events:none}
+.tclip.mine{cursor:grab;touch-action:none}
+.tclip.bg.mine,.tclip.prop{background:#1c2618;border:2px solid #4f6b3a;color:#cfe8b0}
+.tclip.prop.fx{background:#241a33;border-color:#7a5cc4;color:#dccbff}
+.tclip.bg.base{opacity:.55}
+.lane2.bg .tclip.mine,.lane2.prop .tclip{top:3px;bottom:3px}
