@@ -19,6 +19,7 @@ import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
+import { DEFAULT_LAYOUT, GUIDES, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline, nextGuide } from './studio-layout.js';
 
 const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
@@ -91,7 +92,7 @@ async function boot() {
 /* ---------------- the workbench ---------------- */
 function render() {
   $app.replaceChildren(h('div', { class: 'wrap s3 ws' }, topBar(), viewStudio()));
-  mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode;
+  mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode; applyLayout(wsEl(), S.layout);
 }
 function topBar() {
   return h('header', { class: 'topbar' },
@@ -478,6 +479,78 @@ function swapModal(s) {
   close = modal(`Swap image · ${s.name}`, h('div', {}, body, h('div', { class: 'foot', style: 'margin-top:14px' }, h('span'), h('button', { class: 'btn pri', onclick: () => close() }, 'Done'))));
 }
 
+/* ---------------- workspace layout: wide canvas, hideable panels, focus mode, guides ---------------- */
+S.layout = loadLayout(); S.loop = S.layout.loop; S.expOpen = { quick: true, out: true, pic: true, file: false };
+const layoutUi = {};
+let guideEl;
+const wsEl = () => document.querySelector('.ws');
+function setLayout(patch) {
+  Object.assign(S.layout, patch); S.loop = S.layout.loop;
+  saveLayout(S.layout); applyLayout(wsEl(), S.layout); syncLayoutUi(); drawGuides();
+  requestAnimationFrame(fitEditor);
+}
+function syncLayoutUi() {
+  const L = S.layout, set = (key, on) => layoutUi[key]?.setAttribute('aria-pressed', String(on));
+  set('rail', L.rail && !L.focus); set('panel', S.panelOpen && !L.focus); set('timeline', !L.tlMin && !L.focus); set('focus', L.focus); set('loop', L.loop);
+  if (layoutUi.guides) layoutUi.guides.value = L.guides;
+}
+const toggleRail = () => setLayout({ focus: false, rail: !S.layout.rail });
+const toggleTimeline = () => setLayout({ focus: false, tlMin: !S.layout.tlMin });
+const toggleFocus = () => setLayout({ focus: !S.layout.focus });
+function togglePanel() {
+  const reopen = S.layout.focus;
+  if (reopen) setLayout({ focus: false });
+  S.panelOpen = reopen ? true : !S.panelOpen; drawTabs();
+}
+function drawGuides() {
+  if (!guideEl) return;
+  const g = S.layout.guides, parts = [], line = (css) => h('i', { class: 'g-line', style: css });
+  if (g === 'thirds' || g === 'all') parts.push(line('left:33.333%;top:0;bottom:0;width:1px'), line('left:66.666%;top:0;bottom:0;width:1px'), line('top:33.333%;left:0;right:0;height:1px'), line('top:66.666%;left:0;right:0;height:1px'));
+  if (g === 'center' || g === 'all') parts.push(line('left:50%;top:0;bottom:0;width:1px'), line('top:50%;left:0;right:0;height:1px'));
+  if (g === 'safe' || g === 'all') parts.push(h('i', { class: 'g-safe', style: 'inset:5%' }), h('i', { class: 'g-safe', style: 'inset:10%' }));
+  guideEl.replaceChildren(...parts); guideEl.hidden = !parts.length;
+}
+function layoutTools() {
+  const btn = (key, label, title, onclick, cls = '') => layoutUi[key] = h('button', { type: 'button', class: `btn sm ${cls}`, title, 'aria-label': title, 'aria-pressed': 'false', onclick }, label);
+  layoutUi.guides = h('select', { 'aria-label': 'Canvas guides', title: 'Canvas guides (G). Only shown while editing — never in the exported video.', onchange: e => { setLayout({ guides: e.target.value }); e.target.blur(); } }, GUIDES.map(([key, label]) => h('option', { value: key, selected: key === S.layout.guides }, label)));
+  const box = h('div', { class: 'layout-tools' },
+    btn('loop', '🔁', 'Loop playback (L)', () => setLayout({ loop: !S.layout.loop })), layoutUi.guides, h('span', { class: 'lt-sep' }),
+    btn('rail', '☰', 'Tool rail ( [ )', toggleRail), btn('panel', '▥', 'Side panel ( ] )', togglePanel), btn('timeline', '▬', 'Timeline (T)', toggleTimeline),
+    btn('focus', '⤢ Focus', 'Focus mode — canvas only (F)', toggleFocus), btn('help', '?', 'Keyboard shortcuts (?)', showShortcuts));
+  syncLayoutUi(); return box;
+}
+function resizeHandle(cls, label, onDrag, onReset) {
+  const el = h('div', { class: `resize-handle ${cls}`, role: 'separator', title: `${label} — drag to resize, double-click to reset` });
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('dragging');
+    const start = { x: e.clientX, y: e.clientY, panelW: S.layout.panelW, tlH: S.layout.tlH || document.querySelector('.ws .tlwrap')?.offsetHeight || 180 };
+    const move = (ev) => onDrag(ev, start);
+    const up = () => { el.classList.remove('dragging'); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); saveLayout(S.layout); };
+    el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  });
+  el.addEventListener('dblclick', onReset);
+  return el;
+}
+const panelHandle = () => resizeHandle('resize-panel', 'Side panel', (ev, start) => { S.layout.panelW = clampPanel(start.panelW + (start.x - ev.clientX), innerWidth); applyLayout(wsEl(), S.layout); }, () => setLayout({ panelW: DEFAULT_LAYOUT.panelW }));
+const timelineHandle = () => resizeHandle('resize-tl', 'Timeline', (ev, start) => { S.layout.tlH = clampTimeline(start.tlH + (start.y - ev.clientY), innerHeight); applyLayout(wsEl(), S.layout); }, () => setLayout({ tlH: 0 }));
+function showShortcuts() {
+  modal('Keyboard shortcuts', h('div', { class: 'shortcut-list' }, SHORTCUT_GROUPS.map(([title, rows]) => h('section', {}, h('h3', {}, title), h('dl', {}, rows.flatMap(([key, what]) => [h('dt', {}, h('kbd', {}, key)), h('dd', {}, what)]))))));
+}
+window.addEventListener('keydown', (e) => {
+  if ($app.hidden || S.step !== 3 || S.exporting || e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input,select,textarea,[contenteditable=true],[contenteditable=""]') || document.querySelector('.modal')) return;
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key, seekBy = (d) => { player.seek(Math.min(player.total, Math.max(0, player.time + d))); S.dirty = true; };
+  const onTab = !!e.target.closest?.('[role=tab]');
+  const actions = {
+    f: toggleFocus, '[': toggleRail, ']': togglePanel, t: toggleTimeline, '?': showShortcuts, '0': () => setEditorZoom(1),
+    g: () => setLayout({ guides: nextGuide(S.layout.guides) }), l: () => setLayout({ loop: !S.layout.loop }),
+    Home: () => { player.seek(0); S.dirty = true; }, End: () => seekBy(player.total),
+    ArrowLeft: onTab ? null : () => seekBy(e.shiftKey ? -1 : -0.1), ArrowRight: onTab ? null : () => seekBy(e.shiftKey ? 1 : 0.1),
+    Escape: S.layout.focus ? toggleFocus : null,
+  };
+  const run = actions[key];
+  if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
+});
+
 const TABS = [['audio', 'Audio', '🎙'], ['chars', 'Characters', '🎭'], ['anim', 'Animations', '🎬'], ['motion', 'Move', '🏃'], ['camera', 'Camera', '🎥'], ['mask', 'Mask', '◩'], ['ai', 'AI', '✨'], ['canvas', 'Background', '🖼'], ['export', 'Export', '⬇']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri', onclick: togglePlay }, '▶ Play');
@@ -501,11 +574,11 @@ function viewStudio() {
     h('div', { class: 'studio' },
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard()),
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn', title: 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, '⏮'), timeEl, h('label', { class: 'preview-quality' }, h('span', {}, 'Preview'), previewSelect = h('select', { 'aria-label': 'Preview quality', title: 'Low is faster and softer. Export quality is set separately.', onchange: e => changePreviewQuality(e.target.value) }, Object.entries(PREVIEW_MODES).map(([value, mode]) => h('option', { value, selected: value === S.previewMode }, mode.label)))), h('span', { class: 'sp' }),
-          h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm', title: 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, '−'), h('button', { class: 'btn sm', title: 'Fit scene in editor', onclick: () => setEditorZoom(1) }, 'Fit scene'), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm', title: 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, '+'))),
+          h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm', title: 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, '−'), h('button', { class: 'btn sm', title: 'Fit scene in editor', onclick: () => setEditorZoom(1) }, 'Fit scene'), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm', title: 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, '+')), layoutTools()),
         hintEl = h('p', { class: 'hint' }, '👆 Tap a character or prop to select it · drag to move'),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, sceneTabs(), tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
-      h('div', { class: 'side' }, tabsEl, panelEl)));
+      h('div', { class: 'side' }, tabsEl, panelEl), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
   const strip = h('div', { class: 'scene-tabs', role: 'tablist', 'aria-label': 'Scenes' });
@@ -592,15 +665,18 @@ function drawTabs() {
     if (S.tab === key) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
     drawTabs(); S.dirty = true;
   } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon), h('span', {}, label));
+  const byKey = Object.fromEntries(TABS.map(t => [t[0], t]));
+  const rail = (label, keys) => [h('div', { class: 'rail-label' }, label), ...keys.map(k => button(byKey[k]))];
+  const adv = (label, keys) => [h('div', { class: 'adv-label' }, label), ...keys.map(k => button(byKey[k]))];
   const more = h('details', { class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}` },
     h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '⚙'), 'Advanced'),
-    h('div', { class: 'advanced-tools-list' }, ...TABS.filter(t => advanced.has(t[0])).map(button)));
-  tabsEl.replaceChildren(...TABS.filter(t => !advanced.has(t[0])).map(button), more);
+    h('div', { class: 'advanced-tools-list' }, ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
+  tabsEl.replaceChildren(...rail('Create', ['audio', 'chars', 'anim', 'canvas']), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close' }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, 'Close')),
     { audio: tabAudio, chars: tabChars, anim: tabAnim, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, export: tabExport }[S.tab]());
-  S.dirty = true;
+  S.dirty = true; syncLayoutUi();
 }
 
 /* ---- timeline: ruler + the audio lines (the main track) ---- */
@@ -1054,10 +1130,11 @@ function mountStage() {
   selEl = h('div', { class: 'selbox', hidden: true });
   propSelEl = h('div', { class: 'prop-sel', hidden: true, 'aria-label': 'Selected prop; drag to move' });
   handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true })]));
-  wrapEl = h('div', { class: 'stagewrap' }, stage.out, selEl, propSelEl, ...Object.values(handleEls));
+  guideEl = h('div', { class: 'guides', 'aria-hidden': 'true' });
+  wrapEl = h('div', { class: 'stagewrap' }, stage.out, guideEl, selEl, propSelEl, ...Object.values(handleEls));
   stageObserver?.disconnect();
   const box = document.getElementById('stagebox'); box.replaceChildren(wrapEl);
-  stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor();
+  stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor(); drawGuides();
   mountCamBox();
   let drag = null;
   const pt = (e) => { const r = stage.out.getBoundingClientRect(), k = stage.W / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
@@ -1519,18 +1596,29 @@ function tabExport() {
   const fm = seg([['webm', 'WebM · smaller, sharper'], ['mp4', 'MP4 · plays everywhere']], () => S.format, (v) => { S.format = v; });
   const lv = seg([['std', 'Standard'], ['high', 'High'], ['max', 'Maximum']], () => S.level, (v) => { S.level = v; });
   const f = seg([[12, '12 fps · draft'], [15, '15 fps · fast'], [24, '24 fps'], [30, '30 fps · smooth']], () => S.fps, (v) => { S.fps = v; });
-  return h('div', { class: 'list' },
-    h('div', { class: 'card flat' }, h('h2', {}, 'Scenes'), h('select', { 'aria-label': 'Export scenes', onchange: e => { S.exportScope = e.target.value; redrawPanel(); } }, h('option', { value: 'all', selected: S.exportScope === 'all' }, `All scenes (${S.scenes.length})`), h('option', { value: 'current', selected: S.exportScope === 'current' }, 'Current scene only')), h('p', { class: 'sub' }, 'All scenes join in tab order with Fast render, using the current scene’s aspect ratio. Live recording is available for the current scene.')),
-    !hasAudio ? h('div', { class: 'card flat' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, `🔇 No audio added — this video will be ${duration.toFixed(1)} seconds long and silent. Add audio any time.`)) : null,
-    h('div', { class: 'card flat' }, h('h2', {}, 'Method'), m,
+  const cScenes = h('div', { class: 'card flat' }, h('h2', {}, 'Scenes'), h('select', { 'aria-label': 'Export scenes', onchange: e => { S.exportScope = e.target.value; redrawPanel(); } }, h('option', { value: 'all', selected: S.exportScope === 'all' }, `All scenes (${S.scenes.length})`), h('option', { value: 'current', selected: S.exportScope === 'current' }, 'Current scene only')), h('p', { class: 'sub' }, 'All scenes join in tab order with Fast render, using the current scene’s aspect ratio. Live recording is available for the current scene.'));
+  const cNoAudio = !hasAudio ? h('div', { class: 'card flat' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, `🔇 No audio added — this video will be ${duration.toFixed(1)} seconds long and silent. Add audio any time.`)) : null;
+  const cMethod = h('div', { class: 'card flat' }, h('h2', {}, 'Method'), m,
       h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, multi || S.expMethod === 'fast'
         ? `Builds the video frame by frame on ${multi ? 1 : workerCount() || 1} CPU core${!multi && workerCount() > 1 ? 's at the same time' : ''}, as fast as your device can. The result plays at normal speed and is always complete.`
-        : 'Plays the video once in real time and records the screen — takes as long as the video. Use it only if Fast render does not work on your device.')),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Quality'), q, S.quality >= 2160 ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, '4K needs a strong phone or computer and takes longer. Try 1080p first.') : null),
-    h('div', { class: 'card flat' }, h('h2', {}, 'File format'), fm, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.format === 'webm' ? 'WebM (VP9): same sharpness in about half the size. Plays in Chrome, Edge, Firefox, VLC and most editors; some phone galleries and WhatsApp may not open it.' : 'MP4 (H.264): opens everywhere — gallery, WhatsApp, editors — but the file is bigger for the same sharpness.')),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Video quality'), lv, (() => { const { W, H } = sizeFor(); const mbps = bitrateFor(W, H, S.level, S.format) / 1e6, mb = (mbps * duration) / 8; return h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `${W}×${H} · about ${mbps.toFixed(1)} Mbps → roughly ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB for this video. Higher = sharper picture and a bigger file.`); })()),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Smoothness'), f, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'Fewer frames per second = faster export.')),
-    h('button', { class: 'btn ok', style: 'width:100%;padding:14px', disabled: !pickType() && !window.VideoEncoder, onclick: doExport }, '⬇ Export video'));
+        : 'Plays the video once in real time and records the screen — takes as long as the video. Use it only if Fast render does not work on your device.'));
+  const cQuality = h('div', { class: 'card flat' }, h('h2', {}, 'Quality'), q, S.quality >= 2160 ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, '4K needs a strong phone or computer and takes longer. Try 1080p first.') : null);
+  const cFormat = h('div', { class: 'card flat' }, h('h2', {}, 'File format'), fm, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.format === 'webm' ? 'WebM (VP9): same sharpness in about half the size. Plays in Chrome, Edge, Firefox, VLC and most editors; some phone galleries and WhatsApp may not open it.' : 'MP4 (H.264): opens everywhere — gallery, WhatsApp, editors — but the file is bigger for the same sharpness.'));
+  const cLevel = h('div', { class: 'card flat' }, h('h2', {}, 'Video quality'), lv, (() => { const { W, H } = sizeFor(); const mbps = bitrateFor(W, H, S.level, S.format) / 1e6, mb = (mbps * duration) / 8; return h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `${W}×${H} · about ${mbps.toFixed(1)} Mbps → roughly ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB for this video. Higher = sharper picture and a bigger file.`); })());
+  const cFps = h('div', { class: 'card flat' }, h('h2', {}, 'Smoothness'), f, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'Fewer frames per second = faster export.'));
+  const cDone = h('button', { class: 'btn ok', style: 'width:100%;padding:14px', disabled: !pickType() && !window.VideoEncoder, onclick: doExport }, '⬇ Export video');
+  const { W: outW, H: outH } = sizeFor(), preset = presetMatch(S);
+  const mbps = bitrateFor(outW, outH, S.level, S.format) / 1e6, mb = (mbps * duration) / 8;
+  const group = (key, icon, title, ...body) => h('details', { class: 'exp-group', open: S.expOpen[key], ontoggle: e => { S.expOpen[key] = e.currentTarget.open; } }, h('summary', {}, h('span', { 'aria-hidden': 'true' }, icon), title), h('div', { class: 'exp-body' }, ...body));
+  const stat = (label, value) => h('div', {}, label, h('b', {}, value));
+  return h('div', { class: 'list' },
+    group('quick', '⚡', 'Quick setup',
+      h('div', { class: 'exp-summary' }, stat('Resolution', `${outW}×${outH}`), stat('Length', `${duration.toFixed(1)} s`), stat('Format', `${S.format.toUpperCase()} · ${S.fps} fps`), stat('Approx. size', `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)),
+      h('div', { class: 'exp-presets' }, EXPORT_PRESETS.map(p => h('button', { type: 'button', 'aria-pressed': String(preset === p.id), onclick: () => { Object.assign(S, { quality: p.quality, format: p.format, fps: p.fps, level: p.level }); redrawPanel(); } }, p.label, h('small', {}, p.note))))),
+    group('out', '🎞', 'Scenes & method', cScenes, cNoAudio, cMethod),
+    group('pic', '🖼', 'Picture', cQuality, cFps),
+    group('file', '📦', 'File', cFormat, cLevel),
+    cDone);
 }
 const redrawPanel = () => { const k = panelEl.scrollTop; drawTabs(); panelEl.scrollTop = k; };
 
@@ -1787,7 +1875,7 @@ function loop(now) {
   if (S.step !== 3 || !stage.layers) return;
   if (sceneChanging) return;
   if (S.exporting && !player.playing) return; // offline export drives the stage itself
-  if (player.playing && player.time >= player.total && !S.exporting) { player.pause(); const next = S.scenes[S.scenes.findIndex(scene => scene.id === S.sceneId) + 1]; if (next && !sceneChanging) { switchScene(next.id, { play: true }); return; } S.dirty = true; }
+  if (player.playing && player.time >= player.total && !S.exporting) { player.pause(); const next = S.scenes[S.scenes.findIndex(scene => scene.id === S.sceneId) + 1]; if (next && !sceneChanging) { switchScene(next.id, { play: true }); return; } if (S.loop) { if (S.scenes.length > 1 && S.sceneId !== S.scenes[0].id) { switchScene(S.scenes[0].id, { play: true }); return; } player.seek(0); player.play(); } S.dirty = true; }
   const fv = S.tab === 'camera' && S.panelOpen && !S.camPeek;
   if (stage.fullView !== fv) { stage.fullView = fv; S.dirty = true; }
   if (!player.playing && !S.dirty) return;
