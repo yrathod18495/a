@@ -446,6 +446,7 @@ export class Stage {
     const cam = this.cameraAt(plan, t), vw = W / cam.zoom, vh = H / cam.zoom;
     this.camZoom = cam.zoom;
     const free = this.userCam === cam, cx = free ? cam.cx : Math.min(W - vw / 2, Math.max(vw / 2, cam.cx)), cy = free ? cam.cy : Math.min(H - vh / 2, Math.max(vh / 2, cam.cy));
+    this.view = { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh };      // the part of the canvas on screen (the editor maps pen lines through it)
     r.begin(W, H, { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
     r.setMask(null, W, H);
     r.quad(this.bgTex, 0, 0, W, H);

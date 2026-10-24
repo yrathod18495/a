@@ -158,3 +158,30 @@ test('a character animation clip and a prop lane can be dragged: trim, stretch, 
   expect(end).toBeGreaterThan(0.2); expect(end).toBeLessThan(await page.evaluate(() => window.__toon.player.total + 8));
   expect(errors).toEqual([]);
 });
+
+test('an automatic animation clip made from the voice can be dragged too', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await studio(page);
+  const chars = page.locator('.tabs.big').getByRole('button', { name: 'Characters', exact: true });
+  if (await chars.getAttribute('aria-pressed') !== 'true') await chars.click();
+  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
+  await page.locator('.cp-poses .pose').first().click();
+  await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
+  await expect(page.locator('.busy')).toHaveCount(0);
+  await page.evaluate(async () => {
+    const { S, prepareStudio } = window.__toon, ctx = new AudioContext(), buffer = ctx.createBuffer(1, 48000 * 4, 48000), key = S.speakers.find((s) => s.charId).key;
+    S.lines = [{ id: 'v1', order: 0, file: 'voice.wav', speaker: key, raw: new ArrayBuffer(8), buffer, visemes: new Array(200).fill(0) }];
+    await prepareStudio({ quiet: true }); window.__toon.drawTimeline(); await ctx.close();
+  });
+  const auto = page.locator('#app .lane2.char .tclip.body.auto').first();
+  await expect(auto).toBeVisible();
+  const before = await auto.boundingBox();
+  await dragEdge(page, auto, 'move', 60);
+  await expect.poll(() => page.evaluate(() => Object.values(window.__toon.S.manual).flat().length)).toBe(1);
+  const m = await page.evaluate(() => Object.values(window.__toon.S.manual).flat()[0]);
+  expect(m.kind).toBe('body'); expect(m.start).toBeGreaterThan(0.2);
+  const mine = await page.locator('#app .lane2.char .tclip.body.mine').first().boundingBox();
+  expect(mine.x).toBeGreaterThan(before.x + 20);
+  expect(errors).toEqual([]);
+});

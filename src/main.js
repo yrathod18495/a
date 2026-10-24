@@ -25,7 +25,7 @@ import { authorizeExport, finishExport, ExportLimitError } from './export-plan.j
 import { propFromAsset, isEffect, isHeld } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, presetGrade, presetOf } from '../shared/color-grade.js';
-import { thin, pathLength, pathKeys } from '../shared/motion-path.js';
+import { thin, pathLength, pathKeys, simplify, insertAt } from '../shared/motion-path.js';
 import { resizeClip, contentLength, snap as snapTo, MIN_CLIP } from '../shared/timeline-edit.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
@@ -33,7 +33,7 @@ const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
 const S = {
   scenes: [], sceneId: null, exportScope: 'all',
-  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, grade: { ...DEFAULT_GRADE }, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
+  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, pathEdit: false, grade: { ...DEFAULT_GRADE }, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
@@ -849,11 +849,14 @@ function drawTimeline() {
       const ln = h('div', { class: 'lane2 char', style: `height:${LH}px` });
       for (const c of plan.clips.filter((x) => x.kind === kind && !x.manual)) {
         const name = (nameOf.get(c.name) || c.name).replace(/^Listener · /, '');
-        const pickable = !hasAudio && kind === 'body' && c.id.startsWith('solo:body') && S.solo[s.key]?.bodyLen > 0, lz = pickable && h('i', { class: 'lz' }), rz = pickable && h('i', { class: 'rz' });
+        const ref = plan.refs.find((r) => animKey(r) === c.name), soloBody = c.id.startsWith('solo:body') && S.solo[s.key]?.bodyLen > 0;
+        const pickable = !!ref && (soloBody || !c.id.startsWith('solo:')), lz = pickable && h('i', { class: 'lz' }), rz = pickable && h('i', { class: 'rz' });
         const el = h('div', { class: `tclip ${kind} auto`, title: `${s.name} · ${name}${pickable ? ' — drag to move, drag an edge to resize' : ' (automatic)'}`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz || null, h('span', { class: 'tn' }, `${s.name} · ${name}`), rz || null);
         el.addEventListener('click', () => { const L = lineAt(c.start + 0.01); if (L && player.clips.length) selectLine(L.id); });
         if (pickable) el.addEventListener('pointerdown', (e) => {
-          const mode = e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', m = takeSoloBody(s);
+          const mode = e.target === rz ? 'right' : e.target === lz ? 'left' : 'move';
+          // an automatic clip (from the voice, or the animation picked without audio) becomes the user's own clip the first time it is dragged
+          const m = soloBody ? takeSoloBody(s) : takeAutoClip(s, kind, c, ref);
           if (!m) return;
           e.preventDefault(); e.stopPropagation(); drawTimeline();
           const fresh = [...tlInner.querySelectorAll('.tclip.mine')].find((x) => x.dataset.mid === m.id);
@@ -983,6 +986,12 @@ function takeSoloBody(s) {
   if (!(o?.body && o.bodyLen > 0)) return null;
   const m = { id: uid(), kind: 'body', ref: { ...o.body }, start: 0, dur: o.bodyLen, off: 0 };
   (S.manual[s.key] ||= []).push(m); delete o.body; delete o.bodyLen;
+  return m;
+}
+/** an automatic clip of the voice plan becomes a clip of the user's own (same animation, same time) so it can be moved and resized */
+function takeAutoClip(s, kind, c, ref) {
+  const m = { id: uid(), kind, ref: { ...ref }, start: +c.start.toFixed(2), dur: +c.dur.toFixed(2), off: +(c.off || 0).toFixed(2) };
+  (S.manual[s.key] ||= []).push(m);
   return m;
 }
 function dragBgClip(e, c, mode, el) {
@@ -1173,32 +1182,58 @@ function applyPath(key) {
   if (all.length) S.charKeys[key] = all; else delete S.charKeys[key];
   stage.setLayerKeys(key, S.charKeys[key] || []); updateTotal(); S.dirty = true; drawTimeline();
 }
-const penLine = (pts) => pts.map((p) => `${(p.x * 100).toFixed(2)},${((1 - p.y) * 100).toFixed(2)}`).join(' ');
-let pathSvg = null;
-/** the saved path of the character in the Motion tab, drawn over the stage (start = green dot, end = red dot) */
-function updatePathView() {
+/** scene point (fractions, y from the bottom) <-> position inside the picture on screen (fractions, y down), through the camera view */
+const viewOf = () => stage.view || { x: 0, y: 0, w: stage.W, h: stage.H };
+const toScreen = (p) => { const v = viewOf(); return { x: (p.x * stage.W - v.x) / v.w, y: ((1 - p.y) * stage.H - v.y) / v.h }; };
+const fromScreen = (fx, fy) => { const v = viewOf(); return { x: (v.x + fx * v.w) / stage.W, y: 1 - (v.y + fy * v.h) / stage.H }; };
+const penLine = (pts) => pts.map((p) => { const q = toScreen(p); return `${(q.x * 100).toFixed(2)},${(q.y * 100).toFixed(2)}`; }).join(' ');
+let pathSvg = null, pathDots = [], pathSig = '';
+const removePathView = () => { pathSvg?.remove(); pathSvg = null; pathDots.forEach((d) => d.remove()); pathDots = []; pathSig = ''; };
+/** the saved path of the character in the Move tab, drawn over the stage (start = green dot, end = red dot); in edit mode its points can be dragged */
+function updatePathView(force = true) {
   const path = S.tab === 'motion' && !S.pathDraw && S.motionFor ? S.paths[S.motionFor] : null;
-  if (!path?.pts?.length || !wrapEl || S.exporting) { pathSvg?.remove(); pathSvg = null; return; }
+  if (!path?.pts?.length || !wrapEl || S.exporting) { removePathView(); return; }
+  const v = viewOf(), sig = `${S.motionFor}|${S.pathEdit}|${path.pts.length}|${v.x.toFixed(1)},${v.y.toFixed(1)},${v.w.toFixed(1)}|${path.pts[0].x}${path.pts.at(-1).y}`;
+  if (!force && sig === pathSig && pathSvg?.isConnected) return;
+  pathSig = sig;
   if (!pathSvg || !pathSvg.isConnected) {
     pathSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     pathSvg.setAttribute('class', 'pathview'); pathSvg.setAttribute('viewBox', '0 0 100 100'); pathSvg.setAttribute('preserveAspectRatio', 'none'); pathSvg.setAttribute('aria-hidden', 'true');
     wrapEl.append(pathSvg);
   }
-  const a = path.pts[0], b = path.pts.at(-1);
-  pathSvg.innerHTML = `<polyline points="${penLine(path.pts)}"/><circle class="s" cx="${a.x * 100}" cy="${(1 - a.y) * 100}" r="1.1"/><circle class="e" cx="${b.x * 100}" cy="${(1 - b.y) * 100}" r="1.1"/>`;
+  const a = toScreen(path.pts[0]), b = toScreen(path.pts.at(-1));
+  pathSvg.setAttribute('class', `pathview${S.pathEdit ? ' editing' : ''}`);
+  pathSvg.innerHTML = `<polyline points="${penLine(path.pts)}"/><circle class="s" cx="${a.x * 100}" cy="${a.y * 100}" r="1.1"/><circle class="e" cx="${b.x * 100}" cy="${b.y * 100}" r="1.1"/>`;
+  pathDots.forEach((d) => d.remove()); pathDots = [];
+  if (!S.pathEdit) return;
+  const poly = pathSvg.querySelector('polyline');
+  poly.addEventListener('dblclick', (e) => {                    // double-click the line: a new point appears there
+    const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height), hit = insertAt(path.pts, p);
+    path.pts.splice(hit.index, 0, hit.point); applyPath(S.motionFor); updatePathView();
+  });
+  path.pts.forEach((pt, i) => {
+    const q = toScreen(pt), dot = h('i', { class: 'pathpt', title: 'Kheenchein · double-click = point hatao', style: `left:${q.x * 100}%;top:${q.y * 100}%` });
+    dot.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation(); dot.setPointerCapture(e.pointerId);
+      const mv = (ev) => { const r = stage.out.getBoundingClientRect(); path.pts[i] = fromScreen((ev.clientX - r.left) / r.width, (ev.clientY - r.top) / r.height); dot.style.left = `${toScreen(path.pts[i]).x * 100}%`; dot.style.top = `${toScreen(path.pts[i]).y * 100}%`; pathSvg.querySelector('polyline').setAttribute('points', penLine(path.pts)); };
+      const up = () => { dot.removeEventListener('pointermove', mv); dot.removeEventListener('pointerup', up); applyPath(S.motionFor); updatePathView(); };
+      dot.addEventListener('pointermove', mv); dot.addEventListener('pointerup', up);
+    });
+    dot.addEventListener('dblclick', (e) => { e.stopPropagation(); if (path.pts.length <= 2) { toast('Path me kam se kam 2 point chahiye.'); return; } path.pts.splice(i, 1); applyPath(S.motionFor); updatePathView(); });
+    pathDots.push(dot); wrapEl.append(dot);
+  });
 }
 function stopPathDraw() { S.pathDraw?.cleanup(); S.pathDraw = null; }
 /** pen tool: press on the stage and draw the way the character should walk; letting go finishes the line */
 function startPathDraw(s) {
   if (S.exporting || !wrapEl) return;
-  if (stage.camZoom > 1.02) { toast('Path banane ke liye pehle camera ko poore scene par rakhein (zoom 100%).'); return; }
-  stopPathDraw(); pathSvg?.remove(); pathSvg = null; player.pause();
+  stopPathDraw(); removePathView(); S.pathEdit = false; player.pause();
   const layer = h('div', { class: 'pathdraw', title: 'Pen se line kheenchein' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<polyline points=""/>';
   layer.append(svg, h('span', { class: 'pathhint' }, `✏️ ${s.name} ke liye line kheenchein · Esc = cancel`));
   wrapEl.append(layer);
   const line = svg.querySelector('polyline'); let pts = null;
-  const at = (e) => { const r = stage.out.getBoundingClientRect(); return { x: Math.min(1.2, Math.max(-0.2, (e.clientX - r.left) / r.width)), y: Math.min(1.2, Math.max(-0.2, 1 - (e.clientY - r.top) / r.height)) }; };
+  const at = (e) => { const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); return { x: Math.min(1.2, Math.max(-0.2, p.x)), y: Math.min(1.2, Math.max(-0.2, p.y)) }; };
   const down = (e) => { e.preventDefault(); e.stopPropagation(); layer.setPointerCapture(e.pointerId); pts = [at(e)]; };
   const move = (e) => { if (!pts) return; pts.push(at(e)); line.setAttribute('points', penLine(pts)); };
   const up = () => {
@@ -1220,7 +1255,9 @@ function pathCard(s) {
   return h('div', { class: 'card flat path-card' }, h('h2', {}, `✏️ Path · ${s.name}`),
     h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, path ? `Character is line ke saath chalta hai (${fmt(path.start)} se ${fmt(path.start + path.dur)} tak).` : 'Pen se stage par ek line kheenchein; character usi raaste par chalega.'),
     S.pathDraw ? h('button', { class: 'btn', onclick: () => { stopPathDraw(); drawTabs(); } }, '✕ Cancel') : h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', onclick: () => startPathDraw(s) }, path ? '✏️ Dobara kheenchein' : '✏️ Pen se path banayein'),
-      path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; applyPath(s.key); drawTabs(); } }, '🗑 Path hatayein') : null),
+      path ? h('button', { class: `btn${S.pathEdit ? ' pri' : ''}`, onclick: () => { S.pathEdit = !S.pathEdit; if (S.pathEdit) path.pts = simplify(path.pts, 14); applyPath(s.key); drawTabs(); } }, S.pathEdit ? '✔ Points ho gaye' : '✎ Points badlein') : null,
+      path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; S.pathEdit = false; applyPath(s.key); drawTabs(); } }, '🗑 Path hatayein') : null),
+    path && S.pathEdit ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Pili dots ko kheench kar raasta badlein. Line par double-click = naya point, point par double-click = hatao.') : null,
     path && !S.pathDraw ? [num('Shuru (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), num('Kitni der me (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
       tog('↔ Chalne ki direction me muden', 'face'), tog('🐢 Shuru / end me dheere', 'smooth')] : null);
 }
@@ -2293,7 +2330,7 @@ async function loadSceneDoc(doc) {
   if (Array.isArray(doc.props)) S.props = doc.props.map((prop) => ({ ...prop, blob: blobReg.get(prop.blob) || S.props.find((item) => item.id === prop.id)?.blob })).filter((prop) => prop.blob);
   S.selectedPropId = null;
   await stage.setProps(S.props);
-  S.charKeys = JSON.parse(JSON.stringify(doc.charKeys || {})); S.paths = JSON.parse(JSON.stringify(doc.paths || {})); stopPathDraw(); setGrade(doc.grade || {}, true);
+  S.charKeys = JSON.parse(JSON.stringify(doc.charKeys || {})); S.paths = JSON.parse(JSON.stringify(doc.paths || {})); stopPathDraw(); S.pathEdit = false; setGrade(doc.grade || {}, true);
   if (S.mclip && !findManual(S.mclip)) S.mclip = null;
   if (S.camSel && !S.camKeys.some((k) => k.id === S.camSel)) S.camSel = null;
   syncCam(); syncChars();
@@ -2465,7 +2502,7 @@ function loop(now) {
   const t = player.time;
   try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; lastPreviewFrame = now; } catch (e) { console.error(e); }
   if (player.playing) followLine();
-  updateSel(); updateCamBox(); updateTearHandles();
+  updateSel(); updateCamBox(); updateTearHandles(); if (S.tab === 'motion') updatePathView(false);
   if (headEl) {
     const x = t * S.pps;
     headEl.style.left = `${x}px`;
@@ -2476,7 +2513,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

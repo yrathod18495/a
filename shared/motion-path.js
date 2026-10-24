@@ -48,3 +48,35 @@ export function pathKeys(path, mul = 1, idPrefix = 'p') {
   }
   return keys;
 }
+
+const distToSegment = (p, a, b) => {
+  const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+  const u = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+  return Math.hypot(p.x - (a.x + dx * u), p.y - (a.y + dy * u));
+};
+/** keep the shape of a line with at most `max` points (Ramer-Douglas-Peucker, tolerance raised until it fits) */
+export function simplify(pts, max = 12) {
+  if (pts.length <= max) return pts.map((p) => ({ x: p.x, y: p.y }));
+  const run = (tol) => {
+    const keep = new Set([0, pts.length - 1]), stack = [[0, pts.length - 1]];
+    while (stack.length) {
+      const [i, j] = stack.pop(); let worst = -1, at = -1;
+      for (let k = i + 1; k < j; k++) { const d = distToSegment(pts[k], pts[i], pts[j]); if (d > worst) { worst = d; at = k; } }
+      if (worst > tol) { keep.add(at); stack.push([i, at], [at, j]); }
+    }
+    return [...keep].sort((a, b) => a - b).map((k) => ({ x: pts[k].x, y: pts[k].y }));
+  };
+  let lo = 0, hi = 1, best = run(hi);
+  for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2, out = run(mid); if (out.length <= max) { best = out; hi = mid; } else lo = mid; }
+  return best;
+}
+/** where a new point goes when the line is double-clicked at `p`: the segment index it falls on and the point projected onto it */
+export function insertAt(pts, p) {
+  let best = { i: 0, d: Infinity, q: pts[0] };
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy, u = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+    const q = { x: a.x + dx * u, y: a.y + dy * u }, d = Math.hypot(p.x - q.x, p.y - q.y);
+    if (d < best.d) best = { i, d, q };
+  }
+  return { index: best.i, point: best.q, distance: best.d };
+}

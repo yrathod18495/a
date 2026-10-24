@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pathLength, thin, pointAt, pathKeys } from '../shared/motion-path.js';
+import { pathLength, thin, pointAt, pathKeys, simplify, insertAt } from '../shared/motion-path.js';
 
 const line = [{ x: 0.1, y: 0.2 }, { x: 0.5, y: 0.2 }, { x: 0.5, y: 0.6 }];
 
@@ -31,4 +31,13 @@ test('the character turns to the walking direction when asked', () => {
   const right = [{ x: 0.2, y: 0.3 }, { x: 0.8, y: 0.3 }];
   assert.ok(pathKeys({ pts: right, start: 0, dur: 3, face: true }).every((k) => k.flip === false));
   assert.ok(pathKeys({ pts: left, start: 0, dur: 3, face: false }).every((k) => k.flip === false));
+});
+
+test('simplify keeps the ends and the shape with few points; insertAt finds the segment for a new point', () => {
+  const curve = Array.from({ length: 200 }, (_, i) => ({ x: i / 199, y: 0.5 + 0.2 * Math.sin(i / 199 * Math.PI * 2) }));
+  const few = simplify(curve, 10);
+  assert.ok(few.length <= 10 && few.length >= 4); assert.deepEqual(few[0], curve[0]); assert.deepEqual(few.at(-1), curve.at(-1));
+  assert.deepEqual(simplify(line, 12), line);
+  const hit = insertAt(line, { x: 0.52, y: 0.4 });
+  assert.equal(hit.index, 2); assert.ok(Math.abs(hit.point.x - 0.5) < 1e-9 && Math.abs(hit.point.y - 0.4) < 1e-9);
 });
