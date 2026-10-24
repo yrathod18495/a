@@ -18,3 +18,10 @@ test('new and duplicated scenes receive unused names after deletion or repeated 
  const scenes=['Scene 1','Scene 3','Scene 1 copy','Scene 1 copy 2'].map(name=>({name}));
  assert.equal(uniqueSceneName(scenes),'Scene 2');assert.equal(uniqueSceneName(scenes,'Scene 1 copy'),'Scene 1 copy 3');
 });
+
+test('all-scene export uses selected body animation durations and ignores removed actors', () => {
+ const doc={...emptyScene(),speakers:[{key:'hero',charId:'lib:hero'}],solo:{hero:{bodyLen:2.67},removed:{bodyLen:90}}};
+ assert.equal(sceneDuration(doc,new Map()),2.67);
+ const plan=sequencePlan([{doc},{doc:emptyScene()}],new Map());assert.equal(plan[1].start,2.67);assert.equal(plan[1].end,10.67);
+ doc.manual.hero=[{start:4,dur:1.23}];assert.equal(sceneDuration(doc,new Map()),5.23);
+});
