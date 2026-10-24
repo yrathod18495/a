@@ -229,3 +229,24 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .controls{flex-wrap:wrap}
   #app .ws .layout-tools{max-width:100%;flex-wrap:wrap}
 }
+
+#app .tears-panel{gap:12px}
+#app .tear-character{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600}
+#app .tear-styles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+#app .tear-style{display:flex;align-items:center;flex-direction:column;gap:2px;padding:7px 3px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;cursor:pointer;font:inherit}
+#app .tear-style.on{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc);background:color-mix(in srgb,var(--acc) 12%,var(--card))}
+#app .tear-style b{font-size:11px}#app .tear-style small{font-size:9px;color:var(--mute)}
+#app .tear-style-preview{position:relative;display:grid;place-items:center;width:45px;height:34px;overflow:hidden;color:var(--mute);font-size:24px}
+#app .tear-style-preview img{position:absolute;width:55px;height:55px;max-width:none;top:-11px;left:calc(-5px + var(--drop)*12px)}
+#app .tear-preview-2 img,#app .tear-preview-5 img{width:42px;height:42px;top:-3px;left:calc(-4px + var(--drop)*17px)}
+#app .tear-preview-3 img{height:72px;top:-23px}#app .tear-preview-4 img{height:40px;top:-2px}
+#app .tear-settings{display:flex;flex-direction:column;gap:12px;margin:0;padding:12px;border:1px solid var(--line);border-radius:12px;min-width:0}
+#app .tear-settings:disabled{opacity:.55}#app .tear-settings legend{padding:0 5px;font-weight:600;font-size:12px}
+#app .tear-slider{display:flex;flex-direction:column;gap:5px;font-size:12px}
+#app .tear-slider>span{display:flex;justify-content:space-between;gap:8px}#app .tear-slider output{color:var(--mute);font-size:11px}
+#app .tear-slider input{width:100%;accent-color:var(--acc)}#app .tear-help{margin:0;font-size:11px;line-height:1.5;color:var(--mute)}
+#app .tear-timing{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px}#app .tear-timing label{display:flex;flex-direction:column;gap:5px;min-width:0}#app .tear-timing input{min-width:0;width:100%}
+#app .tear-handles{position:absolute;inset:0;pointer-events:none;overflow:visible}
+#app .tear-eye-handle{position:absolute;display:grid;place-items:center;transform:translate(-50%,-50%);width:23px;height:23px;padding:0;border:2px solid #fff;border-radius:50%;background:#147fa9;color:white;box-shadow:0 0 0 1px #174153;pointer-events:auto;touch-action:none;font:700 10px system-ui;cursor:move}
+#app .tear-eye-handle.active{background:var(--acc);color:#211800}
+#app .tear-eye-handle[hidden],#app .tear-handles[hidden]{display:none}

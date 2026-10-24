@@ -1,5 +1,6 @@
 // The animation stage on DragonBones: layered clips (body + legs / hand / face layers) with cross-fades, shots / camera, lip-sync, free camera.
 // Characters are DragonBones armatures (src/db/glslot.js) drawn by our WebGL renderer (src/db/renderer.js).
+import { bindTearEyes, drawTears } from './tears.js';
 import { GLFactory } from './glslot.js';
 import { prepareArmature, assemble } from './prep.js';
 import { GLRenderer } from './renderer.js';
@@ -75,6 +76,7 @@ export class Stage {
     this.swapTex = new Map(); // Blob / key -> GLTex
     this.propTex = new Map(); // shared image props by project prop id
     this.props = [];
+    this.tearTex = null; this.tearBlob = null;
     this.layers = [];         // back -> front draw order
     this.bg = { preset: 0, image: null };
     this.camKeys = [];        // camera keyframes [{t, cx, cy, zoom, ease}] (cx, cy = 0..1 of the canvas); empty = automatic shots
@@ -177,7 +179,7 @@ export class Stage {
       const tex = new Map(a.pages);
       for (const [page, key] of Object.entries(s.swap || {})) { const t = this.swapTex.get(key); if (t) tex.set(page, t); }
       const bone = (...names) => names.map((n) => arm.getBone(n)).find(Boolean) || null;
-      const layer = { key: s.key, flip: s.flip, slot: s.slot, visible: s.visible, mask: s.mask || null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', mul: s.xf?.mul ?? 1, axf: s.xf?.axf ?? null, ayf: s.xf?.ayf ?? null, charId: s.charId,
+      const layer = { tears: s.tears || null, key: s.key, flip: s.flip, slot: s.slot, visible: s.visible, mask: s.mask || null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', mul: s.xf?.mul ?? 1, axf: s.xf?.axf ?? null, ayf: s.xf?.ayf ?? null, charId: s.charId,
         hide: new Set(s.hide || []), arm, factory: f, dbName, prep, tex, anim: new Set(arm.armatureData.animationNames), clips: [], present: s.present || null, shown: true, bounds: null, lipOk: new Map(),
         bones: { head: bone('head', 'HEAD'), neck: bone('neck', 'NECK'), upper_body3: bone('upper_body3', 'TORSO3'), upper_body4: bone('upper_body4', 'TORSO2') }, lip: lipSetup(prep), states: [], mat: [1, 0, 0, 1, 0, 0],
         phase: [...s.key].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 1000, 7) / 159 };
@@ -187,6 +189,7 @@ export class Stage {
       this.setClips(layer, s.clips);
       const bodyNames = [...new Set(layer.clips.filter((c) => c.kind === 'body').flatMap((c) => [c.base, c.name]).filter(Boolean))].slice(0, 8);
       layer.bounds = this.measure(layer, bodyNames);
+      layer.tearBind = s.tearFacingBack ? {} : bindTearEyes(layer, this.collect(layer));
       return layer;
     });
     this.layout();
@@ -271,6 +274,15 @@ export class Stage {
   async setBackgroundImage(file) {
     this.bg.image = file ? await loadImage(file) : null;
     this.bgVer++;
+  }
+
+  async setTearSprite(blob) {
+    if (blob === this.tearBlob && this.tearTex) return;
+    if (!blob) { this.tearTex?.dispose(); this.tearTex = null; this.tearBlob = null; return; }
+    const bitmap = await loadImage(blob, 256);
+    let texture;
+    try { texture = this.r.texture(bitmap); } finally { bitmap.close(); }
+    this.tearTex?.dispose(); this.tearTex = texture; this.tearBlob = blob;
   }
 
   async setProps(props = []) {
@@ -428,10 +440,12 @@ export class Stage {
     r.setMask(null, W, H);
     r.quad(this.bgTex, 0, 0, W, H);
     const list = [];
+    for (const layer of this.layers) layer.tearAnchors = {};
     for (const l of this.layers) if (l.visible !== false && l.shown !== false) {
       r.setMask(l.mask, W, H);
       list.length = 0; this.collect(l, list);
       for (const it of list) r.add(it, l.tex.get(it.atlas.imagePath) || this.assets.get(l.charId).pages.get(it.atlas.imagePath), l.mat);
+      drawTears(r, this.tearTex, l, list, t);
     }
     r.setMask(null, W, H);
     for (const prop of this.props) {
