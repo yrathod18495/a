@@ -11,6 +11,7 @@ async function init(msg) {
   stage.setSize(job.aspect, job.short);
   if (job.bg.image) await stage.setBackgroundImage(job.bg.image);
   if (job.bgClips?.length) await stage.setBackgroundClips(job.bgClips);
+  stage.grade = job.grade || null;
   await stage.setProps(job.props || []);
   for (const def of job.chars) await stage.loadCharacter(def);
   if (job.tearSprite) await stage.setTearSprite(job.tearSprite);

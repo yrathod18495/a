@@ -83,7 +83,7 @@ export class Stage {
     this.camKeys = [];        // camera keyframes [{t, cx, cy, zoom, ease}] (cx, cy = 0..1 of the canvas); empty = automatic shots
     this.userCam = null;      // Character Studio: free zoom / pan {zoom, cx, cy} in canvas pixels (zoom below 1 = out, nothing is clamped)
     this.fullView = false;    // editing: show the whole canvas instead of what the camera sees
-    this.bgTex = null; this.bgCache = new Map(); this.bgClips = []; this.imgIds = new WeakMap(); this.imgSeq = 0;   // backgrounds can change over time: one texture per (colour, picture, size)
+    this.grade = null; this.bgTex = null; this.bgCache = new Map(); this.bgClips = []; this.imgIds = new WeakMap(); this.imgSeq = 0;   // backgrounds can change over time: one texture per (colour, picture, size)
     this.prepCache = new Map(); this.uid = 0;
     this.setSize('16:9', 720);
   }
@@ -441,6 +441,7 @@ export class Stage {
       if(l.maskFollow){const bone=l.arm.getBone(l.maskFollow);if(bone){const m=bone.globalTransformMatrix, p={x:l.mat[0]*m.tx+l.mat[2]*m.ty+l.mat[4],y:l.mat[1]*m.tx+l.mat[3]*m.ty+l.mat[5]};l.mask={...l.mask,x:(p.x-l.mask.w*this.W/2)/this.W,y:(p.y-l.mask.h*this.H/2)/this.H};}}
     }
     this.ensureBackground(t);
+    r.target(this.grade, W, H);                             // colour grade on: the scene goes into a texture first
     r.clear(...(this.userCam ? [0.93, 0.95, 0.97] : [0, 0, 0]));
     const cam = this.cameraAt(plan, t), vw = W / cam.zoom, vh = H / cam.zoom;
     this.camZoom = cam.zoom;
@@ -459,7 +460,7 @@ export class Stage {
     }
     r.setMask(null, W, H);
     this.drawProps(t, false);
-    r.end();
+    r.end(Math.floor(t * 30));
     this.onFrame?.();
   }
 

@@ -24,6 +24,7 @@ import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
 import { propFromAsset, isEffect, isHeld } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
+import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, presetGrade, presetOf } from '../shared/color-grade.js';
 import { thin, pathLength, pathKeys } from '../shared/motion-path.js';
 import { resizeClip, contentLength, snap as snapTo, MIN_CLIP } from '../shared/timeline-edit.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
@@ -32,7 +33,7 @@ const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
 const S = {
   scenes: [], sceneId: null, exportScope: 'all',
-  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
+  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, grade: { ...DEFAULT_GRADE }, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
@@ -629,7 +630,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', '🎙'], ['chars', 'Characters', '🎭'], ['anim', 'Animations', '🎬'], ['tears', 'Tears', '💧'], ['motion', 'Move', '🏃'], ['camera', 'Camera', '🎥'], ['mask', 'Mask', '◩'], ['ai', 'AI', '✨'], ['canvas', 'Background', '🖼'], ['props', 'Props', '🧸'], ['effects', 'Effects', '💫'], ['export', 'Export', '⬇']];
+const TABS = [['audio', 'Audio', '🎙'], ['chars', 'Characters', '🎭'], ['anim', 'Animations', '🎬'], ['tears', 'Tears', '💧'], ['motion', 'Move', '🏃'], ['grade', 'Colour', '🎨'], ['camera', 'Camera', '🎥'], ['mask', 'Mask', '◩'], ['ai', 'AI', '✨'], ['canvas', 'Background', '🖼'], ['props', 'Props', '🧸'], ['effects', 'Effects', '💫'], ['export', 'Export', '⬇']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri', onclick: togglePlay }, '▶ Play');
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -776,11 +777,11 @@ function drawTabs() {
   const more = h('details', { class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}` },
     h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '⚙'), 'Advanced'),
     h('div', { class: 'advanced-tools-list' }, ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
-  tabsEl.replaceChildren(...rail('Create', ['audio', 'chars', 'anim', 'tears', 'canvas', 'props', 'effects']), ...rail('Output', ['export']), more);
+  tabsEl.replaceChildren(...rail('Create', ['audio', 'chars', 'anim', 'tears', 'canvas', 'props', 'effects', 'grade']), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag karke panel kahin bhi rakhein · double-click se wapas', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, 'Close')),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), effects: () => libraryTab('effect'), export: tabExport }[S.tab]());
+    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag karke menu kahin bhi rakhein · double-click se wapas', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   S.dirty = true; syncLayoutUi();
@@ -1100,6 +1101,40 @@ function tabMotion() {
         h('button', { class: 'btn', onclick: () => { S.charKeys[s.key] = S.charKeys[s.key].filter((x) => x !== k); if (!S.charKeys[s.key].length) delete S.charKeys[s.key]; stage.setLayerKeys(s.key, S.charKeys[s.key] || []); S.ckSel = null; drawTimeline(); drawTabs(); S.dirty = true; } }, '🗑 Delete'))) : null,
     h('div', { class: 'card flat' }, h('h2', {}, `Keyframes (${list.length})`),
       list.length ? list.map((x, i) => h('div', { class: `item ${x.id === S.ckSel ? 'on' : ''}`, style: 'cursor:pointer', onclick: () => goto(x) }, h('span', { class: 'chip' }, i + 1), h('b', {}, `${x.t.toFixed(2)} s`), h('small', { style: 'margin-left:8px' }, `${Math.round(x.x * 100)}% · ${Math.round(x.mul * 100)}% · ${x.ease || 'smooth'}${x.flip ? ' · ⇋' : ''}`))) : h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'None yet.')));
+}
+
+/* ---------- colour grading of the whole scene ---------- */
+/** change the scene's grade (patch = some controls); `replace` starts again from neutral first */
+function setGrade(patch, replace = false) {
+  S.grade = cleanGrade({ ...(replace ? DEFAULT_GRADE : S.grade), ...patch });
+  if (stage) stage.grade = gradeActive(S.grade) ? S.grade : null;
+  S.dirty = true;
+}
+function tabGrade() {
+  const on = gradeActive(S.grade), current = presetOf(S.grade), fields = new Map();
+  const refresh = () => { for (const [key, { input, num }] of fields) { input.value = S.grade[key]; num.value = +S.grade[key].toFixed(2); } };
+  const row = (c) => {
+    const input = h('input', { type: 'range', min: c.min, max: c.max, step: c.step, value: S.grade[c.key], 'aria-label': c.label });
+    const num = h('input', { type: 'number', class: 'grade-num', min: c.min, max: c.max, step: c.step, value: +S.grade[c.key].toFixed(2), 'aria-label': `${c.label} value` });
+    const set = (v) => { setGrade({ [c.key]: v }); refresh(); markTouched(); };
+    input.addEventListener('input', () => set(+input.value)); num.addEventListener('change', () => set(+num.value));
+    input.addEventListener('dblclick', () => set(c.neutral));
+    fields.set(c.key, { input, num });
+    return h('div', { class: 'grade-row' }, h('label', {}, c.label, num), input);
+  };
+  const tint = h('input', { type: 'color', class: 'grade-color', value: S.grade.tint, 'aria-label': 'Tint colour' });
+  tint.addEventListener('input', () => { setGrade({ tint: tint.value, ...(S.grade.tintAmount === 0 ? { tintAmount: 0.3 } : {}) }); refresh(); markTouched(); });
+  const reset = h('button', { class: 'btn sm', type: 'button', disabled: !on, onclick: () => { setGrade({}, true); drawTabs(); } }, 'Reset All ↺');
+  const status = h('small', { class: 'sub' }, on ? 'Grade chalu hai: poori scene par lagta hai.' : 'Abhi koi grade nahi.');
+  const markTouched = () => { status.textContent = gradeActive(S.grade) ? 'Grade chalu hai: poori scene par lagta hai.' : 'Abhi koi grade nahi.'; reset.disabled = !gradeActive(S.grade); };
+  const groups = [...new Set(GRADE_CONTROLS.map((c) => c.group))];
+  return h('div', { class: 'list grade-panel' },
+    h('div', { class: 'card flat' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('h2', { style: 'margin:0' }, '🎨 Colour Grading'), reset),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 8px' }, 'Poori scene par asar karta hai (background + characters + props + effects). Export me bhi wahi look aata hai. Slider par double-click karo to wo control neutral ho jaata hai.'), status),
+    h('div', { class: 'card flat' }, h('h3', {}, 'Looks'), h('div', { class: 'grade-presets' }, GRADE_PRESETS.map((p) => h('button', { type: 'button', class: current === p.id ? 'on' : '', onclick: () => { setGrade(presetGrade(p.id), true); drawTabs(); } }, p.label)))),
+    ...groups.map((group) => h('div', { class: 'card flat' }, h('h3', {}, group), ...GRADE_CONTROLS.filter((c) => c.group === group).map(row),
+      group === 'Colour' ? h('div', { class: 'grade-row grade-tint' }, h('label', {}, 'Tint colour'), tint) : null)),
+    h('p', { class: 'sub', style: 'font-size:12px' }, 'Tip: Pehle background aur characters lagao, phir grade karo.'));
 }
 
 /* ---------- motion paths: draw a line with the pen, the character follows it ---------- */
@@ -2134,7 +2169,7 @@ async function doExport() {
           aspect: S.aspect, short: S.quality, fps: S.fps, level: S.level, format: S.format, W: stage.W, H: stage.H, maxTex: S.quality >= 2160 ? 4096 : 2048,
           chars: ids.map((id) => { const d = S.characters.find((c) => c.id === id) || S.libDefs.get(id); return { id, ske: d.ske, tex: d.tex }; }),
           tearSprite: layers.some(layer => layer.tears?.style) ? await loadTearSprite() : null,
-          bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), props: S.props.map((prop) => ({ ...prop })),
+          bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), grade: gradeActive(S.grade) ? { ...S.grade } : null, props: S.props.map((prop) => ({ ...prop })),
           layers, plan: shotPlan(), camKeys: stage.camKeys, voice: player.clips.map((c) => ({ speaker: c.speaker, start: c.start, end: c.end, visemes: c.visemes })),
         };
         res = await exportParallel({ job, clips: player.clips, total: player.total, onProgress: progress, cancelled: () => stop, workers: workerCount() });
@@ -2174,7 +2209,7 @@ function sceneDoc() {
     lines: S.lines.map(({id, order, file, speaker}) => ({id, order, file, speaker})),
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
-    order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), paths: clone(S.paths), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
+    order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), paths: clone(S.paths), grade: gradeActive(S.grade) ? clone(S.grade) : null, camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
     props: S.props.map((prop) => ({ ...prop, blob: bid(prop.blob) })),
   };
 }
@@ -2231,7 +2266,7 @@ async function loadSceneDoc(doc) {
   if (Array.isArray(doc.props)) S.props = doc.props.map((prop) => ({ ...prop, blob: blobReg.get(prop.blob) || S.props.find((item) => item.id === prop.id)?.blob })).filter((prop) => prop.blob);
   S.selectedPropId = null;
   await stage.setProps(S.props);
-  S.charKeys = JSON.parse(JSON.stringify(doc.charKeys || {})); S.paths = JSON.parse(JSON.stringify(doc.paths || {})); stopPathDraw();
+  S.charKeys = JSON.parse(JSON.stringify(doc.charKeys || {})); S.paths = JSON.parse(JSON.stringify(doc.paths || {})); stopPathDraw(); setGrade(doc.grade || {}, true);
   if (S.mclip && !findManual(S.mclip)) S.mclip = null;
   if (S.camSel && !S.camKeys.some((k) => k.id === S.camSel)) S.camSel = null;
   syncCam(); syncChars();

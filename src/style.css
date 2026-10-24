@@ -872,3 +872,11 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .pathview polyline{stroke-dasharray:8 6}
 .pathview circle.s{fill:#4ade80;stroke:#0b3d1f;stroke-width:.4}.pathview circle.e{fill:#f87171;stroke:#4d0f0f;stroke-width:.4}
 .pathhint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:#191610ee;color:#efd08a;border:1px solid #765c30;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;pointer-events:none}
+.grade-row{display:grid;gap:4px;margin:8px 0}
+.grade-row label{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700}
+.grade-row input[type=range]{width:100%}
+.grade-num{width:74px;background:#0f0d09;color:#efd08a;border:1px solid #594729;border-radius:6px;padding:3px 6px;font-size:12px;text-align:right}
+.grade-color{width:46px;height:28px;padding:0;border:1px solid #594729;border-radius:6px;background:none}
+.grade-presets{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.grade-presets button{padding:7px 8px;border:1px solid #594729;border-radius:8px;background:#191610;color:#efd08a;font-size:12px;font-weight:700;cursor:pointer}
+.grade-presets button.on{background:#765c30;color:#fff;border-color:#bf9b53}
