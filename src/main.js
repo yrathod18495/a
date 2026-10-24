@@ -24,6 +24,7 @@ import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
 import { propFromAsset, isEffect, isHeld } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
+import { thin, pathLength, pathKeys } from '../shared/motion-path.js';
 import { resizeClip, contentLength, snap as snapTo, MIN_CLIP } from '../shared/timeline-edit.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
@@ -31,7 +32,7 @@ const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
 const S = {
   scenes: [], sceneId: null, exportScope: 'all',
-  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
+  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
@@ -761,6 +762,7 @@ async function editScene(id, action) {
 }
 
 function drawTabs() {
+  updatePathView();
   stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
   const advanced = new Set(['motion', 'camera', 'mask', 'ai']);
@@ -1079,8 +1081,10 @@ function tabMotion() {
   const sl = (label, get, set, min, max, step, show) => { const out = h('span', { class: 'v' }, show(get())), input = h('input', { type: 'range', min, max, step, value: get() }); input.addEventListener('input', () => { set(+input.value); out.textContent = show(+input.value); apply(); }); input.addEventListener('change', () => drawTabs()); return h('label', { class: 'cs-sl' }, h('span', {}, label), input, out); };
   const goto = (key) => { S.ckSel = key.id; player.seek(Math.min(player.total, key.t)); S.dirty = true; drawTabs(); };
   const addHere = () => { const l = stage.layers.find((x) => x.key === s.key); if (!l) return; writeCharKey(l); drawTabs(); };
+  updatePathView();
   return h('div', { class: 'list' },
     h('div', { class: 'tabs' }, chars.map((c) => h('button', { class: c.key === s.key ? 'on' : '', onclick: () => { S.motionFor = c.key; S.sel = c.key; updateSel(); drawTabs(); } }, h('span', { class: 'dot', style: `background:${c.color};display:inline-block;margin-right:6px` }), c.name))),
+    pathCard(s),
     h('div', { class: 'card flat' }, h('h2', {}, `🏃 Movement keyframes · ${s.name}`),
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, list.length ? 'The character follows its keyframes. Move the playhead, then drag or resize the character on the stage — a keyframe is made there. A character holds its first / last keyframe before / after them.' : 'Now the character stays where you put it. Press ＋ Keyframe here to start: set the first position, then move the playhead and drag the character somewhere else.'),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', onclick: addHere }, '＋ Keyframe here'),
@@ -1096,6 +1100,67 @@ function tabMotion() {
         h('button', { class: 'btn', onclick: () => { S.charKeys[s.key] = S.charKeys[s.key].filter((x) => x !== k); if (!S.charKeys[s.key].length) delete S.charKeys[s.key]; stage.setLayerKeys(s.key, S.charKeys[s.key] || []); S.ckSel = null; drawTimeline(); drawTabs(); S.dirty = true; } }, '🗑 Delete'))) : null,
     h('div', { class: 'card flat' }, h('h2', {}, `Keyframes (${list.length})`),
       list.length ? list.map((x, i) => h('div', { class: `item ${x.id === S.ckSel ? 'on' : ''}`, style: 'cursor:pointer', onclick: () => goto(x) }, h('span', { class: 'chip' }, i + 1), h('b', {}, `${x.t.toFixed(2)} s`), h('small', { style: 'margin-left:8px' }, `${Math.round(x.x * 100)}% · ${Math.round(x.mul * 100)}% · ${x.ease || 'smooth'}${x.flip ? ' · ⇋' : ''}`))) : h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'None yet.')));
+}
+
+/* ---------- motion paths: draw a line with the pen, the character follows it ---------- */
+/** (re)build the movement keys of a character from its path; keys of an older path are replaced, the user's own keys stay */
+function applyPath(key) {
+  const path = S.paths[key], keep = (S.charKeys[key] || []).filter((k) => !k.pathKey);
+  const now = charNow(key), keys = path ? pathKeys(path, path.mul ?? now?.mul ?? 1, `${key}p`).map((k) => ({ ...k, id: uid() })) : [];
+  const all = [...keep, ...keys];
+  if (all.length) S.charKeys[key] = all; else delete S.charKeys[key];
+  stage.setLayerKeys(key, S.charKeys[key] || []); updateTotal(); S.dirty = true; drawTimeline();
+}
+const penLine = (pts) => pts.map((p) => `${(p.x * 100).toFixed(2)},${((1 - p.y) * 100).toFixed(2)}`).join(' ');
+let pathSvg = null;
+/** the saved path of the character in the Motion tab, drawn over the stage (start = green dot, end = red dot) */
+function updatePathView() {
+  const path = S.tab === 'motion' && !S.pathDraw && S.motionFor ? S.paths[S.motionFor] : null;
+  if (!path?.pts?.length || !wrapEl || S.exporting) { pathSvg?.remove(); pathSvg = null; return; }
+  if (!pathSvg || !pathSvg.isConnected) {
+    pathSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    pathSvg.setAttribute('class', 'pathview'); pathSvg.setAttribute('viewBox', '0 0 100 100'); pathSvg.setAttribute('preserveAspectRatio', 'none'); pathSvg.setAttribute('aria-hidden', 'true');
+    wrapEl.append(pathSvg);
+  }
+  const a = path.pts[0], b = path.pts.at(-1);
+  pathSvg.innerHTML = `<polyline points="${penLine(path.pts)}"/><circle class="s" cx="${a.x * 100}" cy="${(1 - a.y) * 100}" r="1.1"/><circle class="e" cx="${b.x * 100}" cy="${(1 - b.y) * 100}" r="1.1"/>`;
+}
+function stopPathDraw() { S.pathDraw?.cleanup(); S.pathDraw = null; }
+/** pen tool: press on the stage and draw the way the character should walk; letting go finishes the line */
+function startPathDraw(s) {
+  if (S.exporting || !wrapEl) return;
+  if (stage.camZoom > 1.02) { toast('Path banane ke liye pehle camera ko poore scene par rakhein (zoom 100%).'); return; }
+  stopPathDraw(); pathSvg?.remove(); pathSvg = null; player.pause();
+  const layer = h('div', { class: 'pathdraw', title: 'Pen se line kheenchein' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<polyline points=""/>';
+  layer.append(svg, h('span', { class: 'pathhint' }, `✏️ ${s.name} ke liye line kheenchein · Esc = cancel`));
+  wrapEl.append(layer);
+  const line = svg.querySelector('polyline'); let pts = null;
+  const at = (e) => { const r = stage.out.getBoundingClientRect(); return { x: Math.min(1.2, Math.max(-0.2, (e.clientX - r.left) / r.width)), y: Math.min(1.2, Math.max(-0.2, 1 - (e.clientY - r.top) / r.height)) }; };
+  const down = (e) => { e.preventDefault(); e.stopPropagation(); layer.setPointerCapture(e.pointerId); pts = [at(e)]; };
+  const move = (e) => { if (!pts) return; pts.push(at(e)); line.setAttribute('points', penLine(pts)); };
+  const up = () => {
+    if (!pts) return;
+    const clean = thin(pts, 0.006), now = charNow(s.key);
+    if (clean.length < 2 || pathLength(clean) < 0.03) { pts = null; line.setAttribute('points', ''); toast('Line bahut chhoti hai. Thodi lambi line kheenchein.'); return; }
+    const old = S.paths[s.key];
+    S.paths[s.key] = { pts: clean, start: old?.start ?? +player.time.toFixed(2), dur: old?.dur ?? Math.max(1, +(pathLength(clean) * 8).toFixed(1)), face: old?.face ?? true, smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
+    stopPathDraw(); applyPath(s.key); player.seek(Math.min(player.total, S.paths[s.key].start)); drawTabs();
+  };
+  const key = (e) => { if (e.key === 'Escape') { stopPathDraw(); drawTabs(); } };
+  layer.addEventListener('pointerdown', down); layer.addEventListener('pointermove', move); layer.addEventListener('pointerup', up); window.addEventListener('keydown', key);
+  S.pathDraw = { key: s.key, cleanup: () => { layer.remove(); window.removeEventListener('keydown', key); } };
+  drawTabs();
+}
+function pathCard(s) {
+  const path = S.paths[s.key], num = (label, get, set) => h('label', { class: 'cs-sl' }, h('span', {}, label), h('input', { type: 'number', step: 0.1, min: 0, value: get().toFixed(1), onchange: (e) => { set(Math.max(0, +e.target.value || 0)); applyPath(s.key); drawTabs(); } }));
+  const tog = (label, key) => h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: !!path[key], onchange: (e) => { path[key] = e.target.checked; applyPath(s.key); } }), label);
+  return h('div', { class: 'card flat path-card' }, h('h2', {}, `✏️ Path · ${s.name}`),
+    h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, path ? `Character is line ke saath chalta hai (${fmt(path.start)} se ${fmt(path.start + path.dur)} tak).` : 'Pen se stage par ek line kheenchein; character usi raaste par chalega.'),
+    S.pathDraw ? h('button', { class: 'btn', onclick: () => { stopPathDraw(); drawTabs(); } }, '✕ Cancel') : h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', onclick: () => startPathDraw(s) }, path ? '✏️ Dobara kheenchein' : '✏️ Pen se path banayein'),
+      path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; applyPath(s.key); drawTabs(); } }, '🗑 Path hatayein') : null),
+    path && !S.pathDraw ? [num('Shuru (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), num('Kitni der me (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
+      tog('↔ Chalne ki direction me muden', 'face'), tog('🐢 Shuru / end me dheere', 'smooth')] : null);
 }
 
 /* ---------- camera keyframes ---------- */
@@ -2109,7 +2174,7 @@ function sceneDoc() {
     lines: S.lines.map(({id, order, file, speaker}) => ({id, order, file, speaker})),
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
-    order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
+    order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), paths: clone(S.paths), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
     props: S.props.map((prop) => ({ ...prop, blob: bid(prop.blob) })),
   };
 }
@@ -2166,7 +2231,7 @@ async function loadSceneDoc(doc) {
   if (Array.isArray(doc.props)) S.props = doc.props.map((prop) => ({ ...prop, blob: blobReg.get(prop.blob) || S.props.find((item) => item.id === prop.id)?.blob })).filter((prop) => prop.blob);
   S.selectedPropId = null;
   await stage.setProps(S.props);
-  S.charKeys = JSON.parse(JSON.stringify(doc.charKeys || {}));
+  S.charKeys = JSON.parse(JSON.stringify(doc.charKeys || {})); S.paths = JSON.parse(JSON.stringify(doc.paths || {})); stopPathDraw();
   if (S.mclip && !findManual(S.mclip)) S.mclip = null;
   if (S.camSel && !S.camKeys.some((k) => k.id === S.camSel)) S.camSel = null;
   syncCam(); syncChars();
