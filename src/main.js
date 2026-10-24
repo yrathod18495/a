@@ -734,8 +734,9 @@ function drawTimeline() {
     lane.append(h('div', { class: `tclip voice ${c.id === S.lineSel ? 'sel' : ''}`, style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
       h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}`)));
   });
-  if (!player.clips.length) lane.append(h('div', { class: 'tclip empty', style: 'left:0;right:0', onclick: () => openTab('audio') }, '＋ Add audio (optional)'));
-  const labels = [h('div', { class: 'rl ruler', style: `height:${RULER}px` }, 'Time'), h('div', { class: 'rl audio', style: 'height:40px' }, '🔊 Audio')], lanes = [ruler, lane];
+  // no audio yet: show only the ruler and the animation lanes (audio can still be added in the Audio tab)
+  const hasAudio = player.clips.length > 0;
+  const labels = [h('div', { class: 'rl ruler', style: `height:${RULER}px` }, 'Time'), ...(hasAudio ? [h('div', { class: 'rl audio', style: 'height:40px' }, '🔊 Audio')] : [])], lanes = [ruler, ...(hasAudio ? [lane] : [])];
   const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 34;
   for (const s of S.order.map(sOf).filter((x) => x?.charId && charOf(x))) {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
@@ -784,13 +785,14 @@ function drawTimeline() {
 
 /* ---------- the user's own animation clips on the timeline ---------- */
 const findManual = (id) => { for (const [k, list] of Object.entries(S.manual)) { const m = list.find((x) => x.id === id); if (m) return { s: sOf(k), m, list }; } return null; };
-/** an empty scene is 8 s; clips / camera keys placed later stretch it. With audio the voice decides the length. */
+/** an empty scene is 8 s, or as long as the animation picked for a character (S.solo[key].bodyLen); clips / camera keys placed later stretch it. With audio the voice decides the length. */
 function sceneLen() {
-  let end = 8;
+  const solo = Object.entries(S.solo).filter(([key, o]) => o?.bodyLen > 0 && sOf(key)?.charId).map(([, o]) => o.bodyLen);
+  let end = solo.length ? Math.max(1, ...solo) : 8;
   for (const l of Object.values(S.manual)) for (const m of l) end = Math.max(end, m.start + m.dur);
   for (const k of S.camKeys) end = Math.max(end, k.t + 0.5);
   for (const l of Object.values(S.charKeys)) for (const k of l) end = Math.max(end, k.t + 0.5);
-  return Math.ceil(end * 10) / 10;
+  return Math.ceil(end * 100) / 100;
 }
 function updateTotal() {
   if (player.clips.length) return;
@@ -1050,6 +1052,7 @@ function followLine() {
 function drawLineBox() {
   if (!lineBox) return;
   const L = lineById(S.lineSel);
+  const details = lineBox.closest('.line-details'); if (details) details.hidden = !player.clips.length;
   if (!L) { lineBox.replaceChildren(h('p', { class: 'sub' }, 'No audio lines yet.')); return; }
   const idx = player.clips.indexOf(L), sp = sOf(L.speaker);
   const chars = S.order.map(sOf).filter((s) => s?.charId);
@@ -1085,7 +1088,8 @@ async function pickAnimation(s, ref, overlay, length) {
   if (S.addMode) { await addClip(s, ref, overlay, length); return; }
   const L = lineById(S.lineSel), kind = ref.layer || (overlay ? 'face' : null);
   if (!player.clips.length) {                 // no audio yet: the animation plays for the whole scene
-    (S.solo[s.key] ||= {})[kind || 'body'] = ref;
+    const o = (S.solo[s.key] ||= {}); o[kind || 'body'] = ref;
+    if (!kind) { if (ref.source !== 'mode' && length > 0) o.bodyLen = +(+length).toFixed(2); else delete o.bodyLen; updateTotal(); drawTimeline(); }   // the scene is exactly as long as the animation
   } else {
     if (!L) { toast('Tap an audio line first.'); return; }
     const lines = S.applyAll ? player.clips : [L];
