@@ -34,6 +34,8 @@ service cloud.firestore {
     && request.resource.data.keys().hasOnly(['name','email','photoURL','joinedAt','lastSeen','plan'])
     && request.resource.data.plan == 'Free';
   }
+  match /entitlements/{uid} { allow read: if owner(uid); allow write: if false; }
+  match /workspaces/{uid}/exports/{id} { allow read: if owner(uid); allow write: if false; }
   match /workspaces/{uid}/projects/{id} { allow read: if owner(uid); allow write: if false; }
   match /workspaces/{uid}/characters/{id} { allow read: if owner(uid); allow write: if owner(uid) && writable(); }
   match /workspaces/{uid}/sync/{id} { allow read: if owner(uid); allow write: if false; }

@@ -21,6 +21,8 @@ import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
+import { currentPlan, refreshPlan, authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
+import { fmtLimit, limitMessage, EXPORT_LIMIT_SECONDS } from '../shared/export-limits.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
 const initialPreviewMode = readPreviewMode();
@@ -1745,10 +1747,17 @@ function tabExport() {
   const cDone = h('button', { class: 'btn ok', style: 'width:100%;padding:14px', disabled: !pickType() && !window.VideoEncoder, onclick: doExport }, '⬇ Export video');
   const { W: outW, H: outH } = sizeFor(), preset = presetMatch(S);
   const mbps = bitrateFor(outW, outH, S.level, S.format) / 1e6, mb = (mbps * duration) / 8;
+  const plan = currentPlan(), over = duration > plan.limitSeconds + 0.05, shown = `${plan.tier}${plan.limitSeconds}`;
+  refreshPlan().then((next) => { if (S.tab === 'export' && S.panelOpen && `${next.tier}${next.limitSeconds}` !== shown) redrawPanel(); });
+  const planCard = h('div', { class: `exp-plan${over ? ' over' : ''}` },
+    h('div', { class: 'exp-plan-head' }, h('b', {}, plan.tier === 'paid' ? '⭐ Paid account' : 'Free account'), h('span', {}, `up to ${fmtLimit(plan.limitSeconds)} per export`)),
+    h('div', { class: 'exp-meter', role: 'img', 'aria-label': `This video is ${fmtLimit(duration)} of ${fmtLimit(plan.limitSeconds)}` }, h('i', { style: `width:${Math.min(100, (duration / plan.limitSeconds) * 100)}%` })),
+    over ? h('p', { class: 'exp-warn', role: 'alert' }, limitMessage(duration, plan.tier)) : h('small', {}, `This video: ${fmtLimit(duration)}${plan.tier === 'free' ? ` · paid accounts export up to ${fmtLimit(EXPORT_LIMIT_SECONDS.paid)}` : ''}`),
+    plan.tier === 'free' ? h('a', { class: 'btn sm', href: '/buy-credits', target: '_blank', rel: 'noopener' }, 'Buy credits for longer exports') : null);
   const group = (key, icon, title, ...body) => h('details', { class: 'exp-group', open: S.expOpen[key], ontoggle: e => { S.expOpen[key] = e.currentTarget.open; } }, h('summary', {}, h('span', { 'aria-hidden': 'true' }, icon), title), h('div', { class: 'exp-body' }, ...body));
   const stat = (label, value) => h('div', {}, label, h('b', {}, value));
   return h('div', { class: 'list' },
-    group('quick', '⚡', 'Quick setup',
+    group('quick', '⚡', 'Quick setup', planCard,
       h('div', { class: 'exp-summary' }, stat('Resolution', `${outW}×${outH}`), stat('Length', `${duration.toFixed(1)} s`), stat('Format', `${S.format.toUpperCase()} · ${S.fps} fps`), stat('Approx. size', `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)),
       h('div', { class: 'exp-presets' }, EXPORT_PRESETS.map(p => h('button', { type: 'button', 'aria-pressed': String(preset === p.id), onclick: () => { Object.assign(S, { quality: p.quality, format: p.format, fps: p.fps, level: p.level }); redrawPanel(); } }, p.label, h('small', {}, p.note))))),
     group('out', '🎞', 'Scenes & method', cScenes, cNoAudio, cMethod),
@@ -1764,8 +1773,25 @@ async function togglePlay() {
   S.dirty = true;
 }
 
+/** length of the video an export would produce right now: every scene joined, or just the current one */
+function exportLength() {
+  const scenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
+  return { scenes: scenes.length, seconds: sequencePlan(scenes, sceneAudio).at(-1)?.end || player.total };
+}
+let exportChecking = false;
 async function doExport() {
+  if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
+  // the server decides how long a video this account may export (free 2 min, paid 10 min) before any rendering starts
+  exportChecking = true; let grant;
+  try {
+    const { seconds, scenes } = exportLength();
+    grant = await authorizeExport({ seconds, scenes, scope: scenes > 1 ? 'all' : 'current' });
+  } catch (error) {
+    toast(error.message); if (error instanceof ExportLimitError) { openTab('export'); refreshPlan({ fresh: true }); }
+    return;
+  } finally { exportChecking = false; }
   if (S.exporting || previewChanging || sceneChanging) return;
+  let exported = false;
   S.exporting = true; requestStudioFrame(); player.pause(); player.seek(0); if (selEl) selEl.hidden = true; stage.fullView = false; syncCam();
   rememberScene();
   const originalScene = S.sceneId, exportAspect = S.aspect;
@@ -1825,11 +1851,13 @@ async function doExport() {
     const took = (performance.now() - t0) / 1000;
     const a = h('a', { href: URL.createObjectURL(blob), download: `toon-${exportAspect.replace(':', 'x')}-${Date.now()}.${ext}` });
     document.body.append(a); a.click(); a.remove();
+    exported = true;
     toast(`Done in ${took.toFixed(0)}s (${((sequence ? sequence.at(-1).end : player.total) / took).toFixed(1)}× real time) · ${ext.toUpperCase()} · ${info}`);
   } catch (e) { toast(e.message === 'cancelled' ? 'Export cancelled' : `Export failed: ${e.message}`); console.error(e); }
   if (sequence) { try { await activateScene(S.scenes.find(scene => scene.id === originalScene)); } catch (error) { toast(`Could not restore scene: ${error.message}`); } }
   wl?.release?.().catch(() => {});
   try { await stage.setTextureLimit(PREVIEW_MODES[S.previewMode].maxTex); await applyLayers(); } catch (error) { toast(`Preview textures could not be restored: ${error.message}`); }
+  finishExport(grant.grantId, exported);
   b.done(); S.exporting = false; if (sequence) render(); stage.setSize(S.aspect, S.preview); player.pause(); player.seek(0); fitEditor(); S.dirty = true;
 }
 
@@ -2077,7 +2105,7 @@ export async function openStudio() {
   $app.hidden = false;
   if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile
   startAutoSync();
-  S.ready = true; S.dirty = true; fitEditor(); dockShow('rail'); dockShow('panel');
+  S.ready = true; S.dirty = true; fitEditor(); dockShow('rail'); dockShow('panel'); refreshPlan({ fresh: true });
   const box = document.getElementById('stagebox'); if (box) stageObserver?.observe(box);
 }
 export async function closeStudio() {

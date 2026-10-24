@@ -49,3 +49,26 @@ test('side menus slide away after 5 s idle and return from the screen edge; time
  await page.mouse.move(1364,200);await expect(ws).toHaveAttribute('data-dock-panel','in');
  await page.mouse.move(600,200);await page.keyboard.press('[');await expect(ws).toHaveAttribute('data-dock-rail','out');
 });
+
+test('free accounts cannot export more than 2 minutes, one scene or all scenes joined, and the export panel explains why',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Limit');await page.getByRole('button',{name:'Create project',exact:true}).click();
+ await expect(page.locator('#app .stagebox canvas')).toBeVisible();
+ const key=t=>({id:`k${t}`,t,cx:.5,cy:.5,zoom:1,ease:'linear'});
+ // one 130 s scene
+ await page.evaluate(k=>{window.__toon.S.camKeys.push(k);window.__toon.S.dirty=true;},key(130));
+ await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
+ await expect(page.locator('.exp-plan')).toContainText('Free account');await expect(page.locator('.exp-plan')).toContainText('up to 2 min');
+ await expect(page.locator('.exp-plan.over')).toContainText('free accounts can export up to 2 min');
+ await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
+ await expect(page.getByText(/free accounts can export up to 2 min/).first()).toBeVisible();
+ expect(await page.evaluate(()=>window.__toon.S.exporting)).toBe(false);await expect(page.locator('.busy')).toHaveCount(0);
+ // two scenes of 70 s each: fine one by one, too long joined
+ await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'a',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
+ await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
+ await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'b',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
+ await page.locator('.tabs.big').getByRole('button',{name:'Audio',exact:true}).click();await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
+ await expect(page.locator('.exp-plan.over')).toBeVisible();
+ await page.locator('.exp-group select[aria-label="Export scenes"]').selectOption('current');await expect(page.locator('.exp-plan.over')).toHaveCount(0);
+ await page.locator('.exp-group select[aria-label="Export scenes"]').selectOption('all');await expect(page.locator('.exp-plan.over')).toBeVisible();
+});

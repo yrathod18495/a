@@ -50,11 +50,11 @@ export async function creditCapturedPayment(db, payment) {
   const order = paymentSnap.data();
   if (+payment.amount !== +order.amountPaise || payment.currency !== order.currency) return { ok: false, reason: 'amount_mismatch' };
   const userPaymentRef = db.doc(`workspaces/${order.uid}/creditPayments/${orderId}`), workspaceRef = db.doc(`workspaces/${order.uid}`);
-  const affiliateRef = db.doc(`affiliateReferrals/${order.uid}`), settingsRef = db.doc('affiliateSettings/config');
+  const affiliateRef = db.doc(`affiliateReferrals/${order.uid}`), settingsRef = db.doc('affiliateSettings/config'), entitlementRef = db.doc(`entitlements/${order.uid}`);
   let credited = false;
   await db.runTransaction(async (tx) => {
     credited = false;
-    const [currentPayment, userProfile, affiliateReferral, affiliateSettings] = await tx.getAll(paymentRef, workspaceRef, affiliateRef, settingsRef);
+    const [currentPayment, userProfile, affiliateReferral, affiliateSettings, entitlement] = await tx.getAll(paymentRef, workspaceRef, affiliateRef, settingsRef, entitlementRef);
     if (!currentPayment.exists) return;
     const current = currentPayment.data();
     if (+current.amountPaise !== +payment.amount || current.currency !== payment.currency) throw Object.assign(new Error('Payment amount did not match the order.'), { status: 409, code: 'payment_amount_mismatch' });
@@ -68,6 +68,7 @@ export async function creditCapturedPayment(db, payment) {
     tx.set(workspaceRef, { credits: currentCredits + current.credits }, { merge: true });
     tx.set(paymentRef, update, { merge: true });
     tx.set(userPaymentRef, update, { merge: true });
+    tx.set(entitlementRef, { tier: 'paid', source: 'purchase', paidSince: entitlement.data()?.paidSince || now, lastOrderId: orderId, updatedAt: now }, { merge: true });   // a captured purchase makes the account paid (longer exports)
     if (affiliateRefDoc && affiliatePartner?.data()?.status === 'approved') {
       const commissionPercent = Number(affiliateSettings.data()?.commissionPercent || 10), commissionPaise = Math.round(Number(current.amountPaise) * commissionPercent / 100);
       const commissionRef = affiliateRefDoc.collection('commissions').doc(orderId);
