@@ -85,7 +85,7 @@ export async function view({ user, home }) {
         h('ul', {}, ...plan.features.map((feature) => h('li', {}, feature))), button);
     })),
     ...(!catalog.configured ? [h('p', { class: 'credit-setup' }, 'Checkout is disabled until RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set on the server.')] : []),
-    h('p', { class: 'credit-note' }, 'Gold Coins abhi AI tools me kharch nahi hote. They continue to use your own OpenRouter API key and may have separate provider charges.'),
+    h('p', { class: 'credit-note' }, 'Gold Coins abhi AI tools me kharch nahi hote. AI tools aapki apni OpenRouter API key se chalte hain, aur provider ka alag charge lag sakta hai.'),
     message,
     h('section', { class: 'credit-history-section' }, h('div', { class: 'credit-section-heading' }, h('h2', {}, 'Payment history'), h('button', { class: 'btn sm', onclick: refreshHistory }, '↻ Refresh')), history));
   refreshHistory();

@@ -28,6 +28,6 @@ export function contentLength(doc) {
   for (const clip of doc.bgClips || []) ends.push(clip.start + clip.dur);
   for (const prop of doc.props || []) if (prop.end != null) ends.push(prop.end);
   let end = ends.length ? Math.max(...ends) : EMPTY_SCENE;
-  for (const key of [...(doc.camKeys || []), ...Object.values(doc.charKeys || {}).flat()]) end = Math.max(end, key.t + 0.5);
+  for (const key of [...(doc.camKeys || []), ...(doc.gradeKeys || []), ...Object.values(doc.charKeys || {}).flat()]) end = Math.max(end, key.t + 0.5);
   return Math.ceil(Math.max(MIN_SCENE, end) * 100) / 100;
 }

@@ -24,7 +24,7 @@ import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
 import { propFromAsset, isEffect, isHeld } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
-import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, presetGrade, presetOf } from '../shared/color-grade.js';
+import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
 import { thin, pathLength, pathKeys, simplify, insertAt } from '../shared/motion-path.js';
 import { resizeClip, contentLength, snap as snapTo, MIN_CLIP } from '../shared/timeline-edit.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
@@ -33,7 +33,7 @@ const initialPreviewMode = readPreviewMode();
 const COLORS = ['#7c5cff', '#35d0ba', '#ffb454', '#ff6b9a', '#5bb8ff', '#b6e354'];
 const S = {
   scenes: [], sceneId: null, exportScope: 'all',
-  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, pathEdit: false, grade: { ...DEFAULT_GRADE }, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
+  step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, pathEdit: false, grade: { ...DEFAULT_GRADE }, gradeKeys: [], gradeSel: null, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
@@ -883,6 +883,14 @@ function drawTimeline() {
       labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, '◆ move'))); lanes.push(kl);
     }
   }
+  if (S.gradeKeys.length) {
+    const gl = h('div', { class: 'lane2 cam move', style: 'height:30px' });
+    for (const k of S.gradeKeys.slice().sort((a, b) => a.t - b.t)) {
+      const d = h('i', { class: `kf mv grade ${k.id === S.gradeSel ? 'sel' : ''}`, title: `Colour · ${k.t.toFixed(2)}s`, style: `left:${k.t * pps}px;background:#c084fc` });
+      d.addEventListener('pointerdown', (e) => dragGradeKey(e, k, d)); gl.append(d);
+    }
+    labels.push(h('div', { class: 'rl char', style: 'height:30px', onclick: () => openTab('grade') }, h('span', { class: 'lt face' }, '🎨 Colour'))); lanes.push(gl);
+  }
   // camera keyframes
   const cl = h('div', { class: 'lane2 cam', style: 'height:38px' });
   if (!S.camKeys.length) cl.append(h('span', { class: 'camhint' }, 'automatic shots · open the Camera tab to add keyframes'));
@@ -902,7 +910,7 @@ function drawTimeline() {
 /* ---------- the user's own animation clips on the timeline ---------- */
 const findManual = (id) => { for (const [k, list] of Object.entries(S.manual)) { const m = list.find((x) => x.id === id); if (m) return { s: sOf(k), m, list }; } return null; };
 /** an empty scene is 8 s; otherwise the end of the last clip (animation, background clip, effect with an end) decides. Trimming clips shortens the scene. With audio the voice decides the length. */
-const sceneLen = () => contentLength({ solo: S.solo, speakers: S.speakers, manual: S.manual, bgClips: S.bgClips, props: S.props, camKeys: S.camKeys, charKeys: S.charKeys });
+const sceneLen = () => contentLength({ solo: S.solo, speakers: S.speakers, manual: S.manual, bgClips: S.bgClips, props: S.props, camKeys: S.camKeys, charKeys: S.charKeys, gradeKeys: S.gradeKeys });
 /** background clips as the stage wants them: the picture is looked up in the user's own backgrounds */
 const bgClipJobs = () => S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset ?? 0, blob: c.bgId ? S.myBgs.find((r) => r.id === c.bgId)?.blob ?? null : null }));
 const syncBgClips = async () => { await stage.setBackgroundClips(bgClipJobs()); S.dirty = true; };
@@ -1140,34 +1148,69 @@ function tabMotion() {
 }
 
 /* ---------- colour grading of the whole scene ---------- */
-/** change the scene's grade (patch = some controls); `replace` starts again from neutral first */
+/** the grade the viewer sees at the playhead (the scene's grade, or the keyed one) */
+const gradeNow = () => gradeAt(S.gradeKeys, player ? player.time : 0, S.grade);
+const syncGrade = () => { if (stage) { stage.grade = gradeActive(S.grade) ? S.grade : null; stage.gradeKeys = S.gradeKeys; } S.dirty = true; };
+/** change the scene's grade (patch = some controls); `replace` starts again from neutral first. With keys on the timeline the key at the playhead is edited (made if missing) */
 function setGrade(patch, replace = false) {
+  if (S.gradeKeys.length && !replace) {
+    const t = +player.time.toFixed(2);
+    let k = S.gradeKeys.find((x) => Math.abs(x.t - t) < 0.06);
+    if (!k) { k = { id: uid(), t, grade: cleanGrade(gradeNow()) }; S.gradeKeys.push(k); }
+    k.grade = cleanGrade({ ...k.grade, ...patch }); S.gradeSel = k.id; syncGrade(); scheduleTl();
+    return;
+  }
   S.grade = cleanGrade({ ...(replace ? DEFAULT_GRADE : S.grade), ...patch });
-  if (stage) stage.grade = gradeActive(S.grade) ? S.grade : null;
-  S.dirty = true;
+  syncGrade();
+}
+let gradeFields = new Map(), gradeSeen = -1;
+/** sliders follow the playhead when the grade is keyed over time */
+const refreshGradeFields = () => { const g = gradeNow(); for (const [key, { input, num }] of gradeFields) { input.value = g[key]; num.value = +g[key].toFixed(2); } };
+function addGradeKey() {
+  const t = +player.time.toFixed(2);
+  let k = S.gradeKeys.find((x) => Math.abs(x.t - t) < 0.06);
+  if (!k) { k = { id: uid(), t, grade: cleanGrade(gradeNow()) }; S.gradeKeys.push(k); }
+  S.gradeSel = k.id; syncGrade(); updateTotal(); drawTimeline(); drawTabs();
+}
+function dragGradeKey(e, k, d) {
+  if (S.exporting) return;
+  e.preventDefault(); e.stopPropagation();
+  S.gradeSel = k.id; player.seek(Math.min(player.total, k.t)); S.dirty = true;
+  const x0 = e.clientX, t0 = k.t, pps = S.pps; let moved = false;
+  d.setPointerCapture(e.pointerId);
+  const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 2) moved = true; k.t = Math.max(0, snapTo(t0 + (ev.clientX - x0) / pps)); d.style.left = `${k.t * pps}px`; syncGrade(); };
+  const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); d.removeEventListener('pointercancel', up); if (moved) updateTotal(); drawTimeline(); if (S.tab === 'grade') drawTabs(); };
+  d.addEventListener('pointermove', mv); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
 }
 function tabGrade() {
-  const on = gradeActive(S.grade), current = presetOf(S.grade), fields = new Map();
-  const refresh = () => { for (const [key, { input, num }] of fields) { input.value = S.grade[key]; num.value = +S.grade[key].toFixed(2); } };
+  const shown = gradeNow(), on = gradeActive(S.grade) || S.gradeKeys.length > 0, current = S.gradeKeys.length ? null : presetOf(S.grade), keyed = S.gradeKeys.length > 0;
+  gradeFields = new Map();
   const row = (c) => {
-    const input = h('input', { type: 'range', min: c.min, max: c.max, step: c.step, value: S.grade[c.key], 'aria-label': c.label });
-    const num = h('input', { type: 'number', class: 'grade-num', min: c.min, max: c.max, step: c.step, value: +S.grade[c.key].toFixed(2), 'aria-label': `${c.label} value` });
-    const set = (v) => { setGrade({ [c.key]: v }); refresh(); markTouched(); };
+    const input = h('input', { type: 'range', min: c.min, max: c.max, step: c.step, value: shown[c.key], 'aria-label': c.label });
+    const num = h('input', { type: 'number', class: 'grade-num', min: c.min, max: c.max, step: c.step, value: +shown[c.key].toFixed(2), 'aria-label': `${c.label} value` });
+    const set = (v) => { setGrade({ [c.key]: v }); refreshGradeFields(); markTouched(); };
     input.addEventListener('input', () => set(+input.value)); num.addEventListener('change', () => set(+num.value));
     input.addEventListener('dblclick', () => set(c.neutral));
-    fields.set(c.key, { input, num });
+    gradeFields.set(c.key, { input, num });
     return h('div', { class: 'grade-row' }, h('label', {}, c.label, num), input);
   };
-  const tint = h('input', { type: 'color', class: 'grade-color', value: S.grade.tint, 'aria-label': 'Tint colour' });
-  tint.addEventListener('input', () => { setGrade({ tint: tint.value, ...(S.grade.tintAmount === 0 ? { tintAmount: 0.3 } : {}) }); refresh(); markTouched(); });
-  const reset = h('button', { class: 'btn sm', type: 'button', disabled: !on, onclick: () => { setGrade({}, true); drawTabs(); } }, 'Reset All ↺');
-  const status = h('small', { class: 'sub' }, on ? 'Grade chalu hai: poori scene par lagta hai.' : 'Abhi koi grade nahi.');
-  const markTouched = () => { status.textContent = gradeActive(S.grade) ? 'Grade chalu hai: poori scene par lagta hai.' : 'Abhi koi grade nahi.'; reset.disabled = !gradeActive(S.grade); };
-  const groups = [...new Set(GRADE_CONTROLS.map((c) => c.group))];
+  const tint = h('input', { type: 'color', class: 'grade-color', value: shown.tint, 'aria-label': 'Tint colour' });
+  tint.addEventListener('input', () => { setGrade({ tint: tint.value, ...(gradeNow().tintAmount === 0 ? { tintAmount: 0.3 } : {}) }); refreshGradeFields(); markTouched(); });
+  const reset = h('button', { class: 'btn sm', type: 'button', disabled: !on, onclick: () => { S.gradeKeys = []; S.gradeSel = null; setGrade({}, true); drawTimeline(); drawTabs(); } }, 'Reset All ↺');
+  const text = () => (S.gradeKeys.length ? `Grade time ke saath badalta hai (${S.gradeKeys.length} keyframe). Sliders playhead wale keyframe ko badalte hain.` : gradeActive(S.grade) ? 'Grade chalu hai: poori scene par lagta hai.' : 'Abhi koi grade nahi.');
+  const status = h('small', { class: 'sub' }, text());
+  const markTouched = () => { status.textContent = text(); reset.disabled = !(gradeActive(S.grade) || S.gradeKeys.length); };
+  const groups = [...new Set(GRADE_CONTROLS.map((c) => c.group))], keys = S.gradeKeys.slice().sort((a, b) => a.t - b.t);
   return h('div', { class: 'list grade-panel' },
     h('div', { class: 'card flat' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('h2', { style: 'margin:0' }, '🎨 Colour Grading'), reset),
       h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 8px' }, 'Poori scene par asar karta hai (background + characters + props + effects). Export me bhi wahi look aata hai. Slider par double-click karo to wo control neutral ho jaata hai.'), status),
-    h('div', { class: 'card flat' }, h('h3', {}, 'Looks'), h('div', { class: 'grade-presets' }, GRADE_PRESETS.map((p) => h('button', { type: 'button', class: current === p.id ? 'on' : '', onclick: () => { setGrade(presetGrade(p.id), true); drawTabs(); } }, p.label)))),
+    h('div', { class: 'card flat' }, h('h3', {}, 'Looks'), h('div', { class: 'grade-presets' }, GRADE_PRESETS.map((p) => h('button', { type: 'button', class: current === p.id ? 'on' : '', onclick: () => { setGrade(presetGrade(p.id), !keyed); drawTabs(); } }, p.label)))),
+    h('div', { class: 'card flat' }, h('h3', {}, '◆ Time ke saath badlo'),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Playhead ko jahan chaho le jao, look chuno, phir keyframe lagao. Do keyframe ke beech grade apne aap glide karta hai (jaise din se raat).'),
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', type: 'button', onclick: addGradeKey }, '＋ Keyframe here')),
+      keys.map((k, i) => h('div', { class: `item ${k.id === S.gradeSel ? 'on' : ''}`, style: 'cursor:pointer', onclick: () => { S.gradeSel = k.id; player.seek(Math.min(player.total, k.t)); S.dirty = true; drawTabs(); } },
+        h('span', { class: 'chip' }, i + 1), h('b', {}, `${k.t.toFixed(2)} s`),
+        h('button', { class: 'ib', style: 'margin-left:auto', title: 'Keyframe hatayein', onclick: (e) => { e.stopPropagation(); S.gradeKeys = S.gradeKeys.filter((x) => x !== k); syncGrade(); drawTimeline(); drawTabs(); } }, '✕')))),
     ...groups.map((group) => h('div', { class: 'card flat' }, h('h3', {}, group), ...GRADE_CONTROLS.filter((c) => c.group === group).map(row),
       group === 'Colour' ? h('div', { class: 'grade-row grade-tint' }, h('label', {}, 'Tint colour'), tint) : null)),
     h('p', { class: 'sub', style: 'font-size:12px' }, 'Tip: Pehle background aur characters lagao, phir grade karo.'));
@@ -2233,7 +2276,7 @@ async function doExport() {
           aspect: S.aspect, short: S.quality, fps: S.fps, level: S.level, format: S.format, W: stage.W, H: stage.H, maxTex: S.quality >= 2160 ? 4096 : 2048,
           chars: ids.map((id) => { const d = S.characters.find((c) => c.id === id) || S.libDefs.get(id); return { id, ske: d.ske, tex: d.tex }; }),
           tearSprite: layers.some(layer => layer.tears?.style) ? await loadTearSprite() : null,
-          bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), grade: gradeActive(S.grade) ? { ...S.grade } : null, props: S.props.map((prop) => ({ ...prop })),
+          bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), grade: gradeActive(S.grade) ? { ...S.grade } : null, gradeKeys: S.gradeKeys.map((k) => ({ t: k.t, grade: k.grade })), props: S.props.map((prop) => ({ ...prop })),
           layers, plan: shotPlan(), camKeys: stage.camKeys, voice: player.clips.map((c) => ({ speaker: c.speaker, start: c.start, end: c.end, visemes: c.visemes })),
         };
         res = await exportParallel({ job, clips: player.clips, total: player.total, onProgress: progress, cancelled: () => stop, workers: workerCount() });
@@ -2273,7 +2316,7 @@ function sceneDoc() {
     lines: S.lines.map(({id, order, file, speaker, trimStart, trimEnd}) => ({id, order, file, speaker, trimStart: trimStart || 0, trimEnd: trimEnd || 0})),
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
-    order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), paths: clone(S.paths), grade: gradeActive(S.grade) ? clone(S.grade) : null, camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
+    order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), paths: clone(S.paths), grade: gradeActive(S.grade) ? clone(S.grade) : null, gradeKeys: clone(S.gradeKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
     props: S.props.map((prop) => ({ ...prop, blob: bid(prop.blob) })),
   };
 }
@@ -2330,7 +2373,7 @@ async function loadSceneDoc(doc) {
   if (Array.isArray(doc.props)) S.props = doc.props.map((prop) => ({ ...prop, blob: blobReg.get(prop.blob) || S.props.find((item) => item.id === prop.id)?.blob })).filter((prop) => prop.blob);
   S.selectedPropId = null;
   await stage.setProps(S.props);
-  S.charKeys = JSON.parse(JSON.stringify(doc.charKeys || {})); S.paths = JSON.parse(JSON.stringify(doc.paths || {})); stopPathDraw(); S.pathEdit = false; setGrade(doc.grade || {}, true);
+  S.charKeys = JSON.parse(JSON.stringify(doc.charKeys || {})); S.paths = JSON.parse(JSON.stringify(doc.paths || {})); stopPathDraw(); S.pathEdit = false; setGrade(doc.grade || {}, true); S.gradeKeys = JSON.parse(JSON.stringify(doc.gradeKeys || [])); S.gradeSel = null; if (stage) stage.gradeKeys = S.gradeKeys;
   if (S.mclip && !findManual(S.mclip)) S.mclip = null;
   if (S.camSel && !S.camKeys.some((k) => k.id === S.camSel)) S.camSel = null;
   syncCam(); syncChars();
@@ -2503,6 +2546,7 @@ function loop(now) {
   try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; lastPreviewFrame = now; } catch (e) { console.error(e); }
   if (player.playing) followLine();
   updateSel(); updateCamBox(); updateTearHandles(); if (S.tab === 'motion') updatePathView(false);
+  if (S.tab === 'grade' && S.gradeKeys.length && Math.abs(player.time - gradeSeen) > 0.02) { gradeSeen = player.time; refreshGradeFields(); }
   if (headEl) {
     const x = t * S.pps;
     headEl.style.left = `${x}px`;

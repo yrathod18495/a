@@ -45,3 +45,31 @@ test('the Colour tab grades the whole scene live, presets and Reset All work, an
   expect(hue).not.toEqual(base);
   expect(errors).toEqual([]);
 });
+
+test('the grade can change over time: keyframes glide from one look to the next, show on the timeline and are saved with the scene', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await studio(page);
+  await page.evaluate(() => { window.__toon.stage.bg.preset = 3; window.__toon.S.dirty = true; });
+  await page.locator('#app .tabs.big').getByRole('button', { name: 'Colour', exact: true }).click();
+  const at = (t) => page.evaluate((t) => {
+    const { stage } = window.__toon; stage.render(t, 0, [], []);
+    const px = new Uint8Array(4), gl = stage.gl; gl.readPixels(6, 6, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); return [...px];
+  }, t);
+  const spread = (px) => Math.max(px[0], px[1], px[2]) - Math.min(px[0], px[1], px[2]);
+  await page.evaluate(() => window.__toon.player.seek(1));
+  await page.getByRole('button', { name: '＋ Keyframe here' }).click();
+  await page.evaluate(() => window.__toon.player.seek(3));
+  await page.getByRole('button', { name: '＋ Keyframe here' }).click();
+  const box = page.getByLabel('Saturation value', { exact: true }); await box.fill('0'); await box.dispatchEvent('change');
+  expect(await page.evaluate(() => window.__toon.S.gradeKeys.map((k) => [k.t, k.grade.saturation]))).toEqual([[1, 1], [3, 0]]);
+  const early = await at(0.5), mid = await at(2), late = await at(3.5);
+  expect(spread(early)).toBeGreaterThan(10); expect(spread(late)).toBeLessThanOrEqual(2);
+  expect(spread(mid)).toBeLessThan(spread(early)); expect(spread(mid)).toBeGreaterThan(spread(late));
+  await expect(page.locator('#app .lane2 .kf.grade')).toHaveCount(2);
+  expect(await page.evaluate(() => JSON.stringify(window.__toon.S.gradeKeys).length)).toBeGreaterThan(50);
+  // Reset All removes the keys too
+  await page.getByRole('button', { name: /Reset All/ }).click();
+  expect(await page.evaluate(() => window.__toon.S.gradeKeys.length)).toBe(0);
+  expect(spread(await at(3.5))).toBeGreaterThan(10);
+  expect(errors).toEqual([]);
+});

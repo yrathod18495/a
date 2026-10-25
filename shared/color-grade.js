@@ -51,3 +51,21 @@ export const presetGrade = (id) => cleanGrade(GRADE_PRESETS.find((p) => p.id ===
 /** the preset whose settings equal this grade, if any */
 export const presetOf = (grade) => GRADE_PRESETS.find((p) => { const want = presetGrade(p.id), g = cleanGrade(grade); return GRADE_CONTROLS.every((c) => Math.abs(want[c.key] - g[c.key]) < 1e-4) && (!gradeActive(want) || want.tint === g.tint || want.tintAmount === 0); })?.id ?? null;
 export const hexToRgb = (hex) => { const n = parseInt(HEX.test(hex) ? hex.slice(1) : 'ffffff', 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+
+const toHex = (rgb) => `#${rgb.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0')).join('')}`;
+/**
+ * The grade at time `t` when the user keyed it over time: [{t, grade}]. Before the first key / after the last one the grade holds;
+ * in between every number (and the tint colour) glides from one key to the next. With no keys the scene's own grade is used.
+ */
+export function gradeAt(keys, t, base) {
+  if (!keys?.length) return base;
+  const list = keys.slice().sort((a, b) => a.t - b.t);
+  if (t <= list[0].t) return cleanGrade(list[0].grade);
+  if (t >= list.at(-1).t) return cleanGrade(list.at(-1).grade);
+  const i = list.findIndex((k, j) => t >= k.t && t < list[j + 1].t), a = cleanGrade(list[i].grade), b = cleanGrade(list[i + 1].grade);
+  const u0 = (t - list[i].t) / Math.max(1e-6, list[i + 1].t - list[i].t), u = u0 * u0 * (3 - 2 * u0), out = { ...a };
+  for (const c of GRADE_CONTROLS) out[c.key] = a[c.key] + (b[c.key] - a[c.key]) * u;
+  const ca = hexToRgb(a.tint), cb = hexToRgb(b.tint);
+  out.tint = toHex(ca.map((v, k) => v + (cb[k] - v) * u));
+  return out;
+}
