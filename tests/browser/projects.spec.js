@@ -25,7 +25,7 @@ test('expanded FAQ and complete legal pages are linked and render by direct URL'
  await page.goto('/?debug#/');
  await expect(page.locator('.lp-faq details')).toHaveCount(17);
  await expect(page.locator('.lp-editor,.lp-gallery-grid,#examples,.lp-hero-visual')).toHaveCount(0);
- await expect(page.locator('.lp-hero img,video')).toHaveCount(2);
+ await expect(page.locator('.lp-hero img,video')).toHaveCount(1);   // the export medallion picture became a drawn gold coin
  await page.getByRole('link',{name:'Terms of Use'}).click();
  await expect(page.getByRole('heading',{name:'Terms of Use'})).toBeVisible();
  await expect(page.getByRole('heading',{name:'4. Your projects and uploaded material'})).toBeVisible();
