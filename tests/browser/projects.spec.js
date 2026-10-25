@@ -17,7 +17,7 @@ test('maintenance covers public routes and direct admin URLs while staff login s
  await page.goto('/admin');
  await expect(page).toHaveURL(/#\/admin$/);
  await expect(page.getByRole('heading',{name:'We’ll be back soon'})).toBeVisible();
- await page.getByRole('link',{name:'Staff sign in'}).click();
+ await page.getByRole('link',{name:'Admin / staff? Sign in'}).click();
  await expect(page.getByRole('heading',{name:'12toons staff sign in'})).toBeVisible();
 });
 test('expanded FAQ and complete legal pages are linked and render by direct URL',async({page})=>{

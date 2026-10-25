@@ -107,10 +107,18 @@ export async function saveAnimRules(hidden, user) {
   touched('animrules');
   return { at, local: false };
 }
+/**
+ * Is this account an admin? Only the server's answer counts. A failed call (network, a cold server) is tried again a few times and then
+ * reported as `null` ("not known"), never as "not admin": an admin must not be shown the maintenance page or signed out because of one bad request.
+ */
 export async function isAdmin(user) {
  if(!user)return false;
  if(user.uid==='debug')return false;
- try{return (await apiCall('/api/security',{action:'status'},user.uid)).admin === true;}catch{return false;}
+ for(let attempt=0;attempt<4;attempt++){
+  try{return (await apiCall('/api/security',{action:'status'},user.uid)).admin === true;}
+  catch(e){if(e.status===401||e.status===403)return false;await new Promise(r=>setTimeout(r,500*(attempt+1)));}
+ }
+ return null;
 }
 
 /** Maintenance is controlled by the server so browser storage or route changes cannot bypass it. */

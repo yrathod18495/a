@@ -20,7 +20,7 @@ const testerFavicon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/s
 window.addEventListener('session-error', e => toast(e.detail));
 window.addEventListener('session-revoked', e => toast(e.detail));
 const $shell = document.getElementById('shell'), $app = document.getElementById('app');
-let user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true, testerAccessOnly = false, testerApplicationStatus = 'none', staffLoginPending = sessionStorage.getItem('12toons-staff-login') === '1', staffMessage = '';
+let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true, testerAccessOnly = false, testerApplicationStatus = 'none', staffLoginPending = sessionStorage.getItem('12toons-staff-login') === '1', staffMessage = '';
 let loadedAnimationProject=null, testerAuthError='';
 
 function readTheme() { try { return localStorage.getItem('12toons-theme') === 'night' ? 'night' : 'day'; } catch { return 'day'; } }
@@ -82,6 +82,7 @@ async function renderRoute() {
   if (favicon) favicon.href = hash === '#/tester' ? testerFavicon : brandFavicon;
   if (user && (role === 'tester' || role === 'tester-pending') && hash !== '#/tester') { go('#/tester'); return; }
   if (maintenance && !(user && role === 'admin') && hash !== '#/staff-login' && hash !== '#/tester') {
+    if (user && adminUnknown) { $app.hidden = true; $shell.hidden = false; $shell.replaceChildren(adminRetryView()); return; }
     const oldView = $shell.firstElementChild; oldView?.dispose?.();
     current = '#/maintenance'; $app.hidden = true; $shell.hidden = false;
     $shell.replaceChildren(maintenanceView()); return;
@@ -273,7 +274,16 @@ function maintenanceView() {
     logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, '🔧'),
     h('h1', {}, 'We’ll be back soon'),
     h('p', { class: 'sub' }, '12toons par abhi maintenance chal raha hai. Thodi der baad dobara aayein.'),
-    h('a', { class: 'btn-link', href: '/#/staff-login' }, 'Staff sign in')));
+    h('a', { class: 'btn pri', href: '/#/staff-login' }, 'Admin / staff? Sign in')));
+}
+
+/** a signed-in account whose admin status could not be checked (bad network): it is not sent to the maintenance page, it can just try again */
+function adminRetryView() {
+  return h('main', { class: 'sh sh-center' }, h('section', { class: 'sh-login maintenance-card' },
+    logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, '📡'),
+    h('h1', {}, 'Account check nahi ho paya'),
+    h('p', { class: 'sub' }, 'Server se aapka access verify nahi ho paya. Internet check karke dobara try karein.'),
+    h('button', { class: 'btn pri big', onclick: () => location.reload() }, 'Dobara try karein')));
 }
 
 function staffLoginView() {
@@ -338,7 +348,11 @@ async function start() {
     }
     if (u) {
       maintenance = (await maintenanceStatus()).maintenance === true;
-      const admin = await isAdmin(u);
+      const adminAnswer = await isAdmin(u), admin = adminAnswer === true;
+      if (adminAnswer === null) {          // the server could not be asked: keep the login, show a retry instead of the maintenance page
+        staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login'); role = 'user'; adminUnknown = true; ready = true; route(); return;
+      }
+      adminUnknown = false;
       if (staffLoginPending && !admin) {
         staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
         staffMessage = sessionStorage.getItem('12toons-staff-error') || 'Staff access verify nahi ho paya. Dobara try karein.';
