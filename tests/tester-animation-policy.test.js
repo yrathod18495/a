@@ -1,3 +1,4 @@
+import {assetAddress} from '../shared/library-url.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -26,9 +27,9 @@ test('global None removes character grants too; global Allow clears character ex
 });
 test('actual tester category filtering respects character exclusions, limits, and verified admin preview',async()=>{
  let source=await readFile(new URL('../src/catalog.js',import.meta.url),'utf8');
- source=source.replace(/^import .*;\r?$/gm,'').replace('import.meta.env.BASE_URL',"'/'").replace(/export (const|async function|function)/g,'$1');
+ source=source.replace(/^import .*;\r?$/gm,'').replace('import.meta.env.BASE_URL',"'/'").replace('import.meta.env.VITE_LIBRARY_URL',"''").replace(/export (const|async function|function)/g,'$1');
  source+='\nglobalThis.api={setTesterRules,categoriesFor};';
- const sandbox={testerAnimationAllowed,AssetCache};vm.runInNewContext(source,sandbox);
+ const sandbox={testerAnimationAllowed,AssetCache,assetAddress};vm.runInNewContext(source,sandbox);
  const rig={toonChar:'neha',animDir:'/',animList:['walk','run','talk'].map(name=>({name,file:name,length:1}))};
  sandbox.api.setTesterRules({anims:{'*':['walk','run','talk']},blockedAnims:{neha:['walk','run','talk']}});
  assert.equal(sandbox.api.categoriesFor(rig,{tester:true}).length,0);

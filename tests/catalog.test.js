@@ -1,3 +1,4 @@
+import { assetAddress } from '../shared/library-url.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -5,15 +6,16 @@ import vm from 'node:vm';
 import { AssetCache } from '../src/asset-cache.js';
 import { testerAnimationAllowed } from '../src/tester-animation-policy.js';
 
-async function catalog() {
+async function catalog({ library = '' } = {}) {
   let source = await readFile(new URL('../src/catalog.js', import.meta.url), 'utf8');
   source = source.replace(/^import .*;\r?$/gm, '')
     .replace('import.meta.env.BASE_URL', "'/'")
+    .replace('import.meta.env.VITE_LIBRARY_URL', 'LIBRARY_ENV')
     .replace(/export (const|async function|function)/g, '$1');
   source += '\nglobalThis.api = { loadCatalog, libraryCharacters, fetchLibraryCharacter, categoriesFor };';
   const requests = [];
   const sandbox = {
-    testerAnimationAllowed, AssetCache,
+    testerAnimationAllowed, AssetCache, assetAddress, LIBRARY_ENV: library,
     listStudioAssets: async () => [],
     cachedRules: () => null,
     loadAnimRules: async () => null,
@@ -23,8 +25,8 @@ async function catalog() {
     rigInfo: (ske, extra) => ({ bones: ske.armature[0].bone, ...extra }),
     fetch: async path => {
       requests.push(path);
-      assert.ok(path.startsWith('/12toons/'), 'Only retained local catalog assets should be fetched');
-      const data = await readFile(new URL('../public' + path, import.meta.url));
+      assert.ok(library ? path.startsWith(library + '/12toons/') : path.startsWith('/12toons/'), 'Only retained catalog assets from the configured place should be fetched');
+      const data = await readFile(new URL('../public' + path.slice(library.length), import.meta.url));
       return { ok: true, json: async () => JSON.parse(data), blob: async () => new Blob([data]) };
     },
   };
@@ -63,4 +65,15 @@ test('uploaded rigs keep their own animations without a bundled pattern fallback
   assert.equal(cats[0].animations[0].ref.file, 'custom/walk.json');
   assert.equal(api.categoriesFor({ bones: [{ name: 'root' }] }).length, 0);
   await assert.rejects(api.fetchLibraryCharacter({ id: 122 }), /ab available nahi hai/);
+});
+
+test('with a library bucket configured every catalog file is requested from it', async () => {
+  const library = 'https://pub-test.r2.dev/v1';
+  const { api, requests } = await catalog({ library });
+  await api.loadCatalog();
+  assert.ok(api.libraryCharacters().length > 5);
+  const baby = api.libraryCharacters().find((entry) => entry.charBase === 'mybaby' && entry.template.pose === 'front-side');
+  await api.fetchLibraryCharacter(baby);
+  assert.ok(requests.length > 4 && requests.every((path) => path.startsWith(library + '/12toons/')));
+  assert.ok(requests.some((path) => /mybaby\/front-side_ske\.json$/.test(path)) && requests.some((path) => /\.webp$/.test(path)));
 });
