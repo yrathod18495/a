@@ -128,6 +128,16 @@ test('tester opens the fixed rig from Create my own character and its live previ
  await expect(page.locator('.cs-tabs button.on')).toHaveText('Create');
  await expect(page.locator('.cs-panel input[type=file]').first()).toBeAttached();
  await expect(page.locator('.cs-stage canvas')).toBeVisible();
+ // the tester page keeps every editing tab
+ await expect(page.locator('.cs-tabs button')).toContainText(['Start','Create','Layers','Face','Animations','Body','Outfit']);
+ await page.locator('.cs-tabs button',{hasText:'Layers'}).click();
+ await expect(page.locator('.cs-tabs button.on')).toHaveText('Layers');
+ await page.locator('.cs-tabs button',{hasText:'Face'}).click();
+ await expect(page.locator('.cs-tabs button.on')).toHaveText('Face');
+ await page.locator('.cs-tabs button',{hasText:'Body'}).click();
+ await expect(page.locator('.cs-tabs button.on')).toHaveText('Body');
+ await page.locator('.cs-tabs button',{hasText:'Outfit'}).click();
+ await expect(page.locator('.cs-tabs button.on')).toHaveText('Outfit');
  expect(buffer.length).toBeGreaterThan(0);
 });
 // the studio logo now leaves for the home page, so the picker is opened by its address

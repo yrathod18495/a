@@ -10,13 +10,13 @@ import { Stage } from './db/stage.js';
 import { characterPicker } from './charpick.js';
 import { refreshLayerRules, layerName, groupName, layerHidden } from './layerrules.js';
 import { ingest } from './ingest.js';
-import { readPsdLayers, planPsd, kindOf } from './psd.js';
-import { patchRig, faceEdits, faceDefaults, bakeSke } from './rigedit.js';
+import { buildPsd, readPsdLayers, planPsd, kindOf } from './psd.js';
+import { patchRig, faceEdits, faceDefaults, bakeSke, FACE } from './rigedit.js';
 import { LIMITS, mb } from './limits.js';
 import { saveCharacter, deleteCharacter, loadCharacters, get as getDraft, put as putDraft } from './store.js';
 import { onSyncStatus } from './project-sync.js';
-import { loadCatalog, hydrateAll, hydrateCharacter, libraryCharacters, fetchLibraryCharacter, categoriesFor, fetchAnimation, url as assetUrl, refreshTesterRules, setTesterRules, getTesterRules } from './catalog.js';
-import { getFit, setFit, FIT_LIMITS } from './universal.js';
+import { loadCatalog, hydrateAll, hydrateCharacter, libraryCharacters, fetchLibraryCharacter, cdn, categoriesFor, fetchAnimation, url as assetUrl, refreshTesterRules, setTesterRules, getTesterRules } from './catalog.js';
+import { getFit, setFit, FIT_PRESETS, FIT_LIMITS } from './universal.js';
 import { rigInfo } from './db/info.js';
 import { cloudReady, saveCharacterCloud, listCharactersCloud, loadCharacterCloud, saveTesterSubmission, watchTesterConfig } from './cloud.js';
 
@@ -75,8 +75,8 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const stage = new Stage({ maxTex: 4096 });
   stage.setSize('4:5', 720);
   const st = {
-    outline: !tester, autoLen: !tester, guideFocus: null, createMode: true, def: null, tpl: null, skins: null, hide: new Set(), edit: new Map(), xf: {}, attach: {}, face: faceDefaults(), locked: new Set(),
-    regions: new Map(), pages: [], orig: {}, work: {}, artworkPages: {}, dirty: new Set(), cbox: new Map(), anim: null, tab: 'start',
+    outline: false, autoLen: !tester, guideFocus: null, createMode: !!tester, def: null, tpl: null, skins: null, hide: new Set(), edit: new Map(), xf: {}, attach: {}, face: faceDefaults(), locked: new Set(),
+    regions: new Map(), pages: [], orig: {}, work: {}, artworkPages: {}, dirty: new Set(), cbox: new Map(), anim: null, tab: 'start', open: null, openGroup: null, filter: '',
     permissionsError: '', busy: false, mouth: false, zoom: 'wide', name: '', cloud: [],
   };
   let gen = 0, pending = new Set(), applyTimer = 0, rigTimer = 0, t0 = performance.now(), raf = 0, lastFrame = 0;
@@ -309,8 +309,8 @@ export async function view({ user, home, toast, tester = false, logout, localPre
 
     } catch (e) { toast(`Load nahi ho paya: ${e.message}`); return; }
     try { await setAnimation(defaultAnim()); } catch { /* static pose */ }
-    rebuild(); t0 = performance.now(); st.tab = tester && !st.createMode ? 'anims' : 'create'; draw(); drawAnimBar();
-    toast(`${label || d.name} taiyar hai — ab apne parts upload karein.`);
+    rebuild(); t0 = performance.now(); st.tab = st.createMode || !tester ? 'create' : 'anims'; draw(); drawAnimBar();
+    toast(`${label || d.name} is ready — change any layer.`);
   }
 
   /* ---------- animation preview ---------- */
@@ -324,7 +324,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     rebuild(); drawAnimBar();
   }
   function drawAnimBar() {
-    if (!st.def) { animBar.replaceChildren(h('p', { class: 'hint' }, tester ? 'Create your character to start the live preview.' : 'Pehle ek base body chunein.')); return; }
+    if (!st.def) { animBar.replaceChildren(h('p', { class: 'hint' }, tester ? 'Create your character to start the live preview.' : 'Pick a template, then change it layer by layer.')); return; }
     const list = animChoices(), i = list.findIndex((a) => st.anim && (a.ref.rigAnim || `a${a.ref.id}`) === st.anim.key);
     const go = async (d) => { if (!list.length) return; try { await setAnimation(list[(i + d + list.length) % list.length]); } catch (e) { toast(e.message); } };
     animBar.replaceChildren(
@@ -336,16 +336,16 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   }
 
   /* ---------- panels ---------- */
+  // testers get every editing tab; creators on the normal page only upload their own parts (Start / Create / Save)
   const TABS = tester
-    ? [['start', 'Start'], ['create', 'Create'], ['anims', 'Animations'], ['save', 'Save']]
-    : [['start', 'Start'], ['create', 'Create'], ['save', 'Save']];       // creators only upload their own parts; editing tabs and animations stay with testers / admins
-  const PANELS = { start: panelStart, create: panelCreate, anims: panelAnims, save: panelSave };
+    ? [['start', 'Start'], ['create', 'Create'], ['layers', 'Layers'], ['face', 'Face'], ['anims', 'Animations'], ['body', 'Body'], ['outfit', 'Outfit'], ['save', 'Save']]
+    : [['start', 'Start'], ['create', 'Create'], ['save', 'Save']];
   function draw() {
-    if (!TABS.some(([key]) => key === st.tab)) st.tab = 'start';       // a tab this page does not offer is never shown
+    if (!TABS.some(([key]) => key === st.tab)) st.tab = 'start';       // a tab this page does not offer is never shown (e.g. a draft saved on the tester page)
     saveButton.hidden = restrictedTester();
     if (st.tab === 'save' && restrictedTester()) st.tab = 'create';
-    tabs.replaceChildren(...TABS.filter(([k]) => !(localPreview || restrictedTester()) || k !== 'save').map(([k, l]) => h('button', { class: st.tab === k ? 'on' : '', disabled: k !== 'start' && !st.def, onclick: () => { st.tab = k; draw(); } }, l)));
-    panel.replaceChildren(...PANELS[st.tab]().filter(Boolean));
+    tabs.replaceChildren(...TABS.filter(([k]) => (k !== 'create' || st.createMode || !tester) && (!(localPreview || restrictedTester()) || k !== 'save')).map(([k, l]) => h('button', { class: st.tab === k ? 'on' : '', disabled: k !== 'start' && !st.def, onclick: () => { st.tab = k; draw(); } }, l)));
+    panel.replaceChildren(...{ start: panelStart, create: panelCreate, layers: panelLayers, face: panelFace, outfit: panelOutfit, anims: panelAnims, body: panelBody, save: panelSave }[st.tab]());
   }
 
   async function importCharacterFiles(files) {
@@ -387,6 +387,24 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     ];
   }
 
+  function nudgeSliders(l) {
+    const k = `${l.slot}|${l.key}`, e = st.xf[k] || { dx: 0, dy: 0, s: 1, rot: 0, sv: 1 };
+    const sl = (label, prop, min, max, step, show) => {
+      const out = h('span', { class: 'v' }, show(e[prop])), input = h('input', { type: 'range', min, max, step, value: e[prop] });
+      input.addEventListener('input', () => { const cur = st.xf[k] || (st.xf[k] = { dx: 0, dy: 0, s: 1, rot: 0, sv: 1 }); cur[prop] = +input.value; out.textContent = show(cur[prop]); queueRig(); });
+      return h('label', { class: 'cs-sl' }, h('span', {}, label), input, out);
+    };
+    return [sl('Left / right', 'dy', -80, 80, 1, (v) => `${v}`), sl('Up / down', 'dx', -80, 80, 1, (v) => `${v}`), sl('Size', 's', 0.5, 1.8, 0.02, (v) => `${Math.round(v * 100)}%`), sl('Length (shape follows art)', 'sv', 0.5, 2, 0.02, (v) => `${Math.round(v * 100)}%`), sl('Turn', 'rot', -45, 45, 1, (v) => `${v}°`)];
+  }
+  function colourSliders(regs, e0) {
+    const e = e0 || { hue: 0, sat: 1, light: 0 };
+    const sl = (label, key, min, max, step, show) => {
+      const out = h('span', { class: 'v' }, show(e[key])), input = h('input', { type: 'range', min, max, step, value: e[key] });
+      input.addEventListener('input', () => { out.textContent = show(+input.value); for (const r of regs) editOf(r)[key] = +input.value; queue(regs); });
+      return h('label', { class: 'cs-sl' }, h('span', {}, label), input, out);
+    };
+    return [sl('Colour', 'hue', -180, 180, 1, (v) => `${v}°`), sl('Richness', 'sat', 0, 2, 0.05, (v) => `${Math.round(v * 100)}%`), sl('Light', 'light', -50, 50, 1, (v) => `${v}`)];
+  }
   async function putImage(l, file) {
     if (!partVisible(l)) { toast('Ye group admin ne chhupa diya hai.'); return; }
     if (st.locked.has(l.region)) { toast('Ye layer lock hai.'); return; }
@@ -456,7 +474,18 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     for (const it of items) if (it.ww > 1) it.art = { x: it.wcx * s, y: it.wcy * s };
     return items;
   }
-  /** an edited PSD: each layer goes back to the picture of the same name, keeping its place inside the box */
+  async function downloadPsd() {
+    if (!st.def) return;
+    toast('Building the PSD…');
+    try {
+      await new Promise((r) => setTimeout(r, 30));
+      const items = psdItems().filter(item => partDownloadable(item.l)), blob = buildPsd(items.map((i) => ({ ...i, canvas: cropOf(i.l.region) })));
+      const a = h('a', { href: URL.createObjectURL(blob), download: `${safe(st.def.name).replace(/[^\w\-]+/g, '_')}-${safe(st.def.pose || 'pose')}.psd` });
+      document.body.append(a); a.click(); a.remove();
+      toast(`PSD ready: ${items.length} layers (clothes + face), named like the parts. Edit it anywhere and upload it back.`);
+    } catch (e) { console.warn(e); toast(`PSD ban nahi payi: ${e.message}`); }
+  }
+  /** a PSD from downloadPsd (edited): each layer goes back to the picture of the same name, keeping its place inside the box */
   async function importPsd(file) {
     toast('Reading the PSD…');
     try {
@@ -493,6 +522,27 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   /** the admin's name for a layer (falls back to the original name) */
   function baseOf() { return st.def?.rig?.toonChar || null; }
   function labelOf(l) { return layerName(baseOf(), l.slot, l.key, l.key); }
+  function layerRow(l) {
+    const reg = st.regions.get(l.region), e = st.edit.get(l.region), locked = st.locked.has(l.region), open = st.open === l.id, hidden = st.hide.has(l.slot);
+    const file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) putImage(l, f); } });
+    const changed = !!(e && (e.img || e.removed || e.hue || e.sat !== 1 || e.light)) || !!st.xf[`${l.slot}|${l.key}`];
+    const siblings = layers().filter((x) => x.slot === l.slot).length > 1;
+    const shownNow = (st.slot_attach?.(l.slot)) === l.key;
+    return h('div', { class: `cs-layer ${hidden || e?.removed ? 'off' : ''} ${locked ? 'locked' : ''}` },
+      h('div', { class: 'cs-lrow' }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, `${siblings && shownNow ? '● ' : ''}${labelOf(l)}`), changed ? h('small', {}, 'changed') : null),
+        h('button', { class: 'ib', title: 'Download this layer (PNG)', onclick: () => downloadLayer(l) }, '⬇'),
+        h('button', { class: 'ib', title: 'Upload your own picture for this layer', disabled: locked, onclick: () => file.click() }, '⬆'),
+        h('button', { class: 'ib', title: locked ? 'Unlock' : 'Lock', onclick: () => { locked ? st.locked.delete(l.region) : st.locked.add(l.region); draw(); } }, locked ? '🔒' : '🔓'),
+        h('button', { class: 'ib', title: 'Edit colour & position', onclick: () => { st.open = open ? null : l.id; draw(); } }, open ? '▴' : '⚙')),
+      open ? h('div', { class: 'cs-ctl' }, ...colourSliders([l.region], e), ...nudgeSliders(l),
+        h('label', { class: 'cs-sl' }, h('span', {}, 'Fit'), h('select', { onchange: (ev) => { const ed = editOf(l.region); ed.mode = ev.target.value; ed.fill = ev.target.value === 'fill'; queue([l.region]); } },
+          [['fit', 'Keep proportions'], ['fill', 'Fill the frame (crop)'], ['outline', "Match the part's outline (stretch)"]].map(([v, t]) => h('option', { value: v, selected: (e?.mode || (e?.fill ? 'fill' : 'fit')) === v }, t))), h('span', { class: 'v' })),
+        h('div', { class: 'row' },
+          h('button', { class: 'btn sm', disabled: locked, onclick: () => { editOf(l.region).removed = !e?.removed; queue([l.region]); draw(); } }, e?.removed ? '↩ Bring back' : '🗑 Remove picture'),
+          siblings ? h('button', { class: 'btn sm', onclick: () => { st.attach[l.slot] = shownNow ? '' : l.key; rebuild(); draw(); } }, shownNow ? '○ Hide this picture' : '◉ Use this picture') : null,
+          h('button', { class: 'btn sm', onclick: () => { hidden ? st.hide.delete(l.slot) : st.hide.add(l.slot); rebuild(); draw(); } }, hidden ? '👁 Show slot' : '🙈 Hide slot'),
+          h('button', { class: 'btn sm', disabled: locked, onclick: () => { st.edit.delete(l.region); delete st.xf[`${l.slot}|${l.key}`]; queue([l.region]); queueRig(); draw(); } }, '↺ Reset')), file) : file);
+  }
   /* ---------- the art decides the proportions ---------- */
   /** which limb a picture belongs to ('arm' | 'leg' | 'hand' | ''), from the bone its slot hangs on */
   function limbClass(l) {
@@ -527,13 +577,13 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     if (!quiet) toast(said.length ? `Lengths set from your art: ${said.join(', ')}` : 'Upload arm, leg or hand pictures first — then their length is taken from them.');
   }
   let autoTimer = 0;
-  const autoSoon = () => { if (!st.outline || st.autoLen === false) return; clearTimeout(autoTimer); autoTimer = setTimeout(() => { autoProportions(true); if (st.tab === 'create') draw(); }, 900); };
+  const autoSoon = () => { if (!st.outline || st.autoLen === false) return; clearTimeout(autoTimer); autoTimer = setTimeout(() => { autoProportions(true); if (st.tab === 'create' || st.tab === 'body') draw(); }, 900); };
 
   /* ---------- create my own character: the parts to draw, a template sheet, upload per part ---------- */
   const CREATE_ORDER = ['Face', 'Hair', 'Eyes', 'Eyebrows', 'Nose', 'Lips', 'Ears', 'Earrings', 'Top', 'Bottom', 'Shoes', 'Palms'];
   const GROUP_COLOUR = { Top: '#b4c8ff', Bottom: '#f3f28a', Shoes: '#ffcf8a', Face: '#f0f070', Hair: '#d0e08c', Eyes: '#9ae6f5', Eyebrows: '#7fd8ea', Nose: '#ffc9b0', Lips: '#6aeaf5', Ears: '#a8f5c5', Earrings: '#e8c0ff', Palms: '#e4e4e4' };
   const createRows = () => {
-    // one picture per slot (the one the character shows) + every mouth shape; the other variants (more hand shapes, eyelids …) are not shown
+    // one picture per slot (the one the character shows) + every mouth shape; the other variants (more hand shapes, eyelids …) stay in the Layers tab
     const base = baseOf(), all = layers().filter((l) => partVisible(l) && !layerHidden(base, l.slot, l.key) && (st.slot_attach(l.slot) === l.key || l.group === 'Lips' || l.region === st.guideFocus)), rank = (g) => (CREATE_ORDER.indexOf(g) < 0 ? 99 : CREATE_ORDER.indexOf(g));
     return all.sort((a, b) => rank(a.group) - rank(b.group) || labelOf(a).localeCompare(labelOf(b)));
   };
@@ -620,11 +670,34 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: st.outline, onchange: (ev) => { st.outline = ev.target.checked; } }), "Optional: stretch the art to the part outline (turn off to compare the uploaded shape against the fixed rig guide)"),
       h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: st.autoLen !== false, onchange: (ev) => { st.autoLen = ev.target.checked; if (ev.target.checked) autoProportions(); } }), 'Optional: adjust arm / leg / hand lengths from the uploaded art (leave off to keep the universal rig fixed)'),
       h('div', { class: 'cs-prog' }, h('b', {}, localPreview ? `${done} of ${artworkRows.length} artwork placements · ${rows.length - artworkRows.length} transparent utility slots validated` : `${done} of ${rows.length} parts uploaded`), h('div', { class: 'cs-bar' }, h('i', { style: `width:${artworkRows.length ? Math.round((done / artworkRows.length) * 100) : 0}%` }))),
-      h('p', { class: 'hint', style: 'text-align:left;margin:0' }, tester ? 'The complete template character is visible from the start. Upload a custom part to replace it in the same rig slot. All other template parts and your earlier uploads remain visible.' : 'Parts you skip stay as the base body shows them. Save tab: keep it in your account.'),
+      h('p', { class: 'hint', style: 'text-align:left;margin:0' }, tester ? 'The complete template character is visible from the start. Upload a custom part to replace it in the same rig slot. All other template parts and your earlier uploads remain visible.' : 'Parts you skip stay as the base body shows them. Body tab: legs / arms / hands length. Save tab: keep it in your account.'),
       tester && !groups.size ? h('p', {class:'sub', role:'status'}, 'No part groups are currently available. Ask the admin to enable groups in Tester Permissions.') : null,
       ...[...groups].map(([g, list]) => h('div', { class: 'cs-lgroup' }, h('div', { class: 'cs-ghead static' }, h('span', {}, GROUP_ICON[g] || '🧩'), h('b', {}, groupName(baseOf(), g)), h('small', {}, `${list.filter((l) => st.edit.get(l.region)?.img).length}/${list.length}`)), h('div', { class: 'cs-lbody' }, ...list.map(row)))),
     ];
   }
+  function panelLayers() {
+    const all = layers(), q = st.filter.toLowerCase(), base = baseOf();
+    const byGroup = new Map();
+    for (const l of all) if (!layerHidden(base, l.slot, l.key) && (!q || labelOf(l).toLowerCase().includes(q) || l.key.toLowerCase().includes(q) || groupName(base, l.group).toLowerCase().includes(q))) (byGroup.get(l.group) || byGroup.set(l.group, []).get(l.group)).push(l);
+    const order = [...groupsData.map((g) => g.name), 'Other', 'Parts'].filter((g, i, a) => byGroup.has(g) && a.indexOf(g) === i);
+    const bulk = h('input', { type: 'file', multiple: true, accept: '.psd,.zip,image/*,.svg', style: 'display:none', onchange: (ev) => { const f = [...ev.target.files]; ev.target.value = ''; bulkUpload(f); } });
+    const search = h('input', { type: 'text', placeholder: 'Search layers…', value: st.filter, oninput: (ev) => { st.filter = ev.target.value; draw(); const i = panel.querySelector('input[type=text]'); i?.focus(); i?.setSelectionRange(i.value.length, i.value.length); } });
+    const colourAll = h('div', { class: 'cs-lgroup' }, h('button', { class: 'cs-ghead', onclick: () => { st.openGroup = st.openGroup === '*' ? null : '*'; draw(); } }, h('span', {}, '🎨'), h('b', {}, 'Colour the whole character'), h('span', { class: 'sp' }), h('span', {}, st.openGroup === '*' ? '▾' : '▸')),
+      st.openGroup === '*' ? h('div', { class: 'cs-ctl' }, ...colourSliders([...new Set(all.map((l) => l.region))], null)) : null);
+    return [
+      h('div', { class: 'row', style: 'gap:6px' },
+        h('button', { class: 'btn sm', title: 'Upload an edited PSD, or many layers at once (a ZIP, or files named like the layers)', onclick: () => bulk.click() }, '⬆ Upload PSD / layers'),
+        h('button', { class: 'btn sm', title: 'Every picture of this pose as a named layer in one PSD. Edit it in Photoshop / Krita / Photopea and upload it back', onclick: downloadPsd }, '⬇ PSD'),
+        h('button', { class: 'btn sm', title: 'Download every layer as PNG, edit them anywhere, upload them back', onclick: downloadAll }, '⬇ All layers (ZIP)'),
+        h('button', { class: 'btn sm', onclick: () => { if (!confirm('Undo every change on this character?')) return; pick(st.def); } }, '↺ Start over'), bulk),
+      search, colourAll,
+      ...order.map((g) => {
+        const rows = byGroup.get(g), open = st.openGroup === g || !!q;
+        return h('div', { class: 'cs-lgroup' }, h('button', { class: 'cs-ghead', onclick: () => { st.openGroup = st.openGroup === g ? null : g; draw(); } }, h('span', {}, GROUP_ICON[g] || '🧩'), h('b', {}, groupName(base, g)), h('small', {}, `${rows.length}`), h('span', { class: 'sp' }), h('span', {}, open ? '▾' : '▸')), open ? h('div', { class: 'cs-lrows' }, rows.map(layerRow)) : null);
+      }),
+    ];
+  }
+
   /* ---------- tester: the animations the admin allowed ---------- */
   async function playOver(a) {
     const json = a && !a.ref.rigAnim ? await fetchAnimation(a.ref.file) : null;
@@ -660,6 +733,72 @@ export async function view({ user, home, toast, tester = false, logout, localPre
           return h('button', { class: `tst-a ${on ? 'on' : ''}`, onclick: async () => { try { if (c.overlay) await playOver(a); else { await setAnimation(a); draw(); } } catch (e) { toast(`Animation chal nahi payi: ${e.message}`); } } }, h('b', {}, a.name), h('small', {}, a.length ? `${(+a.length).toFixed(1)}s` : ''));
         })))),
       st.over ? h('button', { class: 'btn sm', onclick: () => playOver(null) }, '✕ Remove the layer animation') : null].filter(Boolean);
+  }
+
+  function panelFace() {
+    const supported = st.def.rig.bones.some((b) => /^Eyeball_R$|^Eyebrow_R_N$/.test(b.name)) || st.def.rig.slots.some((s) => s.name === 'Nose');
+    if (!supported) return [h('p', { class: 'sub' }, 'Face fitting needs a template with a separate face (eyes, brows, nose, lips, ears), like the Neha template.')];
+    return [h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Move and resize the face parts so your art fits. The canvas updates live.'),
+      ...FACE.map((g) => h('div', { class: 'cs-lgroup' },
+        h('button', { class: 'cs-ghead', onclick: () => { st.openGroup = st.openGroup === `f:${g.key}` ? null : `f:${g.key}`; draw(); } }, h('span', {}, g.icon), h('b', {}, g.label), h('span', { class: 'sp' }), h('span', {}, st.openGroup === `f:${g.key}` ? '▾' : '▸')),
+        st.openGroup === `f:${g.key}` ? h('div', { class: 'cs-ctl' }, ...g.sliders.map(([k, label, min, max, step]) => {
+          const out = h('span', { class: 'v' }, String(st.face[g.key][k])), input = h('input', { type: 'range', min, max, step, value: st.face[g.key][k] });
+          input.addEventListener('input', () => { st.face[g.key][k] = +input.value; out.textContent = input.value; queueRig(); });
+          return h('label', { class: 'cs-sl' }, h('span', {}, label), input, out);
+        }), h('button', { class: 'btn sm', onclick: () => { st.face[g.key] = faceDefaults()[g.key]; queueRig(); draw(); } }, '↺ Reset')) : null)),
+      h('button', { class: 'btn sm', onclick: () => { st.face = faceDefaults(); queueRig(); draw(); } }, '↺ Reset the whole face')];
+  }
+
+  const FIXED = new Set(['body', 'head', 'ear', 'eye_ball', 'eye_lid', 'lip', 'nose', 'hand_palm']);
+  const CAT = { top_cloth: 'Top', bottom_cloth: 'Bottom', full_cloth: 'Full outfit', shoes: 'Shoes', hair: 'Hair', accessories: 'Accessories' };
+  const pretty = (s) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  /** body proportions + automatic physics: the same character runs every animation with shorter / longer limbs */
+  function panelBody() {
+    const f = st.fit || (st.fit = getFit(st.def.id)), apply = () => { setFit(st.def.id, f); queueRig(); };
+    const sl = (label, key) => {
+      const [min, max] = FIT_LIMITS[key], out = h('span', { class: 'v' }, `${Math.round(f[key] * 100)}%`), input = h('input', { type: 'range', min, max, step: 0.01, value: f[key] });
+      input.addEventListener('input', () => { f[key] = +input.value; out.textContent = `${Math.round(f[key] * 100)}%`; apply(); });
+      return h('label', { class: 'cs-sl' }, h('span', {}, label), input, out);
+    };
+    const fromArt = h('button', { class: 'btn', title: 'Compares your uploaded arm / leg / hand pictures with the original ones', onclick: () => { autoProportions(); draw(); } }, '📏 Set from my art');
+    const preset = ([name, v]) => h('button', { class: 'btn', onclick: () => { Object.assign(f, v); apply(); draw(); } }, name);
+    const mapRows = () => {
+      let auto; try { auto = stage.limbsOf(st.def.id, st.skins).limbs; } catch { return [h('p', { class: 'sub' }, 'Ye is character ke liye available nahi hai.')]; }
+      const guess = { legs: auto.legs.map((c) => c[0]).join(', '), arms: auto.arms.map((c) => c[0]).join(', '), hands: auto.hands.join(', '), hip: auto.hip || '' };
+      return [['legs', 'Legs'], ['arms', 'Arms'], ['hands', 'Hands'], ['hip', 'Hips']].map(([key, label]) => {
+        const input = h('input', { type: 'text', placeholder: guess[key] || 'auto', value: f.map?.[key] || '', style: 'flex:1;min-width:0' });
+        input.addEventListener('change', () => { f.map = { ...(f.map || {}), [key]: input.value.trim() }; apply(); });
+        return h('label', { class: 'cs-sl', style: 'display:flex;gap:8px;align-items:center' }, h('span', { style: 'width:48px' }, label), input);
+      });
+    };
+    const phys = h('input', { type: 'checkbox', checked: f.phys !== false });
+    phys.addEventListener('change', () => { f.phys = phys.checked; apply(); });
+    return [h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Make the legs, arms and hands shorter or longer. The hips sink by themselves so the feet stay on the ground, and every animation keeps working. Saved for this character in the animation studio too.'),
+      h('div', { class: 'cs-sec' }, h('h3', {}, 'Presets'), h('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, FIT_PRESETS.map(preset), fromArt)),
+      h('div', { class: 'cs-sec' }, h('h3', {}, 'Length'), sl('Legs', 'leg'), sl('Arms', 'arm'), sl('Hands', 'hand')),
+      h('details', { class: 'cs-sec' }, h('summary', { style: 'cursor:pointer;font-weight:700' }, 'Bone map (advanced)'), h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0' }, 'Found automatically from the skeleton. If a limb is wrong, type the first bone name of each limb (comma separated).'), ...mapRows()),
+      h('div', { class: 'cs-sec' }, h('h3', {}, 'Physics'), h('label', { style: 'display:flex;gap:8px;align-items:center;font-size:13px' }, phys, 'Automatic physics for hair, dupatta, kurta, lungi and earrings (added where the rig has none)'))];
+  }
+  function panelOutfit() {
+    const names = skinList().map((s) => s.name).filter((n) => n !== 'default');
+    if (!names.length) return [h('p', { class: 'sub' }, 'This character has no separate outfit parts.')];
+    const combined = names.some((n) => n.includes('/'));
+    const worn = () => new Set(st.skins || names);
+    const reset = () => { gen++; pending = new Set(); st.edit = new Map(); Object.values(st.artworkPages).forEach((k) => stage.dropArtworkCanvas(k)); st.work = {}; st.orig = {}; st.artworkPages = {}; st.dirty = new Set(); st.cbox = new Map(); st.hide = new Set(); st.open = null; thumbs.clear(); Promise.all(st.pages.map(pageCanvas)).then(() => { rebuild(); draw(); }); };
+    if (!combined) {                // whole outfits (Saree / Salvar / Business ...): one at a time
+      const pickSkin = (n) => { st.skins = [n]; reset(); };
+      return [h('p', { class: 'sub', style: 'font-size:12px' }, 'Choose an outfit. Your colour edits restart for the new outfit.'),
+        h('div', { class: 'cs-grid' }, names.map((n) => h('div', { class: `cs-card ${st.skins?.length === 1 && st.skins[0] === n ? 'on' : ''}`, onclick: () => pickSkin(n) }, h('span', { class: 'cs-th' }, '👗'), h('b', {}, n === 'Buisness' ? 'Business' : n))))];
+    }
+    const groups = new Map();
+    for (const n of names) { const [cat, ...rest] = n.split('/'); const key = rest.length ? cat : n === 'body' ? 'body' : '_o'; (groups.get(key) || groups.set(key, []).get(key)).push({ name: n, label: rest.length ? pretty(rest[rest.length - 1] === 'normal' ? rest[0] : rest[rest.length - 1]) : n }); }
+    const set = (cat, item) => { const w = worn(); for (const it of groups.get(cat)) w.delete(it.name); if (item) w.add(item); st.skins = [...w].length === names.length ? null : [...w]; reset(); };
+    const section = ([cat, items]) => h('div', { class: 'cs-sec' }, h('h3', {}, cat === '_o' ? 'Outfit' : CAT[cat] || pretty(cat)),
+      h('div', { class: 'cs-grid' }, cat !== '_o' ? h('div', { class: `cs-card ${!items.some((i) => worn().has(i.name)) ? 'on' : ''}`, onclick: () => set(cat, null) }, h('span', { class: 'cs-th' }, '∅'), h('b', {}, 'None')) : null,
+        items.map((it) => h('div', { class: `cs-card ${worn().has(it.name) ? 'on' : ''}`, onclick: () => set(cat, it.name) }, h('span', { class: 'cs-th' }, '👕'), h('b', { title: it.name }, it.label)))));
+    const all = [...groups];
+    return [h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Pick what the character wears. Colour edits restart when the outfit changes.'), ...all.filter(([c]) => !FIXED.has(c)).map(section),
+      h('details', { class: 'cs-sec' }, h('summary', { style: 'cursor:pointer;font-weight:700' }, 'Base parts'), h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, all.filter(([c]) => FIXED.has(c)).map(([c, items]) => `${pretty(c)}: ${items.map((i) => i.label).join(', ')}`).join(' · ')))];
   }
 
   /** the finished character: edits baked into rig + images, plus the edit profile */
@@ -740,7 +879,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     if (localPreview) return;
     if (writingDraft) { await writingDraft; return saveDraft(); }
     if (!st.def || st.busy || pending.size) return;
-    const fields = ['tpl','skins','xf','attach','face','fit','name','savedId','tab','zoom','mouth','createMode','outline','anim','over'];
+    const fields = ['tpl','skins','xf','attach','face','fit','name','savedId','tab','open','openGroup','filter','zoom','mouth','createMode','outline','anim','over'];
     const state=structuredClone(Object.fromEntries(fields.map(k=>[k,st[k]??null])));
     state.hide=[...st.hide];state.locked=[...st.locked];state.camera=structuredClone(stage.userCam);
     const edits=[...st.edit].map(([key,e])=>{if(e.img&&!imageIds.has(e.img))imageIds.set(e.img,++imageSeq);return [key,{...e,img:e.img?imageIds.get(e.img):null}];});

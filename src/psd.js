@@ -1,6 +1,6 @@
-// Layered PSD for the Character Studio: the layout of every picture of the current pose as its own named layer with a FIXED box (the box of the
-// picture inside the rig's texture), and reading an edited PSD back in. (Exporting a PSD was removed with the editing tabs.)
-import { readPsd } from 'ag-psd';
+// Layered PSD for the Character Studio: every picture of the current pose as its own named layer with a FIXED box (the box of the
+// picture inside the rig's texture), the body assembled in an A-pose, the swappable pictures (hands, mouths, brows ...) in a tidy grid below. And the way back.
+import { writePsd, readPsd } from 'ag-psd';
 
 const GAP = 16, A_ARM = (38 * Math.PI) / 180, A_LEG = (7 * Math.PI) / 180;
 const kindOf = (key) => (/^ARM_/.test(key) ? ['arm', key.slice(4)] : /^FOREARM_/.test(key) ? ['fore', key.slice(8)] : /^THIGH_/.test(key) || key === '2' ? ['thigh', key === '2' ? 'R' : key.slice(6)] : /^CALF_/.test(key) ? ['calf', key.slice(5)] : null);
@@ -93,6 +93,19 @@ export function planPsd(items) {
   return { W: Math.max(W, g.W + M), H: Math.round((panel.length ? g.H : figBottom) + M), pos, figure: names, panels };
 }
 export { kindOf };
+
+const canvasOf = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
+
+/** items as for planPsd + canvas (the whole layer box, upright). Returns a PSD Blob. */
+export function buildPsd(items) {
+  const plan = planPsd(items), by = new Map(items.map((i) => [i.name, i]));
+  const layer = (n) => ({ name: n, left: plan.pos.get(n).x, top: plan.pos.get(n).y, canvas: by.get(n).canvas });
+  const comp = canvasOf(plan.W, plan.H), g = comp.getContext('2d');
+  const children = plan.figure.map(layer);
+  for (const [name, names] of plan.panels) children.push({ name, opened: true, children: names.map(layer) });
+  for (const n of [...plan.figure, ...[...plan.panels.values()].flat()]) g.drawImage(by.get(n).canvas, plan.pos.get(n).x, plan.pos.get(n).y);
+  return new Blob([writePsd({ width: plan.W, height: plan.H, canvas: comp, children }, { generateThumbnail: false })], { type: 'image/vnd.adobe.photoshop' });
+}
 
 /** reads the layers of a PSD: [{name, hidden, left, top, canvas|null}] (groups are walked, their names ignored) */
 export async function readPsdLayers(file) {

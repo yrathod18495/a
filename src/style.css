@@ -883,3 +883,11 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .pathview.editing polyline{pointer-events:stroke;stroke-width:14;stroke:#ffd45c33;paint-order:stroke}
 .pathview.editing{pointer-events:none}
 .pathpt{position:absolute;z-index:31;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#ffd45c;border:2px solid #4a3205;cursor:grab;box-shadow:0 0 0 2px #fff8,0 2px 6px #0008;touch-action:none}
+/* Character Studio panels of the tester page (Layers, Face, Body, Outfit) */
+.cs-part{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#191610}.cs-part.off{opacity:.55}
+.cs-prow{display:flex;align-items:center;gap:8px}.cs-prow .nm{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.cs-ctl{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.cs-fixed{font-weight:500;color:var(--mute);font-size:12px}
+.cs-layer{border:1px solid var(--line);border-radius:12px;padding:6px 8px;background:#191610}.cs-layer.off{opacity:.55}.cs-layer.locked{background:#191610}
+.cs-lgroup .cs-ctl{padding:4px 12px 12px}.cs-layer .cs-ctl{padding:6px 2px 4px}
+.cs-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
