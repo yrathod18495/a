@@ -54,5 +54,5 @@ Export works with no audio at all: the video is 8 seconds and silent (no audio t
 - `src/shell.js` – landing, login, hub, routing (`#/`, `#/login`, `#/hub`, `#/toons`, `#/characters`)
 - `src/main.js` – the 12toons animation studio · `src/stage.js` – renderer · `src/lipsync.js`, `src/exporter.js`
 - `src/charstudio.js` – Character Studio · `src/ai.js` – OpenRouter AI director (key stays in the browser)
-- `src/firebase.js`, `src/cloud.js`, `src/binary-cloud.js`, `src/project-sync.js`, `api/r2.js`, `api/projects.js` – login, Firestore, Realtime Database, R2 files (signed links) and project sync. Where data lives and what it costs: [docs/COST-PLAN.md](docs/COST-PLAN.md)
+- `src/firebase.js`, `src/cloud.js`, `src/binary-cloud.js`, `src/project-sync.js`, `api/r2.js`, `api/projects.js` – login, Firestore, Realtime Database, R2 files (signed links) and project sync. Where data lives and what it costs: [docs/COST-PLAN.md](docs/COST-PLAN.md). Character rigs / atlases / pictures live in one public R2 bucket: [docs/LIBRARY.md](docs/LIBRARY.md)
 - `HANDOFF.md` – architecture notes

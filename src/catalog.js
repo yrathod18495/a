@@ -7,8 +7,9 @@ import { loadAnimRules, cachedRules, loadTesterConfig } from './cloud.js';
 import { rigInfo, dirOf } from './db/info.js';
 import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
+import { assetAddress } from '../shared/library-url.js';
 
-const BASE = import.meta.env.BASE_URL;
+const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: public R2 bucket with the 12toons characters (docs/LIBRARY.md)
 let library = [], adAnims = null, managedAnimations = [];
 
 /* ---- admin rules: animations the admin switched off. { '*': [ids for every character], neha: [ids], mybaby: [ids] } ---- */
@@ -33,7 +34,7 @@ export async function loadCatalog() {
   try { managedAnimations = (await listStudioAssets()).filter(asset => asset.type === 'animation'); } catch { /* Bundled catalog stays available without account storage. */ }
   // 12toons template characters (layered SVG characters, five poses each) + their animation library
   try {
-    const [chars, anims] = await Promise.all([fetch(`${BASE}12toons/characters.json`).then((r) => r.json()), fetch(`${BASE}12toons/animations.json`).then((r) => r.json())]);
+    const [chars, anims] = await Promise.all([fetch(url('12toons/characters.json')).then((r) => r.json()), fetch(url('12toons/animations.json')).then((r) => r.json())]);
     adAnims = anims;
     const mine = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `12toons/pose/${c.id}-${p.pose}.webp`, template: p, paid: false })));
     library = mine;
@@ -77,7 +78,7 @@ export async function hydrateCharacter(rec) {
 }
 /** hydrate a list, dropping what cannot be loaded */
 export async function hydrateAll(list) { return (await Promise.all(list.map((r) => hydrateCharacter(r).catch(() => null)))).filter(Boolean); }
-export const url = (p) => (!p ? null : /^(https?:|blob:|data:)/.test(p) ? p : BASE + p);
+export const url = (p) => assetAddress(p, { siteBase: BASE, libraryBase: LIBRARY });
 /** categories for a rig: [{key, name, overlay, animations:[{ref,...}]}] */
 const AD_LAYER = { HAND: 'hand', LEGS: 'legs', EXPRESSION: 'face' };
 /** 12toons poses: Body animations (split into Talking / Idle / the rest) plus three layers that run on top of a body animation */
