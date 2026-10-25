@@ -149,3 +149,4 @@
 .admin-animation-list{display:grid;gap:8px}.admin-animation-record{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .admin-animation-record>div{display:flex;flex-direction:column;gap:4px}.admin-animation-record small{color:var(--mute);font-size:11px}
 @media(max-width:600px){.admin-animation-form{grid-template-columns:1fr;padding:14px}}
+.sh-mi-icon .gcoin svg{width:100%;height:100%;stroke:none;fill:initial}
