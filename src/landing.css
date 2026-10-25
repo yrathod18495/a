@@ -186,3 +186,34 @@
 :root[data-theme] .lp .lp-hero-lead{max-width:650px}
 :root[data-theme] .lp .lp-hero-foot{max-width:650px}
 @media(max-width:760px){:root[data-theme] .lp .lp-hero{min-height:auto;padding-block:58px 45px}}
+
+/* Shared treasury coins: embossed gold faces with a faster home-page flip. */
+.lp .lp-hero-foot>span,.lp .lp-coin-display{perspective:650px}
+.lp .lp-hero-foot .gcoin{margin:1px 0 5px;animation:gc-shine 2.2s ease-in-out infinite;transition:filter .2s ease}
+.lp .lp-hero-foot>span:nth-child(2) .gcoin{animation-delay:.12s}
+.lp .lp-hero-foot>span:nth-child(3) .gcoin{animation-delay:.24s}
+.lp .lp-hero-foot>span:nth-child(4) .gcoin{animation-delay:.36s}
+@keyframes lp-coin-flip{0%{transform:translateY(-5px) scale(1.12) rotateY(0)}100%{transform:translateY(-5px) scale(1.12) rotateY(360deg)}}
+.lp .lp-coin-section{padding:30px max(28px,calc((100vw - 1200px)/2));background:var(--bg);color:var(--text)}
+.lp .lp-coin-offer{display:flex;align-items:center;gap:26px;padding:30px 34px;border:1px solid #b38b3f;border-radius:22px;background:radial-gradient(ellipse at 0 50%,#d5a33d22,transparent 65%),var(--card);box-shadow:inset 0 0 0 4px #d5a33d12,0 12px 36px #00000012}
+.lp .lp-coin-display{flex:none;display:grid;place-items:center;width:128px;height:128px;border-radius:50%;background:radial-gradient(circle,#eebf4b28,transparent 72%)}
+.lp .lp-coin-display .gcoin{animation:gc-shine 2.2s ease-in-out infinite}
+.lp .lp-coin-copy{flex:1;min-width:0}
+.lp .lp-coin-copy .lp-eyebrow{font-size:10px;padding:5px 12px;letter-spacing:.12em}
+.lp .lp-coin-copy h2{margin:12px 0 8px;font:700 clamp(24px,2.5vw,34px)/1.15 Georgia,serif;color:var(--text)}
+.lp .lp-coin-copy p{margin:0;max-width:550px;font-size:14px;line-height:1.6;color:var(--mute)}
+.lp .lp-coin-offer>a{flex:none;text-decoration:none}
+@media(hover:hover) and (pointer:fine){
+  .lp .lp-hero-foot>span:hover .gcoin,.lp .lp-coin-offer:hover .lp-coin-display .gcoin{animation:lp-coin-flip .65s ease-in-out infinite;filter:drop-shadow(0 7px 3px #6b440870) drop-shadow(0 0 12px #e8b93c99)}
+}
+@media(max-width:760px){
+  .lp .lp-hero-foot .gcoin{width:44px!important;height:44px!important}
+  .lp .lp-coin-section{padding:22px 20px}
+  .lp .lp-coin-offer{flex-wrap:wrap;justify-content:center;gap:16px;padding:24px 20px;text-align:center}
+  .lp .lp-coin-display{width:100px;height:100px}
+  .lp .lp-coin-display .gcoin{width:90px!important;height:90px!important}
+  .lp .lp-coin-copy{flex-basis:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  .lp .lp-hero-foot .gcoin,.lp .lp-hero-foot>span:hover .gcoin,.lp .lp-coin-display .gcoin,.lp .lp-coin-offer:hover .lp-coin-display .gcoin{animation:none;transition:none;transform:none}
+}

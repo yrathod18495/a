@@ -12,6 +12,7 @@ import { projectsView } from './projects-view.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
 import { createShield } from './shield.js';
+import { goldCoin } from './coin.js';
 
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
@@ -220,7 +221,7 @@ function profileMenu() {
   };
   const item = (icon, label, description, action, extraClass = '') => h('button', {
     class: `sh-mi ${extraClass}`.trim(), type: 'button', onclick: () => { close(); action(); },
-  }, h('span', { class: 'sh-mi-icon', 'aria-hidden': 'true' }, menuIcon(icon)),
+  }, h('span', { class: 'sh-mi-icon', 'aria-hidden': 'true' }, icon === 'coins' ? goldCoin(30) : menuIcon(icon)),
   h('span', { class: 'sh-mi-copy' }, h('span', { class: 'sh-mi-label' }, label), h('small', {}, description)),
   h('span', { class: 'sh-mi-arrow', 'aria-hidden': 'true' }, '›'));
   const themeItem = item('moon', '', '', () => {
@@ -239,6 +240,7 @@ function profileMenu() {
       h('span', { class: 'sh-account-avatar', 'aria-hidden': 'true' }, makeAvatar()),
       h('div', { class: 'sh-account-copy' }, h('span', { class: 'sh-menu-kicker' }, 'YOUR ACCOUNT'), h('b', {}, name), h('small', {}, user.email || ''), h('span', { class: 'sh-plan' }, 'Free plan'))),
     h('div', { class: 'sh-menu-section' }, themeItem,
+      item('coins', 'Buy Gold Coins', 'Explore packs, balance and payment history', () => go('#/credits')),
       item('affiliate', 'Affiliate dashboard', 'Your referrals and earnings', () => go('#/affiliate-dashboard')),
       item('tester', 'Tester access', 'Request or open tester access', () => go('#/tester')),
       ...(role === 'admin' ? [item('admin', 'Admin panel', 'Manage your workspace', () => go('#/admin'))] : [])),
@@ -302,8 +304,7 @@ function hubView() {
     h('main', { class: 'sh-hub' }, h('h1', {}, `Hi ${name} 👋`), h('p', { class: 'sub' }, 'What would you like to work on?'),
       h('div', { class: 'sh-tools' },
         card('🎬', '12toons', 'Animation studio. Place characters and backgrounds, add your audio lines (optional), direct the scenes with AI and export a video.', '#/toons', 'Open 12toons →'),
-        card('🎭', '12toons Character Studio', 'Build characters. Recolour parts, upload artwork, choose outfits and save them for your animations.', '#/characters', 'Open Character Studio →'),
-        card('🪙', 'Buy Gold Coins', 'Choose a one-time Gold Coins pack and review your payment history.', '#/credits', 'View Gold Coin plans →')),
+        card('🎭', '12toons Character Studio', 'Build characters. Recolour parts, upload artwork, choose outfits and save them for your animations.', '#/characters', 'Open Character Studio →')),
       cloudLine));
 }
 

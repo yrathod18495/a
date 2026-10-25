@@ -1,5 +1,6 @@
 import { h } from './dom.js';
 import './landing.css';
+import { goldCoin } from './coin.js';
 
 /** Public marketing page. Media URLs below are bundled assets already shipped by 12toons. */
 const scrollToSection = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -75,12 +76,19 @@ export function landingView({ user, cta, profileMenu, logo }) {
           h('p', { class: 'lp-hero-lead' }, 'Create 2D animated videos online using characters, voice recordings and an editable timeline. Add lip-sync, direct scenes with AI, and export your animation from your browser.'),
           h('div', { class: 'lp-actions' }, button(primaryCta('Open my studio  →'), cta, 'primary', true), button('▶  Explore the studio', () => scrollToSection('features'), 'outline')),
           h('div', { class: 'lp-hero-foot' },
-            h('span', {}, h('b', {}, '♟'), h('strong', {}, 'AI Characters'), h('small', {}, 'Create & customise')),
-            h('span', {}, h('b', {}, '♩'), h('strong', {}, 'Voice & Lip-sync'), h('small', {}, 'Natural dialogue')),
-            h('span', {}, h('b', {}, '▦'), h('strong', {}, 'Editable Timeline'), h('small', {}, 'Direct every scene')),
-            h('span', {}, h('b', { class: 'lp-export-medallion' }, h('img', { src: '/images/royal-export-medallion.png', alt: '', width: '48', height: '48', loading: 'lazy' })), h('strong', {}, 'Export Anywhere'), h('small', {}, 'Video from browser')))
+            h('span', {}, goldCoin(56, { emblem: 'characters' }), h('strong', {}, 'AI Characters'), h('small', {}, 'Create & customise')),
+            h('span', {}, goldCoin(56, { emblem: 'voice' }), h('strong', {}, 'Voice & Lip-sync'), h('small', {}, 'Natural dialogue')),
+            h('span', {}, goldCoin(56, { emblem: 'timeline' }), h('strong', {}, 'Editable Timeline'), h('small', {}, 'Direct every scene')),
+            h('span', {}, goldCoin(56, { emblem: 'export' }), h('strong', {}, 'Export Anywhere'), h('small', {}, 'Video from browser')))
         )
       ),
+      h('section', { class: 'lp-coin-section', 'aria-labelledby': 'lp-coins-title' },
+        h('div', { class: 'lp-coin-offer' },
+          h('div', { class: 'lp-coin-display', 'aria-hidden': 'true' }, goldCoin(112)),
+          h('div', { class: 'lp-coin-copy' }, eyebrow('THE ROYAL TREASURY'),
+            h('h2', { id: 'lp-coins-title' }, 'More Gold Coins. More possibilities.'),
+            h('p', {}, 'Find your Gold Coin pack and keep creating. One-time purchases, with your balance and payment history in one place.')),
+          h('a', { class: 'lp-button lp-button-primary', href: '#/credits' }, 'Buy Gold Coins  →'))),
       h('section', { id: 'features', class: 'lp-section lp-section-soft' },
         sectionTitle('All in one workspace', 'Create, direct and export in one place', 'From dialogue to character motion, 12toons gives you tools to make and fine-tune every scene.'),
         h('div', { class: 'lp-feature-grid' }, FEATURES.map(f => h('article', { class: 'lp-feature-card' },
