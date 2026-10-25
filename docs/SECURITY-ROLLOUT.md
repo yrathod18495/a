@@ -11,6 +11,7 @@ Set these in the Vercel server environment, never with a `VITE_` prefix:
 - `FIREBASE_ADMIN_CREDENTIALS`: service-account JSON with permission to verify/revoke-check Firebase tokens, mint custom tokens, list Auth users and read/write the intended Firestore database. An Application Default Credentials environment can be used instead.
 - `FIREBASE_PROJECT_ID`: defaults to `twelvelabs-studio-209137-11a91`. Keep it aligned with the frontend project; credentials must belong to this Firebase project.
 - `FIRESTORE_DATABASE_ID`: defaults to `(default)`. Verify this matches the client database.
+- `MAINTENANCE_MODE`: the site is in **maintenance until this is exactly `false`** (unset or any other value = maintenance). In maintenance only admins can use the studio, projects, R2 files, payments, export and chat; everyone else sees "We'll be back soon" and the APIs answer 503. Set it to `false` in Vercel and redeploy to open the site to users.
 - `CLOUDFLARE_R2_ACCOUNT_ID`, `CLOUDFLARE_R2_ACCESS_KEY_ID`, `CLOUDFLARE_R2_SECRET_ACCESS_KEY`, `CLOUDFLARE_R2_BUCKET_NAME`: private bucket credentials with the required read/write/list permissions.
 
 Google sign-in and the preview/production authorized domains must be enabled. The frontend Firebase config is public; service-account and R2 credentials are secrets. A plain Vite development server does not run the serverless APIs.
