@@ -27,8 +27,8 @@ export async function syncProject(uid, id) {
           const files = new Map();
           const manifest = await packRecords(records, async (k, blob) => { files.set(k.slice(7), blob); });
           // new pictures / audio and the snapshot go straight to R2 with signed links; files the cloud already has are skipped
-          await uploadAssets(uid, files, { projectId: id, opId: operationId, blob: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
-          assets = manifest.assets.map(a => ({ hash: a.key.slice(7), size: a.size }));
+          const sent = await uploadAssets(uid, files, { projectId: id, opId: operationId, blob: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
+          assets = sent.fresh;              // only what is new is announced; the server checks those files and counts them once
           summary = summarizeProjectSnapshot(manifest);
         }
         pending={generation:meta.generation,body:{ action: 'commit', id, kind: meta.kind, name: meta.name, deleted: !!meta.deleted, operationId, expected: meta.revision, assets, summary }};

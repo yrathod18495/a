@@ -63,7 +63,7 @@ export function testerAccessView({ user, status = 'none', error = '', accessOnly
   }
 
   render();
-  if (user) { refresh(); timer = window.setInterval(refresh, 3000); }
+  if (user) { refresh(); timer = window.setInterval(() => { if (!document.hidden) refresh(); }, 15000); }
   root.dispose = () => { disposed = true; window.clearInterval(timer); };
   return root;
 }

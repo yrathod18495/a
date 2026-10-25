@@ -48,8 +48,11 @@ export default async function handler(req, res) {
       if (b.action === 'adminMessages' ? thread.data()?.unreadAdmin === true : thread.data()?.unreadUser === true) {
         await ref.set(b.action === 'adminMessages' ? { unreadAdmin: false } : { unreadUser: false }, { merge: true });
       }
-      const snap = await ref.collection('messages').orderBy('createdAt', 'asc').limit(200).get();
-      return send(res, 200, { messages: snap.docs.map(d => ({ id: d.id, ...d.data() })), unreadUser: b.action === 'messages' && thread.data()?.unreadUser === true });
+      // after the first load the browser only asks for what came after its newest message, so a quiet chat costs two reads, not two hundred
+      let query = ref.collection('messages').orderBy('createdAt', 'asc');
+      if (Number.isFinite(b.since) && b.since > 0) query = query.where('createdAt', '>', b.since);
+      const snap = await query.limit(200).get();
+      return send(res, 200, { incremental: Number.isFinite(b.since) && b.since > 0, messages: snap.docs.map(d => ({ id: d.id, ...d.data() })), unreadUser: b.action === 'messages' && thread.data()?.unreadUser === true });
     }
     if (b.action === 'adminList') {
       const snap = await db.collection('supportChats').orderBy('updatedAt', 'desc').limit(100).get();

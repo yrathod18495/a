@@ -179,9 +179,9 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     renderDashboard();
     refresh();
     setTimeout(refreshRequests, 50);       // the page is attached to the document by then
-    const requestTimer = window.setInterval(() => { if (!root.isConnected) { clearInterval(requestTimer); return; } refreshRequests(); }, 3000);
+    const requestTimer = window.setInterval(() => { if (!root.isConnected) { clearInterval(requestTimer); return; } refreshRequests(); }, 15000);
     root.dispose = () => { clearInterval(timer); clearInterval(requestTimer); };
-    const timer = window.setInterval(() => { if (!root.isConnected) { clearInterval(timer); return; } refresh(); }, 15000);
+    const timer = window.setInterval(() => { if (!root.isConnected) { clearInterval(timer); return; } refresh(); }, 30000);
     return root;
 
   }

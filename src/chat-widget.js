@@ -13,15 +13,21 @@ export function chatWidget(user, onLogin = () => {}) {
     h('header', { class: 'support-head' }, h('span', { class: 'support-mark' }, '12'), h('div', {}, h('b', {}, 'Live support'), h('small', {}, 'Message the 12toons team')), h('button', { class: 'support-close', 'aria-label': 'Close chat', onclick: close }, '×')),
     guest, list, state, h('form', { class: 'support-form', hidden: !user, onsubmit: send }, input, h('button', { class: 'btn pri support-send', type: 'submit' }, 'Send')));
   const sendButton = panel.querySelector('.support-send');
-  const toggle = h('button', { class: 'support-launch', 'aria-label': 'Open live chat', 'aria-expanded': 'false', onclick: async () => { open = !open; panel.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); if (open) { if (user) { await load(); clearInterval(timer); timer = setInterval(load, 3000); input.focus(); } else panel.querySelector('.support-guest button')?.focus(); } else clearInterval(timer); } }, 'Chat');
+  const toggle = h('button', { class: 'support-launch', 'aria-label': 'Open live chat', 'aria-expanded': 'false', onclick: async () => { open = !open; panel.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); if (open) { if (user) { await load(); clearInterval(timer); quietSince = Date.now(); schedule(); input.focus(); } else panel.querySelector('.support-guest button')?.focus(); } else { clearTimeout(timer); timer = 0; } } }, 'Chat');
   root.append(panel, toggle);
+  // a chat nobody writes in is asked about less and less often (5 s, then 15 s, then 30 s): every question costs a few database reads
+  let quietSince = Date.now();
+  const delay = () => { const quiet = Date.now() - quietSince; return quiet < 60000 ? 5000 : quiet < 300000 ? 15000 : 30000; };
+  function schedule() { clearTimeout(timer); timer = setTimeout(async () => { await load(); if (open) schedule(); }, delay()); }
   async function load() {
     if (!user || loading || !open || !root.isConnected || document.hidden) return;
     loading = true;
     try {
-      const data = await apiCall('/api/chat', { action: 'messages' }, user.uid);
+      const since = cachedMessages.reduce((n, m) => Math.max(n, Number(m.createdAt) || 0), 0);
+      const data = await apiCall('/api/chat', { action: 'messages', ...(since ? { since } : {}) }, user.uid);
       toggle.textContent = data.unreadUser ? 'New reply · Chat' : 'Chat';
-      const msgs = data.messages || [], key = msgs.map(m => m.id || m.createdAt).join('|');
+      const fresh = data.messages || [], msgs = data.incremental ? [...cachedMessages, ...fresh.filter(m => !cachedMessages.some(c => c.id === m.id))] : fresh, key = msgs.map(m => m.id || m.createdAt).join('|');
+      if (key !== latest) quietSince = Date.now();
       cachedMessages = msgs;
       const pendingBefore = pendingMessages.length;
       pendingMessages = pendingMessages.filter(p => !msgs.some(m => m.sender === p.sender && m.message === p.message && Math.abs(Number(m.createdAt) - p.createdAt) < 120000));
@@ -35,6 +41,7 @@ export function chatWidget(user, onLogin = () => {}) {
     list.scrollTop = list.scrollHeight;
   }
   async function send(e) {
+    quietSince = Date.now(); schedule();
     e.preventDefault(); const message = input.value.trim(); if (!user || !message || sending) return;
     sending = true; sendButton.disabled = true; state.textContent = '';
     const optimistic = { id: `pending-${Date.now()}`, sender: 'user', message, createdAt: Date.now(), pending: true };

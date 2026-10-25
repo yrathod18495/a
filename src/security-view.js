@@ -215,7 +215,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
       renderStats();renderTabs();
       if(tab==='testers')renderTesterRequests();
     }catch(error){console.warn('Could not refresh tester requests:',error.message);}
-  },3000);
+  },15000);
   root.dispose=()=>window.clearInterval(requestTimer);
   return root;
 }

@@ -33,3 +33,15 @@ test('live chat is private to its user and admins can read and reply',async()=>{
   assert.equal((await call(userToken,{action:'send',message:'   '})).statusCode,400);
   assert.equal((await call(adminToken,{action:'adminReply',uid:'missing_user_123456',message:'reply'})).statusCode,404);
 });
+test('after the first load the chat only returns messages newer than the last one the browser has',async()=>{
+  const first=await call(userToken,{action:'messages'});
+  const last=Math.max(...first.body.messages.map(m=>m.createdAt));
+  const quiet=await call(userToken,{action:'messages',since:last});
+  assert.equal(quiet.statusCode,200);assert.equal(quiet.body.incremental,true);assert.deepEqual(quiet.body.messages,[]);
+  await new Promise(r=>setTimeout(r,5));
+  await call(adminToken,{action:'adminReply',uid:user,message:'One more thing.'});
+  const fresh=await call(userToken,{action:'messages',since:last});
+  assert.deepEqual(fresh.body.messages.map(m=>m.message),['One more thing.']);
+  assert.equal((await call(adminToken,{action:'adminMessages',uid:user,since:last})).body.messages.length,1);
+  assert.equal((await call(userToken,{action:'messages'})).body.incremental,false);                    // no since: the whole conversation again
+});

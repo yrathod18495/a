@@ -28,22 +28,31 @@ async function put(target, blob) {
  * Upload files (`assets`: Map hash -> Blob) and, optionally, one project snapshot (`state`: {projectId, opId, blob}).
  * Only the files the cloud does not have yet are sent.
  */
+// Hashes this browser has already put into R2 for this account: they are neither sent to the server nor checked again.
+const KNOWN_LIMIT = 4000, knownKey = (uid) => 'toons-uploaded-' + uid;
+const knownSet = (uid) => { try { return new Set(JSON.parse(localStorage.getItem(knownKey(uid)) || '[]')); } catch { return new Set(); } };
+const rememberKnown = (uid, set) => { try { localStorage.setItem(knownKey(uid), JSON.stringify([...set].slice(-KNOWN_LIMIT))); } catch { /* optional */ } };
 export async function uploadAssets(uid, assets, state = null) {
-  const list = [...assets];
+  const known = knownSet(uid), list = [...assets].filter(([hash]) => !known.has(hash));
   for (const [hash, blob] of list) if (blob.size > 40 * 1024 * 1024) throw Error('File 40 MB ki limit se badi hai.');
-  if (!list.length && !state) return { sent: 0 };
+  if (!list.length && !state) return { sent: 0, fresh: [] };
   let sent = 0, first = true;
+  const fresh = [];
   for (let i = 0; i < Math.max(1, list.length); i += BATCH) {
     const part = list.slice(i, i + BATCH), body = { action: 'sign', items: part.map(([hash, blob]) => ({ hash, size: blob.size })) };
     if (first && state) body.state = { projectId: state.projectId, opId: state.opId, size: state.blob.size };
     if (!part.length && !body.state) break;
     const signed = await apiCall('/api/r2', body, uid);
+    for (const hash of signed.have || []) known.add(hash);
     const jobs = part.filter(([hash]) => signed.upload[hash]).map(([hash, blob]) => [signed.upload[hash], blob]);
+    for (const [hash, blob] of part) if (signed.upload[hash]) fresh.push({ hash, size: blob.size });
     if (signed.state) jobs.push([signed.state, state.blob]);
     await pool(jobs, ([target, blob]) => put(target, blob));
+    for (const f of fresh) known.add(f.hash);
+    rememberKnown(uid, known);
     sent += jobs.length; first = false;
   }
-  return { sent };
+  return { sent, fresh };
 }
 /** tell the server these files are now in R2 (it checks, counts them once and registers them); projects do this inside "commit" */
 export async function confirmAssets(uid, assets) {

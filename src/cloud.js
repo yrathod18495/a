@@ -7,12 +7,19 @@ import { uploadAssets, confirmAssets, downloadAssets, hashBlob } from './binary-
 
 const API = '/api/r2';
 
+/* ---------- how often each shared document is read ---------- */
+// Firestore bills every read (and the access rules read more documents on top), so things that change rarely are kept on this device for a while.
+const recent = (name, ms) => { try { return Date.now() - (Number(localStorage.getItem('toons-at-' + name)) || 0) < ms; } catch { return false; } };
+const touched = (name) => { try { localStorage.setItem('toons-at-' + name, String(Date.now())); } catch { /* optional */ } };
+const CONFIG_TTL = 10 * 60 * 1000, PROFILE_TTL = 12 * 60 * 60 * 1000;
+
 /* ---------- profile ---------- */
 export async function ensureProfile(user) {
-  if (!user || user.uid === 'debug') return;
+  if (!user || user.uid === 'debug' || recent('profile-' + user.uid, PROFILE_TTL)) return;      // the profile is refreshed at most twice a day
   try {
     const ref = wsDoc(user.uid), snap = await getDoc(ref), now = new Date().toISOString();
     await setDoc(ref, { name: user.displayName || 'Creator', email: user.email || '', photoURL: user.photoURL || '', joinedAt: snap.data()?.joinedAt || now, lastSeen: now, plan: 'Free' }, { merge: true });
+    touched('profile-' + user.uid);
   } catch (e) { console.warn('profile sync failed', e.message); }
 }
 
@@ -28,7 +35,7 @@ export async function cloudInfo() {
  return projects.length?{updatedAt:Math.max(...projects.map(p=>p.updatedAt))}:null;
 }
 let autoTimer;
-export function startAutoSync() {clearInterval(autoTimer);syncAll().catch(()=>{});autoTimer=setInterval(()=>syncAll().catch(()=>{}),15000);}
+export function startAutoSync() {clearInterval(autoTimer);syncAll().catch(()=>{});autoTimer=setInterval(()=>syncAll().catch(()=>{}),180000);}   // only a safety net: saving is scheduled by project-sync (quiet 45 s, max 3 min) and when the tab is hidden
 export const stopAutoSync=()=>clearInterval(autoTimer);
 
 /* ---------- characters (saved from the Character Studio) ---------- */
@@ -49,11 +56,20 @@ export async function saveCharacterCloud(def) {
   await confirmAssets(uid, files);
   if(auth.currentUser?.uid!==uid)throw Error('Account badal gaya. Dobara try karein.');
   await setDoc(wsDoc(uid, 'characters', def.id), { id: def.id, name: def.name, pose: def.pose || '', base: def.base, pages: paths, assetHashes: hashes, format: 'lean2', profile: JSON.stringify(def.profile || {}), thumb: def.thumb || '', updatedAt: new Date().toISOString() });
+  forgetChars(uid);
 }
+const CHARS_KEY = (uid) => 'toons-chars-' + uid, CHARS_TTL = 5 * 60 * 1000;
+const forgetChars = (uid) => { try { sessionStorage.removeItem(CHARS_KEY(uid)); } catch { /* optional */ } };
+/** the user's saved characters; one read per character, so the list is kept in this tab for a few minutes and dropped when a character is saved or deleted */
 export async function listCharactersCloud() {
   const uid = uidOf();
   if (!uid) return [];
-  try { return (await getDocs(collection(db, 'workspaces', uid, 'characters'))).docs.map((d) => d.data()); } catch { return []; }
+  try { const c = JSON.parse(sessionStorage.getItem(CHARS_KEY(uid)) || 'null'); if (c && Date.now() - c.at < CHARS_TTL) return c.rows; } catch { /* read again */ }
+  try {
+    const rows = (await getDocs(collection(db, 'workspaces', uid, 'characters'))).docs.map((d) => d.data());
+    try { sessionStorage.setItem(CHARS_KEY(uid), JSON.stringify({ at: Date.now(), rows })); } catch { /* optional */ }
+    return rows;
+  } catch { return []; }
 }
 export async function loadCharacterCloud(meta) {
   if (meta.format !== 'lean2') throw new Error('Ye character purane format me save hua tha. Isse Character Studio me dobara banayein.');
@@ -62,7 +78,7 @@ export async function loadCharacterCloud(meta) {
   let profile = {}; try { profile = JSON.parse(meta.profile || '{}'); } catch { /* old record */ }
   return { id: meta.id, name: meta.name, pose: meta.pose, base: meta.base, pages, thumb: meta.thumb, profile };      // opened with hydrateCharacter()
 }
-export async function deleteCharacterCloud(id) { const uid = uidOf(); if (uid) await deleteDoc(wsDoc(uid, 'characters', id)); }
+export async function deleteCharacterCloud(id) { const uid = uidOf(); if (uid) { await deleteDoc(wsDoc(uid, 'characters', id)); forgetChars(uid); } }
 
 /* ---------- admin: which animations users may see ---------- */
 const RULES_KEY = 'toons-animrules';
@@ -72,10 +88,12 @@ export const cachedRules = () => { try { return JSON.parse(localStorage.getItem(
 export async function loadAnimRules() {
   const debug = !auth.currentUser || auth.currentUser.uid === 'debug';
   if (!debug) {
+    if (cachedRules() && recent('animrules', CONFIG_TTL)) return cachedRules();
     try {
       const snap = await withTimeout(getDoc(doc(db, 'config', 'animations')), 5000);
-      if (snap.exists()) { const d = snap.data(), r = { hidden: JSON.parse(d.hidden || '{}'), at: d.updatedAt || '' }; try { localStorage.setItem(RULES_KEY, JSON.stringify(r)); } catch { /* optional */ } return r; }
-      try { localStorage.removeItem(RULES_KEY); } catch { /* optional */ }
+      if (snap.exists()) { const d = snap.data(), r = { hidden: JSON.parse(d.hidden || '{}'), at: d.updatedAt || '' }; try { localStorage.setItem(RULES_KEY, JSON.stringify(r)); } catch { /* optional */ } touched('animrules'); return r; }
+      try { localStorage.setItem(RULES_KEY, JSON.stringify({ hidden: {}, at: '' })); } catch { /* optional */ }
+      touched('animrules');
       return { hidden: {}, at: '' };
     } catch (e) { console.warn('animation rules not loaded', e.message); }
   }
@@ -86,6 +104,7 @@ export async function saveAnimRules(hidden, user) {
   if (!user || user.uid === 'debug') { localStorage.setItem(RULES_KEY, JSON.stringify({ hidden: clean, at })); return { at, local: true }; }
   await setDoc(doc(db, 'config', 'animations'), { hidden: JSON.stringify(clean), updatedAt: at, by: user.email || '' });
   try { localStorage.setItem(RULES_KEY, JSON.stringify({ hidden: clean, at })); } catch { /* optional */ }
+  touched('animrules');
   return { at, local: false };
 }
 export async function isAdmin(user) {
@@ -110,10 +129,12 @@ export const cachedLayerRules = () => { try { return JSON.parse(localStorage.get
 export async function loadLayerRules() {
   const debug = !auth.currentUser || auth.currentUser.uid === 'debug';
   if (!debug) {
+    if (cachedLayerRules() && recent('layers', CONFIG_TTL)) return cachedLayerRules();
     try {
       const snap = await withTimeout(getDoc(doc(db, 'config', 'layers')), 5000);
       const r = snap.exists() ? { names: JSON.parse(snap.data().names || '{}'), hidden: JSON.parse(snap.data().hidden || '{}'), at: snap.data().updatedAt || '' } : { names: {}, hidden: {}, at: '' };
       try { localStorage.setItem(LAYER_KEY, JSON.stringify(r)); } catch { /* optional */ }
+      touched('layers');
       return r;
     } catch (e) { console.warn('layer rules not loaded', e.message); }
   }
@@ -126,6 +147,7 @@ export async function saveLayerRules({ names, hidden }, user) {
   const r = { names: cleanNames, hidden: cleanHidden, at };
   if (user && user.uid !== 'debug') await setDoc(doc(db, 'config', 'layers'), { names: JSON.stringify(cleanNames), hidden: JSON.stringify(cleanHidden), updatedAt: at, by: user.email || '' });
   try { localStorage.setItem(LAYER_KEY, JSON.stringify(r)); } catch { /* optional */ }
+  touched('layers');
   return r;
 }
 
@@ -150,7 +172,7 @@ export function watchTesterConfig(next, error) {
       if (!stopped) error?.(e);
     } finally {
       busy = false;
-      if (!stopped) timer = setTimeout(refresh, 1000);
+      if (!stopped) timer = setTimeout(refresh, 30000);   // admin changes reach a tester within half a minute (or at once when the tab comes back)
     }
   };
   const wake = () => { clearTimeout(timer); refresh(); };

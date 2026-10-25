@@ -29,14 +29,17 @@ export async function chatView({ user, back, toast }) {
     input.disabled = false; send.disabled = false;
     await loadChats(); await loadMessages();
   }
+  const rowsOf = new Map();      // messages already downloaded per conversation: later polls only ask for newer ones
   async function loadMessages() {
     if (!selected || messageBusy || !root.isConnected || document.hidden) return;
     messageBusy = true;
     const active = selected;
     try {
-      const result = await apiCall('/api/chat', { action: 'adminMessages', uid: active }, user.uid);
+      const known = rowsOf.get(active) || [], since = known.reduce((n, m) => Math.max(n, Number(m.createdAt) || 0), 0);
+      const result = await apiCall('/api/chat', { action: 'adminMessages', uid: active, ...(since ? { since } : {}) }, user.uid);
       if (active !== selected) return;
-      const rows = result.messages || [], key = rows.map(m => m.id || m.createdAt).join('|');
+      const rows = result.incremental ? [...known, ...(result.messages || []).filter(m => !known.some(k => k.id === m.id))] : (result.messages || []), key = rows.map(m => m.id || m.createdAt).join('|');
+      rowsOf.set(active, rows);
       if (key === lastMessageKey) return;
       lastMessageKey = key;
       const rendered = rows.map(m => h('article', { class: `admin-chat-message ${m.sender === 'admin' ? 'outgoing' : 'incoming'}` },
@@ -56,7 +59,7 @@ export async function chatView({ user, back, toast }) {
   }
   input.disabled = true; send.disabled = true;
   await loadChats();
-  polling = window.setInterval(() => { if (!document.hidden) { loadChats(); loadMessages(); } }, 3000);
+  polling = window.setInterval(() => { if (!document.hidden) { loadChats(); loadMessages(); } }, 10000);
   const onVisibility = () => { if (!document.hidden) { loadChats(); loadMessages(); } };
   document.addEventListener('visibilitychange', onVisibility);
   root.dispose = () => { clearInterval(polling); document.removeEventListener('visibilitychange', onVisibility); };

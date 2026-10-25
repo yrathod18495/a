@@ -53,21 +53,27 @@ function cleanItems(items, max = MAX_ITEMS) {
   return seen;
 }
 
+/** which of these hashes the user already has: one tiny read each (the registry itself can grow large, so it is never read as a whole) */
+async function registered(uid, store, hashes) {
+  const rows = await Promise.all(hashes.map(async (h) => [h, await store.get(`assets/${uid}/${h}`)]));
+  return new Set(rows.filter(([, size]) => size != null).map(([h]) => h));
+}
+
 /**
  * Which of these files still has to be uploaded, and the signed URL for each. `store` is the Realtime Database wrapper (server/rtdb.js kv()).
  * Files the user already has (registered by hash) are skipped, so the same picture is never sent twice.
  */
 export async function signUploads(uid, store, { items = [], state = null }) {
-  const wanted = cleanItems(items), registry = (await store.get(`assets/${uid}`)) || {}, upload = {}, have = [];
+  const wanted = cleanItems(items), known = await registered(uid, store, [...wanted.keys()]), upload = {}, have = [];
   let extra = 0;
-  for (const [hash, size] of wanted) { if (registry[hash] != null) have.push(hash); else extra += size; }
+  for (const [hash, size] of wanted) { if (known.has(hash)) have.push(hash); else extra += size; }
   if (state) {
     if (!isId(state.projectId) || !isId(state.opId) || !Number.isSafeInteger(state.size) || state.size < 1 || state.size > MAX_FILE) throw bad('Project snapshot ki jaankari sahi nahi hai.');
     extra += state.size;
   }
   const usage = (await store.get(`usage/${uid}`)) || {};
   if ((usage.bytes || 0) + extra > MAX_USER) throw new AccessError('quota_exceeded', 'Cloud storage ki limit poori ho gayi. Purane projects ya files hatakar dobara try karein.', 413);
-  for (const [hash, size] of wanted) if (registry[hash] == null) upload[hash] = await putUrl(assetKey(uid, hash), size);
+  for (const [hash, size] of wanted) if (!known.has(hash)) upload[hash] = await putUrl(assetKey(uid, hash), size);
   const out = { upload, have };
   if (state) out.state = await putUrl(stateKey(uid, state.projectId, state.opId), state.size);
   return out;
@@ -75,9 +81,9 @@ export async function signUploads(uid, store, { items = [], state = null }) {
 
 /** after the browser uploaded: check the files really are in R2 (a HEAD is a cheap Class B read), then count them once */
 export async function confirmAssets(uid, store, items) {
-  const wanted = cleanItems(items, MAX_PROJECT_ASSETS), registry = (await store.get(`assets/${uid}`)) || {}, fresh = [];
+  const wanted = cleanItems(items, MAX_PROJECT_ASSETS), known = await registered(uid, store, [...wanted.keys()]), fresh = [];
   for (const [hash, size] of wanted) {
-    if (registry[hash] != null) continue;
+    if (known.has(hash)) continue;
     const h = await head(assetKey(uid, hash));
     if (!h.exists || h.size !== size) throw new AccessError('incomplete_upload', 'File ka upload poora nahi hua. Dobara try karein.', 409);
     fresh.push([hash, size]);

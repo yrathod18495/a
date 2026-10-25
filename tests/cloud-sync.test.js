@@ -9,9 +9,10 @@ Object.defineProperty(globalThis.navigator,'onLine',{value:true,configurable:tru
 mock.module('../src/firebase.js',{exports:{auth:{currentUser:user}}});
 mock.module('../src/binary-cloud.js',{exports:{
  uploadAssets:async(uid,files,state)=>{
-  if(failUpload)throw Error('upload failed');
-  for(const [hash,blob] of files)if(!objects.has('a/'+hash)){calls.push({action:'put',key:'assets/'+hash});objects.set('a/'+hash,blob);}
+  if(failUpload)throw Error('upload failed');const fresh=[];
+  for(const [hash,blob] of files)if(!objects.has('a/'+hash)){calls.push({action:'put',key:'assets/'+hash});objects.set('a/'+hash,blob);fresh.push({hash,size:blob.size});}
   if(state){calls.push({action:'state',opId:state.opId});objects.set('state/'+state.opId,state.blob);}
+  return {sent:fresh.length,fresh};
  },
  downloadAssets:async(uid,hashes)=>new Map(hashes.map(h=>{if(!objects.has('a/'+h))throw Error('Missing binary');return [h,objects.get('a/'+h)];})),
  fetchBlob:async(url)=>{if(!objects.has(url))throw Error('Missing snapshot');return objects.get(url);}

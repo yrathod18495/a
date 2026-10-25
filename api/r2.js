@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     if (b.action === 'status') return send(res, 200, { configured: configured() });
     if (!configured()) return send(res, 503, { error: 'Server par cloud storage (R2) abhi set nahi hai.' });
     const write = ['sign', 'confirm'].includes(b.action);
-    const who = await access(req, { write }), { uid } = who;
+    const who = await access(req, { write, cache: true }), { uid } = who;
     if (maintenanceEnabled() && !who.admin) return send(res, 503, { code: 'maintenance', error: '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.' });
     if (b.action === 'sign') return send(res, 200, await signUploads(uid, kv(services()), { items: b.items || [], state: b.state || null }));
     if (b.action === 'confirm') return send(res, 200, await confirmAssets(uid, kv(services()), b.items || []));

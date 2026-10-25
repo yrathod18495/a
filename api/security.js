@@ -82,6 +82,13 @@ export default async function handler(req, res) {
           if (claims.auth_time <= (us.data()?.reauthAfter || 0)) throw new AccessError('fresh_login_required', 'Google se dobara sign in karein.', 401);
           checkAcquisition(ss.data(), ds.data(), uid, secretHash, now);
         } catch (e) { denied = e; }
+        // Opening the studio again on the same browser (a reload) continues the running session: no new login, so nothing is written
+        // (a login writes four documents). Only a session that is more than half used up gets its lease extended.
+        const running = !denied && ss.data()?.secretHash === secretHash && !ss.data()?.revoked && ss.data()?.expiresAt > now;
+        if (running) {
+          if (ss.data().expiresAt - now < LEASE_MS / 2) tx.update(s, { expiresAt: now + LEASE_MS });
+          return { sid: ss.data().sid };
+        }
         const accounts = ds.data()?.accounts || [];
         tx.set(u, { email: claims.email || '', name: claims.name || '', lastAttempt: now }, { merge: true });
         tx.create(event, { uid, email: claims.email || '', deviceId: b.deviceId, accounts, at: now, code: denied?.code || 'login', review: denied?.code === 'device_review' ? 'pending' : null });
@@ -96,7 +103,7 @@ export default async function handler(req, res) {
       const token = await auth.createCustomToken(uid, { sid: result.sid });
       return send(res, 200, { token, expiresAt: now + LEASE_MS });
     }
-    const who = await access(req, { write: b.action === 'saveTesterAnimations', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'reviewTester', 'testerRequests', 'saveTesterAnimations', 'tamperAlerts', 'tamperAck'].includes(b.action) });
+    const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', write: b.action === 'saveTesterAnimations', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'reviewTester', 'testerRequests', 'saveTesterAnimations', 'tamperAlerts', 'tamperAck'].includes(b.action) });
     if (b.action === 'testerAnimations') {
       if (!who.admin) {
         const tester = await db.doc('securityTesters/' + who.uid).get();
@@ -121,12 +128,17 @@ export default async function handler(req, res) {
     }
     if (b.action === 'tamperAlerts') return send(res, 200, await listAlerts(db));
     if (b.action === 'tamperAck') return send(res, 200, { ok: true, acknowledged: await acknowledgeAlerts(db, b.id, who.uid) });
-    if (b.action === 'heartbeat' || b.action === 'logout') {
+    if (b.action === 'heartbeat') {
+      // The lease is 15 minutes and the browser checks in every few minutes: rewrite it only when less than half is left (a read is cheaper than a write)
+      if (who.session.expiresAt - now < LEASE_MS / 2) await db.doc('securitySessions/' + who.uid).update({ expiresAt: now + LEASE_MS });
+      return send(res, 200, { ok: true });
+    }
+    if (b.action === 'logout') {
       await db.runTransaction(async tx => {
         const ref = db.doc('securitySessions/' + who.uid), s = await tx.get(ref);
         checkSession(s.data(), who.claims.sid, now);
-        tx.update(ref, b.action === 'logout' ? { revoked: true, expiresAt: now } : { expiresAt: now + LEASE_MS });
-        if (b.action === 'logout') tx.set(db.doc('securityUsers/' + who.uid), { reauthAfter: Math.floor(now/1000) }, { merge: true });
+        tx.update(ref, { revoked: true, expiresAt: now });
+        tx.set(db.doc('securityUsers/' + who.uid), { reauthAfter: Math.floor(now/1000) }, { merge: true });
       });
       return send(res, 200, { ok: true });
     }

@@ -11,7 +11,7 @@ const KEEP_ACTIVITY = 10;
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
   try {
-    const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit' });
+    const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit', cache: true });
     if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
     const store = kv(services()), uid = who.uid;
     if (b.action === 'list') {
