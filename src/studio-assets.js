@@ -1,10 +1,9 @@
 import { animationData, MAX_ANIMATION_BYTES } from './managed-animation.js';
 import { auth } from './firebase.js';
 import { apiCall } from './session.js';
-import { uploadFile } from './cloud.js';
+import { uploadAssets, fetchBlob } from './binary-cloud.js';
 import { THUMB_MAX_CHARS, THUMB_PATTERN } from '../shared/studio-effects.js';
 
-const CHUNK = 2 * 1024 * 1024;
 const uid = () => auth.currentUser?.uid;
 async function digest(blob) {
   const bytes = await blob.arrayBuffer();
@@ -42,7 +41,7 @@ export async function saveStudioAsset(type, name, file, meta = {}) {
   if (!['background', 'prop', 'effect'].includes(type) || !file?.type?.startsWith('image/')) throw new Error('Image file chunein.');
   if (file.size > 40 * 1024 * 1024) throw new Error('Image 40 MB ya usse chhoti honi chahiye.');
   const hash = await digest(file), key = `assets/${hash}`, id = crypto.randomUUID();
-  await uploadFile(key, file, owner);
+  await uploadAssets(owner, new Map([[hash, file]]));
   const thumb = type === 'background' ? '' : (meta.thumb ?? await makeThumb(file, meta.sheet).catch(() => ''));
   const asset = (await apiCall('/api/studio-assets', { action: 'save', id, type, name: name.trim().slice(0, 100) || file.name.slice(0, 100), key, size: file.size, mime: file.type, ...meta, thumb }, owner)).asset;
   forgetList();
@@ -56,14 +55,10 @@ export async function deleteStudioAsset(id) {
 export async function downloadStudioAsset(asset) {
   const owner = uid();
   if (!owner) throw new Error('Studio assets download karne ke liye sign in karein.');
-  const parts = [];
-  for (let start = 0; start < asset.size; start += CHUNK) {
-    const out = await apiCall('/api/studio-assets', { action: 'get', id: asset.id, start, length: CHUNK }, owner);
-    parts.push(Uint8Array.from(atob(out.data), (c) => c.charCodeAt(0)));
-  }
-  const blob = new Blob(parts, { type: asset.mime || 'image/png' });
+  const out = await apiCall('/api/studio-assets', { action: 'get', id: asset.id }, owner);     // a short-lived R2 link; the file itself does not pass through the server
+  const blob = await fetchBlob(out.url);
   if (blob.size !== asset.size) throw new Error('Download hui image ka size library ke record se match nahi hua.');
-  return blob;
+  return new Blob([blob], { type: asset.mime || 'image/png' });
 }
 
 export async function saveStudioAnimation(name, file, { target, layer = 'body', frameRate = 24 }) {
@@ -73,7 +68,7 @@ export async function saveStudioAnimation(name, file, { target, layer = 'body', 
   const animation = animationData(JSON.parse(await file.text()));
   const blob = new Blob([JSON.stringify(animation)], { type: 'application/json' });
   const key = `assets/${await digest(blob)}`, id = crypto.randomUUID();
-  await uploadFile(key, blob, owner);
+  await uploadAssets(owner, new Map([[key.slice(7), blob]]));
   const asset = (await apiCall('/api/studio-assets', { action: 'save', id, type: 'animation', name: name.trim().slice(0, 100) || file.name, key, size: blob.size, mime: 'application/json', target, layer, frameRate: Number(frameRate) }, owner)).asset;
   forgetList();
   return asset;

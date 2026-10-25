@@ -8,21 +8,22 @@ globalThis.window=new EventTarget();
 Object.defineProperty(globalThis.navigator,'onLine',{value:true,configurable:true});
 mock.module('../src/firebase.js',{exports:{auth:{currentUser:user}}});
 mock.module('../src/binary-cloud.js',{exports:{
- uploadBinary:async(uid,key,blob)=>{if(failUpload)throw Error('upload failed');if(!objects.has(key)){calls.push({action:'put',key});objects.set(key,blob);}},
- downloadBinary:async(uid,key)=>{if(!objects.has(key))throw Error('Missing binary');return objects.get(key);}
+ uploadAssets:async(uid,files,state)=>{
+  if(failUpload)throw Error('upload failed');
+  for(const [hash,blob] of files)if(!objects.has('a/'+hash)){calls.push({action:'put',key:'assets/'+hash});objects.set('a/'+hash,blob);}
+  if(state){calls.push({action:'state',opId:state.opId});objects.set('state/'+state.opId,state.blob);}
+ },
+ downloadAssets:async(uid,hashes)=>new Map(hashes.map(h=>{if(!objects.has('a/'+h))throw Error('Missing binary');return [h,objects.get('a/'+h)];})),
+ fetchBlob:async(url)=>{if(!objects.has(url))throw Error('Missing snapshot');return objects.get(url);}
 }});
 mock.module('../src/session.js',{exports:{apiCall:async(url,body,uid)=>{
  assert.equal(uid,user.uid);calls.push({...body});
- if(url==='/api/r2'){
-  if(body.action==='head')return {exists:objects.has(body.key),size:objects.get(body.key)?.size};
-  return {url:body.key};
- }
  if(denyCommit){const error=Error('Cloud access denied');error.status=403;error.code='forbidden';throw error;}
- if(body.action==='list')return {projects:[...remote.values()]};
+ if(body.action==='list')return {projects:[...remote.values()].map(p=>({...p,stateUrl:p.stateOp?'state/'+p.stateOp:null}))};
  const old=remote.get(body.id);
  if(old?.operationId===body.operationId)return {revision:old.revision};
  if((old?.revision||0)!==body.expected){const e=Error('conflict');e.code='conflict';throw e;}
- const next={...body,revision:body.expected+1};remote.set(body.id,next);
+ const next={...body,revision:body.expected+1,stateOp:body.deleted?null:body.operationId};remote.set(body.id,next);
  if(loseCommitResponse){loseCommitResponse=false;throw Error('lost response');}
  return {revision:next.revision};
 }}});
@@ -99,3 +100,23 @@ test('denied sync reports an actionable cause and preserves local records',async
  assert.equal((await store.projectMeta(user.uid,p.id)).dirty,false);
  assert.equal(sync.syncStatus.issue,null);
 });
+
+const settle=async(ok)=>{for(let i=0;i<200&&!ok();i++)await new Promise(r=>setImmediate(r));};
+test('cloud autosave waits for a quiet moment (requests cost money), but never longer than the max wait, and leaving the tab saves at once',async(t)=>{
+ t.mock.timers.enable({apis:['setTimeout','Date']});
+ const p=await store.createProject(user.uid,'animation');store.selectProject(user.uid,p.id);
+ await store.put('project',{id:'current',doc:{n:1}});
+ t.mock.timers.tick(sync.SAVE_QUIET-1000);await settle(()=>remote.has(p.id));
+ assert.equal(remote.has(p.id),false);                                   // still waiting: an edit this quiet is not saved yet
+ await store.put('project',{id:'current',doc:{n:2}});                    // another edit restarts the quiet period
+ t.mock.timers.tick(SAVE_AFTER_EDIT_MS(sync.SAVE_QUIET,2000));await settle(()=>false);
+ assert.equal(remote.has(p.id),false);
+ t.mock.timers.tick(2001);await settle(()=>remote.has(p.id));
+ assert.equal(remote.get(p.id).revision,1);                              // 45 s after the last edit
+ await sync.syncProject(user.uid,p.id);   // joins the running save, so the next edit starts clean
+ await store.put('project',{id:'current',doc:{n:3}});
+ sync.flushSync();await sync.syncProject(user.uid,p.id);
+ assert.equal(remote.get(p.id).revision,2);                              // flush = save now
+ assert.equal(sync.SAVE_MAX>sync.SAVE_QUIET,true);
+});
+function SAVE_AFTER_EDIT_MS(quiet,margin){return quiet-margin-1;}

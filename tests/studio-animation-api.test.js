@@ -1,12 +1,13 @@
 import test,{mock} from 'node:test';
 import assert from 'node:assert/strict';
 import {memoryFirestore,response} from './fake-firestore.js';
+import {memoryRtdb} from './fake-rtdb.js';
 process.env.MAINTENANCE_MODE='false';
-const db=memoryFirestore(),uid='admin-animation-user',objects=new Map();
+const rtdb=memoryRtdb(),db=memoryFirestore(),uid='admin-animation-user',objects=new Map();
 db.data.set('securityUsers/'+uid,{status:'active'});
 db.data.set('securitySessions/'+uid,{sid:'ok',expiresAt:Date.now()+100000,revoked:false});
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'ok'})}})}});
-mock.module('../server/r2-storage.js',{exports:{configured:()=>true,CHUNK_SIZE:2*1024*1024,readRange:async()=>{},readObject:async(_,key)=>objects.get(key),objectHead:async(_,key)=>objects.has(key)?{exists:true,size:objects.get(key).length,digest:key.slice(7)}:{exists:false}}});
+mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'ok'})}})}});
+mock.module('../server/r2-storage.js',{exports:{configured:()=>true,signDownloads:async()=>({}),readAssetText:async(_,hash)=>String(objects.get('assets/'+hash)),confirmAssets:async(_,__,items)=>{for(const it of items){const o=objects.get('assets/'+it.hash);if(!o||o.length!==it.size){const e=Error('Upload poora nahi hua.');e.status=409;e.code='incomplete_upload';throw e;}}return {added:items.length};}}});
 const {default:handler}=await import('../api/studio-assets.js');
 async function call(body){const res=response();await handler({method:'POST',headers:{authorization:'Bearer test'},body},res);return res;}
 const key='assets/'+'a'.repeat(64),id='published_animation_123';

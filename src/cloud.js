@@ -3,7 +3,7 @@
 import { auth, db, wsDoc, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from './firebase.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
-import { uploadBinary, downloadBinary } from './binary-cloud.js';
+import { uploadAssets, confirmAssets, downloadAssets, hashBlob } from './binary-cloud.js';
 
 const API = '/api/r2';
 
@@ -20,8 +20,6 @@ export async function ensureProfile(user) {
 let statusP = null;
 export const r2Configured = () => (statusP ||= fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'status' }) })
   .then((r) => (r.ok ? r.json() : { configured: false })).then((j) => !!j.configured).catch(() => false));
-export const uploadFile=(key,blob,owner=auth.currentUser?.uid)=>uploadBinary(owner,key,blob);
-export const downloadFile=(key,owner=auth.currentUser?.uid)=>downloadBinary(owner,key);
 
 /* ---------- project sync ---------- */
 export async function cloudInfo() {
@@ -37,7 +35,7 @@ export const stopAutoSync=()=>clearInterval(autoTimer);
 const uidOf = () => { const u = auth.currentUser?.uid; return u && u !== 'debug' ? u : null; };
 export async function cloudReady() { return !!uidOf() && (await r2Configured()); }
 /**
- * A character is small: the user's own picture pages -> R2 (characters/<id>/page_<n>), everything else (template it is made from, face / outfit /
+ * A character is small: the user's own picture pages -> R2 (by hash: u/<uid>/a/..), everything else (template it is made from, face / outfit /
  * proportion settings, thumbnail) -> Firestore: workspaces/{uid}/characters/{id}. The skeleton comes from the template again when it is opened.
  */
 export async function saveCharacterCloud(def) {
@@ -45,10 +43,12 @@ export async function saveCharacterCloud(def) {
   if (!uid) throw new Error('Character account me save karne ke liye pehle log in karein.');
   if (!(await r2Configured())) throw new Error('Cloud storage abhi set nahi hai, isliye character sirf is device par save hua.');
   if (!def.base) throw new Error('Ye character purane format me save hua tha. Character Studio me kholkar dobara save karein.');
-  const base = `characters/${def.id}/${crypto.randomUUID()}`, paths = Object.keys(def.pages || {});
-  for (let i = 0; i < paths.length; i++) await uploadFile(`${base}/page_${i}`, def.pages[paths[i]],uid);
+  const paths = Object.keys(def.pages || {}), files = new Map(), hashes = [];
+  for (const path of paths) { const blob = def.pages[path], hash = await hashBlob(blob); files.set(hash, blob); hashes.push(hash); }
+  await uploadAssets(uid, files);            // only pictures the cloud does not have yet are sent
+  await confirmAssets(uid, files);
   if(auth.currentUser?.uid!==uid)throw Error('Account badal gaya. Dobara try karein.');
-  await setDoc(wsDoc(uid, 'characters', def.id), { id: def.id, name: def.name, pose: def.pose || '', base: def.base, pages: paths, assetBase: base, format: 'lean', profile: JSON.stringify(def.profile || {}), thumb: def.thumb || '', updatedAt: new Date().toISOString() });
+  await setDoc(wsDoc(uid, 'characters', def.id), { id: def.id, name: def.name, pose: def.pose || '', base: def.base, pages: paths, assetHashes: hashes, format: 'lean2', profile: JSON.stringify(def.profile || {}), thumb: def.thumb || '', updatedAt: new Date().toISOString() });
 }
 export async function listCharactersCloud() {
   const uid = uidOf();
@@ -56,9 +56,9 @@ export async function listCharactersCloud() {
   try { return (await getDocs(collection(db, 'workspaces', uid, 'characters'))).docs.map((d) => d.data()); } catch { return []; }
 }
 export async function loadCharacterCloud(meta) {
-  if (meta.format !== 'lean') throw new Error('Ye character purane format me save hua tha. Isse Character Studio me dobara banayein.');
-  const pages = {};
-  await Promise.all((meta.pages || []).map(async (path, i) => { const b = await downloadFile(`${meta.assetBase || `characters/${meta.id}`}/page_${i}`); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); }));
+  if (meta.format !== 'lean2') throw new Error('Ye character purane format me save hua tha. Isse Character Studio me dobara banayein.');
+  const uid = uidOf(), files = await downloadAssets(uid, meta.assetHashes || []), pages = {};
+  (meta.pages || []).forEach((path, i) => { const b = files.get(meta.assetHashes[i]); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); });
   let profile = {}; try { profile = JSON.parse(meta.profile || '{}'); } catch { /* old record */ }
   return { id: meta.id, name: meta.name, pose: meta.pose, base: meta.base, pages, thumb: meta.thumb, profile };      // opened with hydrateCharacter()
 }

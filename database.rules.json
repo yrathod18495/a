@@ -1,0 +1,8 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "config": { ".read": "auth != null && auth.token.email_verified === true" },
+    "studioAssets": { ".read": "auth != null && auth.token.email_verified === true" }
+  }
+}

@@ -1,4 +1,6 @@
 import { AccessError } from './security-policy.js';
+export { summarizeProjectSnapshot } from '../shared/project-summary.js';
+/** the snapshot is only read back by the owner's browser; this checks its shape when a tool wants to look inside (the server no longer reads it on every save) */
 export function validateManifest(manifest) {
  const bad=()=>{throw new AccessError('invalid_snapshot','Project snapshot sahi nahi hai.',400);};
  const stores=new Set(['characters','animations','backgrounds','swaps','project','audio','draft']);
@@ -16,21 +18,4 @@ export function validateManifest(manifest) {
   records.add(r.store+'/'+r.value.id);walk(r.value);
  }
  return [...assets.values()];
-}
-
-export function summarizeProjectSnapshot(manifest, limit = 1000) {
- const rows = manifest.records || [], project = rows.find(r => r.store === 'project' && r.value?.id === 'current')?.value;
- const lineInfo = new Map((Array.isArray(project?.lines) ? project.lines : []).filter(line => line?.id).map(line => [line.id, line]));
- const audio = rows.filter(r => r.store === 'audio' && r.value?.id);
- const files = audio.slice(0, limit).map(({ value }) => {
-  const line = lineInfo.get(value.id) || {};
-  return {
-   id: String(value.id).slice(0, 128),
-   filename: typeof line.file === 'string' ? line.file.slice(0, 240) : '',
-   speaker: typeof line.speaker === 'string' ? line.speaker.slice(0, 120) : '',
-   order: Number.isSafeInteger(line.order) ? line.order : null,
-   available: !!value.raw?.__asset,
-  };
- });
- return { audioCount: audio.length, audioFiles: files, audioFilesTruncated: audio.length > limit };
 }
