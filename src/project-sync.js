@@ -84,6 +84,7 @@ export async function refreshProjects(uid) {
   if(uid==='debug'||!navigator.onLine)return;
   const {projects}=await apiCall('/api/projects',{action:'list'},uid), local=new Map((await listProjects(uid)).map(p=>[p.id,p]));
   for(const p of projects) {
+    if(p.kind==='character')continue;       // saved characters are opened from the Character Studio, they are not animation projects
     const old=local.get(p.id);
     if(old?.dirty){if(old.revision!==p.revision)status('Conflict','Local changes and a newer cloud revision both exist.');continue;}
     if(old?.revision===p.revision)continue;

@@ -3,7 +3,7 @@
 import { auth, db, wsDoc, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from './firebase.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
-import { uploadAssets, confirmAssets, downloadAssets, hashBlob } from './binary-cloud.js';
+import { uploadAssets, confirmAssets, downloadAssets, hashBlob, fetchBlob } from './binary-cloud.js';
 
 const API = '/api/r2';
 
@@ -42,9 +42,13 @@ export const stopAutoSync=()=>clearInterval(autoTimer);
 const uidOf = () => { const u = auth.currentUser?.uid; return u && u !== 'debug' ? u : null; };
 export async function cloudReady() { return !!uidOf() && (await r2Configured()); }
 /**
- * A character is small: the user's own picture pages -> R2 (by hash: u/<uid>/a/..), everything else (template it is made from, face / outfit /
- * proportion settings, thumbnail) -> Firestore: workspaces/{uid}/characters/{id}. The skeleton comes from the template again when it is opened.
+ * A saved character lives in R2: the user's picture pages as hashed files (u/<uid>/a/..) and one small JSON "manifest" (template it is made from, face /
+ * outfit / proportion settings, hand-placed parts, thumbnail) as the project snapshot (u/<uid>/p/<id>/state-<op>.json). The Realtime Database only
+ * keeps a tiny index row (name, revision) through /api/projects, the same path animation projects use. The skeleton comes from the template again on open.
  */
+const cloudId = (id) => ('char_' + id).padEnd(16, '_');
+const charIdOf = (pid) => pid.replace(/^char_/, '').replace(/_+$/, '');
+const revisionOf = async (uid, pid) => (await apiCall('/api/projects', { action: 'list' }, uid)).projects.find((p) => p.id === pid)?.revision ?? 0;
 export async function saveCharacterCloud(def) {
   const uid = uidOf();
   if (!uid) throw new Error('Character account me save karne ke liye pehle log in karein.');
@@ -52,33 +56,36 @@ export async function saveCharacterCloud(def) {
   if (!def.base) throw new Error('Ye character purane format me save hua tha. Character Studio me kholkar dobara save karein.');
   const paths = Object.keys(def.pages || {}), files = new Map(), hashes = [];
   for (const path of paths) { const blob = def.pages[path], hash = await hashBlob(blob); files.set(hash, blob); hashes.push(hash); }
-  await uploadAssets(uid, files);            // only pictures the cloud does not have yet are sent
-  await confirmAssets(uid, files);
-  if(auth.currentUser?.uid!==uid)throw Error('Account badal gaya. Dobara try karein.');
-  await setDoc(wsDoc(uid, 'characters', def.id), { id: def.id, name: def.name, pose: def.pose || '', base: def.base, pages: paths, assetHashes: hashes, format: 'lean2', profile: JSON.stringify(def.profile || {}), thumb: def.thumb || '', updatedAt: new Date().toISOString() });
-  forgetChars(uid);
+  const pid = cloudId(def.id), operationId = crypto.randomUUID(), now = new Date().toISOString();
+  const manifest = { format: 'char3', id: def.id, name: def.name, pose: def.pose || '', base: def.base, pages: paths, assetHashes: hashes, profile: def.profile || {}, thumb: def.thumb || '', updatedAt: now };
+  const sent = await uploadAssets(uid, files, { projectId: pid, opId: operationId, blob: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });    // only pictures the cloud does not have yet are sent
+  if (auth.currentUser?.uid !== uid) throw new Error('Account badal gaya. Dobara try karein.');
+  const expected = await revisionOf(uid, pid);
+  await apiCall('/api/projects', { action: 'commit', id: pid, kind: 'character', name: def.name || 'My character', deleted: false, operationId, expected, assets: sent.fresh, summary: null }, uid);
 }
-const CHARS_KEY = (uid) => 'toons-chars-' + uid, CHARS_TTL = 5 * 60 * 1000;
-const forgetChars = (uid) => { try { sessionStorage.removeItem(CHARS_KEY(uid)); } catch { /* optional */ } };
-/** the user's saved characters; one read per character, so the list is kept in this tab for a few minutes and dropped when a character is saved or deleted */
+/** remove a saved character from the account (its pictures stay as shared hashed files until the admin cleans them) */
+export async function deleteCharacterCloud(id) {
+  const uid = uidOf();
+  if (!uid || !(await r2Configured())) return;
+  const pid = cloudId(id), expected = await revisionOf(uid, pid);
+  if (!expected) return;
+  await apiCall('/api/projects', { action: 'commit', id: pid, kind: 'character', name: 'deleted', deleted: true, operationId: crypto.randomUUID(), expected, assets: [], summary: null }, uid);
+}
+/** the user's saved characters: one index read (no per-character reads); the manifest itself is fetched only when a character is opened */
 export async function listCharactersCloud() {
   const uid = uidOf();
   if (!uid) return [];
-  try { const c = JSON.parse(sessionStorage.getItem(CHARS_KEY(uid)) || 'null'); if (c && Date.now() - c.at < CHARS_TTL) return c.rows; } catch { /* read again */ }
   try {
-    const rows = (await getDocs(collection(db, 'workspaces', uid, 'characters'))).docs.map((d) => d.data());
-    try { sessionStorage.setItem(CHARS_KEY(uid), JSON.stringify({ at: Date.now(), rows })); } catch { /* optional */ }
-    return rows;
+    const { projects } = await apiCall('/api/projects', { action: 'list' }, uid);
+    return projects.filter((p) => p.kind === 'character' && !p.deleted && p.stateUrl).map((p) => ({ id: charIdOf(p.id), name: p.name, stateUrl: p.stateUrl, updatedAt: p.updatedAt, format: 'char3' }));
   } catch { return []; }
 }
 export async function loadCharacterCloud(meta) {
-  if (meta.format !== 'lean2') throw new Error('Ye character purane format me save hua tha. Isse Character Studio me dobara banayein.');
-  const uid = uidOf(), files = await downloadAssets(uid, meta.assetHashes || []), pages = {};
-  (meta.pages || []).forEach((path, i) => { const b = files.get(meta.assetHashes[i]); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); });
-  let profile = {}; try { profile = JSON.parse(meta.profile || '{}'); } catch { /* old record */ }
-  return { id: meta.id, name: meta.name, pose: meta.pose, base: meta.base, pages, thumb: meta.thumb, profile };      // opened with hydrateCharacter()
+  if (meta.format !== 'char3') throw new Error('Ye character purane format me save hua tha. Isse Character Studio me dobara banayein.');
+  const m = JSON.parse(await (await fetchBlob(meta.stateUrl)).text()), uid = uidOf(), files = await downloadAssets(uid, m.assetHashes || []), pages = {};
+  (m.pages || []).forEach((path, i) => { const b = files.get(m.assetHashes[i]); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); });
+  return { id: m.id, name: m.name, pose: m.pose, base: m.base, pages, thumb: m.thumb, profile: m.profile || {} };      // opened with hydrateCharacter()
 }
-export async function deleteCharacterCloud(id) { const uid = uidOf(); if (uid) { await deleteDoc(wsDoc(uid, 'characters', id)); forgetChars(uid); } }
 
 /* ---------- admin: which animations users may see ---------- */
 const RULES_KEY = 'toons-animrules';

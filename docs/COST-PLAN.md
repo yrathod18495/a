@@ -93,3 +93,13 @@ Without step 1 the project list and cloud saving answer "Server par Realtime Dat
 - **Vercel calls**: lengthen the heartbeat in `src/session.js` (the lease is 15 minutes, so up to 7 minutes is safe).
 - **Firestore reads**: raise `ACCESS_CACHE_MS` (default 60 s) in `server/access.js`.
 - **Storage**: lower `MAX_USER` in `server/r2-storage.js` (300 MB now), or add a clean-up job for files no project uses any more (files are never deleted automatically; a deleted project keeps its pictures).
+
+## Saved characters (Character Studio / tester)
+
+A saved character is stored like an animation project, but with `kind: 'character'`:
+
+- pictures -> R2 `u/<uid>/a/<sha[0:2]>/<sha256>` (content-addressed, uploaded once);
+- settings, hand-placed parts (`xf`, `order`), face / outfit / proportions, thumbnail -> one manifest JSON in R2 `u/<uid>/p/char_<id>/state-<op>.json`;
+- Realtime Database `projects/<uid>/char_<id>` holds only the index row (name, revision). Listing is one read; the manifest is fetched when a character is opened.
+
+Firestore is no longer used for the character files (the tester settings row `testerCharacters/<id>` that the animation studio reads is unchanged).

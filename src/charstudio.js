@@ -18,7 +18,7 @@ import { onSyncStatus } from './project-sync.js';
 import { loadCatalog, hydrateAll, hydrateCharacter, libraryCharacters, fetchLibraryCharacter, cdn, categoriesFor, fetchAnimation, url as assetUrl, refreshTesterRules, setTesterRules, getTesterRules } from './catalog.js';
 import { getFit, setFit, FIT_PRESETS, FIT_LIMITS } from './universal.js';
 import { rigInfo } from './db/info.js';
-import { cloudReady, saveCharacterCloud, listCharactersCloud, loadCharacterCloud, saveTesterSubmission, watchTesterConfig } from './cloud.js';
+import { cloudReady, saveCharacterCloud, deleteCharacterCloud, listCharactersCloud, loadCharacterCloud, saveTesterSubmission, watchTesterConfig } from './cloud.js';
 
 /* ---- colour helpers ---- */
 const rgb2hsl = (r, g, b) => {
@@ -383,7 +383,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       h('div', { class: 'cs-sec' }, h('h3', {}, 'My characters'), h('div', { class: 'cs-grid' },
         h('div', { class: 'cs-card add', onclick: () => file.click() }, h('span', { class: 'cs-th' }, '+'), h('b', {}, 'Add ZIP'), h('small', {}, 'DragonBones ske + tex + png')),
         mine.map((c) => h('div', { class: `cs-card ${st.def?.id === c.id ? 'on' : ''}`, onclick: () => pick(c) }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'), h('b', {}, c.name),
-          h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); mine.splice(mine.indexOf(c), 1); draw(); } }, '✕'))),
+          h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); deleteCharacterCloud(c.id).then(() => { st.cloud = st.cloud.filter((x) => x.id !== c.id); }).catch(() => {}); mine.splice(mine.indexOf(c), 1); draw(); } }, '✕'))),
         cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('Iska template ab available nahi hai.'); mine.push(d); await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ from your account')))), file),
     ];
   }
