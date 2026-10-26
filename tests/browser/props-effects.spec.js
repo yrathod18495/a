@@ -34,10 +34,12 @@ test('props and effects come from the shared library, show in front, honour opac
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page); await publish(page);
   const rail = page.locator('#app .tabs.big');
+  await rail.locator('.upload-tools>summary').click();
   await rail.getByRole('button', { name: 'Props', exact: true }).click();
   await expect(page.locator('.lib-card')).toHaveCount(1);
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.map((p) => p.kind))).toEqual(['prop']);
+  const beneath = await centerPixel(page);
   await rail.getByRole('button', { name: 'Effects', exact: true }).click();
   await expect(page.locator('.lib-card')).toHaveCount(2);
   await page.locator('.lib-card').filter({ hasText: 'Sparkle' }).click();
@@ -49,9 +51,11 @@ test('props and effects come from the shared library, show in front, honour opac
   // opacity and the time range
   await page.locator('input[type=range]').first().evaluate((el) => { el.value = 0.2; el.dispatchEvent(new Event('input', { bubbles: true })); });
   expect(await page.evaluate(() => window.__toon.S.props.find((p) => p.kind === 'effect').opacity)).toBeCloseTo(0.2, 2);
-  [r, g, b] = await centerPixel(page); expect(g).toBeLessThan(120); expect(r).toBeLessThan(200);
+  [r, g, b] = await centerPixel(page);
+  for (const [i, channel] of [r, g, b].entries()) expect(Math.abs(channel - (beneath[i] * 0.8 + [255, 0, 255][i] * 0.2))).toBeLessThanOrEqual(4);
   await page.locator('input[aria-label="Dikhe: shuru (s)"]').fill('5'); await page.locator('input[aria-label="Dikhe: shuru (s)"]').blur();
-  expect((await centerPixel(page, 1))[0]).toBeLessThan(120);      // before it starts: only the background
+  const beforeEffect = await centerPixel(page, 1);
+  for (let i = 0; i < 3; i++) expect(Math.abs(beforeEffect[i] - beneath[i])).toBeLessThanOrEqual(3); // the prop and background remain before the effect starts
   await page.locator('input[aria-label="Dikhe: shuru (s)"]').fill(''); await page.locator('input[aria-label="Dikhe: shuru (s)"]').blur();
   // an effect never grabs clicks meant for the canvas
   await page.locator('#stagebox').click({ position: { x: 300, y: 80 } });
@@ -73,6 +77,7 @@ test('props and effects come from the shared library, show in front, honour opac
 test('effects can be removed and props can be sent behind characters', async ({ page }) => {
   await studio(page); await publish(page);
   const rail = page.locator('#app .tabs.big');
+  await rail.locator('.upload-tools>summary').click();
   await rail.getByRole('button', { name: 'Props', exact: true }).click();
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
@@ -96,6 +101,7 @@ test('a prop can be held in the left or right hand of a character and follows th
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
+  await rail.locator('.upload-tools>summary').click();
   await rail.getByRole('button', { name: 'Props', exact: true }).click();
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);

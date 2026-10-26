@@ -522,7 +522,7 @@ function dockArm(name) { clearTimeout(dockTimer[name]); dockTimer[name] = setTim
 function dockShow(name) { wsEl()?.setAttribute(`data-dock-${name}`, 'in'); syncPills(); dockArm(name); }
 function dockHide(name) {
   const el = dockEl(name), active = document.activeElement;
-  const busy = el && (el.matches(':hover') || (el.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) || el.querySelector('.advanced-tools[open]'));
+  const busy = el && (el.matches(':hover') || (el.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) || el.querySelector('.advanced-tools[open],.upload-tools[open]'));
   if (busy || document.querySelector('.modal') || S.exporting) { dockArm(name); return; }   // still in use: look again in 5 s
   wsEl()?.setAttribute(`data-dock-${name}`, 'out'); syncPills();
 }
@@ -764,13 +764,33 @@ async function editScene(id, action) {
   finally { progress.done(); sceneChanging = false; S.dirty = true; }
 }
 
+// A toolbar group stays within the viewport, including the bottom mobile rail.
+function placeToolbarGroup(group) {
+  if (!group.open) return;
+  const popup = group.querySelector('.upload-tools-list');
+  const trigger = group.querySelector('summary').getBoundingClientRect();
+  const verticalRail = innerWidth > 860 || (innerWidth > 600 && innerHeight <= 500);
+  const left = verticalRail ? trigger.right + 10 : trigger.left;
+  const top = verticalRail ? trigger.top : trigger.top - popup.offsetHeight - 8;
+  popup.style.left = `${Math.max(8, Math.min(left, innerWidth - popup.offsetWidth - 8))}px`;
+  popup.style.top = `${Math.max(8, Math.min(top, innerHeight - popup.offsetHeight - 8))}px`;
+}
+document.addEventListener('pointerdown', event => {
+  for (const group of document.querySelectorAll('#app .upload-tools[open]')) {
+    if (!group.contains(event.target)) group.open = false;
+  }
+});
+window.addEventListener('resize', () => {
+  for (const group of document.querySelectorAll('#app .upload-tools[open]')) group.open = false;
+});
+
 function drawTabs() {
   updatePathView();
   stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
   const advanced = new Set(['motion', 'camera', 'mask', 'ai']);
-  const button = ([key, label, icon]) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
-    if (S.tab === key) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
+  const button = ([key, label, icon], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
+    if (S.tab === key && !openOnly) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
     drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
   } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon), h('span', {}, label));
   const byKey = Object.fromEntries(TABS.map(t => [t[0], t]));
@@ -779,7 +799,24 @@ function drawTabs() {
   const more = h('details', { class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}` },
     h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '⚙'), 'Advanced'),
     h('div', { class: 'advanced-tools-list' }, ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
-  tabsEl.replaceChildren(...rail('Create', ['audio', 'chars', 'anim', 'tears', 'canvas', 'props', 'effects', 'grade']), ...rail('Output', ['export']), more);
+  const uploads = new Set(['audio', 'canvas', 'props']);
+  const upload = h('details', {
+    class: `upload-tools${uploads.has(S.tab) && S.panelOpen ? ' has-active' : ''}`,
+    ontoggle: event => {
+      const group = event.currentTarget;
+      if (group.open) { more.open = false; placeToolbarGroup(group); }
+    },
+    onkeydown: event => {
+      if (event.key === 'Escape' && event.currentTarget.open) {
+        event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false;
+        event.currentTarget.querySelector('summary').focus();
+      }
+    },
+  }, h('summary', { title: 'Upload', 'aria-label': 'Upload' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '📤'), 'Upload'),
+  h('div', { class: 'advanced-tools-list upload-tools-list' }, ...['audio', 'canvas', 'props'].map(key => button(byKey[key], true))));
+  more.addEventListener('toggle', () => { if (more.open) upload.open = false; });
+  tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), upload,
+    ...['chars', 'anim', 'tears', 'effects', 'grade'].map(key => button(byKey[key])), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag karke panel kahin bhi rakhein · double-click se wapas', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, 'Close')),
@@ -831,16 +868,19 @@ function drawTimeline() {
   const labels = [h('div', { class: 'rl ruler', style: `height:${RULER}px` }, 'Layers'), ...(hasAudio ? [h('div', { class: 'rl audio', style: 'height:52px' }, timelineIcon(null, 'audio'), h('span', { class: 'lt' }, 'Audio'))] : [])], lanes = [ruler, ...(hasAudio ? [lane] : [])];
   // the scene background, named like the audio and animation clips
   const bgName = S.bgId ? (S.myBgs.find((r) => r.id === S.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[stage.bg.preset] || BACKGROUNDS[0]).name;
-  labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, timelineIcon(background?.blob, 'background'), h('span', { class: 'lt' }, 'Background')));
-  const bgLane = h('div', { class: 'lane2 bg', style: 'height:38px' },
-    S.bgId || stage.bg.preset !== 0 ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (poori scene)`, onclick: () => openTab('canvas'), style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
-  for (const c of S.bgClips) {
-    const nm = (c.bgId ? (S.myBgs.find((r) => r.id === c.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[c.preset] || BACKGROUNDS[0]).name), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
-    const el = h('div', { class: `tclip bg mine ${c.id === S.bgSel ? 'sel' : ''}`, title: `${nm} — drag to move, drag an edge to resize`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `🖼 ${nm}`), rz);
-    el.addEventListener('pointerdown', (e) => dragBgClip(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
-    bgLane.append(el);
+  if (S.bgId || stage.bg.preset !== 0 || S.bgClips.length) {
+    labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, timelineIcon(background?.blob, 'background'), h('span', { class: 'lt' }, 'Background'),
+      h('button', { type: 'button', class: 'rx delete-layer', title: 'Delete background layer', 'aria-label': 'Delete background layer', disabled: S.exporting, onclick: event => { event.stopPropagation(); return removeBackgroundLayer(); } }, '🗑')));
+    const bgLane = h('div', { class: 'lane2 bg', style: 'height:38px' },
+      S.bgId || stage.bg.preset !== 0 ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (poori scene)`, onclick: () => openTab('canvas'), style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
+    for (const c of S.bgClips) {
+      const nm = (c.bgId ? (S.myBgs.find((r) => r.id === c.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[c.preset] || BACKGROUNDS[0]).name), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
+      const el = h('div', { class: `tclip bg mine ${c.id === S.bgSel ? 'sel' : ''}`, title: `${nm} — drag to move, drag an edge to resize`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `🖼 ${nm}`), rz);
+      el.addEventListener('pointerdown', (e) => dragBgClip(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
+      bgLane.append(el);
+    }
+    lanes.push(bgLane);
   }
-  lanes.push(bgLane);
   // props and effects: one row each, visible from start to end
   for (const prop of S.props.filter((p) => p.visible !== false)) {
     const start = prop.start || 0, end = prop.end ?? total, lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
@@ -877,7 +917,7 @@ function drawTimeline() {
         el.addEventListener('pointerdown', (e) => dragClip(e, m, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
         ln.append(el);
       }
-      labels.push(h('div', { class: 'rl char', style: `height:${LH}px;--track-color:${s.color}` }, i === 0 ? [timelineIcon(portrait(s)), h('span', { class: 'lt', title: s.name }, s.name), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋')] : h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`)));
+      labels.push(h('div', { class: 'rl char', style: `height:${LH}px;--track-color:${s.color}` }, i === 0 ? [timelineIcon(portrait(s)), h('span', { class: 'lt', title: s.name }, s.name), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋'), h('button', { type: 'button', class: 'rx delete-layer', title: `Delete ${s.name} from scene`, 'aria-label': `Delete ${s.name} from scene`, disabled: S.exporting, onclick: () => removeCharacterFrom(s) }, '🗑')] : h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`)));
       lanes.push(ln);
     });
     const cks = S.charKeys[s.key];
@@ -1676,18 +1716,35 @@ function drawSelBar(l) {
       cur.mul = m; saveXf(cur); stage.layout(); updateSel(); S.dirty = true;
     } }),
     h('button', { class: 'btn sm', title: 'Mirror', onclick: () => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; } }, '⇋'),
+    h('button', { type: 'button', class: 'btn sm delete-character', title: 'Delete selected character', 'aria-label': 'Delete selected character', disabled: S.exporting, onclick: () => removeCharacterFrom(s) }, '🗑 Delete'),
     h('button', { class: 'btn sm', title: 'Hide the box', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, '✕'),
     h('button', { class: 'btn sm', title: 'Reset size & position', onclick: () => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; } }, 'Reset'));
 }
 window.addEventListener('resize', () => fitEditor());
 
 async function removeCharacterFrom(s) {
-  if (!confirm(`Remove ${s.name}'s character and its animations from the stage?`)) return;
+  if (S.exporting || !s?.charId) return;
+  if ((S.manual[s.key] || []).some(clip => clip.id === S.mclip)) S.mclip = null;
+  if (S.pathDraw?.key === s.key) stopPathDraw();
+  if ((S.charKeys[s.key] || []).some(key => key.id === S.ckSel)) S.ckSel = null;
+  delete S.solo[s.key]; delete S.manual[s.key]; delete S.charKeys[s.key]; delete S.paths[s.key];
+  for (const cast of S.cast.values()) delete cast[s.key];
   s.charId = null;
+  if (s.manual) { S.speakers = S.speakers.filter(speaker => speaker !== s); S.order = S.order.filter(key => key !== s.key); }
   if (S.sel === s.key) S.sel = null;
-  S.animFor = S.speakers.find((x) => x.charId)?.key ?? null;
-  const b = busy('Updating…'); await applyLayers(); b.done();
-  drawTimeline(); drawLineBox(); drawTabs(); updateSel(); S.dirty = true;
+  if (S.tearFor === s.key) { S.tearFor = null; S.tearPlacement = false; }
+  S.animFor = S.speakers.find(speaker => speaker.charId)?.key ?? null;
+  const b = busy('Character hataya ja raha hai…');
+  try { await applyLayers(); }
+  catch (error) { toast(`Character hatate waqt dikkat aayi: ${error.message}`); }
+  finally { b.done(); }
+  updateTotal(); drawTimeline(); drawLineBox(); drawTabs(); updateSel(); S.dirty = true;
+}
+async function removeBackgroundLayer() {
+  if (S.exporting) return;
+  S.bgId = null; S.bgClips = []; S.bgSel = null; stage.bg.preset = 0;
+  await stage.setBackgroundImage(null); await syncBgClips();
+  updateTotal(); drawTimeline(); drawTabs(); S.dirty = true;
 }
 function addCharacterTo(s) {
   chooseCharacter(s, async () => {

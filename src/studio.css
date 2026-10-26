@@ -30,13 +30,13 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .ws .linebox{margin:0;padding:6px}
 #app .ws .clipbar{flex:none;margin:0;padding:4px 6px;min-height:30px}
 #app .ws .tabs.big{grid-area:rail;position:static;align-self:stretch;display:flex;flex-direction:column;gap:3px;padding:5px;margin:0;min-height:0;overflow:visible;border-radius:12px;background:var(--card);box-shadow:none;z-index:12}
-#app .ws .tabs.big>button,#app .ws .advanced-tools button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;width:100%;min-height:52px;padding:6px 2px;font-size:10px;border-radius:9px;color:var(--text);background:transparent;border:0}
+#app .ws .tabs.big>button,#app .ws :is(.advanced-tools,.upload-tools) button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;width:100%;min-height:52px;padding:6px 2px;font-size:10px;border-radius:9px;color:var(--text);background:transparent;border:0}
 #app .ws .tabs.big .ti{display:block;font-size:19px;line-height:1}
 #app .ws .tabs.big button.on{background:var(--royal-button);color:#201607}
-#app .ws .advanced-tools{position:relative;margin-top:auto;flex:none}
-#app .ws .advanced-tools>summary{list-style:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;font-size:9px;cursor:pointer;border-radius:9px;color:var(--text)}
-#app .ws .advanced-tools>summary::-webkit-details-marker{display:none}
-#app .ws .advanced-tools[open]>summary{background:var(--card2)}
+#app .ws :is(.advanced-tools,.upload-tools){position:relative;margin-top:auto;flex:none}
+#app .ws :is(.advanced-tools,.upload-tools)>summary{list-style:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;font-size:9px;cursor:pointer;border-radius:9px;color:var(--text)}
+#app .ws :is(.advanced-tools,.upload-tools)>summary::-webkit-details-marker{display:none}
+#app .ws :is(.advanced-tools,.upload-tools)[open]>summary{background:var(--card2)}
 #app .ws .advanced-tools-list{position:absolute;left:calc(100% + 12px);bottom:0;width:118px;display:flex;flex-direction:column;gap:3px;padding:5px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 20px #0003;z-index:20}
 #app .ws .panel{grid-area:side;position:relative;top:auto;left:auto;right:auto;bottom:auto;display:block;min-height:0;max-height:none;height:100%;overflow:auto;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);box-shadow:none;z-index:1}
 #app .ws .panel:not(.open){display:none}
@@ -99,10 +99,10 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .tabs.big .ti{font-size:16px}
   #app .ws .tabs.big .rail-label{display:none}
   #app .ws .tabs.big>button>span:not(.ti){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #app .ws .advanced-tools{margin:0;flex:1;min-width:0}
-  #app .ws .advanced-tools>summary{font-size:9px;padding:4px 0}
+  #app .ws :is(.advanced-tools,.upload-tools){margin:0;flex:1;min-width:0}
+  #app .ws :is(.advanced-tools,.upload-tools)>summary{font-size:9px;padding:4px 0}
   #app .ws .advanced-tools-list{left:auto;right:0;bottom:calc(100% + 8px);width:120px}
-  #app .ws .advanced-tools button{min-height:40px;flex-direction:row;padding:5px;gap:7px}
+  #app .ws :is(.advanced-tools,.upload-tools) button{min-height:40px;flex-direction:row;padding:5px;gap:7px}
   #app .ws .panel{padding:8px;border-radius:10px}
   #app .ws .sheet-close{display:flex;position:static;flex:none;padding:0;margin:0 0 5px;font-size:11px;min-height:20px}
   #app .ws .sheet-close button{min-height:22px;padding:2px 7px;font-size:10px}
@@ -130,9 +130,9 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .tabs.big{flex-direction:column;overflow-y:auto;overflow-x:hidden}
   #app .ws .tabs.big>button{flex:none;min-height:32px;font-size:8px;padding:2px}
   #app .ws .tabs.big .ti{font-size:12px}
-  #app .ws .advanced-tools>summary{font-size:8px;padding:3px}
+  #app .ws :is(.advanced-tools,.upload-tools)>summary{font-size:8px;padding:3px}
 }
-#app .ws .advanced-tools.has-active>summary{background:var(--royal-button);color:#201607}
+#app .ws :is(.advanced-tools,.upload-tools).has-active>summary{background:var(--royal-button);color:#201607}
 .animation-filters .search{border:1px solid var(--line);border-radius:8px;background:var(--card2);color:var(--text)}
 #app .ws .studio-menu>summary{list-style:none}
 #app .ws .preview-quality{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--mute)}
@@ -239,15 +239,15 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws{--rail-item:52px}
   #app .ws .tabs.big{display:grid;grid-auto-flow:column;grid-template-rows:repeat(auto-fill,var(--rail-item));grid-auto-columns:var(--rail-w);width:auto;align-content:start;justify-content:start;gap:2px}
   #app .ws .tabs.big .rail-label{display:none}
-  #app .ws .advanced-tools{margin-top:0}
+  #app .ws :is(.advanced-tools,.upload-tools){margin-top:0}
 }
 @media(min-width:861px) and (max-height:900px){
   #app .ws{--rail-item:40px}
-  #app .ws .tabs.big>button,#app .ws .advanced-tools button{min-height:0;height:100%;padding:3px 2px}
-  #app .ws .tabs.big>button span:not(.ti),#app .ws .advanced-tools>summary{font-size:0}
+  #app .ws .tabs.big>button,#app .ws :is(.advanced-tools,.upload-tools) button{min-height:0;height:100%;padding:3px 2px}
+  #app .ws .tabs.big>button span:not(.ti),#app .ws :is(.advanced-tools,.upload-tools)>summary{font-size:0}
   #app .ws .tabs.big .ti{font-size:18px}
-  #app .ws .advanced-tools>summary{padding:6px 0;height:100%}
-  #app .ws .advanced-tools>summary .ti{font-size:18px}
+  #app .ws :is(.advanced-tools,.upload-tools)>summary{padding:6px 0;height:100%}
+  #app .ws :is(.advanced-tools,.upload-tools)>summary .ti{font-size:18px}
 }
 @media(max-width:860px){.layout-tools{display:none}}
 
@@ -322,3 +322,20 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .studio{min-height:510px}
   #app .ws:has(.panel:not(.open)) .studio{min-height:355px}
 }
+
+/* Upload owns Audio, Background and Props; its child menu is viewport anchored. */
+#app .ws .upload-tools{margin-top:0}
+#app .ws .upload-tools>summary{min-height:48px;justify-content:center;font-size:10px}
+#app .ws .upload-tools .upload-tools-list{
+  position:fixed;left:8px;right:auto;top:8px;bottom:auto;width:170px;height:auto;
+  max-height:calc(100dvh - 16px);overflow-y:auto;padding:6px;z-index:70;
+  background:var(--card);border:1px solid var(--line);box-shadow:0 8px 28px #0005;
+}
+#app .ws .upload-tools .upload-tools-list button{
+  display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:10px;
+  width:100%;height:auto;min-height:42px;padding:9px 12px;font-size:12px;text-align:left;
+}
+#app .ws .upload-tools .upload-tools-list button>span:not(.ti){font-size:12px}
+#app .ws .upload-tools>summary:focus-visible,#app .ws .upload-tools-list button:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+@media(max-width:860px){#app .ws .upload-tools>summary{min-height:42px;padding:3px}}
+@media(min-width:861px) and (max-height:900px){#app .ws .upload-tools>summary{min-height:0;height:100%;padding:3px}}

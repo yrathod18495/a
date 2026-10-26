@@ -10,6 +10,7 @@ async function open(page){
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
 }
 async function tool(page,name){
+ if(['Audio','Background','Props'].includes(name))await page.locator('.upload-tools>summary').click();
  if(['Move','Camera','Mask','AI'].includes(name))await page.locator('.advanced-tools').evaluate(el=>{el.open=true;});
  const btn=page.locator('#app .tabs.big').getByRole('button',{name,exact:true});
  if(await btn.getAttribute('aria-pressed')!=='true')await btn.click();

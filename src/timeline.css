@@ -61,3 +61,14 @@
   :root[data-theme] body #app .ws .tl2 .rl .rx.add{width:20px;height:20px}
 }
 #app .ws .timeline-icon-character img{object-position:center top;transform:scale(2);transform-origin:50% 20%}
+:root[data-theme] body #app .ws .tl2 .rl .delete-layer{
+  flex:none;display:grid;place-items:center;width:23px;height:23px;padding:0;
+  border:1px solid var(--track-line);border-radius:7px;background:#b64c2820;color:var(--track-ink);font-size:12px;cursor:pointer;
+}
+:root[data-theme] body #app .ws .tl2 .rl .delete-layer:hover{background:#ba502b45;border-color:#d18f55}
+:root[data-theme] body #app .ws .tl2 .rl .delete-layer:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+#app .ws .selbar .delete-character{flex:none;color:var(--text);border-color:#b67843}
+@media(max-width:480px){
+  :root[data-theme] body #app .ws .tl2 .rl .delete-layer{width:20px;height:20px;font-size:10px}
+  :root[data-theme] body #app .ws .tl2 .rl.char{gap:4px}
+}
