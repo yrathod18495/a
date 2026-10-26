@@ -35,7 +35,12 @@ export async function projectsView({user,kind,home,toast}) {
         if(!await dialog({title:'Resolve sync conflict?',description:'Your local edits will be saved as a separate project before the latest cloud version is restored here.',confirmLabel:'Keep edits and restore',danger:true,confirmOnly:true}))return;
         const backup=await resolveConflict(user.uid,p.id);toast('Aapke local badlav yahan rakhe gaye: '+backup.name);
       })},'Resolve Conflict'));
-      actions.push(h('button',{class:'btn project-action danger',onclick:run(async()=>{if(await dialog({title:'Delete this project?',description:`“${p.name}” will be removed from your project list.`,confirmLabel:'Delete project',danger:true,confirmOnly:true})){await deleteProject(user.uid,p.id);await syncProject(user.uid,p.id);}})},'Delete'));
+      actions.push(h('button',{class:'btn project-action danger',onclick:run(async()=>{
+        if(!await dialog({title:'Delete this project?',description:`“${p.name}” will be removed from your project list.`,confirmLabel:'Delete project',danger:true,confirmOnly:true}))return;
+        await deleteProject(user.uid,p.id);
+        // the project is gone locally the moment deleteProject resolves; the list must reflect that even if the cloud push below fails or is still catching up
+        syncProject(user.uid,p.id).catch(()=>{});
+      })},'Delete'));
       return h('article',{class:'project-card'},
         h('div',{class:'project-card-head'},h('span',{class:'project-card-icon','aria-hidden':'true'},kind==='animation'?'▶':'✦'),h('span',{class:`project-badge ${p.dirty?'pending':'saved'}`},p.dirty?'Cloud pending':'Saved to Cloud')),
         h('h2',{class:'project-name'},p.name),h('p',{class:'project-state'},p.dirty?'Your latest changes are saved on this device and waiting to sync.':'This project is synced and ready to open.'),

@@ -9,6 +9,27 @@ const listeners = new Set(), jobs = new Map(), timers = new Map();
 export const syncStatus = { text: 'Saved locally', error: '', issue: null, projectId: null };
 export const onSyncStatus = fn => { listeners.add(fn); fn(syncStatus); return () => listeners.delete(fn); };
 function status(text, error = '', issue = null, projectId = null) { Object.assign(syncStatus, { text, error, issue, projectId }); listeners.forEach(fn => fn(syncStatus)); }
+async function commitOnce(uid, id, meta, records) {
+  let pending = meta.pending;
+  if (!pending) {
+    const operationId = crypto.randomUUID();
+    let assets = [], summary = null;
+    if (!meta.deleted) {
+      const files = new Map();
+      const manifest = await packRecords(records, async (k, blob) => { files.set(k.slice(7), blob); });
+      // new pictures / audio and the snapshot go straight to R2 with signed links; files the cloud already has are skipped
+      const sent = await uploadAssets(uid, files, { projectId: id, opId: operationId, blob: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
+      assets = sent.fresh;              // only what is new is announced; the server checks those files and counts them once
+      summary = summarizeProjectSnapshot(manifest);
+    }
+    pending = { generation: meta.generation, body: { action: 'commit', id, kind: meta.kind, name: meta.name, deleted: !!meta.deleted, operationId, expected: meta.revision, assets, summary } };
+    await setPending(uid, id, pending);
+  }
+  const { revision } = await apiCall('/api/projects', pending.body, uid);
+  await acknowledge(uid, id, pending.generation, revision);
+  if ((await snapshot(uid, id)).meta.dirty) { status('Saving', '', null, id); schedule({ uid, id }, 3000); }
+  else status('Saved to Cloud', '', null, id);
+}
 export async function syncProject(uid, id) {
   if (uid === 'debug') return;
   const key = uid + '/' + id;
@@ -19,26 +40,17 @@ export async function syncProject(uid, id) {
     if (!meta?.dirty) return;
     status('Saving', '', null, id);
     try {
-      let pending=meta.pending;
-      if(!pending) {
-        const operationId = crypto.randomUUID();
-        let assets = [], summary = null;
-        if (!meta.deleted) {
-          const files = new Map();
-          const manifest = await packRecords(records, async (k, blob) => { files.set(k.slice(7), blob); });
-          // new pictures / audio and the snapshot go straight to R2 with signed links; files the cloud already has are skipped
-          const sent = await uploadAssets(uid, files, { projectId: id, opId: operationId, blob: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });
-          assets = sent.fresh;              // only what is new is announced; the server checks those files and counts them once
-          summary = summarizeProjectSnapshot(manifest);
-        }
-        pending={generation:meta.generation,body:{ action: 'commit', id, kind: meta.kind, name: meta.name, deleted: !!meta.deleted, operationId, expected: meta.revision, assets, summary }};
-        await setPending(uid,id,pending);
-      }
-      const { revision } = await apiCall('/api/projects', pending.body, uid);
-      await acknowledge(uid, id, pending.generation, revision);
-      if ((await snapshot(uid,id)).meta.dirty) {status('Saving', '', null, id);schedule({uid,id},3000);}
-      else status('Saved to Cloud', '', null, id);
+      await commitOnce(uid, id, meta, records);
     } catch (e) {
+      // a delete has nothing to merge with a newer cloud version — it always wins; retry once against the project's actual current revision
+      if (e.code === 'conflict' && meta.deleted) {
+        try {
+          const { projects } = await apiCall('/api/projects', { action: 'list' }, uid);
+          const latest = projects.find(p => p.id === id)?.revision ?? 0;
+          await commitOnce(uid, id, { ...meta, revision: latest, pending: null }, records);
+          return;
+        } catch (e2) { e = e2; }
+      }
       const issue = syncFailure(e);
       status(e.code === 'conflict' ? 'Conflict' : !navigator.onLine ? 'Offline' : 'Sync Failed', e.message, issue, id);
       if (issue.retryable) schedule({ uid, id }, 30000);
