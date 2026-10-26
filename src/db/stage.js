@@ -254,6 +254,32 @@ export class Stage {
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
+  /**
+   * Characters under a point (canvas pixels, the same space as `layer.box`), front first. A character counts when the point is on its drawn mesh;
+   * with `loose` the ones whose box holds the point (but not the mesh) follow, smallest box first, so a big empty box never hides a small character.
+   */
+  hitLayers(p, loose = true) {
+    const real = [], boxes = [];
+    for (const l of [...this.layers].reverse()) {
+      if (l.visible === false || l.shown === false || !l.mat || !l.box) continue;
+      const x = (p.x - l.mat[4]) / l.mat[0], y = (p.y - l.mat[5]) / l.mat[3];
+      let on = false;
+      for (const it of this.collect(l)) {
+        const v = it.verts, idx = it.idx;
+        for (let i = 0; i + 2 < idx.length && !on; i += 3) {
+          const ax = v[idx[i] * 2], ay = v[idx[i] * 2 + 1], bx = v[idx[i + 1] * 2], by = v[idx[i + 1] * 2 + 1], cx = v[idx[i + 2] * 2], cy = v[idx[i + 2] * 2 + 1];
+          const d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by), d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy), d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay);
+          on = !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+        }
+        if (on) break;
+      }
+      if (on) real.push(l);
+      else if (loose && p.x >= l.box.x0 && p.x <= l.box.x1 && p.y >= l.box.y0 && p.y <= l.box.y1) boxes.push(l);
+    }
+    boxes.sort((a, b) => (a.box.x1 - a.box.x0) * (a.box.y1 - a.box.y0) - (b.box.x1 - b.box.x0) * (b.box.y1 - b.box.y0));
+    return [...real, ...boxes];
+  }
+
   layout() {
     const n = this.layers.length, W = this.W, H = this.H;
     const slotW = W / Math.max(n, 1);

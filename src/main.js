@@ -870,7 +870,7 @@ function drawTimeline() {
         el.addEventListener('pointerdown', (e) => dragClip(e, m, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
         ln.append(el);
       }
-      labels.push(h('div', { class: 'rl char', style: `height:${LH}px` }, i === 0 ? [h('span', { class: 'dot', style: `background:${s.color}` }), h('span', { class: 'lt' }, s.name), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋')] : h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`)));
+      labels.push(h('div', { class: 'rl char', style: `height:${LH}px;cursor:pointer`, onclick: () => selectChar(s.key) }, i === 0 ? [h('span', { class: 'dot', style: `background:${s.color}` }), h('span', { class: 'lt' }, s.name), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋')] : h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`)));
       lanes.push(ln);
     });
     const cks = S.charKeys[s.key];
@@ -1583,13 +1583,27 @@ function mountStage() {
       const c = l.hpos?.[hd] || corners[hd];
       drag = { mode: 'scale', A: { x: corners[opp][0], y: corners[opp][1] }, C: { x: c[0], y: c[1] }, a0: { ...l.anchor }, mul0: l.mul ?? 1 };
     } else {
-      l = [...stage.layers].reverse().find((x) => stage.camZoom <= 1.02 && x.visible !== false && x.shown !== false && p.x >= x.box.x0 && p.x <= x.box.x1 && p.y >= x.box.y0 && p.y <= x.box.y1);
+      l = stage.camZoom <= 1.02 ? stage.hitLayers(p)[0] : null;      // the character really under the mouse (its drawn shape), not just the biggest box
       S.sel = l?.key ?? null;
       if (l) drag = { mode: 'move', p0: p, a0: { ...l.anchor } };
       updateSel(); S.dirty = true;
     }
     if (drag) wrapEl.setPointerCapture(e.pointerId);
   });
+  /* right click on the stage: every character under the mouse, so one hidden behind another (or inside a big box) can still be chosen */
+  let ctxMenu = null;
+  const closeCtx = () => { ctxMenu?.remove(); ctxMenu = null; };
+  wrapEl.addEventListener('contextmenu', (e) => {
+    if (S.exporting || stage.fullView || stage.camZoom > 1.02 || e.target.dataset?.c) return;
+    e.preventDefault(); closeCtx();
+    const found = stage.hitLayers(pt(e)).map((l) => sOf(l.key)).filter(Boolean);
+    ctxMenu = h('div', { class: 'cs-ctx', role: 'menu' }, h('b', {}, found.length ? 'Character chunein' : 'Yahan koi character nahi hai'),
+      found.map((sp) => h('button', { type: 'button', role: 'menuitem', class: S.sel === sp.key ? 'on' : '', onclick: () => { closeCtx(); selectChar(sp.key); } }, h('span', { class: 'dot', style: `background:${sp.color}` }), ` ${sp.name}`)));
+    document.body.append(ctxMenu);
+    ctxMenu.style.left = Math.min(e.clientX, innerWidth - ctxMenu.offsetWidth - 8) + 'px'; ctxMenu.style.top = Math.min(e.clientY, innerHeight - ctxMenu.offsetHeight - 8) + 'px';
+  });
+  document.addEventListener('pointerdown', (e) => { if (ctxMenu && !ctxMenu.contains(e.target)) closeCtx(); }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtx(); });
   wrapEl.addEventListener('pointermove', (e) => {
     if (camPointerMove(e)) return;
     if (drag?.mode === 'prop') {
@@ -1656,6 +1670,13 @@ function updateSel() {
     el.classList.toggle('pinned', Math.abs(px - x * k) > 1 || Math.abs(py - y * k) > 1);
     l.hpos[c] = [px / k, py / k];
   }
+}
+/** select a character; one that is not in frame at the playhead gets the playhead moved to where it first appears, so its box can be shown and edited */
+function selectChar(key) {
+  S.sel = key; S.selectedPropId = null; S.animFor = key;
+  const l = stage.layers.find((x) => x.key === key);
+  if (l && l.shown === false && l.present?.length) { const t = Math.min(...l.present.map((x) => x.start)); if (Number.isFinite(t)) { player.seek(t); toast(`${sOf(key)?.name || 'Character'} is time par frame me nahi tha, isliye playhead uske pehle shot par le gaye.`); } }
+  updateSel(); drawLineBox(); S.dirty = true;
 }
 function drawSelBar(l) {
   const s = S.speakers.find((x) => x.key === l.key);
@@ -1748,7 +1769,7 @@ function tabChars() {
     const c = charOf(s), entry = libraryCharacters().find((e) => `lib:${e.id}` === s.charId);
     const mv = (d) => { const j = S.order.indexOf(onStage[i + d].key), me = S.order.indexOf(s.key); [S.order[me], S.order[j]] = [S.order[j], S.order[me]]; stage.reorder([...S.order].reverse()); S.dirty = true; drawTabs(); drawTimeline(); };
     return h('div', { class: 'layer' }, h('span', { class: 'th xs' }, entry ? h('img', { src: cdn(entry.thumbnail), alt: '' }) : c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'),
-      h('div', { class: 't', style: 'cursor:pointer', onclick: () => { S.animFor = s.key; S.sel = s.key; updateSel(); drawLineBox(); S.dirty = true; } }, s.name, h('small', {}, c.name)),
+      h('div', { class: 't', style: 'cursor:pointer', onclick: () => selectChar(s.key) }, s.name, h('small', {}, c.name)),
       skinNames(c).length > 1 ? h('button', { class: 'ib', title: 'Outfit', onclick: () => outfitModal(s) }, '👗') : null,
       h('button', { class: 'ib', title: 'Change character', onclick: () => addCharacterTo(s) }, '⇄'),
       h('button', { class: 'ib', title: 'Bring forward', disabled: i === 0, onclick: () => mv(-1) }, '↑'),
