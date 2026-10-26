@@ -417,23 +417,37 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   }
   /** many files / a ZIP of layers: matched by layer name (ARM_L.svg, Mouth_A.png, PS_TORSO_2.svg ...) */
   async function bulkUpload(files) {
-    const items = []; let psds = 0;
+    const items = []; let psds = 0, unreadable = 0;
+    toast(`${files.length} file${files.length > 1 ? 's' : ''} padh raha hu…`);
     for (const f of files) {
-      if (/\.psd$/i.test(f.name)) { psds++; await importPsd(f); continue; }
-      if (/\.zip$/i.test(f.name)) { const z = await JSZip.loadAsync(f); for (const e of Object.values(z.files)) if (!e.dir && isImage(e.name)) items.push({ name: e.name.split('/').pop(), blob: await e.async('blob') }); }
-      else if (isImage(f.name)) items.push({ name: f.name, blob: f });
+      try {
+        if (/\.psd$/i.test(f.name)) { psds++; await importPsd(f); continue; }
+        if (/\.zip$/i.test(f.name)) { const z = await JSZip.loadAsync(f); for (const e of Object.values(z.files)) if (!e.dir && isImage(e.name)) items.push({ name: e.name.split('/').pop(), blob: await e.async('blob') }); }
+        else if (isImage(f.name)) items.push({ name: f.name, blob: f });
+        else unreadable++;
+      } catch (e) { console.warn('upload file failed', f.name, e); unreadable++; }
     }
     if (psds && !items.length) return;      // a PSD reports for itself (importPsd); do not overwrite its message
     const all = layers().filter(partVisible);
     const norm = (n) => n.replace(/\.[^.]+$/, '').replace(/\//g, '_');
-    let hit = 0, lastHit = null;
+    const hits = new Map(), unmatched = [];     // region -> layer: when two files name the same part, the later one wins
+    let lastHit = null;
+    // every picture is read and set first; the rig is rebuilt ONCE at the end (rebuilding after each file made 8 files take 8 seconds)
     for (const it of items) {
       const n = norm(it.name);
       const l = all.find((x) => norm(x.region) === n) || all.find((x) => norm(x.key) === n && !st.locked.has(x.region)) || all.find((x) => norm(x.region).replace(/^(PS|SL)_/, '') === n.replace(/^(PS|SL)_/, ''));
-      if (!l || st.locked.has(l.region)) continue;
-      try { const e = editOf(l.region); e.img = await readImage(it.blob, it.name); e.trim = null; if (st.outline && !e.mode) e.mode = 'outline'; e.removed = false; if (tester) { st.attach[l.slot] = l.key; st.hide.delete(l.slot); st.guideFocus = l.region; lastHit = l; } queue([l.region]); autoSoon(); hit++; } catch { /* skip unreadable */ }
+      if (!l || st.locked.has(l.region)) { unmatched.push(it.name); continue; }
+      try {
+        const e = editOf(l.region); e.img = await readImage(it.blob, it.name); e.trim = null; if (st.outline && !e.mode) e.mode = 'outline'; e.removed = false;
+        if (tester) { st.attach[l.slot] = l.key; st.hide.delete(l.slot); st.guideFocus = l.region; lastHit = l; }
+        hits.set(l.region, l);
+      } catch (e) { console.warn('picture not readable', it.name, e); unreadable++; }
     }
-    toast(hit ? `${hit} layer${hit > 1 ? 's' : ''} replaced.` : 'No file matched a layer name. Name files like the layers (ARM_L.png, Mouth_A.svg …).');
+    if (hits.size) { queue([...hits.keys()]); autoSoon(); }
+    const parts = [hits.size ? `${hits.size} layer${hits.size > 1 ? 's' : ''} replaced.` : 'No file matched a layer name. Name files like the layers (ARM_L.png, Mouth_A.svg …).'];
+    if (hits.size && unmatched.length) parts.push(`${unmatched.length} file ka naam kisi layer se match nahi hua (${unmatched.slice(0, 3).join(', ')}${unmatched.length > 3 ? ' …' : ''}).`);
+    if (unreadable) parts.push(`${unreadable} file padhi nahi ja saki.`);
+    toast(parts.join(' '));
     draw();
     if (tester && lastHit) focusRig(lastHit);
   }
