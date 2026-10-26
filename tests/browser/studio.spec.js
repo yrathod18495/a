@@ -30,11 +30,11 @@ for (const mode of ['day', 'night']) for (const viewport of [{ width: 1366, heig
     expect(bounds.y).toBeGreaterThanOrEqual(0); expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(viewport.height + 1);
-    await expect(page.locator('.advanced-tools-list')).toBeHidden();
+    await expect(page.locator('.advanced-tools-list:not(.upload-tools-list)')).toBeHidden();
     await page.locator('.advanced-tools summary').click();
-    await page.locator('.advanced-tools-list').getByRole('button', { name: 'Camera', exact: true }).click();
+    await page.locator('.advanced-tools-list:not(.upload-tools-list)').getByRole('button', { name: 'Camera', exact: true }).click();
     await expect(page.locator('.panel')).toContainText('Canvas size');
-    await expect(page.locator('.advanced-tools-list')).toBeHidden();
+    await expect(page.locator('.advanced-tools-list:not(.upload-tools-list)')).toBeHidden();
     await page.screenshot({ path: testInfo.outputPath(`optimized-${mode}-${viewport.width}.png`) });
     expect(errors).toEqual([]);
   });
@@ -148,7 +148,7 @@ test('sync errors explain the cause, retain local work and offer retry only when
 test('aspect changes and reopening the workspace keep fitting the editor without background rendering', async ({ page }) => {
   await studio(page); const projectUrl = page.url();
   await page.locator('.advanced-tools summary').click();
-  await page.locator('.advanced-tools-list').getByRole('button', { name: 'Camera', exact: true }).click();
+  await page.locator('.advanced-tools-list:not(.upload-tools-list)').getByRole('button', { name: 'Camera', exact: true }).click();
   await page.locator('.panel').getByRole('button', { name: '9:16', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.W / window.__toon.stage.H)).toBeCloseTo(9 / 16, 2);
   const ratio = await page.locator('.stagewrap').evaluate(e => e.clientWidth / e.clientHeight);

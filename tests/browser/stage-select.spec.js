@@ -14,7 +14,7 @@ async function studio(page) {
 }
 // the page is busy drawing ten characters on a software GL, so buttons are pressed from inside the page (no waiting for animation frames)
 const press = (loc) => loc.evaluate(e => e.click());
-const tab = async (page, name) => { await press(page.locator('#app .tabs.big').getByRole('button', { name, exact: true })); await page.waitForTimeout(800); };
+const tab = async (page, name) => { await press(page.locator(`#app .tabs.big button[title="${name}"]`)); await page.waitForTimeout(800); };
 const wavs = (page) => page.evaluate((N) => Array.from({ length: N }, (_, i) => {
   const sr = 8000, n = sr, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, s) => [...s].forEach((c, j) => v.setUint8(o + j, c.charCodeAt(0)));
   w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
