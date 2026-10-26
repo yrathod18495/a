@@ -11,7 +11,7 @@ import { characterPicker } from './charpick.js';
 import { refreshLayerRules, layerName, groupName, layerHidden } from './layerrules.js';
 import { ingest } from './ingest.js';
 import { buildPsd, readPsdLayers, planPsd, kindOf } from './psd.js';
-import { patchRig, faceEdits, faceDefaults, bakeSke, FACE } from './rigedit.js';
+import { patchRig, faceEdits, faceDefaults, bakeSke, dragToEdit, FACE } from './rigedit.js';
 import { LIMITS, mb } from './limits.js';
 import { saveCharacter, deleteCharacter, loadCharacters, get as getDraft, put as putDraft } from './store.js';
 import { onSyncStatus } from './project-sync.js';
@@ -75,14 +75,14 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const stage = new Stage({ maxTex: 4096 });
   stage.setSize('4:5', 720);
   const st = {
-    outline: false, autoLen: !tester, guideFocus: null, createMode: !!tester, def: null, tpl: null, skins: null, hide: new Set(), edit: new Map(), xf: {}, attach: {}, face: faceDefaults(), locked: new Set(),
+    outline: false, autoLen: !tester, guideFocus: null, createMode: !!tester, def: null, tpl: null, skins: null, hide: new Set(), edit: new Map(), xf: {}, order: {}, place: true, attach: {}, face: faceDefaults(), locked: new Set(),
     regions: new Map(), pages: [], orig: {}, work: {}, artworkPages: {}, dirty: new Set(), cbox: new Map(), anim: null, tab: 'start', open: null, openGroup: null, filter: '',
     permissionsError: '', busy: false, mouth: false, zoom: 'wide', name: '', cloud: [],
   };
   let gen = 0, pending = new Set(), applyTimer = 0, rigTimer = 0, t0 = performance.now(), raf = 0, lastFrame = 0;
   const panel = h('div', { class: 'cs-panel' }), tabs = h('div', { class: 'cs-tabs' }), stageBox = h('div', { class: 'cs-stage' }, stage.out);
   let rigGuideStatus = null;
-  const animBar = h('div', { class: 'cs-anim' });
+  const animBar = h('div', { class: 'cs-anim' }), placeBar = h('div', { class: 'cs-place', hidden: true });
   const restrictedTester = () => tester && !testerCanSave(getTesterRules());
   /** testers only get Sadhu Baba in the 3/4 front pose; the full character / pose list stays with the admin Character Studio */
   const templateChoices = () => libraryCharacters().filter((e) => e.template && (!tester || (e.charBase === 'sadhubaba' && e.id.endsWith('-front-side'))));
@@ -92,7 +92,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const root = h('div', { class: 'sh cs' },
     h('header', { class: 'sh-bar' }, tester ? h('span', { class: 'sh-crumb' }, 'Character Tester') : logo(home), h('span', { class: 'sp' }),
       saveButton, tester ? h('button', { class: 'btn', onclick: logout }, '⎋ Log out') : h('button', { class: 'btn', onclick: home }, '⌂ Home')),
-    h('div', { class: 'cs-body' }, h('div', { class: 'cs-left' }, stageBox, animBar), h('div', { class: 'cs-right' }, tabs, panel)));
+    h('div', { class: 'cs-body' }, h('div', { class: 'cs-left' }, stageBox, animBar, tester ? placeBar : null), h('div', { class: 'cs-right' }, tabs, panel)));
 
   /* ---------- live preview ---------- */
   const visemes = Uint8Array.from({ length: 400 }, (_, i) => [0, 1, 3, 4, 5, 6, 7, 2][Math.floor(i / 5) % 8]);
@@ -276,7 +276,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   function rigEdits() {
     const fe = faceEdits(st.face, st.def.ske), xf = { ...fe.xf };
     for (const [k, e] of Object.entries(st.xf)) xf[k] = mergeEdit(xf[k], e);
-    return { xf, bones: fe.bones, attach: st.attach };
+    return { xf, bones: fe.bones, attach: st.attach, order: st.order };
   }
   const currentRig = () => patchRig(st.def.ske, rigEdits());
   function rebuild() {
@@ -284,7 +284,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     stage.setRig(st.def.id, currentRig());
     const anims = st.anim && st.anim.json ? { [st.anim.key]: st.anim.json } : {};
     if (st.over && st.anim && st.over.json) anims[st.over.key] = st.over.json;
-    stage.setLayers([{ key: 'c', charId: st.def.id, artworkPages: { ...st.artworkPages }, anims, clips: st.anim ? [{ id: 'a', kind: 'body', name: st.anim.key, start: 0, dur: 36000, off: 0 }, ...(st.over ? [{ id: 'o', kind: st.over.kind, name: st.over.key, start: 0, dur: 36000, off: 0 }] : [])] : [], flip: false, slot: 0, visible: true, xf: null, skins: st.skins, hide: [...st.hide], fit: st.fit }]);
+    stage.setLayers([{ key: 'c', charId: st.def.id, artworkPages: { ...st.artworkPages }, anims, clips: st.anim ? [{ id: 'a', kind: 'body', name: st.anim.key, start: 0, dur: 36000, off: 0 }, ...(st.over ? [{ id: 'o', kind: st.over.kind, name: st.over.key, start: 0, dur: 36000, off: 0 }] : [])] : [], flip: false, slot: 0, visible: true, xf: null, skins: st.skins, hide: [...st.hide], fit: st.fit, lockBounds: true }]);
   }
   const queueRig = () => { clearTimeout(rigTimer); rigTimer = setTimeout(rebuild, 120); };
 
@@ -296,7 +296,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     // a saved character is opened on its template's skeleton again, with its settings, so everything stays editable
     const saved = !!d.baseSke, pr = d.profile || {}, src = saved ? { ...d, ske: d.baseSke } : d;
     d = src;
-    Object.assign(st, { fit: getFit(d.id), over: null, def: d, savedId: saved ? d.id : null, skins: saved ? (pr.skins ?? null) : (d.skins ?? null), hide: new Set(saved ? pr.hide || [] : []), edit: new Map(), xf: saved ? pr.xf || {} : {}, attach: pr.attach || {}, face: saved && pr.face ? pr.face : faceDefaults(), locked: new Set(saved ? pr.locked || [] : []), work: {}, orig: {}, artworkPages: {}, dirty: new Set(), cbox: new Map(), anim: null, open: null, openGroup: null, filter: '', name: `${d.name}${d.profile?.template ? '' : ' (mine)'}` });
+    Object.assign(st, { fit: getFit(d.id), over: null, def: d, savedId: saved ? d.id : null, skins: saved ? (pr.skins ?? null) : (d.skins ?? null), hide: new Set(saved ? pr.hide || [] : []), edit: new Map(), xf: saved ? pr.xf || {} : {}, order: saved ? pr.order || {} : {}, attach: pr.attach || {}, face: saved && pr.face ? pr.face : faceDefaults(), locked: new Set(saved ? pr.locked || [] : []), work: {}, orig: {}, artworkPages: {}, dirty: new Set(), cbox: new Map(), anim: null, open: null, openGroup: null, filter: '', name: `${d.name}${d.profile?.template ? '' : ' (mine)'}` });
     if (d.profile?.template) st.tpl = d.profile.template; else st.tpl = null;
     st.pages = d.tex.map((t) => t.json.imagePath); st.regions = new Map(); thumbs.clear();
     for (const t of d.tex) for (const r of t.json.SubTexture) st.regions.set(r.name, { page: t.json.imagePath, x: r.x, y: r.y, w: r.width, h: r.height, deg: 0 });
@@ -344,6 +344,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     if (!TABS.some(([key]) => key === st.tab)) st.tab = 'start';       // a tab this page does not offer is never shown (e.g. a draft saved on the tester page)
     saveButton.hidden = restrictedTester();
     if (st.tab === 'save' && restrictedTester()) st.tab = 'create';
+    drawPlaceBar();
     tabs.replaceChildren(...TABS.filter(([k]) => (k !== 'create' || st.createMode || !tester) && (!(localPreview || restrictedTester()) || k !== 'save')).map(([k, l]) => h('button', { class: st.tab === k ? 'on' : '', disabled: k !== 'start' && !st.def, onclick: () => { st.tab = k; draw(); } }, l)));
     panel.replaceChildren(...{ start: panelStart, create: panelCreate, layers: panelLayers, face: panelFace, outfit: panelOutfit, anims: panelAnims, body: panelBody, save: panelSave }[st.tab]().filter(Boolean));      // a missing item must not show up as the word "null"
   }
@@ -601,6 +602,95 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     const base = baseOf(), all = layers().filter((l) => partVisible(l) && !layerHidden(base, l.slot, l.key) && (st.slot_attach(l.slot) === l.key || l.group === 'Lips' || l.region === st.guideFocus)), rank = (g) => (CREATE_ORDER.indexOf(g) < 0 ? 99 : CREATE_ORDER.indexOf(g));
     return all.sort((a, b) => rank(a.group) - rank(b.group) || labelOf(a).localeCompare(labelOf(b)));
   };
+  let offPlaceKeys = () => {};
+  /* ---------- placing a part by hand (tester page): drag it on the preview, arrow keys or buttons, forward / back, size ---------- */
+  const selectedPart = () => (tester && st.def && st.guideFocus ? layers().find((l) => l.region === st.guideFocus) || null : null);
+  const xfKey = (l) => `${l.slot}|${l.key}`;
+  /**
+   * Where the middle of this part is in the armature (setup pose) with the given edit: the rig is built once for real and measured. A part's mesh is tied to several bones
+   * (each with its own size and turn), so a picture edit never moves it exactly by the edit's amount; measuring is the only way to make a drag follow the mouse.
+   */
+  function partCentre(l, e) {
+    const k = xfKey(l), prev = st.xf[k]; st.xf[k] = e;
+    let t = null;
+    try {
+      stage.setRig(st.def.id, patchRig(st.def.ske, rigEdits()));
+      t = stage.armatureFor(st.def.id, st.skins);
+      const slot = t.arm.getSlot(l.slot), idx = t.prep.disp.get(l.slot)?.get(l.key);
+      if (!slot || idx == null) return null;
+      slot.displayIndex = idx; t.arm.advanceTime(0);
+      const list = []; slot.collect(list);
+      let x = 0, y = 0, n = 0;
+      for (const it of list) for (let i = 0; i < it.verts.length; i += 2) { x += it.verts[i]; y += it.verts[i + 1]; n++; }
+      return n ? { x: x / n, y: y / n } : null;
+    } catch (er) { console.warn('part measure failed', er); return null; }
+    finally { if (t) stage.disposeTemp(t); if (prev) st.xf[k] = prev; else delete st.xf[k]; }
+  }
+  let calib = null;
+  /** how far (and which way) the part's middle moves in the armature for one unit of dx / dy: [a, b, c, d] with world = [[a, c], [b, d]] . (dx, dy); null if it cannot be measured */
+  function jacobian(l) {
+    const k = xfKey(l);
+    if (calib && calib.key === k && performance.now() - calib.at < 4000) return calib.J;
+    const e = { dx: 0, dy: 0, s: 1, rot: 0, sv: 1, ...(st.xf[k] || {}) }, d = 25, c0 = partCentre(l, e), cx = partCentre(l, { ...e, dx: e.dx + d }), cy = partCentre(l, { ...e, dy: e.dy + d });
+    stage.setRig(st.def.id, currentRig());
+    let J = null;
+    if (c0 && cx && cy) { const m = [(cx.x - c0.x) / d, (cx.y - c0.y) / d, (cy.x - c0.x) / d, (cy.y - c0.y) / d]; if (Math.abs(m[0] * m[3] - m[1] * m[2]) > 1e-6) J = m; }
+    calib = { key: k, J, at: performance.now() };
+    return J;
+  }
+  /** move the selected part by (cx, cy) CANVAS pixels (y down): canvas -> armature -> the edit that moves the part's middle exactly there */
+  function movePart(cx, cy) {
+    const l = selectedPart(), layer = stage.layers.find((x) => x.key === 'c');
+    if (!l || !layer?.mat || (!cx && !cy)) return;
+    const wx = cx / layer.mat[0], wy = cy / layer.mat[3], J = jacobian(l), k = xfKey(l), e = st.xf[k] || { dx: 0, dy: 0, s: 1, rot: 0, sv: 1 };
+    let add;
+    if (J) { const det = J[0] * J[3] - J[1] * J[2]; add = { dx: (J[3] * wx - J[2] * wy) / det, dy: (-J[1] * wx + J[0] * wy) / det }; }
+    else add = dragToEdit(st.def.ske.armature[0], l.slot, wx, wy);          // measuring failed: the bone-axes estimate
+    st.xf[k] = { ...e, dx: (e.dx || 0) + add.dx, dy: (e.dy || 0) + add.dy };
+    queueRig(); S_dirtyDraft();
+  }
+  const cssToCanvas = () => { const r = stage.out.getBoundingClientRect(), v = stage.view || { w: stage.W, h: stage.H }; return { kx: v.w / (r.width || 1), ky: v.h / (r.height || 1) }; };
+  const S_dirtyDraft = () => { if (placeNote) placeNote.textContent = noteOf(selectedPart()); };
+  const noteOf = (l) => { if (!l) return 'Pehle koi part chunein (list me uska naam dabayein).'; const e = st.xf[xfKey(l)], moved = e && (e.dx || e.dy || (e.s && e.s !== 1)), order = st.order[l.slot] || 0; return `${labelOf(l)}${moved || order ? ` · hilaya hua${order ? ` · ${order > 0 ? 'aage' : 'peeche'} ${Math.abs(order)}` : ''}` : ''}`; };
+  let placeNote = null;
+  function drawPlaceBar() {
+    if (!tester) return;
+    const l = selectedPart(); placeBar.hidden = !st.def || st.tab === 'start' || st.tab === 'anims';
+    const btn = (label, title, on, cls = '') => h('button', { type: 'button', class: `btn sm ${cls}`, title, onclick: on, disabled: !l }, label);
+    const step = (dx, dy) => () => { const { kx, ky } = cssToCanvas(); movePart(dx * 3 * kx, dy * 3 * ky); };
+    const size = (f) => () => { const k = xfKey(l), e = st.xf[k] || { dx: 0, dy: 0, s: 1, rot: 0, sv: 1 }; st.xf[k] = { ...e, s: Math.min(3, Math.max(0.2, (e.s || 1) * f)) }; queueRig(); S_dirtyDraft(); };
+    const order = (n) => () => { st.order[l.slot] = (st.order[l.slot] || 0) + n; if (!st.order[l.slot]) delete st.order[l.slot]; queueRig(); S_dirtyDraft(); };
+    placeNote = h('span', { class: 'cs-place-note' }, noteOf(l));
+    placeBar.replaceChildren(
+      h('button', { type: 'button', class: `btn sm ${st.place ? 'pri' : ''}`, 'aria-pressed': String(st.place), title: 'Chalu ho to preview par part ko mouse se kheench sakte hain', onclick: () => { st.place = !st.place; stage.out.style.cursor = st.place && selectedPart() ? 'move' : ''; drawPlaceBar(); } }, st.place ? '✋ Hath se rakho: ON' : '✋ Hath se rakho: OFF'),
+      btn('⬅', 'Left', step(-1, 0)), btn('⬆', 'Upar', step(0, -1)), btn('⬇', 'Neeche', step(0, 1)), btn('➡', 'Right', step(1, 0)),
+      btn('−', 'Chhota', size(0.97)), btn('＋', 'Bada', size(1.03)),
+      btn('⬆ Aage', 'Is part ko doosre parts ke aage laao', order(1)), btn('⬇ Peeche', 'Is part ko doosre parts ke peeche bhejo', order(-1)),
+      btn('↺ Reset', 'Is part ki jagah, size aur aage-peeche pehle jaisa karo', () => { delete st.xf[xfKey(l)]; delete st.order[l.slot]; queueRig(); drawPlaceBar(); if (st.tab === 'layers') draw(); }),
+      placeNote);
+    stage.out.style.cursor = st.place && l ? 'move' : '';
+  }
+  {
+    const cv = stage.out; let drag = null;
+    cv.addEventListener('pointerdown', (e) => {
+      if (!st.place || !selectedPart() || e.button !== 0) return;
+      e.stopImmediatePropagation(); drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId);
+    }, true);
+    cv.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const { kx, ky } = cssToCanvas(); movePart((e.clientX - drag.x) * kx, (e.clientY - drag.y) * ky); drag = { x: e.clientX, y: e.clientY };
+    });
+    const end = () => { if (!drag) return; drag = null; if (st.tab === 'layers') draw(); };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    const keys = (e) => {
+      if (!root.isConnected || !tester || !st.place || !selectedPart() || e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input,select,textarea,[contenteditable=true]')) return;
+      const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+      if (!d) return;
+      e.preventDefault(); const { kx, ky } = cssToCanvas(), n = e.shiftKey ? 10 : 1; movePart(d[0] * n * kx, d[1] * n * ky);
+    };
+    document.addEventListener('keydown', keys);
+    offPlaceKeys = () => document.removeEventListener('keydown', keys);
+  }
   function focusRig(l) {
     if (!tester || !l) return;
     st.guideFocus = l.region;
@@ -615,6 +705,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       ? `${labelOf(l)} · PNG ${uploaded.width} × ${uploaded.height}px · fixed rig target ${reg.w} × ${reg.h}px`
       : `${labelOf(l)} · fixed universal rig target ${reg.w} × ${reg.h}px · uploaded parts stay visible together`;
     panel.querySelectorAll('.cs-crow').forEach((el) => el.classList.toggle('rig-guide-selected', el.dataset.rigRegion === l.region));
+    drawPlaceBar();
   }
   /** one picture with a box per part (true proportions), its name and pixel size */
   async function templateSheet() {
@@ -819,7 +910,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   async function bake() {
     for (const pg of st.pages) await pageCanvas(pg);
     if (pending.size) { clearTimeout(applyTimer); await flush(); }
-    const profile = { template: st.tpl, skins: st.skins, hide: [...st.hide], face: st.face, xf: st.xf, attach: st.attach, locked: [...st.locked], fit: st.fit || getFit(st.def.id) };
+    const profile = { template: st.tpl, skins: st.skins, hide: [...st.hide], face: st.face, xf: st.xf, order: st.order, attach: st.attach, locked: [...st.locked], fit: st.fit || getFit(st.def.id) };
     const ske = bakeSke(st.def.ske, profile), tex = [], pages = {};
     for (const t of st.def.tex) {
       const pg = t.json.imagePath, image = st.dirty.has(pg) ? await toBlob(st.work[pg]) : t.image;
@@ -893,7 +984,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     if (localPreview) return;
     if (writingDraft) { await writingDraft; return saveDraft(); }
     if (!st.def || st.busy || pending.size) return;
-    const fields = ['tpl','skins','xf','attach','face','fit','name','savedId','tab','open','openGroup','filter','zoom','mouth','createMode','outline','anim','over'];
+    const fields = ['tpl','skins','xf','order','attach','face','fit','name','savedId','tab','open','openGroup','filter','zoom','mouth','createMode','outline','anim','over'];
     const state=structuredClone(Object.fromEntries(fields.map(k=>[k,st[k]??null])));
     state.hide=[...st.hide];state.locked=[...st.locked];state.camera=structuredClone(stage.userCam);
     const edits=[...st.edit].map(([key,e])=>{if(e.img&&!imageIds.has(e.img))imageIds.set(e.img,++imageSeq);return [key,{...e,img:e.img?imageIds.get(e.img):null}];});
@@ -932,7 +1023,8 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     if (st.over && !keys.has(st.over.key)) st.over = null;
     rebuild(); draw(); drawAnimBar();
   }, e => { st.permissionsError = e.message; st.mouth = false; setTesterRules(null); if (st.anim || st.over) { st.anim = null; st.over = null; rebuild(); } if (st.def) { draw(); drawAnimBar(); } }) : () => {};
-  root.dispose=()=>{offTesterRules();clearInterval(draftTimer);offStatus();document.removeEventListener('visibilitychange',hideSave);};
+  if (import.meta.env?.DEV && location.search.includes('debug')) window.__charstudio = { st, layers, stage };      // for the browser tests
+  root.dispose=()=>{offPlaceKeys();offTesterRules();clearInterval(draftTimer);offStatus();document.removeEventListener('visibilitychange',hideSave);};
   const draft=await getDraft('draft','current');
   if(draft?.def && !tester){
     await pick(draft.def);

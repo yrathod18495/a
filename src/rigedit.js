@@ -5,7 +5,7 @@
 const has = (o) => o && (o.dx || o.dy || (o.s && o.s !== 1) || o.rot || (o.sv && o.sv !== 1));
 
 /** setup-pose world matrices of the bones ({a, b, c, d, tx, ty}, DragonBones convention: x' = a x + c y + tx) */
-function worldMatrices(arm) {
+export function worldMatrices(arm) {
   const W = new Map(), rad = Math.PI / 180;
   for (const b of arm.bone) {
     const t = b.transform || {}, sx = t.scX ?? 1, sy = t.scY ?? 1, kx = (t.skX || 0) * rad, ky = (t.skY || 0) * rad;
@@ -54,9 +54,31 @@ function moveDisplay(a, e, m) {
 }
 
 /** new skeleton JSON with the edits applied (unchanged parts are shared with the original) */
-export function patchRig(ske, { xf = {}, bones = {}, attach = {} } = {}) {
+/** draw order: { "<slot>": steps }; positive steps bring the slot forward (drawn later, on top), negative send it back */
+export function reorderSlots(slots, order = {}) {
+  const list = slots.slice();
+  for (const [name, steps] of Object.entries(order)) {
+    const i = list.findIndex((s) => s.name === name), n = Math.trunc(Number(steps) || 0);
+    if (i < 0 || !n) continue;
+    const [slot] = list.splice(i, 1);
+    list.splice(Math.max(0, Math.min(list.length, i + n)), 0, slot);
+  }
+  return list;
+}
+/**
+ * A drag on the screen (a move of `wx`, `wy` armature units, y down) becomes the edit of one picture: the picture is moved in the axes of its slot's bone,
+ * so it follows the mouse even where the bone is turned. Returns the {dx, dy} to ADD to the picture's edit (dy is "up", like the sliders).
+ */
+export function dragToEdit(arm, slotName, wx, wy) {
+  const W = worldMatrices(arm), bone = arm.slot.find((s) => s.name === slotName)?.parent, m = (bone && W.get(bone)) || { a: 1, b: 0, c: 0, d: 1 };
+  const det = m.a * m.d - m.b * m.c || 1;
+  const lx = (m.d * wx - m.c * wy) / det, ly = (-m.b * wx + m.a * wy) / det;      // world -> the bone's own axes
+  return { dx: lx, dy: -ly };
+}
+export function patchRig(ske, { xf = {}, bones = {}, attach = {}, order = {} } = {}) {
   const arm = ske.armature[0], out = { ...arm };
-  if (Object.keys(attach).length) out.slot = arm.slot.map((sl) => (sl.name in attach ? { ...sl, _defaultAtt: attach[sl.name] || null } : sl));      // which picture of a slot is shown ('' = none)
+  if (Object.keys(order).length) out.slot = reorderSlots(arm.slot, order);
+  if (Object.keys(attach).length) out.slot = out.slot.map((sl) => (sl.name in attach ? { ...sl, _defaultAtt: attach[sl.name] || null } : sl));      // which picture of a slot is shown ('' = none)
   if (Object.entries(bones).some(([, e]) => has(e))) {
     out.bone = arm.bone.map((b) => {
       const e = bones[b.name];
@@ -120,14 +142,14 @@ export function faceEdits(profile, ske) {
 
 const mergeEdit = (a, b) => ({ dx: (a?.dx || 0) + (b?.dx || 0), dy: (a?.dy || 0) + (b?.dy || 0), s: (a?.s ?? 1) * (b?.s ?? 1), rot: (a?.rot || 0) + (b?.rot || 0), sv: (a?.sv ?? 1) * (b?.sv ?? 1) });
 /** every edit the studio can make (face sliders, nudges, picture choice, outfit, hidden slots) as one list of skeleton edits */
-export function editsOf(ske, { face, xf = {}, attach = {} }) {
+export function editsOf(ske, { face, xf = {}, attach = {}, order = {} }) {
   const fe = faceEdits(face || faceDefaults(), ske), all = { ...fe.xf };
   for (const [k, e] of Object.entries(xf)) all[k] = mergeEdit(all[k], e);
-  return { xf: all, bones: fe.bones, attach };
+  return { xf: all, bones: fe.bones, attach, order };
 }
 /** the finished skeleton of a character: the template skeleton + the profile (face, xf, attach, skins, hide), as a new object */
-export function bakeSke(ske, { face, xf, attach, skins = null, hide = [] }) {
-  const out = JSON.parse(JSON.stringify(patchRig(ske, editsOf(ske, { face, xf, attach })))), arm = out.armature[0], gone = new Set(hide);
+export function bakeSke(ske, { face, xf, attach, order, skins = null, hide = [] }) {
+  const out = JSON.parse(JSON.stringify(patchRig(ske, editsOf(ske, { face, xf, attach, order })))), arm = out.armature[0], gone = new Set(hide);
   arm.skin = arm.skin.filter((k) => !skins || k.name === 'default' || skins.includes(k.name));
   for (const k of arm.skin) k.slot = k.slot.filter((sl) => !gone.has(sl.name));
   return out;

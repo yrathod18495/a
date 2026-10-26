@@ -125,7 +125,7 @@ export class Stage {
   /** forget a loaded character (its pictures changed) */
   unload(charId) { const a = this.assets.get(charId); if (a) { a.pages.forEach((t) => t.dispose()); this.assets.delete(charId); } for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); }
   /** replace the armature data of a loaded character (Character Studio edits) without reloading its textures */
-  setRig(charId, ske) { const a = this.assets.get(charId); if (a) { a.def = { ...a.def, ske }; this.prepCache.delete(charId); } }
+  setRig(charId, ske) { const a = this.assets.get(charId); if (a) { a.def = { ...a.def, ske }; for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); } }      // the cache is keyed by character AND outfit set, so every key of this character goes
   /** an edited Character Studio canvas page */
   async loadArtworkCanvas(key, canvas) {
     const k = Math.min(1, this.maxTex / Math.max(canvas.width, canvas.height));
@@ -186,7 +186,11 @@ export class Stage {
       layer.base = { flip: !!s.flip, mul: s.xf?.mul ?? 1, axf: s.xf?.axf ?? null, ayf: s.xf?.ayf ?? null };
       this.setClips(layer, s.clips);
       const bodyNames = [...new Set(layer.clips.filter((c) => c.kind === 'body').flatMap((c) => [c.base, c.name]).filter(Boolean))].slice(0, 8);
-      layer.bounds = this.measure(layer, bodyNames);
+      // lockBounds: keep the first measured size while a rig is being edited, so the preview does not rescale under the user's hand
+      const lk = s.lockBounds ? `${s.charId}|${[].concat(s.skins || []).join(',')}` : null;
+      this.lockedBounds ||= new Map();
+      layer.bounds = (lk && this.lockedBounds.get(lk)) || this.measure(layer, bodyNames);
+      if (lk) this.lockedBounds.set(lk, layer.bounds);
       layer.tearBind = s.tearFacingBack ? {} : bindTearEyes(layer, this.collect(layer));
       return layer;
     });
