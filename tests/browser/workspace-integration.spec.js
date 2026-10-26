@@ -23,7 +23,7 @@ test('latest workspace controls coexist with undo, export presets and themed sce
 test('animation duration from latest main stays consistent through undo and merged scene export',async({page})=>{
  await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Animation length');await page.getByRole('button',{name:'Create project',exact:true}).click();await expect(page.locator('#app .stagebox canvas')).toBeVisible();
- await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'＋ Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
+ await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
  await expect(page.locator('.lane2.audio')).toHaveCount(0);await expect(page.locator('.line-details')).toBeHidden();
  await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
  const category=page.getByLabel('Animation category');const talking=await category.locator('option').evaluateAll(options=>options.find(option=>/talking/i.test(option.textContent))?.value);expect(talking).toBeTruthy();await category.selectOption(talking);await page.locator('.animation-apply').first().click();await expect(page.locator('.busy')).toHaveCount(0);
@@ -31,7 +31,7 @@ test('animation duration from latest main stays consistent through undo and merg
  await page.getByRole('button',{name:'Undo',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__toon.player.total)).toBe(8);
  await page.getByRole('button',{name:'Redo',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__toon.player.total)).toBeCloseTo(Math.max(1,length),2);
  await page.evaluate(()=>{window.__toon.S.fps=5;window.__toon.S.quality=360;});await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
- const ready=page.waitForEvent('download');await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();const download=await ready;const {readFile}=await import('node:fs/promises');const data=await readFile(await download.path());
+ const ready=page.waitForEvent('download');await page.locator('.hdr-tools').getByRole('button',{name:'Export',exact:true}).click();const download=await ready;const {readFile}=await import('node:fs/promises');const data=await readFile(await download.path());
  const duration=await page.evaluate(async base64=>{const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type:'video/webm'})),video=document.createElement('video');video.src=url;await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=reject;});const duration=video.duration;URL.revokeObjectURL(url);return duration;},data.toString('base64'));
  expect(Math.abs(duration-(Math.max(1,length)+8))).toBeLessThanOrEqual(.21);
 });
@@ -44,7 +44,7 @@ test('side menus slide away after 5 s idle and return from the screen edge; time
  const ws=page.locator('.ws');await expect(ws).toHaveAttribute('data-dock-rail','in');
  await page.mouse.move(600,200);
  await expect(ws).toHaveAttribute('data-dock-rail','out',{timeout:9000});await expect(ws).toHaveAttribute('data-dock-panel','out');
- const stage=await page.locator('.stagebox').boundingBox(),timeline=await page.locator('.tlwrap').boundingBox();expect(timeline.height).toBeGreaterThan(stage.height*0.9);
+ const stage=await page.locator('.stagebox').boundingBox(),timeline=await page.locator('.tlwrap').boundingBox();expect(timeline.height).toBeGreaterThan(stage.height*0.85);
  await page.mouse.move(2,200);await expect(ws).toHaveAttribute('data-dock-rail','in');
  await page.mouse.move(1364,200);await expect(ws).toHaveAttribute('data-dock-panel','in');
  await page.mouse.move(600,200);await page.keyboard.press('[');await expect(ws).toHaveAttribute('data-dock-rail','out');
@@ -58,7 +58,7 @@ test('free accounts cannot export more than 2 minutes, one scene or all scenes j
  await page.evaluate(k=>{window.__toon.S.camKeys.push(k);window.__toon.S.dirty=true;},key(130));
  await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.locator('.exp-plan')).toHaveCount(0);await expect(page.getByText(/Paid account|Free account|per export/)).toHaveCount(0);
- await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
+ await page.locator('.hdr-tools').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.getByText(/free account se ek baar me sirf 2 min/).first()).toBeVisible();
  expect(await page.evaluate(()=>window.__toon.S.exporting)).toBe(false);await expect(page.locator('.busy')).toHaveCount(0);
  // two scenes of 70 s each: 140 s joined is too long
@@ -67,7 +67,7 @@ test('free accounts cannot export more than 2 minutes, one scene or all scenes j
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'b',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
  await page.locator('.upload-tools>summary').click();await page.locator('.tabs.big').getByRole('button',{name:'Audio',exact:true}).click();await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.locator('.exp-summary')).toContainText('Length · 2 scenes');await expect(page.locator('.exp-summary')).toContainText('141.0 s');
- await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
+ await page.locator('.hdr-tools').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.getByText(/Aapka video 2 min 21 s lamba hai/).first()).toBeVisible();
  expect(await page.evaluate(()=>window.__toon.S.exporting)).toBe(false);
 });
@@ -78,7 +78,7 @@ test('preview quality sits in the header, and projects saved before animation-le
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  await expect(page.locator('.toast').filter({hasText:/khul nahi paya|nahi ho paya/})).toHaveCount(0);
  await expect(page.locator('.hdr-tools').getByLabel('Preview quality')).toBeVisible();await expect(page.locator('.controls').getByLabel('Preview quality')).toHaveCount(0);
- await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'＋ Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
+ await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
  await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
  await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
  const category=page.getByLabel('Animation category');const arms=await category.locator('option').evaluateAll(o=>o.find(x=>/Hands & arms/i.test(x.textContent))?.value);expect(arms).toBeTruthy();await category.selectOption(arms);

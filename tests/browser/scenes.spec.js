@@ -15,7 +15,7 @@ async function menu(page,name,action){
 }
 async function addNeha(page){
  const chars=page.locator('#app .tabs.big').getByRole('button',{name:'Characters',exact:true});if(await chars.getAttribute('aria-pressed')!=='true')await chars.click();
- await page.getByRole('button',{name:'＋ Add character',exact:true}).click();
+ await page.getByRole('button',{name:'Add character',exact:true}).click();
  await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();
  await page.locator('.cp-poses .pose').first().click();
  await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
@@ -79,15 +79,15 @@ test('all scenes export joins backgrounds in order and preview continues to the 
  await page.getByRole('tab',{name:'Scene 1',exact:true}).click();
  await expect(page.getByRole('tab',{name:'Scene 1',exact:true})).toHaveAttribute('aria-selected','true');
  await page.evaluate(()=>window.__toon.player.seek(7.9));
- await page.getByRole('button',{name:'▶ Play',exact:true}).click();
+ await page.getByRole('button',{name:'Play',exact:true}).click();
  await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
  await expect.poll(()=>page.evaluate(()=>window.__toon.player.playing)).toBe(true);
- await page.getByRole('button',{name:'⏸ Pause',exact:true}).click();
+ await page.getByRole('button',{name:'Pause',exact:true}).click();
  await page.locator('#app .tabs.big').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.getByText('🔇 No audio added — this video will be 16.0 seconds long and silent. Add audio any time.',{exact:true})).toBeVisible();
  await page.getByLabel('Export scenes').selectOption('current');await expect(page.getByRole('button',{name:'⏺ Record live',exact:true})).toBeVisible();
  await page.getByLabel('Export scenes').selectOption('all');await expect(page.getByRole('button',{name:'⏺ Record live',exact:true})).toHaveCount(0);
- const downloadReady=page.waitForEvent('download');await page.locator('#app .hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
+ const downloadReady=page.waitForEvent('download');await page.locator('#app .hdr-tools').getByRole('button',{name:'Export',exact:true}).click();
  const download=await downloadReady;const {readFile}=await import('node:fs/promises');const bytes=await readFile(await download.path());
  const video=await page.evaluate(async base64=>{
   const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type:'video/webm'})),v=document.createElement('video');v.src=url;v.muted=true;

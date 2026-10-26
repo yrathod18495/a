@@ -9,10 +9,10 @@ async function studio(page) {
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Path');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   const chars = page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true });
   if (await chars.getAttribute('aria-pressed') !== 'true') await chars.click();
-  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
@@ -22,7 +22,7 @@ test('a line drawn with the pen tool becomes the path the character walks along,
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page);
   await page.locator('.advanced-tools').evaluate((el) => { el.open = true; });
-  await page.locator('.advanced-tools-list').getByRole('button', { name: 'Move', exact: true }).click();
+  await page.locator('.advanced-tools .advanced-tools-list').getByRole('button', { name: 'Move', exact: true }).click();
   await page.getByRole('button', { name: /Pen se path banayein/ }).click();
   const box = await page.locator('#app .stagewrap canvas').boundingBox();
   const pt = (fx, fy) => [box.x + box.width * fx, box.y + box.height * fy];
@@ -55,7 +55,7 @@ test('a path can be drawn while the camera is zoomed in; it lands where the pen 
   await studio(page);
   await page.evaluate(() => { const { S } = window.__toon; S.camKeys = [{ id: 'c1', t: 0, zoom: 2, cx: 0.25, cy: 0.5, ease: 'smooth' }]; window.__toon.syncCam?.(); });
   await page.locator('.advanced-tools').evaluate((el) => { el.open = true; });
-  await page.locator('.advanced-tools-list').getByRole('button', { name: 'Move', exact: true }).click();
+  await page.locator('.advanced-tools .advanced-tools-list').getByRole('button', { name: 'Move', exact: true }).click();
   await page.getByRole('button', { name: /Pen se path banayein/ }).click();
   const box = await page.locator('#app .stagewrap canvas').boundingBox();
   await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5); await page.mouse.down();

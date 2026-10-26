@@ -11,7 +11,7 @@ async function openStudio(page) {
 }
 async function addNeha(page) {
   await page.locator('#app .tabs.big').getByRole('button',{name:'Characters',exact:true}).click();
-  await page.getByRole('button',{name:'＋ Add character',exact:true}).click();
+  await page.getByRole('button',{name:'Add character',exact:true}).click();
   await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
@@ -26,13 +26,13 @@ test('preview modes alter canvas, GPU budgets and playback cadence without chang
     await expect.poll(()=>page.evaluate(()=>window.__toon.stage.H)).toBe(short);
     const sizes=await page.evaluate(()=>[...window.__toon.stage.assets.values()].flatMap(asset=>[...asset.pages.values()].map(t=>Math.max(t.w,t.h))));
     expect(Math.max(...sizes)).toBeLessThanOrEqual(maxTex);
-    await page.getByTitle('Back to start').click();await page.getByRole('button',{name:'▶ Play',exact:true}).click();
+    await page.getByTitle('Back to start').click();await page.getByRole('button',{name:'Play',exact:true}).click();
     const start=await page.evaluate(()=>({n:window.__toon.metrics.renderCount,t:performance.now(),position:window.__toon.player.time}));
     await page.waitForTimeout(1050);
     const end=await page.evaluate(()=>({n:window.__toon.metrics.renderCount,t:performance.now(),position:window.__toon.player.time}));
     expect(end.n-start.n).toBeGreaterThan(1);expect(end.n-start.n).toBeLessThanOrEqual(fps*(end.t-start.t)/1000+3);
     expect(end.position-start.position).toBeGreaterThan(.7);
-    await page.getByRole('button',{name:'⏸ Pause',exact:true}).click();
+    await page.getByRole('button',{name:'Pause',exact:true}).click();
     await page.screenshot({path:testInfo.outputPath(`preview-${mode}.png`)});
   }
   expect(await page.evaluate(()=>({quality:window.__toon.S.quality,fps:window.__toon.S.fps,xf:window.__toon.S.speakers[0].xf||null,cam:window.__toon.S.camKeys}))).toEqual(original);
@@ -54,7 +54,7 @@ test('low preview exports at selected video size, then restores the low GPU budg
   await page.getByLabel('Preview quality').selectOption('low');await expect(page.getByLabel('Preview quality')).toBeEnabled();
   await page.evaluate(()=>{window.__toon.S.fps=5;});
   const downloadReady=page.waitForEvent('download');
-  await page.locator('#app .hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
+  await page.locator('#app .hdr-tools').getByRole('button',{name:'Export',exact:true}).click();
   const download=await downloadReady;
   const {readFile}=await import('node:fs/promises');const bytes=await readFile(await download.path());
   const dimensions=await page.evaluate(async base64=>{

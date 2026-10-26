@@ -33,10 +33,10 @@ test('characters are listed and loaded from the library bucket; the site serves 
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Library');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   const chars = page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true });
   if (await chars.getAttribute('aria-pressed') !== 'true') await chars.click();
-  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^My Baby$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);

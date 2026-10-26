@@ -9,7 +9,7 @@ async function studio(page, query = '?debug&workers=0') {
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Timeline');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
 }
 const cornerPixel = (page, t) => page.evaluate((t) => {
   const { stage } = window.__toon; stage.render(t, 0, [], []);
@@ -94,7 +94,7 @@ for (const [name, query] of [['single thread', '?debug&workers=0'], ['parallel w
   const grade = async (saturation) => page.evaluate((saturation) => { window.__toon.stage.grade = saturation == null ? null : { brightness: 1, contrast: 0, saturation, vibrance: 0, exposure: 0, gamma: 1, hue: 0, temperature: 0, tintAmount: 0, shadows: 0, highlights: 0, fade: 0, sharpen: 0, vignette: 0, grain: 0, tint: '#ffffff' }; window.__toon.S.grade = window.__toon.stage.grade || window.__toon.S.grade; }, saturation);
   await grade(0);
   const downloadReady = page.waitForEvent('download');
-  await page.locator('#app .hdr-tools').getByRole('button', { name: '⬇ Export', exact: true }).click();
+  await page.locator('#app .hdr-tools').getByRole('button', { name: 'Export', exact: true }).click();
   const download = await downloadReady;
   const { readFile } = await import('node:fs/promises'); const bytes = await readFile(await download.path());
   const pixels = await page.evaluate(async (base64) => {
@@ -116,7 +116,7 @@ test('a character animation clip and a prop lane can be dragged: trim, stretch, 
   await studio(page);
   const chars = page.locator('.tabs.big').getByRole('button', { name: 'Characters', exact: true });
   if (await chars.getAttribute('aria-pressed') !== 'true') await chars.click();
-  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
@@ -164,7 +164,7 @@ test('an automatic animation clip made from the voice can be dragged too', async
   await studio(page);
   const chars = page.locator('.tabs.big').getByRole('button', { name: 'Characters', exact: true });
   if (await chars.getAttribute('aria-pressed') !== 'true') await chars.click();
-  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);

@@ -8,13 +8,13 @@ test('Upload groups Audio, Background and Props without changing the timeline la
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Upload toolbar');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   const rail = page.locator('#app .tabs.big');
   const upload = rail.locator('.upload-tools');
   const summary = upload.locator('summary');
   const panel = page.locator('#app .panel');
   await expect(rail.locator(':scope > button')).not.toContainText(['Audio', 'Background', 'Props']);
-  await expect(upload.locator('button')).toHaveText(['🎙Audio', '🖼Background', '🧸Props']);
+  await expect(upload.locator('button')).toHaveText(['Audio', 'Background', 'Props']);
   for (const [width, height] of [[1366, 768], [390, 844], [500, 620], [844, 390]]) {
     await page.setViewportSize({ width, height });
     for (const name of ['Audio', 'Background', 'Props', 'Audio']) {

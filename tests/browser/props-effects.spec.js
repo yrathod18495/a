@@ -9,7 +9,7 @@ async function studio(page) {
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Props');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
 }
 // what the admin tab would have published: a prop and two effects, with their files already "downloaded"
 async function publish(page) {
@@ -68,7 +68,7 @@ test('props and effects come from the shared library, show in front, honour opac
   await expect(page.getByText(/Animation speed/)).toBeVisible();
   // saved with the scene, reloaded from the device
   await page.waitForTimeout(1200);
-  await page.reload(); await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await page.reload(); await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   const kinds = await page.evaluate(() => window.__toon.S.props.map((p) => p.kind).sort());
   expect(kinds).toEqual(['effect', 'effect', 'prop']);
   expect(errors).toEqual([]);
@@ -97,7 +97,7 @@ test('a prop can be held in the left or right hand of a character and follows th
   await studio(page); await publish(page);
   const rail = page.locator('#app .tabs.big');
   await rail.getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);

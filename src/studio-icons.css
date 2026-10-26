@@ -1,0 +1,172 @@
+/* Studio: one icon language, neutral dark-gray surfaces, slim top bar. Loaded after the shared themes so it wins inside the workbench. */
+.ic{display:inline-flex;align-items:center;justify-content:center;width:1.15em;height:1.15em;flex:none;vertical-align:-.2em;line-height:0}
+.ic svg{width:100%;height:100%;display:block;overflow:visible}
+.sr{position:absolute !important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---- neutral gray palette for the whole workbench (night is the default look) ---- */
+body.studio-dark,.tip-bubble,.cs-ctx{--bg:#1c1d20 !important;--card:#26282c !important;--card2:#303338 !important;--soft:#303338 !important;--line:#43474e !important;--text:#e9eaed !important;--mute:#a1a6ae !important;--muted:#a1a6ae !important;--ink:#34373c !important;--acc:#e3b957 !important;--acc2:#b98a35}
+body.studio-dark{background:var(--bg);color:var(--text)}
+body.studio-dark :is(.panel,.tabs.big,.tl2,.tl-labels,.tlwrap,.stagebox,.linebox,.selbar,.card,.lrow,.layer,.empty-in,.controls,.tltools,.clipbar,.scene-tabs,.sheet-close){background-color:var(--card);color:var(--text);border-color:var(--line)}
+body.studio-dark .stagehost,body.studio-dark .prev{background:var(--bg)}
+body.studio-dark :is(.btn,select,input:not([type=range]):not([type=checkbox]),textarea){background-color:var(--card2);color:var(--text);border-color:var(--line)}
+body.studio-dark .btn:hover{border-color:var(--acc)}
+body.studio-dark .btn.ok,body.studio-dark .btn.pri:not(.play-btn){background:var(--acc);border-color:var(--acc);color:#1c1608}
+body.studio-dark .tabs.big button.on{background:var(--acc);color:#1c1608}
+body.studio-dark .tabs.big button{background:transparent;border-color:transparent;color:var(--mute)}
+body.studio-dark .tabs.big button:hover{background:var(--card2);color:var(--text)}
+body.studio-dark .tabs.big button.on:hover{background:var(--acc);color:#1c1608}
+
+/* ---- icon buttons ---- */
+#app .ws .icon-btn{display:inline-grid;place-items:center;min-width:34px;min-height:34px;padding:0 8px;font-size:17px;line-height:1}
+#app .ws .icon-btn.sm,#app .ws .btn.sm.icon-btn{min-width:30px;min-height:30px;padding:0 6px;font-size:16px}
+#app .ws .play-btn{min-width:42px;background:var(--acc);border-color:var(--acc);color:#1c1608}
+#app .ws .btn:disabled.icon-btn{opacity:.35}
+
+/* ---- slim top bar: no logo row, only tools; export + close sit at the end ---- */
+#app .ws .topbar.studio-bar{display:flex;align-items:center;min-height:42px;margin:0 0 6px;padding:3px 6px;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+#app .ws .studio-bar .hdr-tools{flex:1;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;min-width:0}
+#app .ws .studio-bar .hdr-tools .sp{flex:1}
+#app .ws .studio-bar .export-btn{min-width:40px}
+#app .ws .studio-bar .close-studio{margin-left:2px;background:transparent;border-color:transparent;color:var(--mute)}
+#app .ws .studio-bar .close-studio:hover{background:#5a2a2a;border-color:#8a3b3b;color:#ffd6d6}
+#app .ws .preview-quality{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:16px}
+#app .ws .preview-quality select{width:auto;max-width:150px;padding:4px 6px;font-size:12px;border-radius:8px}
+#app .ws .save-status .saved{display:inline-grid;place-items:center;min-width:34px;min-height:34px;padding:0;font-size:18px}
+#app .ws .save-status .save-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#app .ws .save-dot{display:inline-grid;place-items:center;width:auto;height:auto;background:none !important;border-radius:0;color:var(--mute)}
+#app .ws .save-status[data-tone=saved] .save-dot{color:#58c58b}
+#app .ws .save-status[data-tone=error] .save-dot{color:#ef8f7a}
+#app .ws .save-status[data-tone=offline] .save-dot{color:#e3b957}
+#app .ws .save-popover,#app .ws .studio-menu-panel{background:var(--card);border:1px solid var(--line);color:var(--text)}
+
+/* ---- rail: icons only ---- */
+#app .ws .tabs.big>button,#app .ws :is(.advanced-tools,.upload-tools)>summary{min-height:44px;gap:0;justify-content:center}
+#app .ws .tabs.big .ti{display:grid;place-items:center;font-size:21px}
+#app .ws .tabs.big .rail-label,#app .ws .tabs.big .adv-label{font-size:0;height:1px;margin:6px 8px;padding:0;background:var(--line);border:0;overflow:hidden}
+#app .ws :is(.advanced-tools,.upload-tools)>summary{display:grid;place-items:center;border-radius:10px;cursor:pointer;color:var(--mute);list-style:none}
+#app .ws :is(.advanced-tools,.upload-tools)>summary:hover,#app .ws :is(.advanced-tools,.upload-tools).has-active>summary{background:var(--card2);color:var(--text)}
+#app .ws .tabs.big :is(.advanced-tools-list){background:var(--card);border:1px solid var(--line)}
+@media(min-width:861px){#app .ws .tabs.big{width:54px;padding:5px 4px}}
+
+/* ---- timeline: layer rows with portrait, name and the animation that is playing ---- */
+#app .ws .tl-labels{background:var(--card)}
+#app .ws .rl.char{display:flex;align-items:center;gap:6px;padding:0 6px;border-bottom:1px solid var(--line);background:var(--card)}
+#app .ws .rl .lt-wrap{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.15}
+#app .ws .rl .lt-wrap .lt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:700;color:var(--text)}
+#app .ws .rl .lanim{display:flex;align-items:center;gap:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--mute)}
+#app .ws .rl .lanim::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--track-color,var(--acc));flex:none}
+#app .ws .rl .lanim.none{opacity:.55}
+#app .ws .rl .rx{display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border-radius:7px;background:var(--card2);border:1px solid var(--line);color:var(--mute);font-size:14px}
+#app .ws .rl .rx:hover{color:var(--text);border-color:var(--acc)}
+#app .ws .rl .rx.delete-layer:hover{background:#5a2a2a;border-color:#8a3b3b;color:#ffd6d6}
+#app .ws .tclip{border-radius:7px}
+
+/* ---- long-press / hover label ---- */
+.tip-bubble{position:fixed;z-index:2000;max-width:240px;padding:6px 10px;border-radius:8px;background:#0e0f11;color:#f1f2f4;border:1px solid #43474e;font:600 12px/1.3 system-ui,sans-serif;box-shadow:0 6px 18px #0008;pointer-events:none;animation:tipin .12s ease-out}
+@keyframes tipin{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+/* ---- small screens: the rail becomes a one-row icon bar ---- */
+@media(max-width:860px){
+  #app .ws .studio-bar .preview-quality select{max-width:96px}
+  #app .ws .tabs.big>button{min-height:40px}
+  #app .ws .tabs.big .ti{font-size:19px}
+}
+
+/* ---- remaining warm-brown surfaces -> neutral gray ---- */
+body.studio-dark :is(.rl.ruler,.ruler,.lane2,.tl-inner){background-color:var(--card);color:var(--mute)}
+body.studio-dark .rl.ruler{font-family:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+body.studio-dark .lane2{border-bottom:1px solid var(--line);background-image:none}
+body.studio-dark .tclip{background:#3b3f46;border:1px solid #565b64;color:#eceef1;box-shadow:none}
+body.studio-dark .tclip.mine{background:#444952;border-color:var(--acc)}
+body.studio-dark .tclip.sel{outline:2px solid var(--acc)}
+body.studio-dark .tclip.prop,body.studio-dark .tclip.prop.fx{background:#3d4a52;border-color:#5f7480}
+body.studio-dark .tl2{border:1px solid var(--line)}
+body.studio-dark .hd{background:#f4f5f7;border:2px solid var(--acc)}
+body.studio-dark .selbox{border-color:var(--acc)}
+body.studio-dark :is(.scene-tab,.scene-tabs button,.new-scene){color:var(--mute)}
+body.studio-dark .scene-tab.active{background:var(--acc);color:#1c1608}
+body.studio-dark .layer{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px;border:1px solid var(--line);border-radius:10px}
+body.studio-dark .layer .t{flex:1 1 110px;min-width:0}
+body.studio-dark .layer .ib{display:inline-grid;place-items:center;width:30px;height:30px;padding:0;border-radius:8px;font-size:15px;background:var(--card2);border:1px solid var(--line);color:var(--text)}
+body.studio-dark .layer .ib:disabled{opacity:.3}
+body.studio-dark .layer .ib:hover:not(:disabled){border-color:var(--acc)}
+@media(max-width:480px){body.studio-dark .layer{gap:4px;padding:6px}body.studio-dark .layer .ib{width:27px;height:27px;font-size:14px}body.studio-dark .layer .t{flex-basis:70px}}
+
+/* ---- the "royal glass" timeline from timeline.css, in the same neutral gray ---- */
+body.studio-dark .tl2{--track-ink:#eceef1 !important;--track-muted:#a1a6ae !important;--track-line:#43474e !important;--track-glass:#26282c !important;--track-label:#26282c !important;--track-ruler:#2c2f34 !important;background:var(--track-glass);border:1px solid var(--line);box-shadow:none;scrollbar-color:#5a5f68 #1f2124}
+body.studio-dark .tl2 .rl{background:none;box-shadow:inset -3px 0 0 var(--track-color,#5a5f68)}
+body.studio-dark .tl2 .rl.ruler{font-family:inherit;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--track-muted)}
+body.studio-dark .tl2 .ruler:not(.rl){background-color:var(--track-ruler);background-image:none}
+body.studio-dark .tl2 .tick{border-color:#43474e;color:var(--track-muted)}
+body.studio-dark .tl2 .lane2{background:none;border-color:var(--track-line)}
+body.studio-dark .tl2 .tclip{--clip-tint:#8d95a3;--clip-base:#444a54;--clip-end:#383d46;color:#f1f3f5;box-shadow:none}
+body.studio-dark .tl2 .tclip.hand{--clip-tint:#c9906a;--clip-base:#55463d;--clip-end:#443832}
+body.studio-dark .tl2 .tclip.legs{--clip-tint:#78ad82;--clip-base:#3b4a41;--clip-end:#2f3b34}
+body.studio-dark .tl2 .tclip.face{--clip-tint:#55b3a3;--clip-base:#34504f;--clip-end:#2b4140}
+body.studio-dark .tl2 .tclip.bg{--clip-tint:#a9a27c;--clip-base:#4f4d3c;--clip-end:#3e3d31}
+body.studio-dark .tl2 .tclip.prop{--clip-tint:#6aa890;--clip-base:#38503f;--clip-end:#2d4036}
+body.studio-dark .tl2 .tclip.fx{--clip-tint:#ab8fc8;--clip-base:#4a4059;--clip-end:#3a3347}
+body.studio-dark .tl2 .tclip.voice{background:linear-gradient(115deg,#555b66d9,#3e434cee)}
+body.studio-dark .tl2 .tclip.sel{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+body.studio-dark .timeline-icon{background:linear-gradient(135deg,#4a4f58,#2c2f34);border-color:#6b717c;color:#dfe2e7;box-shadow:none}
+body.studio-dark .scene-tab.active button,body.studio-dark .scene-tab.active summary{color:#1c1608}
+
+/* ---- calmer colours: neutral clips, the speaker colour is only a thin stripe ---- */
+body.studio-dark .tl2 .tclip.voice{background:linear-gradient(#4a4f58,#434851) !important;color:#eceef1 !important;border:1px solid #5a5f68 !important;border-left:4px solid var(--track-color,var(--acc)) !important}
+body.studio-dark .tl2 .tclip{--clip-tint:#6c7380 !important;--clip-base:#3f444c !important;--clip-end:#383c44 !important}
+body.studio-dark .tl2 .tclip:is(.hand,.legs,.face,.bg,.prop,.fx){--clip-tint:#6c7380 !important;--clip-base:#3f444c !important;--clip-end:#383c44 !important;border-left:3px solid var(--clip-accent,#8d95a3)}
+body.studio-dark .tl2 .tclip.hand{--clip-accent:#c9906a}
+body.studio-dark .tl2 .tclip.legs{--clip-accent:#78ad82}
+body.studio-dark .tl2 .tclip.face{--clip-accent:#55b3a3}
+body.studio-dark .tl2 .tclip.fx{--clip-accent:#ab8fc8}
+body.studio-dark .scene-tab.active{background:var(--card2);color:var(--text);box-shadow:inset 0 -2px 0 var(--acc)}
+body.studio-dark .scene-tab.active button,body.studio-dark .scene-tab.active summary{color:var(--text)}
+body.studio-dark .new-scene{color:var(--mute)}
+
+/* ---- selection / clip bars: icon-only buttons, one tidy row ---- */
+#app .ws .selbar,#app .ws .clipbar{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#app .ws .selbar::-webkit-scrollbar,#app .ws .clipbar::-webkit-scrollbar{display:none}
+#app .ws .selbar .btn,#app .ws .clipbar .btn{flex:none}
+#app .ws .selbar .character-name{width:120px;flex:none}
+#app .ws .selbar input[type=range]{flex:1;min-width:70px}
+
+@media(max-width:860px){
+  /* the tool menu: one scrollable row of icon + name, like a phone app's bottom bar */
+  #app .ws .tabs.big{flex-direction:row !important;flex-wrap:nowrap;align-items:stretch;overflow-x:auto !important;overflow-y:hidden !important;gap:2px;padding:4px;scroll-snap-type:x proximity;scrollbar-width:none}
+  #app .ws .tabs.big::-webkit-scrollbar{display:none}
+  #app .ws .tabs.big>button,#app .ws .tabs.big>:is(.advanced-tools,.upload-tools){flex:0 0 66px;width:66px;min-width:66px;scroll-snap-align:start}
+  #app .ws .tabs.big>button,#app .ws .tabs.big :is(.advanced-tools,.upload-tools)>summary{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;padding:4px 2px}
+  #app .ws .tabs.big .ti{font-size:20px}
+  #app .ws .tabs.big .sr{position:static !important;width:auto;height:auto;margin:0;clip:auto;overflow:visible;font-size:10px;font-weight:600;line-height:1.1;max-width:62px;text-overflow:ellipsis;overflow:hidden}
+  #app .ws .tabs.big .rail-label,#app .ws .tabs.big .adv-label,#app .ws .tabs.big .dock-grip{display:none}
+  #app .ws .tabs.big :is(.advanced-tools-list){position:fixed;left:8px;right:8px;bottom:calc(var(--dock-bottom,64px) + 4px);display:flex;flex-wrap:wrap;gap:6px;padding:8px;z-index:60}
+  /* controls row stays one line */
+  #app .ws .controls{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  #app .ws .controls>*{flex:none}
+  #app .ws .selbar{padding:4px 6px}
+  #app .ws .selbar .pct,#app .ws .selbar .dot{display:none}
+  #app .ws .selbar .character-name{width:84px}
+  /* characters: a clean list, one line per character */
+  body.studio-dark .layer{flex-wrap:nowrap;gap:4px;padding:6px 8px}
+  body.studio-dark .layer .t{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body.studio-dark .layer .t small{display:block;overflow:hidden;text-overflow:ellipsis}
+  body.studio-dark .layer .th.xs{flex:none;width:34px;height:34px}
+  body.studio-dark .layer .ib{flex:none;width:28px;height:28px;font-size:14px}
+}
+
+/* ---- characters list: collapse toggle, no extra height when it's shut ---- */
+#app .ws .chars-head{display:flex;align-items:center;gap:8px}
+#app .ws .chars-collapse{flex:none}
+
+/* ---- modal / busy overlays live outside #app, so the gray theme must be applied by body class, not nesting ---- */
+body.studio-dark .modal{background:#0000008f}
+body.studio-dark :is(.modal .card,.busy .card){background:var(--card);color:var(--text);border:1px solid var(--line)}
+body.studio-dark :is(.cp-card,.cp-img,.cp-poses,.bgc,.cc,.studio-shared-card,.lib-card){background:var(--card2);border-color:var(--line);color:var(--text)}
+body.studio-dark :is(.cp-card.on,.bgc.on,.cc.on){border-color:var(--acc)}
+body.studio-dark :is(.cp-card:hover,.cp-card.open){border-color:var(--acc)}
+body.studio-dark .bgc .x{background:#000000aa}
+body.studio-dark .bgc.add{background:transparent;border-color:var(--line)}
+body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-dark .modal h2{color:var(--text)}
+
+/* ---- the Move/Camera/Mask/AI dropdown is positioned the same way as Upload (JS-clamped, fixed position), not the old CSS corner trick ---- */
+#app .ws .advanced-tools .advanced-tools-list{position:fixed;left:auto;right:auto;top:auto;bottom:auto;height:auto;max-height:calc(100dvh - 16px);overflow-y:auto;z-index:70}

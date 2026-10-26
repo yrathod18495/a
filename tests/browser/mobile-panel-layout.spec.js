@@ -8,7 +8,7 @@ test('closing and reopening tools keeps the mobile toolbar below the timeline', 
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Mobile panel layout');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
 
   const rail = page.locator('#app .tabs.big');
   const close = page.locator('.sheet-close').getByRole('button', { name: 'Close', exact: true });

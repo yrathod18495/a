@@ -5,6 +5,9 @@ import './style.css';
 import './studio.css';
 import './timeline.css';
 import { timelineIcon, pruneTimelineThumbnails } from './timeline-icons.js';
+import { icon, watchIcons } from './icons.js';
+import { installTips } from './tips.js';
+import './studio-icons.css';
 import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark } from './dom.js';
 import { ingest, isNarrator } from './ingest.js';
@@ -98,14 +101,21 @@ async function boot() {
 }
 
 /* ---------------- the workbench ---------------- */
+/** the workbench is always the dark gray look; the site's own day / night choice comes back when the studio closes */
+const studioTheme = {
+  saved: null,
+  enter() { const root = document.documentElement; if (this.saved == null) this.saved = root.dataset.theme || ''; root.dataset.theme = 'night'; root.style.colorScheme = 'dark'; document.body.classList.add('studio-dark'); },
+  leave() { const root = document.documentElement; if (this.saved != null) { if (this.saved) root.dataset.theme = this.saved; root.style.colorScheme = this.saved === 'night' ? 'dark' : 'light'; this.saved = null; } document.body.classList.remove('studio-dark'); },
+};
+let iconsWatched = false;
 function render() {
+  if (!iconsWatched) { iconsWatched = true; watchIcons(document.body); installTips(document.body); }
   $app.replaceChildren(h('div', { class: 'wrap s3 ws' }, topBar(), viewStudio()));
   mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode; applyLayout(wsEl(), S.layout); placeDock('rail'); placeDock('panel'); dockShow('rail'); dockShow('panel');
 }
 function topBar() {
-  return h('header', { class: 'topbar' },
-    h('button', { class: 'logo logo-btn', title: 'Back to 12toons home', onclick: goHome }, ...brandWordmark()),
-    h('span', { class: 'proj' }, 'Studio'), h('span', { class: 'sp' }), headerTools());
+  // no logo / title row: the studio keeps its space for the canvas and timeline. Quality, save state, undo / redo, export — then the X that leaves the studio.
+  return h('header', { class: 'topbar studio-bar' }, headerTools());
 }
 /** audio lines changed (added / removed): rebuild the voices, the timeline and the characters */
 async function afterAudioChange() {
@@ -594,10 +604,10 @@ function dockEdge(side) {
   return el;
 }
 function layoutTools() {
-  const btn = (key, label, title, onclick) => layoutUi[key] = h('button', { type: 'button', class: 'btn sm', title, 'aria-label': title, 'aria-pressed': 'false', onclick }, label);
+  const btn = (key, label, title, onclick) => layoutUi[key] = h('button', { type: 'button', class: 'btn sm icon-btn', title, 'aria-label': title, 'aria-pressed': 'false', onclick }, label);
   const box = h('div', { class: 'layout-tools' },
-    btn('loop', '🔁', 'Loop playback (L)', () => setLayout({ loop: !S.layout.loop })),
-    btn('focus', '⤢ Focus', 'Focus mode — canvas only (F)', toggleFocus), btn('help', '?', 'Keyboard shortcuts (?)', showShortcuts));
+    btn('loop', icon('repeat'), 'Loop playback (L)', () => setLayout({ loop: !S.layout.loop })),
+    btn('focus', icon('maximize'), 'Focus mode — canvas only (F)', toggleFocus), btn('help', icon('info'), 'Keyboard shortcuts (?)', showShortcuts));
   syncLayoutUi(); return box;
 }
 function resizeHandle(cls, label, onDrag, onReset) {
@@ -632,9 +642,9 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', '🎙'], ['chars', 'Characters', '🎭'], ['anim', 'Animations', '🎬'], ['tears', 'Tears', '💧'], ['motion', 'Move', '🏃'], ['grade', 'Colour', '🎨'], ['camera', 'Camera', '🎥'], ['mask', 'Mask', '◩'], ['ai', 'AI', '✨'], ['canvas', 'Background', '🖼'], ['props', 'Props', '🧸'], ['effects', 'Effects', '💫'], ['export', 'Export', '⬇']];
+const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['props', 'Props', 'package'], ['effects', 'Effects', 'zap'], ['export', 'Export', 'download']];
 function viewStudio() {
-  playBtn = h('button', { class: 'btn pri', onclick: togglePlay }, '▶ Play');
+  playBtn = h('button', { class: 'btn pri icon-btn play-btn', title: 'Play (Space)', 'aria-label': 'Play', onclick: togglePlay }, icon('play'));
   timeEl = h('span', { class: 'time' }, '0:00.0');
   headEl = h('div', { class: 'phead' });
   tlLabels = h('div', { class: 'tl-labels' });
@@ -648,15 +658,15 @@ function viewStudio() {
   const zoom = (f) => { const left = tlScroll.scrollLeft / S.pps; S.pps = Math.min(300, Math.max(4, S.pps * f)); drawTimeline(); tlScroll.scrollLeft = left * S.pps; };
   const fit = fitTimeline;
   const tools = h('div', { class: 'tltools' }, h('b', { class: 'timeline-title' }, 'Timeline'),
-    h('button', { class: 'btn sm', title: 'Zoom out', onclick: () => zoom(1 / 1.5) }, '🔍−'), h('button', { class: 'btn sm', title: 'Zoom in', onclick: () => zoom(1.5) }, '🔍+'),
-    h('button', { class: 'btn sm', onclick: fit }, 'Fit'), h('span', { class: 'sp' }), h('span', { class: 'hint', style: 'margin:0' }, 'Select a clip to edit'));
+    h('button', { class: 'btn sm icon-btn', title: 'Zoom out timeline', 'aria-label': 'Zoom out timeline', onclick: () => zoom(1 / 1.5) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Zoom in timeline', 'aria-label': 'Zoom in timeline', onclick: () => zoom(1.5) }, icon('zoom-in')),
+    h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')), h('span', { class: 'sp' }), h('span', { class: 'hint', style: 'margin:0' }, 'Select a clip to edit'));
   drawTimeline(); drawLineBox(); drawTabs();
   setTimeout(fit, 0);
   return h('div', { class: 'workbench' },
     h('div', { class: 'studio' },
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard()),
-        h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn', title: 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, '⏮'), timeEl, h('span', { class: 'sp' }),
-          h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm', title: 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, '−'), h('button', { class: 'btn sm', title: 'Fit scene in editor', onclick: () => setEditorZoom(1) }, 'Fit scene'), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm', title: 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, '+')), layoutTools()),
+        h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
+          h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, sceneTabs(), tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
       h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
@@ -767,7 +777,7 @@ async function editScene(id, action) {
 // A toolbar group stays within the viewport, including the bottom mobile rail.
 function placeToolbarGroup(group) {
   if (!group.open) return;
-  const popup = group.querySelector('.upload-tools-list');
+  const popup = group.querySelector('.upload-tools-list, .advanced-tools-list');
   const trigger = group.querySelector('summary').getBoundingClientRect();
   const verticalRail = innerWidth > 860 || (innerWidth > 600 && innerHeight <= 500);
   const left = verticalRail ? trigger.right + 10 : trigger.left;
@@ -789,15 +799,21 @@ function drawTabs() {
   stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
   const advanced = new Set(['motion', 'camera', 'mask', 'ai']);
-  const button = ([key, label, icon], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
+  const button = ([key, label, ic], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
     if (S.tab === key && !openOnly) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
     drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
-  } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon), h('span', {}, label));
+  } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'sr' }, label));
   const byKey = Object.fromEntries(TABS.map(t => [t[0], t]));
   const rail = (label, keys) => [h('div', { class: 'rail-label' }, label), ...keys.map(k => button(byKey[k]))];
   const adv = (label, keys) => [h('div', { class: 'adv-label' }, label), ...keys.map(k => button(byKey[k]))];
-  const more = h('details', { class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}` },
-    h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '⚙'), 'Advanced'),
+  const more = h('details', {
+    class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}`,
+    ontoggle: event => {
+      const group = event.currentTarget;
+      if (group.open) { upload.open = false; placeToolbarGroup(group); }
+    },
+  },
+    h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('settings')), h('span', { class: 'sr' }, 'Advanced')),
     h('div', { class: 'advanced-tools-list' }, ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
   const uploads = new Set(['audio', 'canvas', 'props']);
   const upload = h('details', {
@@ -812,14 +828,13 @@ function drawTabs() {
         event.currentTarget.querySelector('summary').focus();
       }
     },
-  }, h('summary', { title: 'Upload', 'aria-label': 'Upload' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, '📤'), 'Upload'),
+  }, h('summary', { title: 'Upload', 'aria-label': 'Upload' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('upload')), h('span', { class: 'sr' }, 'Upload')),
   h('div', { class: 'advanced-tools-list upload-tools-list' }, ...['audio', 'canvas', 'props'].map(key => button(byKey[key], true))));
-  more.addEventListener('toggle', () => { if (more.open) upload.open = false; });
   tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), upload,
     ...['chars', 'anim', 'tears', 'effects', 'grade'].map(key => button(byKey[key])), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
-  panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag karke panel kahin bhi rakhein · double-click se wapas', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => { S.panelOpen = false; drawTabs(); } }, 'Close')),
+  panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag karke panel kahin bhi rakhein · double-click se wapas', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
     { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag karke menu kahin bhi rakhein · double-click se wapas', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
@@ -835,6 +850,19 @@ function selectLine(id, seek = true) {
   if (seek && L) { player.seek(L.start + 0.01); }
   drawTimeline(); drawLineBox(); S.dirty = true;
   if (S.tab === 'anim' && S.panelOpen) drawTabs();
+}
+/** which animation each character layer plays right now (at the playhead), shown under the layer name */
+const laneClips = new Map();
+let animSeen = -1;
+function refreshLayerAnim(force = true) {
+  if (!tlLabels || (!force && Math.abs(player.time - animSeen) < 0.05)) return;
+  animSeen = player.time;
+  for (const el of tlLabels.querySelectorAll('[data-anim]')) {
+    const at = (laneClips.get(el.dataset.anim) || []).find((c) => player.time >= c.start - 0.001 && player.time < c.end);
+    const text = at?.name || 'No animation';
+    if (el.textContent !== text) { el.textContent = text; el.dataset.tip = `Animation: ${text}`; }
+    el.classList.toggle('none', !at);
+  }
 }
 function drawTimeline() {
   if (!tlInner) return;
@@ -889,6 +917,7 @@ function drawTimeline() {
     labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, isEffect(prop) ? 'Effect' : 'Prop')));
     lanes.push(h('div', { class: 'lane2 prop', style: 'height:30px' }, el));
   }
+  laneClips.clear();
   const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 46;
   for (const s of S.order.map(sOf).filter((x) => x?.charId && charOf(x))) {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
@@ -917,7 +946,8 @@ function drawTimeline() {
         el.addEventListener('pointerdown', (e) => dragClip(e, m, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
         ln.append(el);
       }
-      labels.push(h('div', { class: 'rl char', style: `height:${LH}px;--track-color:${s.color};cursor:pointer`, onclick: () => selectChar(s.key) }, i === 0 ? [timelineIcon(portrait(s)), h('span', { class: 'lt', title: s.name }, s.name), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋'), h('button', { type: 'button', class: 'rx delete-layer', title: `Delete ${s.name} from scene`, 'aria-label': `Delete ${s.name} from scene`, disabled: S.exporting, onclick: () => removeCharacterFrom(s) }, '🗑')] : h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`)));
+      labels.push(h('div', { class: 'rl char', style: `height:${LH}px;--track-color:${s.color};cursor:pointer`, onclick: () => selectChar(s.key) }, i === 0 ? [timelineIcon(portrait(s)), h('span', { class: 'lt-wrap' }, h('span', { class: 'lt', title: s.name }, s.name), h('small', { class: 'lanim', 'data-anim': `${s.key}|body` }, '')), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋'), h('button', { type: 'button', class: 'rx delete-layer', title: `Delete ${s.name} from scene`, 'aria-label': `Delete ${s.name} from scene`, disabled: S.exporting, onclick: () => removeCharacterFrom(s) }, '🗑')] : h('span', { class: 'lt-wrap' }, h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`), h('small', { class: 'lanim', 'data-anim': `${s.key}|${kind}` }, ''))));
+      laneClips.set(`${s.key}|${kind}`, [...plan.clips.filter((x) => x.kind === kind).map((c) => ({ start: c.start, end: c.start + c.dur, name: (nameOf.get(c.name) || c.name).replace(/^Listener · /, '') })), ...(S.manual[s.key] || []).filter((x) => x.kind === kind).map((m) => ({ start: m.start, end: m.start + m.dur, name: m.ref.name.replace(/^Listener · /, '') }))]);
       lanes.push(ln);
     });
     const cks = S.charKeys[s.key];
@@ -948,6 +978,7 @@ function drawTimeline() {
   }
   labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('camera') }, timelineIcon(null, 'camera'), h('span', { class: 'lt' }, 'Camera'))); lanes.push(cl);
   tlLabels.replaceChildren(...labels);
+  refreshLayerAnim();
   tlInner.style.width = `${Math.ceil(total * pps) + 60}px`;
   tlInner.replaceChildren(...lanes, headEl);
   drawClipBar();
@@ -1578,7 +1609,8 @@ function updateSaveStatus(state = syncStatus) {
   if (state.projectId && state.projectId !== projectContext()?.id) state = { text: 'Saved locally' };
   if (!savedEl || !saveBody) return;
   const feedback = localSaveError ? { label: 'Local save nahi ho paya', tone: 'error' } : syncPresentation(state);
-  savedEl.replaceChildren(h('span', { class: 'save-dot', 'aria-hidden': 'true' }), h('span', { class: 'save-label' }, feedback.label));
+  savedEl.replaceChildren(h('span', { class: 'save-dot', 'aria-hidden': 'true' }, icon(feedback.tone === 'saved' ? 'cloud-check' : feedback.tone === 'error' ? 'cloud-alert' : 'cloud')), h('span', { class: 'save-label' }, feedback.label));
+  savedEl.dataset.tip = feedback.label;
   savedEl.setAttribute('aria-label', `${feedback.label}. Open save details`);
   saveDetails.dataset.tone = feedback.tone;
   const problem = localSaveError || state.issue?.message;
@@ -1737,10 +1769,10 @@ function drawSelBar(l) {
       cur.axf ??= cur.anchor.x / stage.W; cur.ayf ??= (stage.H - cur.anchor.y) / stage.H; // keep feet where they are
       cur.mul = m; saveXf(cur); stage.layout(); updateSel(); S.dirty = true;
     } }),
-    h('button', { class: 'btn sm', title: 'Mirror', onclick: () => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; } }, '⇋'),
+    h('button', { class: 'btn sm icon-btn', title: 'Mirror', 'aria-label': 'Mirror', onclick: () => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; } }, icon('flip')),
     h('button', { type: 'button', class: 'btn sm delete-character', title: 'Delete selected character', 'aria-label': 'Delete selected character', disabled: S.exporting, onclick: () => removeCharacterFrom(s) }, '🗑 Delete'),
-    h('button', { class: 'btn sm', title: 'Hide the box', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, '✕'),
-    h('button', { class: 'btn sm', title: 'Reset size & position', onclick: () => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; } }, 'Reset'));
+    h('button', { class: 'btn sm icon-btn', title: 'Hide the box', 'aria-label': 'Hide the box', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, icon('x')),
+    h('button', { class: 'btn sm icon-btn', title: 'Reset size & position', 'aria-label': 'Reset size and position', onclick: () => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; } }, icon('rotate')));
 }
 window.addEventListener('resize', () => fitEditor());
 
@@ -1845,9 +1877,16 @@ function tabChars() {
   const without = S.speakers.filter((s) => !s.charId).map((s) => h('div', { class: 'layer' }, h('span', { class: 'dot', style: `background:${s.color}` }), h('div', { class: 't' }, s.name, h('small', {}, s.manual ? 'No character yet' : 'Voice without a character')),
     h('button', { class: 'btn sm', onclick: () => addCharacterTo(s) }, '＋ Pick character'),
     s.manual ? h('button', { class: 'ib', title: 'Remove', onclick: () => { S.speakers = S.speakers.filter((x) => x !== s); S.order = S.order.filter((k) => k !== s.key); drawTabs(); } }, '✕') : null));
-  return h('div', { class: 'list' }, h('button', { class: 'btn ok', onclick: addManualCharacter }, '＋ Add character'),
-    h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Characters on stage (top = in front). Every voice you add as audio shows up here too. Use 🗑 to remove a character from the stage.'), rows, without);
+  const n = rows.length + without.length, collapsed = charsCollapsed();
+  const emptyShown = !(S.lines.length > 0 || S.speakers.some((x) => x.charId));      // the empty-stage "Add character" button is also on screen right now
+  const toggle = h('button', { type: 'button', class: 'btn sm icon-btn chars-collapse', title: collapsed ? 'Expand the character list' : 'Collapse the character list', 'aria-label': collapsed ? 'Expand the character list' : 'Collapse the character list', 'aria-expanded': String(!collapsed), onclick: () => { setCharsCollapsed(!collapsed); drawTabs(); } }, icon(collapsed ? 'arrow-down' : 'arrow-up'));
+  return h('div', { class: 'list' }, h('button', { class: 'btn ok', 'aria-label': emptyShown ? 'Add a character to the stage' : undefined, onclick: addManualCharacter }, '＋ Add character'),
+    h('div', { class: 'chars-head' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0;flex:1' }, `Characters on stage (${n}) — top = in front.`), n ? toggle : null),
+    ...(collapsed ? [] : [...rows, ...without]));
 }
+const CHARS_COLLAPSE_KEY = '12toons-chars-collapsed';
+const charsCollapsed = () => { try { return localStorage.getItem(CHARS_COLLAPSE_KEY) === '1'; } catch { return false; } };
+const setCharsCollapsed = (v) => { try { localStorage.setItem(CHARS_COLLAPSE_KEY, v ? '1' : '0'); } catch { /* optional */ } };
 
 let tearHandlesEl;
 const tearSpeaker = () => S.speakers.find(s => s.charId && s.key === S.tearFor) || S.speakers.find(s => s.charId && s.key === S.sel) || S.speakers.find(s => s.charId);
@@ -2586,19 +2625,22 @@ async function resetEverything() {
 }
 /** preview quality lives in the header, so it stays reachable while the canvas and timeline get the space */
 function previewControl() {
-  previewSelect = h('select', { 'aria-label': 'Preview quality', title: 'Low is faster and softer. Export quality is set separately.', onchange: e => changePreviewQuality(e.target.value) }, Object.entries(PREVIEW_MODES).map(([value, mode]) => h('option', { value, selected: value === S.previewMode }, mode.label)));
-  return h('label', { class: 'preview-quality' }, h('span', {}, 'Quality'), previewSelect);
+  previewSelect = h('select', { 'aria-label': 'Preview quality', title: 'Preview quality: Low is faster and softer. Export quality is set separately.', onchange: e => changePreviewQuality(e.target.value) }, Object.entries(PREVIEW_MODES).map(([value, mode]) => h('option', { value, selected: value === S.previewMode }, mode.label)));
+  return h('label', { class: 'preview-quality' }, icon('monitor'), previewSelect);
 }
 function headerTools() {
-  hdrUndo = h('button', { class: 'btn sm history-button', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z / ⌘Z)', onclick: () => stepHistory(-1) }, h('span', { 'aria-hidden': true }, '↶'), h('span', { class: 'history-label' }, 'Undo'));
-  hdrRedo = h('button', { class: 'btn sm history-button', 'data-history-control': true, 'aria-label': 'Redo', title: 'Redo (Ctrl+Y / Ctrl+Shift+Z / ⌘⇧Z)', onclick: () => stepHistory(1) }, h('span', { 'aria-hidden': true }, '↷'), h('span', { class: 'history-label' }, 'Redo'));
-  savedEl = h('summary', { class: 'saved show' });
+  hdrUndo = h('button', { class: 'btn sm icon-btn history-button', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, icon('undo'));
+  hdrRedo = h('button', { class: 'btn sm icon-btn history-button', 'data-history-control': true, 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo'));
+  savedEl = h('summary', { class: 'saved show', title: 'Save status' });
   saveBody = h('div', { class: 'save-popover' });
   saveDetails = h('details', { class: 'save-status' }, savedEl, saveBody);
   updateSaveStatus();
   queueMicrotask(updateHistoryButtons);
-  exportBtn = h('button', { class: 'btn ok', onclick: doExport }, '⬇ Export');
-  return h('div', { class: 'hdr-tools' }, previewControl(), saveDetails, hdrUndo, hdrRedo, h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm', 'aria-label': 'More studio actions' }, '⋯'), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, 'Reset this project…'))), exportBtn);
+  exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: doExport }, icon('download'));
+  const closeBtn = h('button', { class: 'btn sm icon-btn close-studio', 'aria-label': 'Close studio', title: 'Close studio — back to your projects', onclick: goHome }, icon('x'));
+  return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), saveDetails, hdrUndo, hdrRedo,
+    h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
+    exportBtn, closeBtn);
 }
 window.addEventListener('keydown', (e) => {
   if ($app.hidden || !(e.ctrlKey || e.metaKey) || e.target.closest('input,select,textarea,[contenteditable=true],dialog[open],.modal')) return;
@@ -2639,7 +2681,8 @@ function loop(now) {
     if (player.playing && tlScroll && (x < tlScroll.scrollLeft + 10 || x > tlScroll.scrollLeft + tlScroll.clientWidth - 40)) tlScroll.scrollLeft = Math.max(0, x - 40);
   }
   if (timeEl) timeEl.textContent = `${fmt(t)} / ${fmt(player.total)}`;
-  if (playBtn) playBtn.textContent = player.playing ? '⏸ Pause' : '▶ Play';
+  refreshLayerAnim(false);
+  if (playBtn && playBtn.dataset.state !== String(player.playing)) { playBtn.dataset.state = String(player.playing); playBtn.replaceChildren(icon(player.playing ? 'pause' : 'play')); playBtn.setAttribute('aria-label', player.playing ? 'Pause' : 'Play'); playBtn.dataset.tip = player.playing ? 'Pause (Space)' : 'Play (Space)'; }
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
@@ -2650,6 +2693,7 @@ let booted = false, homeFn = null;
 export const setHome = (fn) => { homeFn = fn; };
 async function goHome() { if (S.exporting) { toast('Export poora hone tak ruk jaayein.'); return; } player?.pause(); try { await tick({ sceneCommit: true }); } catch { /* best effort */ } homeFn?.(); }
 export async function openStudio() {
+  studioTheme.enter();
   $app.hidden = false;
   if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile
   startAutoSync();
@@ -2659,7 +2703,7 @@ export async function openStudio() {
 }
 export async function closeStudio() {
   while(saving)await new Promise(resolve=>setTimeout(resolve,20));
-  await tick({ sceneCommit: true }); player?.pause(); stopAll(); pruneTimelineThumbnails(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; $app.hidden = true; S.ready = false;
+  await tick({ sceneCommit: true }); player?.pause(); stopAll(); pruneTimelineThumbnails(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; studioTheme.leave(); $app.hidden = true; S.ready = false;
 }
 onSyncStatus(state => { if (!state.projectId || state.projectId === projectContext()?.id) updateSaveStatus(state); });
 

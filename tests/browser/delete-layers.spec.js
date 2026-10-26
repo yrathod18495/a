@@ -7,7 +7,7 @@ async function studio(page) {
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Delete layers');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
 }
 async function history(page, name) {
   await page.getByRole('button', { name, exact: true }).click();
@@ -17,7 +17,7 @@ test('frame and timeline character delete remove the actor and animation; undo a
   await studio(page);
   const rail = page.locator('#app .tabs.big');
   await rail.getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
@@ -37,7 +37,7 @@ test('frame and timeline character delete remove the actor and animation; undo a
   await page.getByRole('button', { name: 'Delete Character 1 from scene', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(0);
   await page.waitForTimeout(1300); await page.reload();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   expect(await page.evaluate(() => window.__toon.S.speakers.filter(s => s.charId).length)).toBe(0);
 });
 
@@ -68,6 +68,6 @@ test('background layer delete clears its base and clips, preserves uploaded file
   await page.getByRole('tab', { name: 'Scene 1 copy', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgId)).toBe(null);
   await page.waitForTimeout(1300); await page.reload();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   expect(await blank()).toEqual({ id: null, clips: 0, preset: 0, pixel: [255, 255, 255, 255], files: 1 });
 });

@@ -9,7 +9,7 @@ async function studio(page) {
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Grade');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
 }
 const corner = (page) => page.evaluate(() => {
   const { stage } = window.__toon; stage.render(1, 0, [], []);
@@ -57,9 +57,9 @@ test('the grade can change over time: keyframes glide from one look to the next,
   }, t);
   const spread = (px) => Math.max(px[0], px[1], px[2]) - Math.min(px[0], px[1], px[2]);
   await page.evaluate(() => window.__toon.player.seek(1));
-  await page.getByRole('button', { name: '＋ Keyframe here' }).click();
+  await page.getByRole('button', { name: 'Keyframe here' }).click();
   await page.evaluate(() => window.__toon.player.seek(3));
-  await page.getByRole('button', { name: '＋ Keyframe here' }).click();
+  await page.getByRole('button', { name: 'Keyframe here' }).click();
   const box = page.getByLabel('Saturation value', { exact: true }); await box.fill('0'); await box.dispatchEvent('change');
   expect(await page.evaluate(() => window.__toon.S.gradeKeys.map((k) => [k.t, k.grade.saturation]))).toEqual([[1, 1], [3, 0]]);
   const early = await at(0.5), mid = await at(2), late = await at(3.5);

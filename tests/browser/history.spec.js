@@ -15,7 +15,7 @@ async function tool(page,name){
  const btn=page.locator('#app .tabs.big').getByRole('button',{name,exact:true});
  if(await btn.getAttribute('aria-pressed')!=='true')await btn.click();
 }
-async function add(page){await tool(page,'Characters');await page.getByRole('button',{name:'＋ Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);}
+async function add(page){await tool(page,'Characters');await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);}
 async function undo(page){await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);}
 async function redo(page){await page.getByRole('button',{name:'Redo',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);}
 const manual=page=>page.evaluate(()=>JSON.parse(JSON.stringify(window.__toon.S.manual)));
@@ -28,31 +28,31 @@ test('immediate undo/redo covers character addition and rapid timeline actions; 
  await page.getByTitle('Add an animation for Character 1 at the playhead',{exact:true}).click();
  await page.locator('.modal .animation-apply').first().click();await expect(page.locator('.busy')).toHaveCount(0);
  const one=await manual(page);expect(Object.values(one).flat().length).toBe(1);
- await page.getByRole('button',{name:'⧉ Duplicate',exact:true}).click();const two=await manual(page);expect(Object.values(two).flat().length).toBe(2);
+ await page.getByRole('button',{name:'Duplicate',exact:true}).click();const two=await manual(page);expect(Object.values(two).flat().length).toBe(2);
  await undo(page);expect(await manual(page)).toEqual(one);await redo(page);expect(await manual(page)).toEqual(two);
  const clip=page.locator('.tclip.mine').first(),bounds=await clip.boundingBox();
  await page.mouse.move(bounds.x+10,bounds.y+12);await page.mouse.down();await page.mouse.move(bounds.x+30,bounds.y+12,{steps:4});await page.waitForTimeout(1150);await page.mouse.move(bounds.x+70,bounds.y+12,{steps:4});await page.mouse.up();
  const moved=await manual(page);expect(moved).not.toEqual(two);await undo(page);expect(await manual(page)).toEqual(two);await redo(page);expect(await manual(page)).toEqual(moved);
- await page.locator('.tclip.mine').first().click();await page.getByRole('button',{name:'🗑 Delete',exact:true}).click();await undo(page);expect(await manual(page)).toEqual(moved);
+ await page.locator('.tclip.mine').first().click();await page.getByRole('button',{name:'Delete',exact:true}).click();await undo(page);expect(await manual(page)).toEqual(moved);
  expect(errors).toEqual([]);
 });
 test('character keyframes and camera keys undo immediately; shortcuts preserve playhead and new edits clear redo',async({page})=>{
  await open(page);await add(page);await tool(page,'Move');
- await page.evaluate(()=>window.__toon.player.seek(1));await page.getByRole('button',{name:'＋ Keyframe here',exact:true}).click();
+ await page.evaluate(()=>window.__toon.player.seek(1));await page.getByRole('button',{name:'Keyframe here',exact:true}).click();
  const first=await keys(page);expect(first.length).toBe(1);
  await page.locator('.cs-sl').filter({hasText:'Left ↔ right'}).locator('input').fill('0.7');
  expect((await keys(page))[0].x).toBe(.7);await undo(page);expect(await keys(page)).toEqual(first);await redo(page);expect((await keys(page))[0].x).toBe(.7);
  const beforeDrag=await keys(page);const diamond=page.locator('.kf.mv').first();await page.waitForTimeout(60);await diamond.evaluate(el=>el.scrollIntoView({block:'nearest'}));const bounds=await diamond.boundingBox();
  await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);await page.mouse.down();await page.mouse.move(bounds.x+65,bounds.y+bounds.height/2,{steps:6});await page.mouse.up();
  const afterDrag=await keys(page);expect(afterDrag[0].t).not.toBe(beforeDrag[0].t);await undo(page);expect(await keys(page)).toEqual(beforeDrag);await redo(page);expect(await keys(page)).toEqual(afterDrag);
- await page.evaluate(()=>window.__toon.player.seek(3));await page.getByRole('button',{name:'＋ Keyframe here',exact:true}).click();
+ await page.evaluate(()=>window.__toon.player.seek(3));await page.getByRole('button',{name:'Keyframe here',exact:true}).click();
  expect((await keys(page)).length).toBe(2);
- await page.getByRole('button',{name:'🗑 Delete',exact:true}).click();expect((await keys(page)).length).toBe(1);
+ await page.getByRole('button',{name:'Delete',exact:true}).click();expect((await keys(page)).length).toBe(1);
  await page.locator('#app .stagebox').click({position:{x:160,y:8}});await page.keyboard.press('Control+z');await expect.poll(async()=> (await keys(page)).length).toBe(2);
  expect(await page.evaluate(()=>window.__toon.player.time)).toBe(3);
  await page.keyboard.press('Control+Shift+z');await expect.poll(async()=> (await keys(page)).length).toBe(1);
- await page.getByRole('button',{name:'＋ Keyframe here',exact:true}).click();await expect(page.getByRole('button',{name:'Redo',exact:true})).toBeDisabled();
- await tool(page,'Camera');await page.getByRole('button',{name:'＋ Keyframe here',exact:true}).click();const cam=await page.evaluate(()=>window.__toon.S.camKeys);
+ await page.getByRole('button',{name:'Keyframe here',exact:true}).click();await expect(page.getByRole('button',{name:'Redo',exact:true})).toBeDisabled();
+ await tool(page,'Camera');await page.getByRole('button',{name:'Keyframe here',exact:true}).click();const cam=await page.evaluate(()=>window.__toon.S.camKeys);
  expect(cam.length).toBe(1);await undo(page);expect(await page.evaluate(()=>window.__toon.S.camKeys)).toEqual([]);await redo(page);expect(await page.evaluate(()=>window.__toon.S.camKeys)).toEqual(cam);
  await page.waitForTimeout(1200);await page.reload();await expect.poll(()=>page.evaluate(()=>window.__toon?.S.camKeys.length)).toBe(1);
  expect((await keys(page)).length).toBe(2);

@@ -10,7 +10,7 @@ async function studio(page) {
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Ten');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
 }
 // the page is busy drawing ten characters on a software GL, so buttons are pressed from inside the page (no waiting for animation frames)
 const press = (loc) => loc.evaluate(e => e.click());
@@ -33,8 +33,8 @@ test(`${N} voices + ${N} characters + 5 backgrounds + 3 effects: every character
   await expect.poll(() => page.evaluate(() => window.__toon.S.lines.length), { timeout: 120000 }).toBe(N);
   await tab(page, 'Characters');
   for (let i = 0; i < N; i++) {
-    if (!(await page.getByRole('button', { name: '＋ Pick character' }).first().isVisible().catch(() => false))) await tab(page, 'Characters');
-    await press(page.getByRole('button', { name: '＋ Pick character' }).first());
+    if (!(await page.getByRole('button', { name: /Pick character/ }).first().isVisible().catch(() => false))) await tab(page, 'Characters');
+    await press(page.getByRole('button', { name: /Pick character/ }).first());
     await expect(page.locator('.cp-card').nth(2)).toBeVisible();
     await press(page.locator('.cp-card').nth(i % 3));
     await expect(page.locator('.cp-poses .pose').first()).toBeVisible();
@@ -93,7 +93,7 @@ test('a character that is not in frame at the playhead can still be selected: th
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page);
   await tab(page, 'Characters');
-  await press(page.getByRole('button', { name: '＋ Add character', exact: true }));
+  await press(page.getByRole('button', { name: 'Add character', exact: true }));
   await press(page.locator('.cp-card').first());
   await press(page.locator('.cp-poses .pose').first());
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 60000 }).toBe(1);

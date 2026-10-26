@@ -10,11 +10,11 @@ async function studio(page, { width = 1366, height = 768, mode = 'day' } = {}) {
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Optimized studio');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
 }
 async function addCharacter(page) {
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.getByRole('button', { name: '＋ Add character', exact: true }).click();
+  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
@@ -71,9 +71,9 @@ test('animation rows are virtualized; selection, playback, editor zoom and reset
   await expect(page.getByLabel('Editor zoom')).toHaveText('100%');
   const after = await page.evaluate(() => ({ W: window.__toon.stage.W, H: window.__toon.stage.H, cam: JSON.stringify(window.__toon.stage.camKeys), png: window.__toon.stage.out.toDataURL() }));
   expect(after).toEqual(original);
-  await page.getByRole('button', { name: '▶ Play', exact: true }).click();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.metrics.renderCount)).toBeGreaterThan(count + 1);
-  await page.getByRole('button', { name: '⏸ Pause', exact: true }).click();
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.metrics.framePending)).toBe(false);
   await expect(page.getByRole('button', { name: 'Reset this project…' })).toBeHidden();
   await page.getByLabel('More studio actions').click();
@@ -95,7 +95,7 @@ test('unused saved templates stay unloaded and CSS zoom leaves encoded video dim
     await store.put('characters', { id: 'unused-save', name: 'Unused character', base: 'lib:ad-mybaby-front-side', profile: {}, pages: {} });
   });
   await page.reload();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   expect(rigs).toEqual([]);
   await addCharacter(page);
   expect(rigs.filter(url => url.includes('/mybaby/'))).toEqual([]);

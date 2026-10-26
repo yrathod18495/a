@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 async function open(page,workers=0){
  await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  await page.goto(`/?debug&workers=${workers}#/toons`);await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Tears');await page.getByRole('button',{name:'Create project',exact:true}).click();await expect(page.locator('#app .stagebox canvas')).toBeVisible();
- await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'＋ Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
+ await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
  await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();
 }
 const config=page=>page.evaluate(()=>window.__toon.S.speakers[0].tears);
@@ -35,7 +35,7 @@ for(const workers of [0,2])test(`tear PNG and animation survive video export wit
  await page.getByLabel('Preview quality',{exact:true}).selectOption('low');await expect(page.getByLabel('Preview quality',{exact:true})).toBeEnabled();
  await page.evaluate(()=>{window.__toon.S.quality=720;window.__toon.S.fps=5;});
  if(!workers){await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');}
- const ready=page.waitForEvent('download');await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();const download=await ready;const {readFile}=await import('node:fs/promises');const bytes=await readFile(await download.path());
+ const ready=page.waitForEvent('download');await page.locator('.hdr-tools').getByRole('button',{name:'Export',exact:true}).click();const download=await ready;const {readFile}=await import('node:fs/promises');const bytes=await readFile(await download.path());
  const result=await page.evaluate(async({base64,anchor})=>{
   const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type:'video/webm'})),video=document.createElement('video');video.src=url;video.muted=true;await new Promise((r,j)=>{video.onloadedmetadata=r;video.onerror=j;});video.currentTime=.6;await new Promise(r=>video.onseeked=r);
   const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;const ctx=canvas.getContext('2d');ctx.drawImage(video,0,0);
