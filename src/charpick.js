@@ -1,7 +1,7 @@
 // Character picker shared by the Character Studio and the animation studio:
 // one card per character (full-body picture + name); tapping a character opens its poses (front, side, back ...), each as a full-body picture.
 import { h } from './dom.js';
-import { cdn } from './catalog.js';
+import { cdn, libraryStatus } from './catalog.js';
 
 /** 12toons entries grouped by character, front poses first: [{ base, name, cover, poses:[entry] }] */
 export function groupByCharacter(entries) {
@@ -28,6 +28,7 @@ export function characterPicker({ entries, isOn, onPick }) {
   const draw = () => {
     const cur = groups.find((g) => g.base === open);
     root.replaceChildren(...[
+      !groups.length && libraryStatus() ? h('p', { class: 'cp-hint', role: 'alert' }, libraryStatus()) : null,
       h('div', { class: 'cp-row' }, groups.map((g) => h('button', { class: `cp-card ${g.base === open ? 'open' : ''} ${g.poses.some(isOn) ? 'on' : ''}`, onclick: () => { open = open === g.base ? null : g.base; draw(); } },
         h('span', { class: 'cp-img' }, h('img', { src: cdn(g.cover), alt: '', loading: 'lazy' })), h('b', {}, g.name)))),
       cur ? h('div', { class: 'cp-poses' }, h('p', { class: 'cp-hint' }, `${cur.name} — choose a pose`),

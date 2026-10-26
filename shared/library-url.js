@@ -1,6 +1,6 @@
-// The ready-made 12toons characters (rigs, atlases, pictures, animations) live in ONE place: a public Cloudflare R2 bucket
-// (see docs/LIBRARY.md). The browser fetches every library file from there; until VITE_LIBRARY_URL is set the copy bundled
-// with the site (public/12toons) is used, so nothing breaks while the bucket is being filled.
+// The ready-made 12toons characters (rigs, atlases, pictures, animations) live in the 12toons R2 bucket, folder lib/ (docs/LIBRARY.md).
+// The site asks for /12toons/<path>; vercel.json sends that to api/library.js, which redirects to a signed R2 link. An optional
+// VITE_LIBRARY_URL (for example a CDN address in front of the bucket) makes the browser fetch library files from there instead.
 const LIBRARY_PREFIX = '12toons/';
 export const isLibraryPath = (path) => typeof path === 'string' && path.startsWith(LIBRARY_PREFIX) && !path.includes('..');
 /** the address of a file: library files from the bucket (when configured), everything else from the site itself */

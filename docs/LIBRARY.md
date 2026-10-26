@@ -1,40 +1,39 @@
-# Character library in R2 (one place for every rig, atlas and picture)
+# Character library in R2 (optional, for when you want to lighten the repository)
 
-The ready-made characters (Neha, My Baby, Village Boy, SVG Multi, Sadhu Baba, Chudel) and their animations are about **137 MB in 1,734 files**
-(`public/12toons`). Serving them with the website costs Vercel bandwidth and makes every deployment heavy. They now live in **one public R2 bucket**
-and the browser fetches every character file from there.
+The ready-made characters (Neha, My Baby, Village Boy, SVG Multi, Sadhu Baba, Chudel) and their animations are about **137 MB in 1,734 files** in `public/12toons`.
+**Today they are still in git and served with the site**, so nothing depends on R2 yet. The tooling below is ready for the day you want them in **the same 12toons R2 bucket, in their own folder**.
 
 ```
-<library bucket>/v1/12toons/characters.json, animations.json, groups.json
-                  v1/12toons/chars/<character>/<pose>_ske.json, <pose>_tex_N.json, <pose>_tex_N.webp, anims/...
-                  v1/12toons/anims/<pose>/...        shared animations
-                  v1/12toons/pose/<character>-<pose>.webp   thumbnails
+<your bucket>/lib/v1/12toons/characters.json, animations.json, groups.json, library-manifest.json
+                             chars/<character>/<pose>_ske.json, <pose>_tex_N.json, <pose>_tex_N.webp, anims/...
+                             anims/<pose>/...           shared animations
+                             pose/<character>-<pose>.webp   thumbnails
+              u/<uid>/...                              users' own files (see docs/COST-PLAN.md)
 ```
-Why a **second, public** bucket: these files are the same for everybody, so they can be cached by the browser and by Cloudflare for a year and need no
-login and no server call. Users' own files stay in the **private** bucket (see `docs/COST-PLAN.md`). R2 download traffic is free.
 
-## One-time setup
-1. Cloudflare → R2 → **Create bucket** (for example `12toons-library`).
-2. Bucket → Settings → **Public access**: enable the `r2.dev` address (fine to start; for a busy site connect a custom domain such as `cdn.yourdomain.com`, which also gets Cloudflare's cache).
-3. Bucket → Settings → **CORS policy** (the browser reads the files with `fetch`):
-   ```json
-   [{ "AllowedOrigins": ["https://a-two-roan-17.vercel.app"], "AllowedMethods": ["GET", "HEAD"], "AllowedHeaders": ["*"], "MaxAgeSeconds": 86400 }]
-   ```
-4. Upload everything (on your computer, in the project folder; the R2 API token needs *Object Read & Write* on this bucket):
-   ```
-   CLOUDFLARE_R2_ACCOUNT_ID=... CLOUDFLARE_R2_ACCESS_KEY_ID=... CLOUDFLARE_R2_SECRET_ACCESS_KEY=... CLOUDFLARE_R2_LIBRARY_BUCKET=12toons-library \
-   node scripts/upload-library.mjs
-   ```
-   `--dry` only lists what would be uploaded; running it again skips files that are already there.
-5. Vercel → Settings → Environment Variables: `VITE_LIBRARY_URL` = `https://<your public bucket address>/v1` (no slash at the end), then **Redeploy**.
-   (`VITE_` values are read when the site is built, so a redeploy is needed.)
+## How a file would reach the browser
+The app asks for `/12toons/chars/neha/front_ske.json`. If the file is in `public/` Vercel serves it directly (that is the case today). If it is not, `vercel.json` sends the request to
+`api/library.js`, which checks that the path is a plain library file, signs an R2 link for `lib/v1/12toons/<path>` and answers with a **redirect** that is cached for 5 days (browser and Vercel's edge).
+The bucket **stays private**: only files inside `lib/` can be reached this way, nothing under `u/`. No new variable and no second bucket are needed.
+(`public/12toons/characters.json` must stay in the repository: the server reads it.)
 
-Until `VITE_LIBRARY_URL` is set the copy bundled with the site is used, so nothing breaks while you set this up.
+## Upload to R2 (safe to do any time; nothing changes for users until the files are removed from `public/`)
+```
+CLOUDFLARE_R2_ACCOUNT_ID=... CLOUDFLARE_R2_ACCESS_KEY_ID=... CLOUDFLARE_R2_SECRET_ACCESS_KEY=... CLOUDFLARE_R2_BUCKET_NAME=<your 12toons bucket> \
+node scripts/upload-library.mjs
+```
+`--dry` only lists the files; running it again skips files already there. It also writes `lib/v1/12toons/library-manifest.json`. The bucket CORS must allow `GET` from your site (same rule as in `docs/COST-PLAN.md`).
+
+## Switching over (later, when you decide)
+1. Upload (above) and check that `https://<your site>/12toons/...` works for a file that is *not* in `public/` (for example from a preview deployment without the files).
+2. Remove `public/12toons/chars`, `anims`, `pose`, `animations.json`, `groups.json` (keep `characters.json`) and `public/local-character-art` from git. The files stay in history, `git checkout <commit> -- public/12toons` brings them back.
+3. For development and the browser tests, `LIBRARY_SITE=https://your-site.vercel.app npm run library:pull` downloads the library into `public/12toons` again.
+
+If the library cannot be loaded the character picker says so in simple Hinglish instead of staying empty.
 
 ## Changing a character later
-Files are cached for a year and never overwritten. To publish a change: upload to a **new prefix** (`node scripts/upload-library.mjs --prefix v2`), then change
-`VITE_LIBRARY_URL` to `.../v2` and redeploy. Old visitors keep working on `v1` until they reload.
+Files are cached for days and never overwritten. Upload to a **new folder** (`--prefix lib/v2`), set `LIBRARY_PREFIX=lib/v2` in Vercel and redeploy.
 
-## After everything works
-When the site loads characters from the bucket (open DevTools → Network: requests go to your bucket address), `public/12toons/chars`, `anims` and `pose` can be
-removed from the repository to make deployments lighter. Keep `public/12toons/characters.json`: the server reads it to check animation targets.
+## Limits worth knowing
+- Vercel's free plan allows 12 functions and the project has exactly 12 (`api/library.js` is the 12th), so a new API has to be added to an existing function.
+- The git history holds the files (about 50 MB). `git filter-repo` could shrink it, but it changes every commit id and breaks other people's clones, so it is not done automatically.

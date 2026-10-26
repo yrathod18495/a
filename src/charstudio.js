@@ -345,7 +345,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     saveButton.hidden = restrictedTester();
     if (st.tab === 'save' && restrictedTester()) st.tab = 'create';
     tabs.replaceChildren(...TABS.filter(([k]) => (k !== 'create' || st.createMode || !tester) && (!(localPreview || restrictedTester()) || k !== 'save')).map(([k, l]) => h('button', { class: st.tab === k ? 'on' : '', disabled: k !== 'start' && !st.def, onclick: () => { st.tab = k; draw(); } }, l)));
-    panel.replaceChildren(...{ start: panelStart, create: panelCreate, layers: panelLayers, face: panelFace, outfit: panelOutfit, anims: panelAnims, body: panelBody, save: panelSave }[st.tab]());
+    panel.replaceChildren(...{ start: panelStart, create: panelCreate, layers: panelLayers, face: panelFace, outfit: panelOutfit, anims: panelAnims, body: panelBody, save: panelSave }[st.tab]().filter(Boolean));      // a missing item must not show up as the word "null"
   }
 
   async function importCharacterFiles(files) {

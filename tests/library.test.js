@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assetAddress, isLibraryPath, libraryType, LIBRARY_CACHE } from '../shared/library-url.js';
@@ -26,13 +26,28 @@ test('upload-library puts every file under <prefix>/12toons/ and skips files tha
   const s3 = await startFakeS3(), dir = mkdtempSync(join(tmpdir(), 'lib-'));
   mkdirSync(join(dir, 'chars/neha'), { recursive: true }); mkdirSync(join(dir, 'pose'));
   writeFileSync(join(dir, 'characters.json'), '{"characters":[]}'); writeFileSync(join(dir, 'chars/neha/front_ske.json'), '{"a":1}'); writeFileSync(join(dir, 'pose/neha-front.webp'), 'webp-bytes'); writeFileSync(join(dir, '.DS_Store'), 'junk');
-  const env = { ...process.env, CLOUDFLARE_R2_ACCOUNT_ID: 'a', CLOUDFLARE_R2_ACCESS_KEY_ID: 'k', CLOUDFLARE_R2_SECRET_ACCESS_KEY: 's', CLOUDFLARE_R2_LIBRARY_BUCKET: 'lib', CLOUDFLARE_R2_ENDPOINT: s3.url };
+  const env = { ...process.env, CLOUDFLARE_R2_ACCOUNT_ID: 'a', CLOUDFLARE_R2_ACCESS_KEY_ID: 'k', CLOUDFLARE_R2_SECRET_ACCESS_KEY: 's', CLOUDFLARE_R2_BUCKET_NAME: 'lib', CLOUDFLARE_R2_ENDPOINT: s3.url };
   try {
     const first = await run('node', ['scripts/upload-library.mjs', '--dir', dir, '--prefix', 'v7'], { env });
-    assert.match(first.stdout, /3 upload hui, 0 pehle se thi/); assert.match(first.stdout, /VITE_LIBRARY_URL=.*\/v7/);
-    assert.deepEqual([...s3.objects.keys()].sort(), ['v7/12toons/characters.json', 'v7/12toons/chars/neha/front_ske.json', 'v7/12toons/pose/neha-front.webp']);
+    assert.match(first.stdout, /3 upload hui, 0 pehle se thi/); assert.match(first.stdout, /LIBRARY_PREFIX=v7/);
+    assert.deepEqual([...s3.objects.keys()].sort(), ['v7/12toons/characters.json', 'v7/12toons/chars/neha/front_ske.json', 'v7/12toons/library-manifest.json', 'v7/12toons/pose/neha-front.webp']);
     const again = await run('node', ['scripts/upload-library.mjs', '--dir', dir, '--prefix', 'v7'], { env });
     assert.match(again.stdout, /0 upload hui, 3 pehle se thi/);
-    await assert.rejects(run('node', ['scripts/upload-library.mjs', '--dir', dir], { env: { ...env, CLOUDFLARE_R2_LIBRARY_BUCKET: '' } }), /variable set nahi hain/);
+    await assert.rejects(run('node', ['scripts/upload-library.mjs', '--dir', dir], { env: { ...env, CLOUDFLARE_R2_BUCKET_NAME: '' } }), /variable set nahi hain/);
+    // pull: a fresh checkout downloads the whole library again from the public address
+    const target = mkdtempSync(join(tmpdir(), 'pull-')), pullEnv = { ...process.env, LIBRARY_SITE: `${s3.url}/lib/v7` };
+    const pulled = await run('node', ['scripts/pull-library.mjs', '--dir', target], { env: pullEnv });
+    assert.match(pulled.stdout, /3 files/); assert.match(pulled.stdout, /3 download hui, 0 pehle se thi/);
+    assert.equal(readFileSync(join(target, 'chars/neha/front_ske.json'), 'utf8'), '{"a":1}'); assert.equal(readFileSync(join(target, 'pose/neha-front.webp'), 'utf8'), 'webp-bytes');
+    assert.match((await run('node', ['scripts/pull-library.mjs', '--dir', target], { env: pullEnv })).stdout, /0 download hui, 3 pehle se thi/);
+    await assert.rejects(run('node', ['scripts/pull-library.mjs', '--dir', target], { env: { ...pullEnv, LIBRARY_SITE: '', VITE_LIBRARY_URL: '' } }), /LIBRARY_SITE set nahi hai/);
   } finally { await s3.close(); }
+});
+
+import { libraryKey } from '../server/library.js';
+test('the server only turns plain library file paths into R2 keys inside the lib folder', () => {
+  assert.equal(libraryKey('chars/neha/front_ske.json'), 'lib/v1/12toons/chars/neha/front_ske.json');
+  assert.equal(libraryKey('/pose/neha-front.webp', '/lib/v2/'), 'lib/v2/12toons/pose/neha-front.webp');
+  assert.equal(libraryKey('anims/front-side/walk (1).json'), 'lib/v1/12toons/anims/front-side/walk (1).json');
+  for (const bad of ['', null, '../u/someone/a/ab/abc', 'chars/../../u/x.json', 'a//b.json', '.env', 'chars/.hidden.json', 'x.exe', 'x.json?y=1', 'a\\b.json', 'u/other/file.json%2e%2e', 'a'.repeat(301) + '.json']) assert.equal(libraryKey(bad), null, String(bad));
 });

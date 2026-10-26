@@ -15,7 +15,7 @@ import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as db
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
-import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS } from './catalog.js';
+import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS } from './catalog.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
@@ -226,7 +226,7 @@ function chooseCharacter(s, after) {
   close = modal(`Character for ${s.name}`, h('div', {},
     h('div', { class: 'gridc' }, card(null, 'No character', 'Voice only', () => pick(null), !s.charId)),
     h('h2', { style: 'margin:16px 0 8px' }, 'Characters'),
-    libraryCharacters().some((e) => e.template) ? characterPicker({ entries: libraryCharacters(), isOn: (e) => s.charId === `lib:${e.id}`, onPick: (e) => pick(`lib:${e.id}`) }) : null,
+    libraryCharacters().some((e) => e.template) ? characterPicker({ entries: libraryCharacters(), isOn: (e) => s.charId === `lib:${e.id}`, onPick: (e) => pick(`lib:${e.id}`) }) : libraryStatus() ? h('p', { class: 'sub', role: 'alert' }, libraryStatus()) : null,
     S.characters.length ? [h('h2', { style: 'margin:16px 0 8px' }, 'Your characters'), h('div', { class: 'gridc' }, S.characters.map((c) => card(c.thumb || null, c.name, 'from your device', () => pick(c.id), s.charId === c.id)))] : null,
     cloudBox));
   cloudReady().then(async (ok) => {

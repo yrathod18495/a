@@ -130,6 +130,7 @@ test('tester opens the fixed rig from Create my own character and its live previ
  await expect(page.locator('.cs-stage canvas')).toBeVisible();
  // the tester page keeps every editing tab
  await expect(page.locator('.cs-tabs button')).toContainText(['Start','Create','Layers','Face','Animations','Body','Outfit']);
+ for(const tab of ['Create','Layers','Face','Animations','Body','Outfit']){await page.locator('.cs-tabs button',{hasText:tab}).click();await expect(page.locator('.cs-tabs button.on')).toHaveText(tab);expect(await page.locator('.cs-panel').evaluate(p=>[...p.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).filter(Boolean)),'stray text in the '+tab+' panel').toEqual([]);}
  await page.locator('.cs-tabs button',{hasText:'Layers'}).click();
  await expect(page.locator('.cs-tabs button.on')).toHaveText('Layers');
  await page.locator('.cs-tabs button',{hasText:'Face'}).click();

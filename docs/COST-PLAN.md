@@ -24,6 +24,7 @@ What follows from the prices:
 | Pictures, audio, character pages, project snapshots | **R2** | big files; one request each, no egress fee |
 | Project index (name, revision, summary, last 10 saves), file registry (`assets/<uid>/<hash>` = size), storage usage (`usage/<uid>`), shared studio assets list | **RTDB** | small, changes often, no per-operation charge |
 | Payments, plans, affiliates, support chat, security events / audit / alerts, account status, admin list, session lease | **Firestore** | needs queries, transactions and rules; low volume |
+| Character library (rigs, atlases, pictures, animations), `lib/v1/` in the same bucket | **R2** (private; reached by a cached redirect to a signed link) | see `docs/LIBRARY.md` |
 | Local project copy, uploaded-file list, downloaded-file cache | the user's **browser** (IndexedDB, localStorage, Cache Storage) | free, instant, works offline |
 
 ### R2 layout (everything of one user under `u/<uid>/`)

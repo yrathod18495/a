@@ -14,6 +14,7 @@ export const UPLOAD_TTL = 600, DOWNLOAD_TTL = 900;     // seconds a signed URL s
 const env = (k) => process.env[k] || '';
 export const configured = () => !!(env('CLOUDFLARE_R2_ACCOUNT_ID') && env('CLOUDFLARE_R2_ACCESS_KEY_ID') && env('CLOUDFLARE_R2_SECRET_ACCESS_KEY') && env('CLOUDFLARE_R2_BUCKET_NAME'));
 let s3;
+export const resetClient = () => { s3 = null; };      // tests point the client at a local server
 export const client = () => s3 ||= new S3Client({
   region: 'auto', endpoint: env('CLOUDFLARE_R2_ENDPOINT') || 'https://' + env('CLOUDFLARE_R2_ACCOUNT_ID') + '.r2.cloudflarestorage.com', forcePathStyle: true,     // CLOUDFLARE_R2_ENDPOINT is only for tests / a local S3
   credentials: { accessKeyId: env('CLOUDFLARE_R2_ACCESS_KEY_ID'), secretAccessKey: env('CLOUDFLARE_R2_SECRET_ACCESS_KEY') },

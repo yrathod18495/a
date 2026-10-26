@@ -9,8 +9,10 @@ import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
 import { assetAddress } from '../shared/library-url.js';
 
-const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: public R2 bucket with the 12toons characters (docs/LIBRARY.md)
-let library = [], adAnims = null, managedAnimations = [];
+const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: optional address of a CDN in front of the library; without it /12toons/... is answered by api/library.js (docs/LIBRARY.md)
+let library = [], adAnims = null, managedAnimations = [], libraryProblem = '';
+/** why the character list is empty, in simple Hinglish ('' when it loaded) */
+export const libraryStatus = () => libraryProblem;
 
 /* ---- admin rules: animations the admin switched off. { '*': [ids for every character], neha: [ids], mybaby: [ids] } ---- */
 let hiddenRules = {};
@@ -29,7 +31,7 @@ const isHiddenAnim = (rig, id) => { const k = String(id), all = hiddenRules['*']
 export async function loadCatalog() {
   setAnimRules(cachedRules());   // last published rules kept on this device, then the fresh ones (waits at most 2.5 s)
   try { const r = await Promise.race([loadAnimRules(), new Promise((res) => setTimeout(() => res(null), 2500))]); if (r) setAnimRules(r); } catch { /* keep the cached rules */ }
-  library = [];
+  library = []; libraryProblem = '';
   adAnims = null; managedAnimations = [];
   try { managedAnimations = (await listStudioAssets()).filter(asset => asset.type === 'animation'); } catch { /* Bundled catalog stays available without account storage. */ }
   // 12toons template characters (layered SVG characters, five poses each) + their animation library
@@ -38,7 +40,10 @@ export async function loadCatalog() {
     adAnims = anims;
     const mine = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `12toons/pose/${c.id}-${p.pose}.webp`, template: p, paid: false })));
     library = mine;
-  } catch (e) { console.warn('12toons data failed to load', e); }
+  } catch (e) {
+    console.warn('12toons data failed to load', e);
+    libraryProblem = 'Character library abhi load nahi ho payi. Internet check karke page reload karein; na chale to admin ko batayein.';
+  }
 }
 export const libraryCharacters = () => library;
 export const cdn = (p) => url(p);
