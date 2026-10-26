@@ -1,7 +1,7 @@
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, brandWordmark } from './dom.js';
 import { listProjects, createProject, renameProject, deleteProject, copyProject } from './store.js';
-import { refreshProjects, syncProject, onSyncStatus, resolveConflict } from './project-sync.js';
+import { refreshProjects, syncProject, onSyncStatus, resolveConflict, registerProject } from './project-sync.js';
 export async function projectsView({user,kind,home,toast}) {
   const root=h('div',{class:`sh projects-page ${kind==='animation'?'projects-animation':'projects-character'}`}), list=h('div',{class:'projects-grid'}), status=h('p',{class:'projects-status'});
   const open=p=>{location.hash='#/'+(kind==='animation'?'toons':'characters')+'/'+p.id;location.reload();};
@@ -51,7 +51,7 @@ export async function projectsView({user,kind,home,toast}) {
   }
   const title=kind==='animation'?'Animation Studio':'Character Studio';
   const toolbar=h('div',{class:'projects-toolbar'},
-    h('button',{class:'btn pri',onclick:run(async()=>{const name=await dialog({title:'Create a project',description:`Give your new ${kind==='animation'?'animation':'character'} project a name.`,value:'Untitled project',confirmLabel:'Create project'});if(name){const p=await createProject(user.uid,kind,name);open(p);}})},'Create New Project'),
+    h('button',{class:'btn pri',onclick:run(async()=>{const name=await dialog({title:'Create a project',description:`Give your new ${kind==='animation'?'animation':'character'} project a name.`,value:'Untitled project',confirmLabel:'Create project'});if(name){const p=await createProject(user.uid,kind,name);const id=await registerProject(user.uid,p.id,kind,name);open(id===p.id?p:{...p,id});}})},'Create New Project'),
     kind!=='animation'?h('button',{class:'btn',onclick:run(async()=>{await refreshProjects(user.uid);})},'Refresh from Cloud'):null);
   root.append(h('header',{class:'projects-header'},h('a',{class:'projects-brand',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},...brandWordmark()),h('span',{class:'projects-divider'}),h('div',{class:'projects-heading'},h('h1',{},'My Projects'),h('p',{},title)),h('span',{class:'sp'}),h('button',{class:'btn projects-home',onclick:home},'Home')),
     h('main',{class:'projects-main'},h('div',{class:'projects-intro'},h('div',{},h('span',{class:'projects-eyebrow'},'YOUR WORKSPACE'),h('h2',{},`Your ${kind==='animation'?'animations':'characters'}`),h('p',{},`Open and manage your ${kind==='animation'?'animation':'character'} projects.`)),status),toolbar,list));

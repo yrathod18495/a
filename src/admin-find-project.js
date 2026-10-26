@@ -22,7 +22,13 @@ export function findProjectView({ user, back, toast }) {
     button.disabled = true; result.replaceChildren(h('p', { class: 'hint' }, 'Dhoondh rahe hain…'));
     try {
       const r = await adminFindProject(id, user);
-      if (!r.found) { result.replaceChildren(h('p', { class: 'hint' }, `Project ID "${id}" nahi mila. ID sahi hai aur project kabhi cloud me save hua tha, ye check karein.`)); return; }
+      if (!r.found) { result.replaceChildren(h('p', { class: 'hint' }, `Project ID "${id}" nahi mila. ID sahi hai, ye check karein — ho sakta hai project kabhi banaya hi na gaya ho.`)); return; }
+      if (r.pending) {
+        result.replaceChildren(
+          h('p', { class: 'hint' }, `ID ${r.id} ek ${r.kind === 'animation' ? 'animation' : 'character'} project ke liye bana hua hai, lekin abhi tak cloud par poora save nahi hua — shayad user offline hai ya abhi edit kar raha hai pehli bar.`),
+          h('div', {}, h('small', { class: 'sub' }, 'Owner'), h('p', {}, r.owner.name || r.owner.email || r.owner.uid), r.owner.email ? h('small', {}, r.owner.email) : null));
+        return;
+      }
       const p = r.project;
       result.replaceChildren(
         h('h2', {}, p.name || 'Untitled project'),

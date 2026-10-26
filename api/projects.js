@@ -11,7 +11,7 @@ const KEEP_ACTIVITY = 10;
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
   try {
-    const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit', cache: true, admin: b.action === 'adminLookup' });
+    const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit' || b.action === 'register', cache: true, admin: b.action === 'adminLookup' });
     if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
     const svc = services(), store = kv(svc), uid = who.uid;
     if (b.action === 'list') {
@@ -22,14 +22,22 @@ export default async function handler(req, res) {
       }));
       return send(res, 200, { projects });
     }
+    if (b.action === 'register') {
+      // claims the short ID the instant a project is created, well before its first real cloud save — so support can find it (owner, kind)
+      // even mid-edit; commit() below re-claims the same entry on every save, which is harmless (same uid, same value)
+      if (!idOK(b.id) || !['animation', 'character'].includes(b.kind)) throw new AccessError('invalid_project', 'Project ki jaankari sahi nahi hai.', 400);
+      const claim = await store.transact(`projectIndex/${b.id}`, (seen) => (seen && seen.uid !== uid) ? undefined : { uid, kind: b.kind });
+      if (!claim.committed) throw new AccessError('id_taken', 'Ye project ID kisi aur account me pehle se hai. Project ko dobara banayein.', 409);
+      return send(res, 200, { ok: true });
+    }
     if (b.action === 'adminLookup') {
       if (!idOK(b.id)) throw new AccessError('invalid_project', 'Project ID sahi nahi hai.', 400);
       const owner = await store.get(`projectIndex/${b.id}`);
       if (!owner) return send(res, 200, { found: false });
-      const row = await store.get(`projects/${owner.uid}/${b.id}`);
-      if (!row) return send(res, 200, { found: false });
-      const { activity, ...project } = row;
       const account = (await svc.db.doc('securityUsers/' + owner.uid).get()).data() || {};
+      const row = await store.get(`projects/${owner.uid}/${b.id}`);
+      if (!row) return send(res, 200, { found: true, pending: true, id: b.id, kind: owner.kind, owner: { uid: owner.uid, email: account.email || '', name: account.name || '' } });
+      const { activity, ...project } = row;
       return send(res, 200, { found: true, id: b.id, owner: { uid: owner.uid, email: account.email || '', name: account.name || '' }, project, activity: activity || [] });
     }
     if (!idOK(b.id)) throw new AccessError('invalid_project', 'Project sahi nahi hai. Dobara chunein.', 400);

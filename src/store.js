@@ -118,6 +118,22 @@ export async function copyProject(uid,id) {
  });
  return p;
 }
+/** the server refused this project's short ID — another account already holds it (the ID space is small enough that this can genuinely happen).
+ *  This project was never synced under the old ID (that is why the refusal happened before anything else), so the old local copy is purged outright
+ *  rather than left behind as a tombstone; nothing is lost, only the ID changes. */
+export async function reassignProjectId(uid,id) {
+ const source=await snapshot(uid,id);
+ if(!source.meta)throw Error('Project sahi nahi hai');
+ const p=await createProject(uid,source.meta.kind,source.meta.name);
+ await tx(['records','projects'],'readwrite',t=>{
+  for(const {store,value} of source.records)t.objectStore('records').put({uid,project:p.id,store,id:value.id,value});
+  t.objectStore('projects').delete([uid,id]);
+  const rs=t.objectStore('records'),scan=rs.openCursor();
+  scan.onsuccess=()=>{const c=scan.result;if(c){if(c.value.uid===uid&&c.value.project===id)c.delete();c.continue();}};
+ });
+ if(active&&active.uid===uid&&active.id===id)active={uid,id:p.id};
+ return p;
+}
 export async function restoreSnapshot(uid,meta,records) {
  if(!meta?.id||!Array.isArray(records)||records.some(r=>!STORES.includes(r.store)||!r.value?.id))throw Error('Snapshot sahi nahi hai');
  await tx(['records','projects','library'],'readwrite',t=>{

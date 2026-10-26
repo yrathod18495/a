@@ -20,6 +20,12 @@ const brandFavicon = favicon?.getAttribute('href') || '';
 const testerFavicon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="8" fill="%23d4a443"/%3E%3Ccircle cx="16" cy="16" r="6" fill="%231b1308"/%3E%3C/svg%3E';
 window.addEventListener('session-error', e => toast(e.detail));
 window.addEventListener('session-revoked', e => toast(e.detail));
+// a background save discovered this project's short ID collided with another account's and gave it a fresh one (see project-sync.js); keep the
+// address bar honest so a reload still finds it, without disturbing whatever is on screen
+window.addEventListener('project-id-changed', e => {
+  const { oldId, newId } = e.detail, parts = location.hash.split('/');
+  if (parts[2] === oldId) { parts[2] = newId; history.replaceState(null, '', location.pathname + location.search + parts.join('/')); }
+});
 const $shell = document.getElementById('shell'), $app = document.getElementById('app');
 let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true, testerAccessOnly = false, testerApplicationStatus = 'none', staffLoginPending = sessionStorage.getItem('12toons-staff-login') === '1', staffMessage = '';
 let loadedAnimationProject=null, testerAuthError='';
@@ -144,7 +150,8 @@ async function renderRoute() {
         signOut: async () => { await signOutUser({ release: !testerAccessOnly }); testerAccessOnly = false; role = 'user'; go('#/'); },
         onApproved: () => refreshUser() })); return;
     }
-    const p=(await listProjects(user.uid)).find(p=>p.kind==='character'&&!p.deleted)||await createProject(user.uid,'character','Tester draft');
+    let p=(await listProjects(user.uid)).find(p=>p.kind==='character'&&!p.deleted);
+    if(!p){p=await createProject(user.uid,'character','Tester draft');import('./project-sync.js').then(m=>m.registerProject(user.uid,p.id,'character','Tester draft')).catch(()=>{});}
     selectProject(user.uid,p.id);
     const m = await import('./charstudio.js');
     $shell.replaceChildren(await m.view({ user, tester: true, toast, home: () => {}, logout: async () => { await signOutUser(); role = 'user'; go('#/'); } })); return;

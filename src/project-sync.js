@@ -1,7 +1,7 @@
 import { syncFailure } from './sync-feedback.js';
 import { auth } from './firebase.js';
 import { apiCall } from './session.js';
-import { listProjects, snapshot, acknowledge, restoreSnapshot, onStoreChange, context, setPending, copyProject } from './store.js';
+import { listProjects, snapshot, acknowledge, restoreSnapshot, onStoreChange, context, setPending, copyProject, reassignProjectId } from './store.js';
 import { packRecords, unpackRecords } from './project-codec.js';
 import { uploadAssets, downloadAssets, fetchBlob } from './binary-cloud.js';
 import { summarizeProjectSnapshot } from '../shared/project-summary.js';
@@ -9,6 +9,20 @@ const listeners = new Set(), jobs = new Map(), timers = new Map();
 export const syncStatus = { text: 'Saved locally', error: '', issue: null, projectId: null };
 export const onSyncStatus = fn => { listeners.add(fn); fn(syncStatus); return () => listeners.delete(fn); };
 function status(text, error = '', issue = null, projectId = null) { Object.assign(syncStatus, { text, error, issue, projectId }); listeners.forEach(fn => fn(syncStatus)); }
+/** claims this project's short ID right away, so support can find it by ID (owner, kind) the moment it exists — not only once it has fully
+ *  synced. Best-effort and silent: offline or any other failure just means the ID shows up a little later, on the first real save instead. */
+export async function registerProject(uid, id, kind, name) {
+  if (uid === 'debug' || !navigator.onLine) return id;
+  try { await apiCall('/api/projects', { action: 'register', id, kind, name }, uid); return id; }
+  catch (e) {
+    if (e.code !== 'id_taken') return id;
+    try {
+      const p = await reassignProjectId(uid, id);
+      window.dispatchEvent(new CustomEvent('project-id-changed', { detail: { uid, oldId: id, newId: p.id } }));
+      return registerProject(uid, p.id, kind, name);
+    } catch { return id; }
+  }
+}
 async function commitOnce(uid, id, meta, records) {
   let pending = meta.pending;
   if (!pending) {
@@ -48,6 +62,16 @@ export async function syncProject(uid, id) {
           const { projects } = await apiCall('/api/projects', { action: 'list' }, uid);
           const latest = projects.find(p => p.id === id)?.revision ?? 0;
           await commitOnce(uid, id, { ...meta, revision: latest, pending: null }, records);
+          return;
+        } catch (e2) { e = e2; }
+      }
+      // this project's short, human-readable ID was already claimed by a different account — give it a fresh one and retry; the ID
+      // space is small enough on purpose (it has to be readable aloud) that this, while rare, is a real possibility to guard against
+      if (e.code === 'id_taken' && !meta.deleted) {
+        try {
+          const p = await reassignProjectId(uid, id);
+          window.dispatchEvent(new CustomEvent('project-id-changed', { detail: { uid, oldId: id, newId: p.id } }));
+          await syncProject(uid, p.id);
           return;
         } catch (e2) { e = e2; }
       }
