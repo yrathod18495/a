@@ -682,6 +682,35 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     });
     const end = () => { if (!drag) return; drag = null; if (st.tab === 'layers') draw(); };
     cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    /* right click on the preview: list every part under the mouse (top first) and select the one the user picks, like "select layer" in Photoshop */
+    let ctx = null;
+    const closeCtx = () => { ctx?.remove(); ctx = null; };
+    const partsAt = (cx, cy) => {
+      const layer = stage.layers.find((x) => x.key === 'c');
+      if (!layer?.mat || !st.def) return [];
+      const px = (cx - layer.mat[4]) / layer.mat[0], py = (cy - layer.mat[5]) / layer.mat[3], seen = new Set(), hit = [];
+      for (const it of stage.collect(layer)) {
+        const { verts: v, idx } = it;
+        for (let i = 0; i + 2 < idx.length; i += 3) {
+          const ax = v[idx[i] * 2], ay = v[idx[i] * 2 + 1], bx = v[idx[i + 1] * 2], by = v[idx[i + 1] * 2 + 1], qx = v[idx[i + 2] * 2], qy = v[idx[i + 2] * 2 + 1];
+          const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by), d2 = (px - qx) * (by - qy) - (bx - qx) * (py - qy), d3 = (px - ax) * (qy - ay) - (qx - ax) * (py - ay);
+          if (!((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))) { if (!seen.has(it.slot)) { seen.add(it.slot); hit.push(it.slot); } break; }
+        }
+      }
+      return hit.reverse().map((slot) => layers().find((l) => l.slot === slot && l.key === st.slot_attach(slot)) || layers().find((l) => l.slot === slot)).filter(Boolean);
+    };
+    cv.addEventListener('contextmenu', (e) => {
+      if (!tester || !st.def) return;
+      e.preventDefault(); e.stopImmediatePropagation(); closeCtx();
+      const r = cv.getBoundingClientRect(), { kx, ky } = cssToCanvas(), found = partsAt((e.clientX - r.left) * kx, (e.clientY - r.top) * ky);
+      ctx = h('div', { class: 'cs-ctx', role: 'menu' }, h('b', {}, found.length ? 'Layer chunein' : 'Yahan koi part nahi hai'),
+        found.map((l) => h('button', { type: 'button', role: 'menuitem', class: st.guideFocus === l.region ? 'on' : '', onclick: () => { closeCtx(); st.place = true; focusRig(l); draw(); } }, labelOf(l))));
+      document.body.append(ctx);
+      ctx.style.left = Math.min(e.clientX, innerWidth - ctx.offsetWidth - 8) + 'px'; ctx.style.top = Math.min(e.clientY, innerHeight - ctx.offsetHeight - 8) + 'px';
+    }, true);
+    const away = (e) => { if (ctx && !ctx.contains(e.target)) closeCtx(); };
+    document.addEventListener('pointerdown', away, true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtx(); });
     const keys = (e) => {
       if (!root.isConnected || !tester || !st.place || !selectedPart() || e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input,select,textarea,[contenteditable=true]')) return;
       const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
@@ -689,7 +718,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       e.preventDefault(); const { kx, ky } = cssToCanvas(), n = e.shiftKey ? 10 : 1; movePart(d[0] * n * kx, d[1] * n * ky);
     };
     document.addEventListener('keydown', keys);
-    offPlaceKeys = () => document.removeEventListener('keydown', keys);
+    offPlaceKeys = () => { document.removeEventListener('keydown', keys); document.removeEventListener('pointerdown', away, true); closeCtx(); };
   }
   function focusRig(l) {
     if (!tester || !l) return;

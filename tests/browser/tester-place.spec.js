@@ -76,3 +76,27 @@ test('with "Hath se rakho" off the preview is not dragged, and the bar is hidden
   await page.locator('.cs-tabs button', { hasText: 'Start' }).click();
   await expect(page.locator('.cs-place')).toBeHidden();
 });
+
+test('right click on the preview lists the parts under the mouse and selects the chosen one', async ({ page }) => {
+  test.setTimeout(180000);
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await openTester(page);
+  await page.locator('.cs-panel input[type=file]').first().setInputFiles([{ name: 'TORSO_2.png', mimeType: 'image/png', buffer: await magenta(page, 160, 160) }]);
+  await expect(page.locator('.cs-place')).toBeVisible({ timeout: 20000 });
+  await page.evaluate(() => { window.__charstudio.st.order.TORSO_2 = 39; window.__charstudio.st.guideFocus = null; });
+  let p0 = null; await expect.poll(async () => { p0 = await where(page); return !!p0; }, { timeout: 30000 }).toBe(true);
+  const box = await page.locator('.cs-stage canvas').boundingBox();
+  await page.mouse.click(box.x + p0.x, box.y + p0.y, { button: 'right' });
+  await expect(page.locator('.cs-ctx')).toBeVisible();
+  const items = await page.locator('.cs-ctx button').allTextContents();
+  expect(items.length).toBeGreaterThan(0);
+  await page.locator('.cs-ctx button').first().click();
+  await expect(page.locator('.cs-ctx')).toBeHidden();
+  expect(await page.evaluate(() => window.__charstudio.st.guideFocus)).toBeTruthy();
+  // right click on empty canvas: only a note, Escape closes it
+  await page.mouse.click(box.x + 3, box.y + 3, { button: 'right' });
+  await expect(page.locator('.cs-ctx')).toContainText('koi part nahi');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.cs-ctx')).toBeHidden();
+  expect(errors).toEqual([]);
+});
