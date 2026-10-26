@@ -56,16 +56,20 @@ export function landingView({ user, cta, profileMenu, logo }) {
   const pricingLink = h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing');
   const brand = logo(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   const primaryCta = (label) => h('span', { class: 'lp-button-content' }, h('img', { src: '/images/royal-crown-emblem.png', alt: '', width: '38', height: '38', loading: 'lazy' }), h('span', {}, label));
-  const nav = h('nav', { class: 'lp-nav', 'aria-label': 'Main navigation' },
-    navLink('Home', 'top'), navLink('Features', 'features'), navLink('How it works', 'how'), pricingLink);
+  const leftNav = h('nav', { class: 'lp-nav lp-nav-left', 'aria-label': 'Main navigation' },
+    navLink('Home', 'top'), navLink('Features', 'features'));
+  const rightNav = h('nav', { class: 'lp-nav lp-nav-right', 'aria-label': 'More navigation' },
+    navLink('How it works', 'how'), pricingLink);
   const mobileNav = h('nav', { class: 'lp-mobile-nav', 'aria-label': 'Mobile navigation' },
     navLink('Home', 'top'), navLink('Features', 'features'), navLink('How it works', 'how'),
     h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing'), navLink('FAQ', 'faq'));
 
   return h('div', { class: 'sh lp' },
     h('header', { class: 'sh-bar lp-header' },
-      brand, nav,
-      user ? profileMenu() : button(primaryCta('Open my studio  →'), cta, 'primary', true)
+      leftNav,
+      h('div', { class: 'lp-brand-crest' }, brand),
+      h('div', { class: 'lp-header-right' }, rightNav,
+        user ? profileMenu() : button('Open Studio →', cta, 'primary'))
     ),
     mobileNav,
     h('main', {},
