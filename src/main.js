@@ -3,6 +3,8 @@ import { EditHistory } from './edit-history.js';
 import { PREVIEW_MODES, readPreviewMode, savePreviewMode, previewFrameDue } from './preview-quality.js';
 import './style.css';
 import './studio.css';
+import './timeline.css';
+import { timelineIcon, pruneTimelineThumbnails } from './timeline-icons.js';
 import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark } from './dom.js';
 import { ingest, isNarrator } from './ingest.js';
@@ -800,6 +802,10 @@ function selectLine(id, seek = true) {
 function drawTimeline() {
   if (!tlInner) return;
   const total = player.total || 1, pps = S.pps;
+  const background = S.myBgs.find(bg => bg.id === S.bgId);
+  const portrait = speaker => { const character = charOf(speaker); return character?.thumb || character?.thumbnail || null; };
+  pruneTimelineThumbnails([background?.blob, ...S.order.map(sOf).filter(Boolean).map(portrait)]);
+  tlBox.style.setProperty('--timeline-second', `${pps}px`);
   const step = pps >= 90 ? 1 : pps >= 40 ? 2 : pps >= 18 ? 5 : pps >= 8 ? 10 : 20;
   const ticks = [];
   for (let t = 0; t <= total; t += step) ticks.push(h('span', { class: 'tick', style: `left:${t * pps}px` }, `${Math.floor(t / 60) ? `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}` : `${t}s`}`));
@@ -822,11 +828,12 @@ function drawTimeline() {
   });
   // no audio yet: show only the ruler and the animation lanes (audio can still be added in the Audio tab)
   const hasAudio = player.clips.length > 0;
-  const labels = [h('div', { class: 'rl ruler', style: `height:${RULER}px` }, 'Time'), ...(hasAudio ? [h('div', { class: 'rl audio', style: 'height:52px' }, '🔊 Audio')] : [])], lanes = [ruler, ...(hasAudio ? [lane] : [])];
+  const labels = [h('div', { class: 'rl ruler', style: `height:${RULER}px` }, 'Layers'), ...(hasAudio ? [h('div', { class: 'rl audio', style: 'height:52px' }, timelineIcon(null, 'audio'), h('span', { class: 'lt' }, 'Audio'))] : [])], lanes = [ruler, ...(hasAudio ? [lane] : [])];
   // the scene background, named like the audio and animation clips
   const bgName = S.bgId ? (S.myBgs.find((r) => r.id === S.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[stage.bg.preset] || BACKGROUNDS[0]).name;
-  labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, '🖼 Background'));
-  const bgLane = h('div', { class: 'lane2 bg', style: 'height:38px' }, h('div', { class: 'tclip bg base', title: `Background · ${bgName} (poori scene)`, onclick: () => openTab('canvas'), style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)));
+  labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, timelineIcon(background?.blob, 'background'), h('span', { class: 'lt' }, 'Background')));
+  const bgLane = h('div', { class: 'lane2 bg', style: 'height:38px' },
+    S.bgId || stage.bg.preset !== 0 ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (poori scene)`, onclick: () => openTab('canvas'), style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
   for (const c of S.bgClips) {
     const nm = (c.bgId ? (S.myBgs.find((r) => r.id === c.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[c.preset] || BACKGROUNDS[0]).name), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
     const el = h('div', { class: `tclip bg mine ${c.id === S.bgSel ? 'sel' : ''}`, title: `${nm} — drag to move, drag an edge to resize`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `🖼 ${nm}`), rz);
@@ -846,7 +853,7 @@ function drawTimeline() {
   for (const s of S.order.map(sOf).filter((x) => x?.charId && charOf(x))) {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
     kinds.forEach((kind, i) => {
-      const ln = h('div', { class: 'lane2 char', style: `height:${LH}px` });
+      const ln = h('div', { class: 'lane2 char', style: `height:${LH}px;--track-color:${s.color}` });
       for (const c of plan.clips.filter((x) => x.kind === kind && !x.manual)) {
         const name = (nameOf.get(c.name) || c.name).replace(/^Listener · /, '');
         const ref = plan.refs.find((r) => animKey(r) === c.name), soloBody = c.id.startsWith('solo:body') && S.solo[s.key]?.bodyLen > 0;
@@ -870,7 +877,7 @@ function drawTimeline() {
         el.addEventListener('pointerdown', (e) => dragClip(e, m, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
         ln.append(el);
       }
-      labels.push(h('div', { class: 'rl char', style: `height:${LH}px` }, i === 0 ? [h('span', { class: 'dot', style: `background:${s.color}` }), h('span', { class: 'lt' }, s.name), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋')] : h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`)));
+      labels.push(h('div', { class: 'rl char', style: `height:${LH}px;--track-color:${s.color}` }, i === 0 ? [timelineIcon(portrait(s)), h('span', { class: 'lt', title: s.name }, s.name), h('button', { class: 'rx add', title: `Add an animation for ${s.name} at the playhead`, onclick: () => clipPicker(s) }, '＋')] : h('span', { class: 'lt face' }, `${KIND_ICON[kind]} ${kind}`)));
       lanes.push(ln);
     });
     const cks = S.charKeys[s.key];
@@ -899,7 +906,7 @@ function drawTimeline() {
     d.addEventListener('pointerdown', (e) => dragKey(e, k, d));
     cl.append(d);
   }
-  labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('camera') }, '🎥 Camera')); lanes.push(cl);
+  labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('camera') }, timelineIcon(null, 'camera'), h('span', { class: 'lt' }, 'Camera'))); lanes.push(cl);
   tlLabels.replaceChildren(...labels);
   tlInner.style.width = `${Math.ceil(total * pps) + 60}px`;
   tlInner.replaceChildren(...lanes, headEl);
@@ -2573,7 +2580,7 @@ export async function openStudio() {
 }
 export async function closeStudio() {
   while(saving)await new Promise(resolve=>setTimeout(resolve,20));
-  await tick({ sceneCommit: true }); player?.pause(); stopAll(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; $app.hidden = true; S.ready = false;
+  await tick({ sceneCommit: true }); player?.pause(); stopAll(); pruneTimelineThumbnails(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; $app.hidden = true; S.ready = false;
 }
 onSyncStatus(state => { if (!state.projectId || state.projectId === projectContext()?.id) updateSaveStatus(state); });
 
