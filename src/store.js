@@ -33,10 +33,15 @@ export const projectMeta=(uid,id)=>tx(['projects'],'readonly',t=>t.objectStore('
 export const listProjects=uid=>tx(['projects'],'readonly',t=>{
  const r=t.objectStore('projects').getAll();return ()=>r.result.filter(p=>p.uid===uid);
 });
+// a short number (not a UUID) so a user can read it out loud and support can look it up in the admin panel
+const shortId=()=>String(Math.floor(100000000+Math.random()*900000000));
 export async function createProject(uid,kind,name='Untitled project') {
  if(!uid||!['animation','character'].includes(kind))throw Error('Project sahi nahi hai');
- const p={uid,id:crypto.randomUUID(),kind,name:name.trim().slice(0,120)||'Untitled project',revision:0,generation:1,dirty:true,updatedAt:Date.now()};
- await tx(['projects'],'readwrite',t=>t.objectStore('projects').add(p)); return p;
+ for(let attempt=0;;attempt++) {
+  const p={uid,id:shortId(),kind,name:name.trim().slice(0,120)||'Untitled project',revision:0,generation:1,dirty:true,updatedAt:Date.now()};
+  try{await tx(['projects'],'readwrite',t=>t.objectStore('projects').add(p));return p;}
+  catch(e){if(attempt>=4)throw e;}   // id already used on this device (astronomically rare) — try another
+ }
 }
 export async function updateProject(uid,id,patch) {
  await tx(['projects'],'readwrite',t=>{

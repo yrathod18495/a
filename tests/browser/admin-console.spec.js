@@ -18,7 +18,7 @@ test('every admin section opens inside the console: the top bar and tabs never d
   await console_(page);
   const tabs = page.locator('.admin-console-tab');
   const names = await tabs.allInnerTexts();
-  expect(names).toEqual(['Overview', 'Users', 'Live Chat', 'Payments', 'Studio Controls', 'Tester Requests', 'Tester Permissions', 'Props & Effects', 'Add Assets', 'Affiliates']);
+  expect(names).toEqual(['Overview', 'Users', 'Live Chat', 'Payments', 'Studio Controls', 'Tester Requests', 'Tester Permissions', 'Find Project', 'Props & Effects', 'Add Assets', 'Affiliates']);
   for (const [index, name] of names.entries()) {
     await tabs.nth(index).click();
     await expect(page.locator('.admin-console-tab.active')).toHaveText(name);

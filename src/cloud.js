@@ -223,4 +223,8 @@ export async function saveTesterSubmission(def, user, extra = {}) {
 export async function listTesterSubmissions() {
   try { return (await getDocs(collection(db, 'testerCharacters'))).docs.map((d) => d.data()).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))); } catch { return []; }
 }
+/** admin: find any user's project by the short ID they read out, with its owner and recent save history */
+export async function adminFindProject(id, user) {
+  return apiCall('/api/projects', { action: 'adminLookup', id: String(id || '').trim() }, user.uid);
+}
 

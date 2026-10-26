@@ -6,14 +6,14 @@ import { kv } from '../server/rtdb.js';
 import { AccessError, nextRevision } from '../server/security-policy.js';
 import { cleanSummary } from '../shared/project-summary.js';
 import { confirmAssets, objectExists, deleteKey, stateKey, getUrl, isHash, MAX_PROJECT_ASSETS } from '../server/r2-storage.js';
-const idOK = v => typeof v === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(v);
+const idOK = v => typeof v === 'string' && /^[a-zA-Z0-9_-]{6,128}$/.test(v);
 const KEEP_ACTIVITY = 10;
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
   try {
-    const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit', cache: true });
+    const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit', cache: true, admin: b.action === 'adminLookup' });
     if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
-    const store = kv(services()), uid = who.uid;
+    const svc = services(), store = kv(svc), uid = who.uid;
     if (b.action === 'list') {
       const rows = (await store.get('projects/' + uid)) || {};
       const projects = await Promise.all(Object.entries(rows).map(async ([id, p]) => {
@@ -21,6 +21,16 @@ export default async function handler(req, res) {
         return { id, ...row, stateUrl: !p.deleted && p.stateOp ? await getUrl(stateKey(uid, id, p.stateOp)) : null };
       }));
       return send(res, 200, { projects });
+    }
+    if (b.action === 'adminLookup') {
+      if (!idOK(b.id)) throw new AccessError('invalid_project', 'Project ID sahi nahi hai.', 400);
+      const owner = await store.get(`projectIndex/${b.id}`);
+      if (!owner) return send(res, 200, { found: false });
+      const row = await store.get(`projects/${owner.uid}/${b.id}`);
+      if (!row) return send(res, 200, { found: false });
+      const { activity, ...project } = row;
+      const account = (await svc.db.doc('securityUsers/' + owner.uid).get()).data() || {};
+      return send(res, 200, { found: true, id: b.id, owner: { uid: owner.uid, email: account.email || '', name: account.name || '' }, project, activity: activity || [] });
     }
     if (!idOK(b.id)) throw new AccessError('invalid_project', 'Project sahi nahi hai. Dobara chunein.', 400);
     if (b.action === 'commit') {
@@ -30,6 +40,9 @@ export default async function handler(req, res) {
       const current = await store.get(path);
       if (current?.operationId === b.operationId) return send(res, 200, { revision: current.revision });
       nextRevision(current, b.expected, b.operationId);                      // conflict is answered before any R2 work
+      // the project id is short enough for a person to read aloud, so it must stay unique across every account, not just this one
+      const claim = await store.transact(`projectIndex/${b.id}`, (seen) => (seen && seen.uid !== uid) ? undefined : { uid, kind: b.kind });
+      if (!claim.committed) throw new AccessError('id_taken', 'Ye project ID kisi aur account me pehle se hai. Project ko dobara banayein.', 409);
       const assets = Array.isArray(b.assets) ? b.assets : [];
       if (!deleted) {
         if (assets.length > MAX_PROJECT_ASSETS || !assets.every((a) => isHash(a?.hash))) throw new AccessError('invalid_asset', 'Asset sahi nahi hai.', 400);
