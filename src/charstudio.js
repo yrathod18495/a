@@ -376,6 +376,13 @@ export async function view({ user, home, toast, tester = false, logout, localPre
             try { await pick(await fetchLibraryCharacter(base), 'custom character base'); rebuild(); st.tab = 'create'; draw(); focusRig(createRows()[0]); }
             catch (er) { toast(`Animation rig load nahi ho payi: ${er.message}`); }
           } }, h('b', {}, 'Create my own character'), h('small', {}, 'Open custom upload workspace')))),
+      (mine.length || cloudOnly.length) ? h('div', { class: 'cs-sec' }, h('h3', {}, 'Your saved characters'),
+        h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Tap one to keep editing it — this is exactly what the admin sees in the review list.'),
+        h('div', { class: 'cs-grid' },
+          mine.map((c) => h('div', { class: `cs-card ${st.def?.id === c.id ? 'on' : ''}`, onclick: () => { st.createMode = true; pick(c); } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'), h('b', {}, c.name),
+            h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); deleteCharacterCloud(c.id).then(() => { st.cloud = st.cloud.filter((x) => x.id !== c.id); }).catch(() => {}); mine.splice(mine.indexOf(c), 1); draw(); } }, '✕'))),
+          cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('Iska template ab available nahi hai.'); mine.push(d); st.createMode = true; await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ saved earlier'),
+            h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacterCloud(c.id); st.cloud = st.cloud.filter((x) => x.id !== c.id); draw(); } }, '✕'))))) : null,
     ];
     return [
       h('div', { class: 'cs-sec' }, h('h3', {}, 'Pick the base body (skeleton + animations come with it)'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Every template comes with its layers, animations and lip-sync. Pick one, then replace its layers with your own art.'),

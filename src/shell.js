@@ -336,7 +336,7 @@ async function start() {
   await finishRedirect();
   let first = true;
   onUser(async (u, authState = {}) => {
-    if (ready && user?.uid !== u?.uid) { location.reload(); return; }
+    if (ready && user && u && user.uid !== u.uid) { location.reload(); return; }   // only a real account switch forces a reload; a momentary null (mobile auth hiccup) must not nuke unsaved work
     user = u;
     testerAccessOnly = !!authState.testerAccessOnly;
     testerAuthError = authState.testerError || '';
