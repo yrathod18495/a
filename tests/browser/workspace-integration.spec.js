@@ -65,7 +65,7 @@ test('free accounts cannot export more than 2 minutes, one scene or all scenes j
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'a',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
  await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'b',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
- await page.locator('.tabs.big').getByRole('button',{name:'Audio',exact:true}).click();await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
+ await page.locator('.upload-tools>summary').click();await page.locator('.tabs.big').getByRole('button',{name:'Audio',exact:true}).click();await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.locator('.exp-summary')).toContainText('Length · 2 scenes');await expect(page.locator('.exp-summary')).toContainText('141.0 s');
  await page.locator('.hdr-tools').getByRole('button',{name:'⬇ Export',exact:true}).click();
  await expect(page.getByText(/Aapka video 2 min 21 s lamba hai/).first()).toBeVisible();
@@ -102,7 +102,7 @@ test('tool menu and side panel can be dragged anywhere, keep their place after r
  await drag(page.locator('.sheet-close'),-520,70);
  const panelBox=await panel.boundingBox();expect(panelBox.x).toBeLessThan(900);await expect(panel).toHaveClass(/free/);
  // the menus still work where they were dropped
- await rail.getByRole('button',{name:'Audio',exact:true}).click();await expect(panel.locator('.sheet-close b')).toContainText('Audio');
+ await rail.locator('.upload-tools>summary').click();await rail.getByRole('button',{name:'Audio',exact:true}).click();await expect(panel.locator('.sheet-close b')).toContainText('Audio');
  // the position is remembered
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('12toons.studio.layout')));expect(saved.railPos.x).toBeGreaterThan(300);expect(saved.panelPos.w).toBeGreaterThan(200);
  await page.reload();await expect.poll(()=>page.evaluate(()=>window.__toon?.S.ready)).toBe(true);

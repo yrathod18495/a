@@ -26,7 +26,7 @@ export function aspectOf(a) {
   return ASPECTS['16:9'];
 }
 export const BACKGROUNDS = [
-  { name: 'Midnight', a: '#1b1f4b', b: '#6a3cbc' },
+  { name: 'Blank canvas', a: '#ffffff', b: '#ffffff' },
   { name: 'Sunrise', a: '#ff9966', b: '#ff5e62' },
   { name: 'Sky', a: '#4facfe', b: '#c2e9fb' },
   { name: 'Forest', a: '#134e5e', b: '#71b280' },
