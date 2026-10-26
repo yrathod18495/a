@@ -29,7 +29,7 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .ws .line-details>summary{padding:3px 6px;color:var(--mute);cursor:pointer}
 #app .ws .linebox{margin:0;padding:6px}
 #app .ws .clipbar{flex:none;margin:0;padding:4px 6px;min-height:30px}
-#app .ws .tabs.big{position:static;align-self:stretch;display:flex;flex-direction:column;gap:3px;padding:5px;margin:0;min-height:0;overflow:visible;border-radius:12px;background:var(--card);box-shadow:none;z-index:12}
+#app .ws .tabs.big{grid-area:rail;position:static;align-self:stretch;display:flex;flex-direction:column;gap:3px;padding:5px;margin:0;min-height:0;overflow:visible;border-radius:12px;background:var(--card);box-shadow:none;z-index:12}
 #app .ws .tabs.big>button,#app .ws .advanced-tools button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;width:100%;min-height:52px;padding:6px 2px;font-size:10px;border-radius:9px;color:var(--text);background:transparent;border:0}
 #app .ws .tabs.big .ti{display:block;font-size:19px;line-height:1}
 #app .ws .tabs.big button.on{background:var(--royal-button);color:#201607}
@@ -88,7 +88,7 @@ body:has(#app:not([hidden])){overflow:hidden}
 :root[data-theme] body #app .ws{background-attachment:scroll}
 :root[data-theme] body #app .ws :is(.panel,.tabs.big,.stagebox,.tl2,.card,.empty-in){box-shadow:none;backdrop-filter:none}
 :root[data-theme] body #app .ws .topbar{background-image:none;background-color:var(--card);border-radius:8px;padding:4px 8px 8px}
-@media(max-width:860px) and (min-height:501px){
+@media(max-width:860px){
   #app .ws{padding:6px}
   #app .ws .topbar{min-height:46px;gap:4px;margin-bottom:6px;flex-wrap:wrap}
   #app .ws .topbar .logo-btn{font-size:17px}
@@ -97,6 +97,8 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .tabs.big{display:flex;flex-direction:row;align-items:stretch;overflow:visible;padding:3px;border:1px solid var(--line);position:relative;bottom:auto}
   #app .ws .tabs.big>button{min-height:42px;flex:1;min-width:0;width:auto;font-size:9px;padding:3px}
   #app .ws .tabs.big .ti{font-size:16px}
+  #app .ws .tabs.big .rail-label{display:none}
+  #app .ws .tabs.big>button>span:not(.ti){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #app .ws .advanced-tools{margin:0;flex:1;min-width:0}
   #app .ws .advanced-tools>summary{font-size:9px;padding:4px 0}
   #app .ws .advanced-tools-list{left:auto;right:0;bottom:calc(100% + 8px);width:120px}
@@ -122,9 +124,11 @@ body:has(#app:not([hidden])){overflow:hidden}
   .animation-filters .row select{padding:5px}
   .animation-list{min-height:48px}
 }
-@media(max-height:500px) and (max-width:860px){
-  #app .ws .studio{grid-template-columns:52px minmax(0,1fr) 240px;grid-template-rows:minmax(0,1fr) 145px}
-  #app .ws .tabs.big>button{min-height:32px;font-size:8px;padding:2px}
+@media(max-height:500px) and (min-width:601px) and (max-width:860px){
+  #app .ws .studio{grid-template-areas:'rail prev side' 'rail tl side';grid-template-columns:52px minmax(0,1fr) 240px;grid-template-rows:minmax(0,1fr) 145px}
+  #app .ws:has(.panel:not(.open)) .studio{grid-template-columns:52px minmax(0,1fr) 0;grid-template-rows:minmax(0,1fr) 145px}
+  #app .ws .tabs.big{flex-direction:column;overflow-y:auto;overflow-x:hidden}
+  #app .ws .tabs.big>button{flex:none;min-height:32px;font-size:8px;padding:2px}
   #app .ws .tabs.big .ti{font-size:12px}
   #app .ws .advanced-tools>summary{font-size:8px;padding:3px}
 }
@@ -310,4 +314,11 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .dock-pill{position:absolute;z-index:31;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--card);box-shadow:0 4px 16px #0006;cursor:pointer;font-size:18px;padding:0}
   #app .ws .dock-pill.show{display:grid;place-items:center}
   #app .ws[data-focus=true] .dock-pill{display:none !important}
+}
+
+/* On very short narrow windows, scroll the workspace instead of squeezing tracks into each other. */
+@media(max-width:600px) and (max-height:550px){
+  #app .ws .workbench{overflow-y:auto;overscroll-behavior:contain}
+  #app .ws .studio{min-height:510px}
+  #app .ws:has(.panel:not(.open)) .studio{min-height:355px}
 }
