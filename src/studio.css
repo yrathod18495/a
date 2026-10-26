@@ -92,8 +92,10 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws{padding:6px}
   #app .ws .topbar{min-height:46px;gap:4px;margin-bottom:6px;flex-wrap:wrap}
   #app .ws .topbar .logo-btn{font-size:17px}
-  #app .ws .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(110px,1fr) minmax(150px,1fr) 150px 52px;grid-template-areas:'prev' 'side' 'tl' 'rail';gap:5px}
-  #app .ws:has(.panel:not(.open)) .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) 0 150px 52px}
+  #app .ws .studio,#app .ws:has(.panel:not(.open)) .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(90px,22vh) 0 minmax(260px,1fr) 52px;grid-template-areas:'prev' 'side' 'tl' 'rail';gap:5px}
+  #app .ws .panel{grid-area:unset;position:fixed;left:0;right:0;top:auto;bottom:calc(52px + env(safe-area-inset-bottom));max-height:70vh;height:auto;padding:8px 14px calc(12px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;border-width:1px 1px 0;box-shadow:0 -14px 34px #000a;z-index:10}
+  #app .ws .panel::before{content:'';display:block;width:36px;height:4px;margin:0 auto 10px;border-radius:3px;background:var(--line)}
+  #app .ws .panel.animation-panel-host::before{margin-bottom:6px}
   #app .ws .tabs.big{display:flex;flex-direction:row;align-items:stretch;overflow:visible;padding:3px;border:1px solid var(--line);position:relative;bottom:auto}
   #app .ws .tabs.big>button{min-height:42px;flex:1;min-width:0;width:auto;font-size:9px;padding:3px}
   #app .ws .tabs.big .ti{font-size:16px}
@@ -103,7 +105,6 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws :is(.advanced-tools,.upload-tools)>summary{font-size:9px;padding:4px 0}
   #app .ws .advanced-tools-list{left:auto;right:0;bottom:calc(100% + 8px);width:120px}
   #app .ws :is(.advanced-tools,.upload-tools) button{min-height:40px;flex-direction:row;padding:5px;gap:7px}
-  #app .ws .panel{padding:8px;border-radius:10px}
   #app .ws .sheet-close{display:flex;position:static;flex:none;padding:0;margin:0 0 5px;font-size:11px;min-height:20px}
   #app .ws .sheet-close button{min-height:22px;padding:2px 7px;font-size:10px}
   #app .ws .controls{min-height:28px;margin:0;gap:4px}
