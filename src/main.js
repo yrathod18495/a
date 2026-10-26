@@ -350,7 +350,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, handleEls = {};
+let clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -1660,7 +1660,8 @@ function mountStage() {
   propSelEl = h('div', { class: 'prop-sel', hidden: true, 'aria-label': 'Selected prop; drag to move' });
   handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true })]));
   tearHandlesEl = h('div', { class: 'tear-handles', hidden: true }, tearHandle('left'), tearHandle('right'));
-  wrapEl = h('div', { class: 'stagewrap' }, stage.out, selEl, propSelEl, ...Object.values(handleEls), tearHandlesEl);
+  selToolsEl = h('div', { class: 'sel-tools', hidden: true });
+  wrapEl = h('div', { class: 'stagewrap' }, stage.out, selEl, propSelEl, ...Object.values(handleEls), tearHandlesEl, selToolsEl);
   stageObserver?.disconnect();
   const box = document.getElementById('stagebox'); box.replaceChildren(wrapEl);
   stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor();
@@ -1670,6 +1671,7 @@ function mountStage() {
   const layer = () => stage.layers.find((l) => l.key === S.sel);
   wrapEl.addEventListener('pointerdown', (e) => {
     if (S.exporting) return;
+    if (e.target.closest('.sel-tools')) return;   // the floating character-tools toolbar sits over the canvas; its own buttons handle their clicks
     if (camPointerDown(e)) return;
     if (syncFullView()) return;
     const p = pt(e), hd = e.target.dataset?.c;
@@ -1757,7 +1759,7 @@ function updateSel() {
   if (propSelEl) propSelEl.hidden = true;
   const l = stage.layers.find((x) => x.key === S.sel);
   if (hintEl) hintEl.hidden = !!S.sel || stage.layers.length === 0;
-  const hideBox = () => { selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; }); };
+  const hideBox = () => { selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (selToolsEl) selToolsEl.hidden = true; };
   if (!l || l.shown === false || S.step !== 3 || fullView) { hideBox(); if (selBar) selBar.hidden = true; return; }
   if (S.tab === 'tears' && S.tearPlacement) { hideBox(); if (selBar) selBar.hidden = true; return; }
   if (selBar.dataset.key !== l.key) drawSelBar(l);
@@ -1777,6 +1779,27 @@ function updateSel() {
     el.classList.toggle('pinned', Math.abs(px - x * k) > 1 || Math.abs(py - y * k) > 1);
     l.hpos[c] = [px / k, py / k];
   }
+  if (selToolsEl) updateSelTools(l, b, k, cw, ch);
+}
+/** a small floating toolbox over the selected character, for the tools that act on one character — tap a button to jump straight into that tool */
+const SEL_TOOLS = [['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask'], ['motion', 'Move', 'move']];
+function openCharTool(key, tab) {
+  const s = sOf(key); if (!s) return;
+  S.sel = key; S.animFor = key; if (tab === 'tears') S.tearFor = key; if (tab === 'motion') S.motionFor = key;
+  S.tab = tab; S.panelOpen = true; dockShow('panel'); drawTabs(); updateSel(); S.dirty = true;
+}
+function updateSelTools(l, b, k, cw, ch) {
+  if (selToolsEl.dataset.key !== l.key) {
+    selToolsEl.dataset.key = l.key;
+    selToolsEl.replaceChildren(...SEL_TOOLS.map(([tab, label, ic]) => h('button', { type: 'button', class: S.tab === tab && S.panelOpen ? 'on' : '', title: label, 'aria-label': label, onclick: () => openCharTool(l.key, tab) }, icon(ic))));
+  } else {
+    for (const [i, [tab]] of SEL_TOOLS.entries()) selToolsEl.children[i].classList.toggle('on', S.tab === tab && S.panelOpen);
+  }
+  selToolsEl.hidden = false;
+  const w = selToolsEl.offsetWidth || SEL_TOOLS.length * 34, hgt = selToolsEl.offsetHeight || 40, m = 6;
+  const above = b.y0 * k - hgt - 8, below = b.y1 * k + 8;
+  const top = above >= m ? above : Math.min(below, ch - hgt - m);   // prefer just above the box; fall back below it, always kept inside the visible frame
+  Object.assign(selToolsEl.style, { left: `${Math.min(Math.max(m, (b.x0 + b.x1) / 2 * k - w / 2), cw - w - m)}px`, top: `${Math.max(m, top)}px` });
 }
 /** select a character; one that is not in frame at the playhead gets the playhead moved to where it first appears, so its box can be shown and edited */
 function selectChar(key) {

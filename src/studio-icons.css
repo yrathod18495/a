@@ -83,6 +83,10 @@ body.studio-dark .tclip.prop,body.studio-dark .tclip.prop.fx{background:#3d4a52;
 body.studio-dark .tl2{border:1px solid var(--line)}
 body.studio-dark .hd{background:#f4f5f7;border:2px solid var(--acc)}
 body.studio-dark .selbox{border-color:var(--acc)}
+body.studio-dark .sel-tools{background:var(--card);border-color:var(--line);box-shadow:0 4px 14px #0008}
+body.studio-dark .sel-tools button{color:var(--mute)}
+body.studio-dark .sel-tools button:hover{background:var(--card2);color:var(--text)}
+body.studio-dark .sel-tools button.on{background:var(--acc);color:#1c1608}
 body.studio-dark :is(.scene-tab,.scene-tabs button,.new-scene){color:var(--mute)}
 body.studio-dark .scene-tab.active{background:var(--acc);color:#1c1608}
 body.studio-dark .layer{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px;border:1px solid var(--line);border-radius:10px}

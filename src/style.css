@@ -118,6 +118,11 @@ select:focus{outline:2px solid var(--acc)}
 .selbox{position:absolute;border:2px solid #765c30;box-shadow:0 0 0 1px #08060399;pointer-events:none;z-index:2}
 .mask-edit{position:absolute;border:2px dashed #765c30;background:#bd913e20;z-index:4;pointer-events:auto;touch-action:none;cursor:move;display:none}.mask-edit.active{display:block}.mask-edit.ellipse{border-radius:50%}.mask-handle{position:absolute;width:12px;height:12px;border-radius:50%;background:#191610;border:2px solid #765c30}.mask-handle.tl{left:-6px;top:-6px;cursor:nwse-resize}.mask-handle.tr{right:-6px;top:-6px;cursor:nesw-resize}.mask-handle.bl{left:-6px;bottom:-6px;cursor:nesw-resize}.mask-handle.br{right:-6px;bottom:-6px;cursor:nwse-resize}
 .selbox[hidden],.selbar[hidden]{display:none}
+.sel-tools{position:absolute;display:flex;gap:4px;padding:4px;background:#191610;border:1px solid #765c30;border-radius:10px;box-shadow:0 4px 14px #0006;z-index:5;pointer-events:auto}
+.sel-tools[hidden]{display:none}
+.sel-tools button{display:grid;place-items:center;width:30px;height:30px;padding:0;border-radius:7px;border:0;background:transparent;color:#efd08a;cursor:pointer;font-size:16px}
+.sel-tools button:hover{background:#2a241a}
+.sel-tools button.on{background:#765c30;color:#fff2d6}
 .selbox .hd{position:absolute;width:22px;height:22px;background:#191610;border:2px solid #765c30;border-radius:6px;pointer-events:auto;touch-action:none;cursor:nwse-resize}
 .selbox .h-tl{left:-12px;top:-12px}.selbox .h-tr{right:-12px;top:-12px;cursor:nesw-resize}.selbox .h-bl{left:-12px;bottom:-12px;cursor:nesw-resize}.selbox .h-br{right:-12px;bottom:-12px}
 .selbar{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin-bottom:6px}
