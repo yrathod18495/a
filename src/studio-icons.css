@@ -46,7 +46,7 @@ body.studio-dark .tabs.big button.on:hover{background:var(--acc);color:#1c1608}
 #app .ws :is(.advanced-tools,.upload-tools)>summary{display:grid;place-items:center;border-radius:10px;cursor:pointer;color:var(--mute);list-style:none}
 #app .ws :is(.advanced-tools,.upload-tools)>summary:hover,#app .ws :is(.advanced-tools,.upload-tools).has-active>summary{background:var(--card2);color:var(--text)}
 #app .ws .tabs.big :is(.advanced-tools-list){background:var(--card);border:1px solid var(--line)}
-@media(min-width:861px){#app .ws .tabs.big{width:54px;padding:5px 4px}}
+@media(min-width:861px){#app .ws .tabs.big{width:auto;padding:5px 4px}}
 
 /* ---- timeline: layer rows with portrait, name and the animation that is playing ---- */
 #app .ws .tl-labels{background:var(--card)}
