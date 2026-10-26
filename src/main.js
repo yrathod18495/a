@@ -528,17 +528,25 @@ const toggleFocus = () => setLayout({ focus: !S.layout.focus });
 const DOCK_IDLE_MS = 5000, dockTimer = { rail: 0, panel: 0 };
 const dockEl = (name) => (name === 'rail' ? tabsEl : panelEl);
 const dockOut = (name) => wsEl()?.getAttribute(`data-dock-${name}`) === 'out';
+// the camera frame overlay sits on the canvas only while the Camera panel is genuinely on screen; re-check the instant the panel's dock state changes, not just on the next lazy render tick
+const afterDockChange = (name) => { if (name === 'panel') { syncFullView(); updateCamBox?.(); } };
 function dockArm(name) { clearTimeout(dockTimer[name]); dockTimer[name] = setTimeout(() => dockHide(name), DOCK_IDLE_MS); }
-function dockShow(name) { wsEl()?.setAttribute(`data-dock-${name}`, 'in'); syncPills(); dockArm(name); }
+function dockShow(name) { wsEl()?.setAttribute(`data-dock-${name}`, 'in'); syncPills(); dockArm(name); afterDockChange(name); }
 function dockHide(name) {
   const el = dockEl(name), active = document.activeElement;
   const busy = el && (el.matches(':hover') || (el.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) || el.querySelector('.advanced-tools[open],.upload-tools[open]'));
   if (busy || document.querySelector('.modal') || S.exporting) { dockArm(name); return; }   // still in use: look again in 5 s
-  wsEl()?.setAttribute(`data-dock-${name}`, 'out'); syncPills();
+  wsEl()?.setAttribute(`data-dock-${name}`, 'out'); syncPills(); afterDockChange(name);
 }
 function dockToggle(name) {
   if (S.layout.focus) setLayout({ focus: false });
-  if (dockOut(name)) dockShow(name); else { clearTimeout(dockTimer[name]); wsEl()?.setAttribute(`data-dock-${name}`, 'out'); syncPills(); }
+  if (dockOut(name)) dockShow(name); else { clearTimeout(dockTimer[name]); wsEl()?.setAttribute(`data-dock-${name}`, 'out'); syncPills(); afterDockChange(name); }
+}
+/** true exactly while the camera panel is visibly open (not merely logically open — it may have idle-hidden off-screen); character selection is blocked only then, so it must never go stale. */
+function syncFullView() {
+  const fv = S.tab === 'camera' && S.panelOpen && !S.camPeek && !dockOut('panel');
+  if (stage.fullView !== fv) { stage.fullView = fv; S.dirty = true; }
+  return stage.fullView;
 }
 function dockWire(el, name) {
   for (const type of ['pointermove', 'pointerdown', 'keydown', 'wheel']) el.addEventListener(type, () => dockArm(name), { passive: true });
@@ -954,8 +962,15 @@ function drawTimeline() {
     if (cks?.length) {
       const kl = h('div', { class: 'lane2 cam move', style: 'height:30px' });
       for (const k of cks.slice().sort((a, b) => a.t - b.t)) {
-        const d = h('i', { class: `kf mv ${k.id === S.ckSel ? 'sel' : ''}`, title: `${s.name} · ${k.t.toFixed(2)}s`, style: `left:${k.t * pps}px;background:${s.color}` });
-        d.addEventListener('pointerdown', (e) => dragCharKey(e, s, k, d)); kl.append(d);
+        const d = h('i', { class: `kf mv ${k.id === S.ckSel ? 'sel' : ''}`, title: `${s.name} · ${k.t.toFixed(2)}s — right-click to delete`, style: `left:${k.t * pps}px;background:${s.color}` });
+        d.addEventListener('pointerdown', (e) => dragCharKey(e, s, k, d));
+        d.addEventListener('contextmenu', (e) => {
+          e.preventDefault(); if (S.exporting || !confirm(`Delete this keyframe of ${s.name}?`)) return;
+          S.charKeys[s.key] = S.charKeys[s.key].filter((x) => x !== k); if (!S.charKeys[s.key].length) delete S.charKeys[s.key];
+          stage.setLayerKeys(s.key, S.charKeys[s.key] || []); if (S.ckSel === k.id) S.ckSel = null;
+          drawTimeline(); if (S.tab === 'motion') drawTabs(); S.dirty = true;
+        });
+        kl.append(d);
       }
       labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, '◆ move'))); lanes.push(kl);
     }
@@ -963,20 +978,32 @@ function drawTimeline() {
   if (S.gradeKeys.length) {
     const gl = h('div', { class: 'lane2 cam move', style: 'height:30px' });
     for (const k of S.gradeKeys.slice().sort((a, b) => a.t - b.t)) {
-      const d = h('i', { class: `kf mv grade ${k.id === S.gradeSel ? 'sel' : ''}`, title: `Colour · ${k.t.toFixed(2)}s`, style: `left:${k.t * pps}px;background:#c084fc` });
-      d.addEventListener('pointerdown', (e) => dragGradeKey(e, k, d)); gl.append(d);
+      const d = h('i', { class: `kf mv grade ${k.id === S.gradeSel ? 'sel' : ''}`, title: `Colour · ${k.t.toFixed(2)}s — right-click to delete`, style: `left:${k.t * pps}px;background:#c084fc` });
+      d.addEventListener('pointerdown', (e) => dragGradeKey(e, k, d));
+      d.addEventListener('contextmenu', (e) => {
+        e.preventDefault(); if (S.exporting || !confirm('Delete this colour keyframe?')) return;
+        S.gradeKeys = S.gradeKeys.filter((x) => x !== k); if (S.gradeSel === k.id) S.gradeSel = null;
+        syncGrade(); updateTotal(); drawTimeline(); if (S.tab === 'grade') drawTabs();
+      });
+      gl.append(d);
     }
     labels.push(h('div', { class: 'rl char', style: 'height:30px', onclick: () => openTab('grade') }, h('span', { class: 'lt face' }, '🎨 Colour'))); lanes.push(gl);
   }
-  // camera keyframes
-  const cl = h('div', { class: 'lane2 cam', style: 'height:38px' });
-  if (!S.camKeys.length) cl.append(h('span', { class: 'camhint' }, 'automatic shots · open the Camera tab to add keyframes'));
-  for (const k of [...S.camKeys].sort((a, b) => a.t - b.t)) {
-    const d = h('i', { class: `kf ${k.id === S.camSel ? 'sel' : ''}`, title: `${k.t.toFixed(2)}s · ${k.zoom.toFixed(2)}×`, style: `left:${k.t * pps}px` });
-    d.addEventListener('pointerdown', (e) => dragKey(e, k, d));
-    cl.append(d);
+  // camera keyframes: the row only shows up once the user has added one (from the Camera tab), same as Colour above
+  if (S.camKeys.length) {
+    const cl = h('div', { class: 'lane2 cam', style: 'height:38px' });
+    for (const k of [...S.camKeys].sort((a, b) => a.t - b.t)) {
+      const d = h('i', { class: `kf ${k.id === S.camSel ? 'sel' : ''}`, title: `${k.t.toFixed(2)}s · ${k.zoom.toFixed(2)}× — right-click to delete`, style: `left:${k.t * pps}px` });
+      d.addEventListener('pointerdown', (e) => dragKey(e, k, d));
+      d.addEventListener('contextmenu', (e) => {
+        e.preventDefault(); if (S.exporting || !confirm('Delete this camera keyframe?')) return;
+        S.camKeys = S.camKeys.filter((x) => x !== k); if (S.camSel === k.id) S.camSel = null;
+        syncCam(); drawTimeline(); if (S.tab === 'camera') drawTabs();
+      });
+      cl.append(d);
+    }
+    labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('camera') }, timelineIcon(null, 'camera'), h('span', { class: 'lt' }, 'Camera'))); lanes.push(cl);
   }
-  labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('camera') }, timelineIcon(null, 'camera'), h('span', { class: 'lt' }, 'Camera'))); lanes.push(cl);
   tlLabels.replaceChildren(...labels);
   refreshLayerAnim();
   tlInner.style.width = `${Math.ceil(total * pps) + 60}px`;
@@ -1416,7 +1443,7 @@ function mountCamBox() {
 }
 function updateCamBox() {
   if (!camEl) return;
-  const show = stage.fullView && S.step === 3 && !S.exporting;
+  const show = syncFullView() && S.step === 3 && !S.exporting;
   camEl.hidden = !show; Object.values(camHandles).forEach((x) => { x.hidden = !show; });
   if (!show) return;
   const k = stage.out.clientWidth / stage.W, f = stage.frameAt(shotPlan(), player.time);
@@ -1644,7 +1671,7 @@ function mountStage() {
   wrapEl.addEventListener('pointerdown', (e) => {
     if (S.exporting) return;
     if (camPointerDown(e)) return;
-    if (stage.fullView) return;
+    if (syncFullView()) return;
     const p = pt(e), hd = e.target.dataset?.c;
     if (stage.camZoom <= 1.02 && !hd) {
       const prop = [...S.props].reverse().find((x) => x.visible !== false && !coversFrame(x) && !isHeld(x) && Math.abs(p.x - x.x * stage.W) <= (x.w || .18) * stage.W / 2 && Math.abs(p.y - x.y * stage.H) <= (x.h || .18) * stage.H / 2);
@@ -1673,7 +1700,7 @@ function mountStage() {
   let ctxMenu = null;
   const closeCtx = () => { ctxMenu?.remove(); ctxMenu = null; };
   wrapEl.addEventListener('contextmenu', (e) => {
-    if (S.exporting || stage.fullView || stage.camZoom > 1.02 || e.target.dataset?.c) return;
+    if (S.exporting || syncFullView() || stage.camZoom > 1.02 || e.target.dataset?.c) return;
     e.preventDefault(); closeCtx();
     const found = stage.hitLayers(pt(e)).map((l) => sOf(l.key)).filter(Boolean);
     ctxMenu = h('div', { class: 'cs-ctx', role: 'menu' }, h('b', {}, found.length ? 'Character chunein' : 'Yahan koi character nahi hai'),
@@ -1716,8 +1743,9 @@ function saveXf(l) {
 function updateSel() {
   if (emptyEl) emptyEl.hidden = S.lines.length > 0 || S.speakers.some((x) => x.charId);
   if (!selEl) return;
+  const fullView = syncFullView();
   const prop = S.props.find((item) => item.id === S.selectedPropId);
-  if (prop && !isHeld(prop) && S.step === 3 && !stage.fullView && stage.camZoom <= 1.02 && !player.playing) {      // a held prop has no box: it moves with the hand
+  if (prop && !isHeld(prop) && S.step === 3 && !fullView && stage.camZoom <= 1.02 && !player.playing) {      // a held prop has no box: it moves with the hand
     selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; });
     if (selBar) selBar.hidden = true;
     if (hintEl) hintEl.hidden = true;
@@ -1730,7 +1758,7 @@ function updateSel() {
   const l = stage.layers.find((x) => x.key === S.sel);
   if (hintEl) hintEl.hidden = !!S.sel || stage.layers.length === 0;
   const hideBox = () => { selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; }); };
-  if (!l || l.shown === false || S.step !== 3 || stage.fullView) { hideBox(); if (selBar) selBar.hidden = true; return; }
+  if (!l || l.shown === false || S.step !== 3 || fullView) { hideBox(); if (selBar) selBar.hidden = true; return; }
   if (S.tab === 'tears' && S.tearPlacement) { hideBox(); if (selBar) selBar.hidden = true; return; }
   if (selBar.dataset.key !== l.key) drawSelBar(l);
   selBar.hidden = false;
@@ -2666,8 +2694,7 @@ function loop(now) {
   if (sceneChanging) return;
   if (S.exporting && !player.playing) return; // offline export drives the stage itself
   if (player.playing && player.time >= player.total && !S.exporting) { player.pause(); const next = S.scenes[S.scenes.findIndex(scene => scene.id === S.sceneId) + 1]; if (next && !sceneChanging) { switchScene(next.id, { play: true }); return; } if (S.loop) { if (S.scenes.length > 1 && S.sceneId !== S.scenes[0].id) { switchScene(S.scenes[0].id, { play: true }); return; } player.seek(0); player.play(); } S.dirty = true; }
-  const fv = S.tab === 'camera' && S.panelOpen && !S.camPeek;
-  if (stage.fullView !== fv) { stage.fullView = fv; S.dirty = true; }
+  syncFullView();
   if (!player.playing && !S.dirty) return;
   S.dirty = false;
   const t = player.time;
