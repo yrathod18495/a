@@ -259,9 +259,23 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
     }
     out.push(h('div', { class: 'ad-cat' }, h('div', { class: 'ad-cathead' }, h('b', {}, '💾 Characters testers saved'), h('small', {}, st.subs ? `${st.subs.length}` : ''), h('span', { class: 'sp' }), h('button', { class: 'btn sm', onclick: () => listTesterSubmissions().then((r) => { st.subs = r; drawTesterList(); }) }, '↻ Refresh')),
       !st.subs ? h('p', { class: 'hint' }, 'Loading…') : !st.subs.length ? h('p', { class: 'hint', style: 'text-align:left' }, 'Nothing saved yet.')
-        : h('div', { class: 'ad-lrows' }, st.subs.map((r) => h('div', { class: 'ad-lrow' }, r.thumb ? h('img', { src: r.thumb, alt: '', class: 'ad-sthumb' }) : h('span', { class: 'ad-sthumb' }, '🎭'),
-          h('div', { class: 'ad-lorig', style: 'width:auto;flex:1' }, h('b', {}, r.name || r.id), h('small', {}, `${r.ownerEmail || ''} · ${r.updatedAt ? new Date(r.updatedAt).toLocaleString() : ''}`)))))));
+        : h('div', { class: 'ad-lrows' }, st.subs.map(subRow))));
     listEl.replaceChildren(...out);
+  }
+  /** one saved tester character: who saved it, and every rig setting the tester chose */
+  function subRow(r) {
+    let p = {}; try { p = JSON.parse(r.profile || '{}') || {}; } catch { /* keep empty */ }
+    const count = (v) => Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0;
+    const block = (title, v) => !count(v) && !(typeof v === 'string' && v) ? null : h('details', { class: 'cs-lgroup' }, h('summary', {}, `${title}${count(v) ? ` · ${count(v)}` : ''}`), h('pre', { class: 'hint', style: 'text-align:left;white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto;margin:4px 0' }, typeof v === 'string' ? v : JSON.stringify(v, null, 1)));
+    const download = () => { const url = URL.createObjectURL(new Blob([JSON.stringify({ ...r, profile: p }, null, 2)], { type: 'application/json' })), a = h('a', { href: url, download: `${r.id}.json` }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+    return h('details', { class: 'ad-lrow', style: 'display:block' },
+      h('summary', { style: 'display:flex;gap:8px;align-items:center;cursor:pointer' }, r.thumb ? h('img', { src: r.thumb, alt: '', class: 'ad-sthumb' }) : h('span', { class: 'ad-sthumb' }, '🎭'),
+        h('div', { class: 'ad-lorig', style: 'width:auto;flex:1' }, h('b', {}, r.name || r.id), h('small', {}, `${r.ownerName ? r.ownerName + ' · ' : ''}${r.ownerEmail || ''} · ${r.updatedAt ? new Date(r.updatedAt).toLocaleString() : ''}`))),
+      h('div', { style: 'padding:6px 2px' },
+        h('p', { class: 'hint', style: 'text-align:left;margin:0 0 6px' }, `Tester: ${r.ownerName || '—'} (${r.ownerEmail || '—'}) · Character ID: ${r.id} · Pose: ${r.pose || '—'} · Template: ${p.template || 'custom rig'}`),
+        block('Face settings (eyes, brows, nose, lips, ears)', p.face), block('Position and size changes', p.xf), block('Fit', p.fit), block('Skins', p.skins),
+        block('Hidden layers', p.hide), block('Layer order', p.order), block('Attachments', p.attach), block('Locked layers', p.locked),
+        h('button', { class: 'btn sm', onclick: download }, '⬇ Download full JSON')));
   }
   function drawLayerList() {
     if (st.busy && !st.def) { listEl.replaceChildren(h('p', { class: 'hint' }, 'Loading…')); return; }

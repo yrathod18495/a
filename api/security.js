@@ -106,7 +106,7 @@ export default async function handler(req, res) {
       if (typeof b.profile === 'string' && b.profile.length > 200000) throw new AccessError('too_large', 'The character settings are too large to save.', 413);
       const ref = db.doc('testerCharacters/' + b.id), prev = (await ref.get()).data();
       if (prev && prev.ownerUid !== who.uid && !who.admin) throw new AccessError('character_taken', 'This character belongs to another tester.', 409);
-      await ref.set({ id: b.id, name: text(b.name, 120), pose: text(b.pose, 60), ownerUid: prev?.ownerUid || who.uid, ownerEmail: prev?.ownerEmail || String(who.claims.email || '').toLowerCase(), profile: text(b.profile, 200000), thumb: (typeof b.thumb === 'string' && b.thumb.length <= 150000) ? b.thumb : '', updatedAt: new Date(now).toISOString() });
+      await ref.set({ id: b.id, name: text(b.name, 120), pose: text(b.pose, 60), ownerUid: prev?.ownerUid || who.uid, ownerEmail: prev?.ownerEmail || String(who.claims.email || '').toLowerCase(), ownerName: prev?.ownerName || text(who.claims.name, 120), profile: text(b.profile, 200000), thumb: (typeof b.thumb === 'string' && b.thumb.length <= 150000) ? b.thumb : '', updatedAt: new Date(now).toISOString() });
       return send(res, 200, { ok: true });
     }
     if (b.action === 'testerSubmissions') {
