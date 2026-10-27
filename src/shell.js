@@ -30,7 +30,7 @@ const $shell = document.getElementById('shell'), $app = document.getElementById(
 let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true, testerAccessOnly = false, testerApplicationStatus = 'none';
 let loadedAnimationProject=null, testerAuthError='';
 
-function readTheme() { try { return localStorage.getItem('12toons-theme') === 'night' ? 'night' : 'day'; } catch { return 'day'; } }
+function readTheme() { try { return localStorage.getItem('12toons-theme') === 'day' ? 'day' : 'night'; } catch { return 'night'; } }
 let activeTheme = readTheme();
 function setTheme(theme) {
   activeTheme = theme === 'night' ? 'night' : 'day';
