@@ -37,7 +37,7 @@ test('expanded FAQ and complete legal pages are linked and render by direct URL'
 test('royal palette and brightness preference persist across landing, legal and studios',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
- await page.addInitScript(()=>localStorage.setItem('12toons-theme','day'));
+ await page.addInitScript(()=>{if(!localStorage.getItem('12toons-theme'))localStorage.setItem('12toons-theme','day');});
  await page.goto('/?debug#/');
  expect(await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(255, 255, 255)');
  await page.locator('.sh-avatar').click();

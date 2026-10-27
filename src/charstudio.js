@@ -976,6 +976,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     if (baseId) rec = { id, name, pose, base: baseId, profile, pages, thumb };
     else { const { bones, slots, skins, ...keep } = st.def.rig; rec = { id, name, pose, ske, tex, rig: rigInfo(ske, keep), anims: [], skins: null, thumb, profile }; }     // a character that did not come from a template keeps its whole skeleton
     await saveCharacter(rec);
+    if (tester && user?.uid) { try { localStorage.setItem(`tester-last-character-${user.uid}`, id); } catch { /* the page then opens a fresh rig */ } }
     const full = baseId ? await hydrateCharacter(rec) : rec, i = mine.findIndex((c) => c.id === id);
     if (i >= 0) mine[i] = full; else mine.push(full);
     if (baseId) st.savedId = id;
@@ -1073,8 +1074,14 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   }
   draw(); drawAnimBar();
   if (tester) {
+    // after a refresh, carry on with the character that was saved last instead of a blank rig
+    let reopened = false;
     try {
-      const base = templateChoices().find((e) => e.template);
+      const lastId = (() => { try { return localStorage.getItem(`tester-last-character-${user?.uid}`); } catch { return null; } })(), last = lastId && mine.find((c) => c.id === lastId);
+      if (last) { st.createMode = true; await pick(last); st.tab = 'create'; rebuild(); draw(); drawAnimBar(); reopened = true; }
+    } catch (er) { toast(`Could not reopen your saved character: ${er.message}`); }
+    try {
+      const base = reopened ? null : templateChoices().find((e) => e.template);
       if (base) {
         await pick(await fetchLibraryCharacter(base), 'custom character rig');
         st.createMode = true;
