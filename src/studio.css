@@ -93,7 +93,7 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .topbar{min-height:46px;gap:4px;margin-bottom:6px;flex-wrap:wrap}
   #app .ws .topbar .logo-btn{font-size:17px}
   #app .ws .studio,#app .ws:has(.panel:not(.open)) .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(90px,22vh) 0 minmax(260px,1fr) 52px;grid-template-areas:'prev' 'side' 'tl' 'rail';gap:5px}
-  #app .ws .panel{grid-area:unset;position:fixed;left:0;right:0;top:auto;bottom:calc(52px + env(safe-area-inset-bottom));max-height:70vh;height:auto;padding:8px 14px calc(12px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;border-width:1px 1px 0;box-shadow:0 -14px 34px #000a;z-index:10}
+  #app .ws .panel{grid-area:unset;position:fixed;left:0;right:0;top:auto;bottom:calc(64px + env(safe-area-inset-bottom));max-height:70vh;height:auto;padding:8px 14px calc(12px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;border-width:1px 1px 0;box-shadow:0 -14px 34px #000a;z-index:10}
   #app .ws .panel::before{content:'';display:block;width:36px;height:4px;margin:0 auto 10px;border-radius:3px;background:var(--line)}
   #app .ws .panel.animation-panel-host::before{margin-bottom:6px}
   #app .ws .tabs.big{display:flex;flex-direction:row;align-items:stretch;overflow:visible;padding:3px;border:1px solid var(--line);position:relative;bottom:auto}
