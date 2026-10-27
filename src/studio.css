@@ -15,6 +15,7 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .ws .controls .btn{min-height:32px;padding:5px 10px}
 #app .ws .hint{font-size:11px}
 #app .ws .editor-zoom{display:flex;align-items:center;gap:3px}
+#app .ws .tltools .tl-hist{display:none}
 #app .ws .editor-zoom output{width:38px;text-align:center;font-size:10px;color:var(--mute)}
 #app .ws .selbar{flex:none;gap:6px;margin:0;padding:4px 6px;min-height:34px}
 #app .ws .selbar .btn{min-height:26px;padding:3px 6px}
@@ -92,7 +93,14 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws{padding:6px;touch-action:pan-x pan-y}
   #app .ws .topbar{min-height:46px;gap:4px;margin-bottom:6px;flex-wrap:wrap}
   #app .ws .topbar .logo-btn{font-size:17px}
-  #app .ws .studio,#app .ws:has(.panel:not(.open)) .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(150px,min(58vh,calc((100vw - 32px) / var(--ratio,1.7778) + 70px))) 0 minmax(170px,1fr) 52px;grid-template-areas:'prev' 'side' 'tl' 'rail';gap:5px}
+  #app .ws .studio,#app .ws:has(.panel:not(.open)) .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(150px,min(58vh,calc((100vw - 32px) / var(--ratio,1.7778) + 100px))) 0 minmax(170px,1fr) 52px;grid-template-areas:'prev' 'side' 'tl' 'rail';gap:5px}
+  #app .ws .tltools{order:-2;display:flex;align-items:center;gap:4px;min-height:40px;padding:2px 4px}
+  #app .ws .tltools .tl-hist{display:inline-flex}
+  #app .ws .tltools .timeline-title,#app .ws .tltools .hint{display:none}
+  #app .ws .tltools .sp{flex:1}
+  #app .ws .tltools .btn{flex:1;max-width:56px;min-height:36px}
+  #app .ws .scene-tabs{order:-1}
+  #app .ws .selbar[hidden]{display:flex;visibility:hidden}
   #app .ws .panel{grid-area:unset;position:fixed;left:0;right:0;top:auto;bottom:calc(64px + env(safe-area-inset-bottom));max-height:70vh;height:auto;padding:8px 14px calc(12px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;border-width:1px 1px 0;box-shadow:0 -14px 34px #000a;z-index:10}
   #app .ws .panel::before{content:'';display:block;width:36px;height:4px;margin:0 auto 10px;border-radius:3px;background:var(--line)}
   #app .ws .panel.animation-panel-host::before{margin-bottom:6px}

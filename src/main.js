@@ -350,7 +350,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, handleEls = {};
+let tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -665,7 +665,10 @@ function viewStudio() {
   dockWire(tabsEl, 'rail'); dockWire(panelEl, 'panel'); panelEl.addEventListener('pointerup', rememberPanelSize);
   const zoom = (f) => { const left = tlScroll.scrollLeft / S.pps; S.pps = Math.min(300, Math.max(4, S.pps * f)); drawTimeline(); tlScroll.scrollLeft = left * S.pps; };
   const fit = fitTimeline;
-  const tools = h('div', { class: 'tltools' }, h('b', { class: 'timeline-title' }, 'Timeline'),
+  const tools = h('div', { class: 'tltools' },
+    tlUndo = h('button', { class: 'btn sm icon-btn tl-hist', 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, icon('undo')),
+    tlRedo = h('button', { class: 'btn sm icon-btn tl-hist', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo')),
+    h('b', { class: 'timeline-title' }, 'Timeline'),
     h('button', { class: 'btn sm icon-btn', title: 'Zoom out timeline', 'aria-label': 'Zoom out timeline', onclick: () => zoom(1 / 1.5) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Zoom in timeline', 'aria-label': 'Zoom in timeline', onclick: () => zoom(1.5) }, icon('zoom-in')),
     h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')), h('span', { class: 'sp' }), h('span', { class: 'hint', style: 'margin:0' }, 'Select a clip to edit'));
   drawTimeline(); drawLineBox(); drawTabs();
@@ -2647,7 +2650,7 @@ const endHistoryPointer = event => {
 window.addEventListener('pointerup', endHistoryPointer, true);
 window.addEventListener('pointercancel', endHistoryPointer, true);
 window.addEventListener('blur', () => endHistoryPointer());
-function updateHistoryButtons() { if (hdrUndo) { hdrUndo.disabled = hist.busy || historyDepth > 0 || !hist.undo.length; hdrRedo.disabled = hist.busy || historyDepth > 0 || !hist.redo.length; } }
+function updateHistoryButtons() { if (hdrUndo) { hdrUndo.disabled = hist.busy || historyDepth > 0 || !hist.undo.length; hdrRedo.disabled = hist.busy || historyDepth > 0 || !hist.redo.length; if (tlUndo) { tlUndo.disabled = hdrUndo.disabled; tlRedo.disabled = hdrRedo.disabled; } } }
 async function stepHistory(dir) {
   if (S.exporting || hist.busy || sceneChanging || previewChanging || sceneDialogOpen || historyDepth || historyPointer !== null) return;
   captureHistory();
