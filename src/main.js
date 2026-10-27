@@ -1621,6 +1621,7 @@ function fitEditor() {
   const box = document.getElementById('stagebox');
   if (!box || !wrapEl || !stage) return;
   const ratio = stage.W / stage.H;
+  wsEl()?.style.setProperty('--ratio', String(ratio));
   const width = Math.max(40, Math.min(box.clientWidth - 20, (box.clientHeight - 20) * ratio)) * S.editorZoom;
   wrapEl.style.width = `${width}px`; wrapEl.style.height = `${width / ratio}px`;
   if (zoomLabel) zoomLabel.value = `${Math.round(S.editorZoom * 100)}%`;
