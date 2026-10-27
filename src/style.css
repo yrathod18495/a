@@ -308,9 +308,6 @@ header{gap:10px}
 .sh-foot{margin-top:auto;padding:22px;text-align:center;color:var(--mute);font-size:13px;border-top:1px solid var(--line)}
 .sh-login{width:min(420px,100%);background:#191610;border:1px solid var(--line);border-radius:24px;padding:34px 28px;text-align:center;box-shadow:0 20px 50px #0806031a;display:flex;flex-direction:column;align-items:center}
 .sh-login h1{margin-top:22px}.sh-login .sub{margin-bottom:22px}
-.sh-login input{width:100%;margin-bottom:12px}
-.sh-login-divider{display:flex;align-items:center;gap:10px;width:100%;margin:16px 0;color:var(--mute);font-size:11px;letter-spacing:.1em;font-weight:700}
-.sh-login-divider::before,.sh-login-divider::after{content:'';flex:1;height:1px;background:var(--line)}
 .gbtn{width:100%;display:flex;gap:10px;justify-content:center;align-items:center}
 .gbtn .g{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#191610;color:#efd08a;font-weight:900;font-size:14px}
 .sh-profile{position:relative}

@@ -1,7 +1,7 @@
 // Firebase (login + database). The web config below is public by design (it only names the project);
 // what protects the data are the Firestore rules (firebase/firestore.rules) and the server check in api/r2.js.
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { initializeFirestore, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 
 const env = import.meta.env;
@@ -27,18 +27,6 @@ export async function signInGoogle() {
     throw e;
   }
 }
-/** one "Continue" for both sign-in and sign-up: try signing in first, and if the account doesn't exist yet, create it with the same credentials. */
-export async function continueWithEmail(email, password) {
-  try { return (await signInWithEmailAndPassword(auth, email, password)).user; }
-  catch (e) {
-    if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
-      try { return (await createUserWithEmailAndPassword(auth, email, password)).user; }
-      catch (e2) { if (e2.code === 'auth/email-already-in-use') throw e; throw e2; }
-    }
-    throw e;
-  }
-}
-export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 export const finishRedirect = () => getRedirectResult(auth).catch(() => null);
 export async function signOutUser({ release = true } = {}) {
   const session = await import('./session.js');

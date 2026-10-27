@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     if (b.action === 'acquire') {
       const claims = await identity(req), uid = claims.uid;
       // Maintenance mode no longer blocks sign-in: everyone can log in normally, and the app gates access after login (admins always get through).
-      if (!['google.com', 'password'].includes(claims.firebase?.sign_in_provider) || Date.now()/1000 - claims.auth_time > 300)
+      if (claims.firebase?.sign_in_provider !== 'google.com' || Date.now()/1000 - claims.auth_time > 300)
         throw new AccessError('fresh_login_required', 'Please sign in again to start a session.', 401);
       if (!validId(b.deviceId) || !validId(b.secret)) throw new AccessError('invalid_device', 'This browser\'s identity is not valid. Please reload the page.', 400);
       const u = db.doc('securityUsers/' + uid), s = db.doc('securitySessions/' + uid), d = db.doc('securityDevices/' + b.deviceId);

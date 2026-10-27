@@ -5,7 +5,7 @@ import './day-theme.css';
 import './royal-surfaces.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
 import { h, toast, logo } from './dom.js';
-import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser, continueWithEmail, resetPassword } from './firebase.js';
+import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser } from './firebase.js';
 import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
 import { selectProject, projectMeta, listProjects, createProject } from './store.js';
 import { projectsView } from './projects-view.js';
@@ -256,40 +256,9 @@ function landingView() {
 /* ---------------- login ---------------- */
 function loginView() {
   if (user) { queueMicrotask(() => go('#/hub')); return h('div'); }
-  const emailInput = h('input', { type: 'email', class: 'project-dialog-input', placeholder: 'Email address', autocomplete: 'email', 'aria-label': 'Email address' });
-  const passInput = h('input', { type: 'password', class: 'project-dialog-input', placeholder: 'Password', autocomplete: 'current-password', 'aria-label': 'Password' });
-  const errorEl = h('p', { class: 'staff-error', role: 'alert', hidden: true });
-  const showError = (msg) => { errorEl.textContent = msg; errorEl.hidden = false; };
-  const continueBtn = h('button', { class: 'btn pri big', style: 'width:100%', onclick: continueEmail }, 'Continue →');
-  async function continueEmail() {
-    const email = emailInput.value.trim(), password = passInput.value;
-    errorEl.hidden = true;
-    if (!email || !password) { showError('Please enter your email and password.'); return; }
-    continueBtn.disabled = true; continueBtn.textContent = 'Please wait…';
-    try { await continueWithEmail(email, password); go('#/hub'); }
-    catch (e) {
-      showError(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ? 'Incorrect email or password.'
-        : e.code === 'auth/invalid-email' ? 'Please enter a valid email address.'
-        : e.code === 'auth/weak-password' ? 'Password should be at least 6 characters.'
-        : e.code === 'auth/too-many-requests' ? 'Too many attempts. Please try again later.'
-        : `Sign-in failed: ${friendlyError(e)}`);
-    }
-    finally { continueBtn.disabled = false; continueBtn.textContent = 'Continue →'; }
-  }
-  async function forgotPassword() {
-    const email = emailInput.value.trim();
-    errorEl.hidden = true;
-    if (!email) { showError('Enter your email above, then tap Forgot password.'); return; }
-    try { await resetPassword(email); toast('Password reset email sent — check your inbox.'); }
-    catch (e) { showError(`Could not send the reset email: ${friendlyError(e)}`); }
-  }
   return h('div', { class: 'sh sh-center' },
     h('div', { class: 'sh-login' }, logo(() => go('#/')),
-      h('h1', {}, 'Welcome back'), h('p', { class: 'sub' }, 'Sign in or create your account to continue.'),
-      emailInput, passInput, continueBtn,
-      h('button', { class: 'btn-link', style: 'margin-top:6px', onclick: forgotPassword }, 'Forgot password?'),
-      errorEl,
-      h('div', { class: 'sh-login-divider' }, 'OR'),
+      h('h1', {}, 'Welcome back'), h('p', { class: 'sub' }, 'Log in to open your studio. Your work is saved to your account.'),
       h('button', { class: 'btn pri big gbtn', onclick: login }, h('span', { class: 'g' }, 'G'), 'Continue with Google'),
       h('button', { class: 'btn-link', onclick: () => go('#/') }, '← Back to home')));
 }
