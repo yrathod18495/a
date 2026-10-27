@@ -127,7 +127,7 @@ test('sync errors explain the cause, retain local work and offer retry only when
     export const onSyncStatus=fn=>{listeners.add(fn);fn(syncStatus);return()=>listeners.delete(fn)};
     window.__syncReview=state=>{Object.assign(syncStatus,state);listeners.forEach(fn=>fn(syncStatus))};
     export const syncCurrent=async()=>{window.__retryCount=(window.__retryCount||0)+1;window.__syncReview({text:'Saved to Cloud',issue:null,error:''})};
-    export const syncAll=async()=>{},refreshProjects=async()=>{},syncProject=async()=>{},resolveConflict=async()=>{};
+    export const syncAll=async()=>{},refreshProjects=async()=>{},syncProject=async()=>{},resolveConflict=async()=>{},registerProject=async(uid,id)=>id;
   ` }));
   await studio(page);
   await page.waitForTimeout(1200);

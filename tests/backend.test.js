@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {memoryFirestore,response} from './fake-firestore.js';
 process.env.MAINTENANCE_MODE='false';
 const db=memoryFirestore(),tokens=new Map();
-const auth={verifyIdToken:async token=>{if(!tokens.has(token))throw Error('bad token');return tokens.get(token);},createCustomToken:async(uid,claims)=>JSON.stringify({uid,...claims}),listUsers:async()=>({users:[{uid:'existing-user-from-auth',email:'existing@gmail.com',metadata:{creationTime:'2026-01-01'}}]})};
+const auth={verifyIdToken:async token=>{if(!tokens.has(token))throw Error('bad token');return tokens.get(token);},createCustomToken:async(uid,claims)=>JSON.stringify({uid,...claims}),setCustomUserClaims:async()=>{},listUsers:async()=>({users:[{uid:'existing-user-from-auth',email:'existing@gmail.com',metadata:{creationTime:'2026-01-01'}}]})};
 mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,auth})}});
 const {default:security}=await import('../api/security.js');
 const {access}=await import('../server/access.js');

@@ -80,7 +80,7 @@ export default async function handler(req, res) {
         try {
           checkAccount(us.data(), now);
           if (claims.auth_time <= (us.data()?.reauthAfter || 0)) throw new AccessError('fresh_login_required', 'Google se dobara sign in karein.', 401);
-          checkAcquisition(ss.data(), ds.data(), uid, secretHash, now);
+          checkAcquisition(ss.data(), ds.data(), uid, secretHash, now, b.force === true);
         } catch (e) { denied = e; }
         // Opening the studio again on the same browser (a reload) continues the running session: no new login, so nothing is written
         // (a login writes four documents). Only a session that is more than half used up gets its lease extended.
@@ -100,6 +100,8 @@ export default async function handler(req, res) {
         return { sid: sessionId };
       });
       if (result.denied) throw new AccessError(result.denied.code, result.denied.message, result.denied.status);
+      // persisted on the account (not just this token) so the sid claim survives the hourly ID-token refresh instead of forcing a fresh Google sign-in every time it rolls
+      await auth.setCustomUserClaims(uid, { sid: result.sid });
       const token = await auth.createCustomToken(uid, { sid: result.sid });
       return send(res, 200, { token, expiresAt: now + LEASE_MS });
     }

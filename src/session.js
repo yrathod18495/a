@@ -1,10 +1,28 @@
 import { auth, idToken } from './firebase.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
+import { h } from './dom.js';
 let heartbeat;
 function persistent(key) {
   let value = localStorage.getItem(key);
   if (!value) { value = crypto.randomUUID(); localStorage.setItem(key, value); }
   return value;
+}
+function confirmTakeover() {
+  return new Promise(resolve => {
+    const close = v => { window.removeEventListener('keydown', onKey); overlay.remove(); resolve(v); };
+    const onKey = e => { if (e.key === 'Escape') close(false); };
+    const overlay = h('div', { class: 'project-dialog-backdrop', onclick: e => { if (e.target === overlay) close(false); } },
+      h('section', { class: 'project-dialog', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'session-dialog-title' },
+        h('span', { class: 'project-dialog-icon', 'aria-hidden': 'true' }, '!'),
+        h('h2', { id: 'session-dialog-title' }, 'Doosra login mila'),
+        h('p', { class: 'project-dialog-description' }, 'Aapka account kisi doosre device par pehle se login hai. Kya aap yahin continue karna chahte hain?'),
+        h('div', { class: 'project-dialog-actions' },
+          h('button', { class: 'btn project-dialog-cancel', onclick: () => close(false) }, 'Cancel'),
+          h('button', { class: 'btn pri project-dialog-confirm', onclick: () => close(true) }, 'Continue here')),
+        h('p', { class: 'project-dialog-description', style: 'margin:14px 0 0' }, 'Continue karne se doosre device logout ho jayega.')));
+    window.addEventListener('keydown', onKey);
+    document.body.append(overlay);
+  });
 }
 export async function apiCall(url, body, owner = auth.currentUser?.uid) {
   const offline = import.meta.env.DEV && location.search.includes('debug');   // dev test mode: no sign-in, the browser tests answer the API themselves
@@ -20,7 +38,12 @@ export async function apiCall(url, body, owner = auth.currentUser?.uid) {
   return j;
 }
 export async function acquireSession(scope) {
-  return apiCall('/api/security', { action: 'acquire', ...(scope === 'tester' ? { scope } : {}), deviceId: persistent('12toons-device'), secret: persistent('12toons-session-secret') });
+  const body = { action: 'acquire', ...(scope === 'tester' ? { scope } : {}), deviceId: persistent('12toons-device'), secret: persistent('12toons-session-secret') };
+  try { return await apiCall('/api/security', body); }
+  catch (e) {
+    if (e.code !== 'session_active' || !(await confirmTakeover())) throw e;
+    return apiCall('/api/security', { ...body, force: true });
+  }
 }
 export async function validateSession() {
   const result = navigator.onLine ? await apiCall('/api/security', { action: 'heartbeat' }) : {offline:true};

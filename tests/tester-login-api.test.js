@@ -7,6 +7,7 @@ const admin = 'admin_review_12345678', uid = 'tester_request_12345678';
 const auth = {
  verifyIdToken: async token => { if (!tokens.has(token)) throw Error('Invalid token'); return tokens.get(token); },
  createCustomToken: async (uid, claims) => JSON.stringify({uid, ...claims}),
+ setCustomUserClaims: async () => {},
  getUser: async uid => ({ uid, email: uid+'@example.test', displayName: 'Tester' }),
 };
 mock.module('../server/firebase-admin.js', {exports:{services:()=>({db,auth})}});
