@@ -88,7 +88,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const templateChoices = () => libraryCharacters().filter((e) => e.template && (!tester || (e.charBase === 'sadhubaba' && e.id.endsWith('-front-side'))));
   const partVisible = l => !tester || testerGroupVisible(getTesterRules(), baseOf(), l.group);
   const partDownloadable = l => !tester || (partVisible(l) && !layerHidden(baseOf(), l.slot, l.key) && testerLayerDownloadable(getTesterRules(), baseOf(), l));
-  const saveButton = h('button', { class: 'btn ok', hidden: restrictedTester(), onclick: () => { if (restrictedTester()) return; if (st.def) { st.tab = 'save'; draw(); } else toast('Please choose a character first.'); } }, '💾 Save');
+  const saveButton = h('button', { class: 'btn ok', onclick: () => { if (st.def) { st.tab = 'save'; draw(); } else toast('Please choose a character first.'); } }, '💾 Save');
   const root = h('div', { class: 'sh cs' },
     h('header', { class: 'sh-bar' }, tester ? h('span', { class: 'sh-crumb' }, 'Character Tester') : logo(home), h('span', { class: 'sp' }),
       saveButton, tester ? h('button', { class: 'btn', onclick: logout }, '⎋ Log out') : h('button', { class: 'btn', onclick: home }, '⌂ Home')),
@@ -342,10 +342,8 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     : [['start', 'Start'], ['create', 'Create'], ['save', 'Save']];
   function draw() {
     if (!TABS.some(([key]) => key === st.tab)) st.tab = 'start';       // a tab this page does not offer is never shown (e.g. a draft saved on the tester page)
-    saveButton.hidden = restrictedTester();
-    if (st.tab === 'save' && restrictedTester()) st.tab = 'create';
     drawPlaceBar();
-    tabs.replaceChildren(...TABS.filter(([k]) => (k !== 'create' || st.createMode || !tester) && (!(localPreview || restrictedTester()) || k !== 'save')).map(([k, l]) => h('button', { class: st.tab === k ? 'on' : '', disabled: k !== 'start' && !st.def, onclick: () => { st.tab = k; draw(); } }, l)));
+    tabs.replaceChildren(...TABS.filter(([k]) => (k !== 'create' || st.createMode || !tester) && (!localPreview || k !== 'save')).map(([k, l]) => h('button', { class: st.tab === k ? 'on' : '', disabled: k !== 'start' && !st.def, onclick: () => { st.tab = k; draw(); } }, l)));
     panel.replaceChildren(...{ start: panelStart, create: panelCreate, layers: panelLayers, face: panelFace, outfit: panelOutfit, anims: panelAnims, body: panelBody, save: panelSave }[st.tab]().filter(Boolean));      // a missing item must not show up as the word "null"
   }
 
@@ -963,7 +961,6 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const newId = () => `c${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-3)}`;
   /** saves the character: small record on this device and (logged in) in the account; checks the per-user limits first */
   async function saveNow(nameVal, asNew) {
-    if (restrictedTester()) throw new Error('Only an admin can save a character on the Tester page.');
     const { ske, tex, pages, profile } = await bake(), baseId = st.def.base || (st.def.lib ? st.def.id : null), id = !asNew && st.savedId ? st.savedId : newId();
     const kept = mine.filter((c) => c.id !== id).length + st.cloud.filter((c) => c.id !== id && !mine.some((m) => m.id === c.id)).length;
     if (kept >= LIMITS.characters) throw new Error(`You can only keep ${LIMITS.characters} characters. Please delete one first.`);
