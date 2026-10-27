@@ -9,6 +9,7 @@ import { Stage } from './db/stage.js';
 import { loadCatalog, hydrateCharacter, libraryCharacters, fetchLibraryCharacter, categoriesFor, fetchAnimation, getAnimRules, setAnimRules, setTesterRules, cdn, url as assetUrl } from './catalog.js';
 import { saveAnimRules, loadAnimRules, saveLayerRules, loadLayerRules, loadTesterConfig, saveTesterConfig, listTesterSubmissions, loadTesterCharacterFiles } from './cloud.js';
 import { groupName, layerName } from './layerrules.js';
+import { partRulesEnforced } from './tester-parts.js';
 import { getLayerRules, setLayerRules, layerId } from './layerrules.js';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -228,7 +229,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       h('p', { class: 'hint', style: 'text-align:left;margin:0' }, tcfg.limit ? `A tester gets at most ${tcfg.limit} of the animations you tick below.` : '0 = no limit: a tester gets every animation you tick below.')));
     const partsByGroup = new Map();
     for (const layer of st.layers) (partsByGroup.get(layer.group) || partsByGroup.set(layer.group, []).get(layer.group)).push(layer);
-    const isDenied = (map, id) => (map['*'] || []).includes(id) || (map[st.base] || []).includes(id);
+    const isDenied = (map, id) => partRulesEnforced() && ((map['*'] || []).includes(id) || (map[st.base] || []).includes(id));
     const changePart = (map, id, deny) => {
       const scope = scopeKey();
       if (!deny && scope !== '*' && (map['*'] || []).includes(id)) { toast('This is hidden for every character. Please change the "Every character" setting first.'); drawTesterList(); return; }
@@ -237,7 +238,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       mark('testers'); drawTesterList();
     };
     out.push(h('section', {class:'ad-cat'}, h('div', {class:'ad-cathead'}, h('b', {}, 'Tester groups & part downloads')),
-      h('p', {class:'hint', style:'text-align:left'}, 'Show groups in the tester upload panel and choose which individual parts can be downloaded. Hidden groups remain visible on the character. Changes save automatically. Admins keep all controls.'),
+      h('p', {class:'hint', style:'text-align:left'}, 'For now every group and every part is open to all testers, so these switches are all on. Hiding and download limits are paused until we turn them back on.'),
       ...[...partsByGroup].map(([group, parts]) => h('details', {class:'cs-lgroup'},
         h('summary', {class:'ad-cathead'}, groupName(st.base, group), ` · ${parts.length} parts`),
         h('label', {class:'tog'}, h('input', {type:'checkbox', checked:!isDenied(tcfg.hiddenGroups, group), onchange:e=>changePart(tcfg.hiddenGroups, group, !e.target.checked)}), 'Show group to testers'),

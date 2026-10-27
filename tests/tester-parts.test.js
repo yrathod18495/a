@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { testerAnimations } from '../server/tester-animations.js';
-import { testerGroupVisible, testerLayerDownloadable, testerCanSave } from '../src/tester-parts.js';
+import { testerGroupVisible, testerLayerDownloadable, testerCanSave, setPartRulesEnforced } from '../src/tester-parts.js';
+setPartRulesEnforced(true);
 const face={slot:'head',key:'face',group:'Face'},hair={slot:'hair',key:'front',group:'Hair'};
 test('hidden groups apply globally or per character without changing other groups',()=>{
  const rules={verified:true,hiddenGroups:{'*':['Hair'],neha:['Face']}};
@@ -27,4 +28,11 @@ test('legacy configs retain existing part visibility and downloads; server valid
  const rules=testerAnimations({hiddenGroups:JSON.stringify({'*':['Face','Face']}),blockedDownloads:{neha:['head|face']}});
  assert.deepEqual({...rules.hiddenGroups},{'*':['Face']});assert.deepEqual({...rules.blockedDownloads},{neha:['head|face']});
  for(const value of [[],false,{'*':'all'},{'../scope':['Face']},{'*':[123]}])assert.throws(()=>testerAnimations({hiddenGroups:value}),e=>e.code==='invalid_parts');
+});
+
+test('while enforcement is paused every group and part is open to testers',()=>{
+ setPartRulesEnforced(false);
+ const rules={verified:true,hiddenGroups:{'*':['Hair']},blockedDownloads:{neha:['head|face']}};
+ assert.equal(testerGroupVisible(rules,'neha','Hair'),true);assert.equal(testerLayerDownloadable(null,'neha',face),true);
+ setPartRulesEnforced(true);
 });
