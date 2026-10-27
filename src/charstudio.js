@@ -820,7 +820,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   function panelLayers() {
     const all = layers(), q = st.filter.toLowerCase(), base = baseOf();
     const byGroup = new Map();
-    for (const l of all) if (partVisible(l) && !layerHidden(base, l.slot, l.key) && (!q || labelOf(l).toLowerCase().includes(q) || l.key.toLowerCase().includes(q) || groupName(base, l.group).toLowerCase().includes(q))) (byGroup.get(l.group) || byGroup.set(l.group, []).get(l.group)).push(l);
+    for (const l of all) if (!layerHidden(base, l.slot, l.key) && (!q || labelOf(l).toLowerCase().includes(q) || l.key.toLowerCase().includes(q) || groupName(base, l.group).toLowerCase().includes(q))) (byGroup.get(l.group) || byGroup.set(l.group, []).get(l.group)).push(l);
     const order = [...groupsData.map((g) => g.name), 'Other', 'Parts'].filter((g, i, a) => byGroup.has(g) && a.indexOf(g) === i);
     const bulk = h('input', { type: 'file', multiple: true, accept: '.psd,.zip,image/*,.svg', style: 'display:none', onchange: (ev) => { const f = [...ev.target.files]; ev.target.value = ''; bulkUpload(f); } });
     const search = h('input', { type: 'text', placeholder: 'Search layers…', value: st.filter, oninput: (ev) => { st.filter = ev.target.value; draw(); const i = panel.querySelector('input[type=text]'); i?.focus(); i?.setSelectionRange(i.value.length, i.value.length); } });
