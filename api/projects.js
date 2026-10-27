@@ -1,6 +1,6 @@
 // Project index and saves. The index (name, revision, summary, last few saves) lives in the Realtime Database; the snapshot file itself is in R2
 // (the browser uploads it with a signed URL first). A save is: sign -> upload -> commit, and the server never downloads the snapshot.
-import { access, bodyOf, send, failure } from '../server/access.js';
+import { access, bodyOf, send, failure, maintenanceBlocks } from '../server/access.js';
 import { services } from '../server/firebase-admin.js';
 import { kv } from '../server/rtdb.js';
 import { AccessError, nextRevision } from '../server/security-policy.js';
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
     const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit' || b.action === 'register', cache: true, admin: b.action === 'adminLookup' });
-    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    if (await maintenanceBlocks(who)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     const svc = services(), store = kv(svc), uid = who.uid;
     if (b.action === 'list') {
       const rows = (await store.get('projects/' + uid)) || {};

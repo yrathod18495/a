@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
-import { AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
+import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { testerAnimations } from '../server/tester-animations.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
@@ -72,9 +72,10 @@ export default async function handler(req, res) {
           checkAcquisition(ss.data(), ds.data(), uid, secretHash, now, b.force === true);
         } catch (e) { denied = e; }
         // Opening the studio again on the same browser (a reload) continues the running session: no new login, so nothing is written
-        // (a login writes four documents). Only a session that is more than half used up gets its lease extended.
+        // (a login writes four documents).
         const running = !denied && ss.data()?.secretHash === secretHash && !ss.data()?.revoked;
         if (running) {
+          if (needsExpiryUpgrade(ss.data())) tx.update(s, { expiresAt: NEVER_EXPIRES });   // a session started before sessions stopped expiring
           return { sid: ss.data().sid };
         }
         const accounts = ds.data()?.accounts || [];
@@ -83,7 +84,7 @@ export default async function handler(req, res) {
         if (denied) return { denied: { code: denied.code, message: denied.message, status: denied.status } };
         const same = ss.data()?.secretHash === secretHash && !ss.data()?.revoked;
         const sessionId = same ? ss.data().sid : sid;
-        tx.set(s, { sid: sessionId, deviceId: b.deviceId, secretHash, startedAt: same ? ss.data().startedAt : now, revoked: false });
+        tx.set(s, { sid: sessionId, deviceId: b.deviceId, secretHash, startedAt: same ? ss.data().startedAt : now, expiresAt: NEVER_EXPIRES, revoked: false });
         tx.set(d, { accounts: [...new Set([...accounts, uid])], lastSeen: now, firstSeen: ds.data()?.firstSeen || now }, { merge: true });
         return { sid: sessionId };
       });
@@ -119,7 +120,8 @@ export default async function handler(req, res) {
     if (b.action === 'tamperAlerts') return send(res, 200, await listAlerts(db));
     if (b.action === 'tamperAck') return send(res, 200, { ok: true, acknowledged: await acknowledgeAlerts(db, b.id, who.uid) });
     if (b.action === 'heartbeat') {
-      // Nothing to extend: sessions do not expire. The check above already rejects a session that was revoked or replaced by a newer login.
+      // Sessions do not expire; the check above already rejects a revoked or replaced one. A session started before that change is upgraded once so the Firestore rules keep accepting it.
+      if (needsExpiryUpgrade(who.session)) await db.doc('securitySessions/' + who.uid).update({ expiresAt: NEVER_EXPIRES });
       return send(res, 200, { ok: true });
     }
     if (b.action === 'logout') {

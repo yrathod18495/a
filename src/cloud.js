@@ -60,8 +60,16 @@ export async function saveCharacterCloud(def) {
   const manifest = { format: 'char3', id: def.id, name: def.name, pose: def.pose || '', base: def.base, pages: paths, assetHashes: hashes, profile: def.profile || {}, thumb: def.thumb || '', updatedAt: now };
   const sent = await uploadAssets(uid, files, { projectId: pid, opId: operationId, blob: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });    // only pictures the cloud does not have yet are sent
   if (auth.currentUser?.uid !== uid) throw new Error('The account changed. Please try again.');
-  const expected = await revisionOf(uid, pid);
-  await apiCall('/api/projects', { action: 'commit', id: pid, kind: 'character', name: def.name || 'My character', deleted: false, operationId, expected, assets: sent.fresh, summary: null }, uid);
+  for (let attempt = 0; ; attempt++) {          // a second save can move the revision between the read and the commit, and a network blip is worth one more try
+    try {
+      const expected = await revisionOf(uid, pid);
+      await apiCall('/api/projects', { action: 'commit', id: pid, kind: 'character', name: def.name || 'My character', deleted: false, operationId, expected, assets: sent.fresh, summary: null }, uid);
+      return;
+    } catch (e) {
+      if (attempt >= 2 || !['conflict', 'network'].includes(e.code)) throw e;
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
 }
 /** remove a saved character from the account (its pictures stay as shared hashed files until the admin cleans them) */
 export async function deleteCharacterCloud(id) {

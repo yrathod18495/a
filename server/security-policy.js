@@ -1,3 +1,6 @@
+/** Sessions never time out. This far-future value is still stored on the session because the Firestore security rules (firebase/firestore.rules) read it. */
+export const NEVER_EXPIRES = 4102444800000;
+export const needsExpiryUpgrade = (session) => !(session?.expiresAt > NEVER_EXPIRES / 2);
 export class AccessError extends Error {
   constructor(code, message, status = 403) { super(message); this.code = code; this.status = status; }
 }

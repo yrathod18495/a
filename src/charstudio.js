@@ -981,10 +981,13 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     if (baseId) st.savedId = id;
     let msg = `✓ Saved on this device (${mb(total) === '0 MB' ? 'a few KB' : mb(total)} of your own pictures).`;
     if (await cloudReady()) {
-      try {
-        await saveCharacterCloud(rec); if (!st.cloud.some((c) => c.id === id)) st.cloud.push({ id }); msg = '✓ Saved on this device and in your account.';
-        if (tester) { await saveTesterSubmission(rec, user); msg = '✓ Saved in the database — the animation studio now uses this character with your face settings.'; }
-      } catch (er) { msg = `✓ Saved on this device. Account: ${er.message}`; }
+      let cloudError = null;
+      try { await saveCharacterCloud(rec); if (!st.cloud.some((c) => c.id === id)) st.cloud.push({ id }); msg = '✓ Saved on this device and in your account.'; }
+      catch (er) { cloudError = er; msg = `✓ Saved on this device. Account: ${friendlyError(er)}`; }
+      if (tester) {          // the database row is saved even when the picture upload failed, so the admin always sees the submission
+        try { await saveTesterSubmission(rec, user); msg = cloudError ? `✓ Settings saved to the database, but the pictures could not be uploaded: ${friendlyError(cloudError)}` : '✓ Saved in the database — the animation studio now uses this character with your face settings.'; }
+        catch (er) { msg += ` Not saved to the database: ${friendlyError(er)}`; }
+      }
     } else if (tester) { try { await saveTesterSubmission(rec, user); msg = '✓ Settings saved to the database. The pictures were not uploaded (cloud storage is not set up); they only exist on this device.'; } catch (er) { msg = `✓ Saved on this device. Not saved to the database: ${friendlyError(er)}`; } }
     else if (user?.uid && user.uid !== 'debug') msg += ' (Cloud saving is not set up yet.)';
     return msg;

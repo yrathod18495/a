@@ -9,7 +9,7 @@ const {access,forgetAccess}=await import('../server/access.js');
 const {default:security}=await import('../api/security.js');
 const req={headers:{authorization:'Bearer x'}};
 const now=()=>Date.now();
-const reset=()=>{forgetAccess();reads=0;db.data.set('securityUsers/'+uid,{status:'active'});db.data.set('securitySessions/'+uid,{sid:'ok',revoked:false,expiresAt:now()+15*60*1000});};
+const reset=()=>{forgetAccess();reads=0;db.data.set('securityUsers/'+uid,{status:'active'});db.data.set('securitySessions/'+uid,{sid:'ok',revoked:false,expiresAt:4102444800000});};
 
 test('without the cache (tests, local runs) every call reads the three documents',async()=>{
  delete process.env.ACCESS_CACHE_MS;reset();
@@ -33,8 +33,9 @@ test('the heartbeat never writes the session and a revoked session is rejected',
  const beat=async()=>{const res=response();await security({method:'POST',headers:req.headers,body:{action:'heartbeat'}},res);return res;};
  reads=0;assert.equal((await beat()).statusCode,200);assert.equal(writes,0);          // nothing to renew
  assert.equal(reads,0);                                                          // and the heartbeat reads just the session document (not the 3-document batch)
- db.data.set('securitySessions/'+uid,{sid:'ok',revoked:false});
- assert.equal((await beat()).statusCode,200);assert.equal(writes,0);
+ db.data.set('securitySessions/'+uid,{sid:'ok',revoked:false,expiresAt:now()+60*1000});     // a session started before sessions stopped expiring
+ assert.equal((await beat()).statusCode,200);assert.equal(writes,1);assert.equal(db.data.get('securitySessions/'+uid).expiresAt,4102444800000);   // upgraded once
+ assert.equal((await beat()).statusCode,200);assert.equal(writes,1);                         // and never written again
  db.data.set('securitySessions/'+uid,{sid:'ok',revoked:true});
  assert.equal((await beat()).statusCode,401);
  db.doc=doc;

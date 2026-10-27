@@ -37,6 +37,12 @@ export async function access(req, { write = false, admin = false, fresh = false,
   if (admin && docs.role?.enabled !== true) throw new AccessError('admin_required', 'Only an admin can do this.');
   return { uid: claims.uid, claims, admin: docs.role?.enabled === true, session: docs.session };
 }
+/** During maintenance only admins and approved testers (whose page stays open) may use the cloud APIs. */
+export async function maintenanceBlocks(who) {
+  if (process.env.MAINTENANCE_MODE === 'false' || who.admin) return false;
+  const tester = await services().db.doc('securityTesters/' + who.uid).get();
+  return tester.data()?.status !== 'approved';
+}
 export const send = (res, code, body) => {
   res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(body));
 };
