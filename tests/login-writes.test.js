@@ -18,9 +18,7 @@ test('a new login writes the session, the account, the device and one event; rel
  const before=writes(),first=JSON.parse(JSON.stringify(db.data.get('securitySessions/'+uid)));
  for(let i=0;i<5;i++){const again=await call(acquire);assert.equal(again.statusCode,200);assert.equal(JSON.parse(again.body.token).sid,first.sid);}
  assert.equal(events(),1);assert.equal(writes(),before);                                   // five reloads, no write at all
- db.data.set('securitySessions/'+uid,{...first,expiresAt:Date.now()+3*60*1000});            // lease more than half used up
- assert.equal((await call(acquire)).statusCode,200);
- assert.ok(db.data.get('securitySessions/'+uid).expiresAt>Date.now()+14*60*1000);
+ assert.equal(writes(),before);                                                            // sessions never expire, so there is nothing to renew
  assert.equal(events(),1);
  assert.equal((await call({...acquire,secret:'secret_other_1234567'})).statusCode,409);      // another browser is still refused
 });

@@ -57,7 +57,7 @@ export async function validateSession() {
         stopSession(); window.dispatchEvent(new CustomEvent('session-revoked', { detail: e.message }));
       }
     });
-  }, 5 * 60 * 1000);     // the lease lasts 15 minutes; checking every 5 keeps it alive and a revoked session is noticed within minutes (every API call re-checks it too)
+  }, 5 * 60 * 1000);     // sessions never expire; this check only notices quickly when the account was signed in on another device (every API call re-checks it too)
   return result;
 }
 export const stopSession = () => { clearInterval(heartbeat); heartbeat = null; };

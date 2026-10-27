@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
-import { LEASE_MS, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
+import { AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { testerAnimations } from '../server/tester-animations.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
@@ -73,18 +73,17 @@ export default async function handler(req, res) {
         } catch (e) { denied = e; }
         // Opening the studio again on the same browser (a reload) continues the running session: no new login, so nothing is written
         // (a login writes four documents). Only a session that is more than half used up gets its lease extended.
-        const running = !denied && ss.data()?.secretHash === secretHash && !ss.data()?.revoked && ss.data()?.expiresAt > now;
+        const running = !denied && ss.data()?.secretHash === secretHash && !ss.data()?.revoked;
         if (running) {
-          if (ss.data().expiresAt - now < LEASE_MS / 2) tx.update(s, { expiresAt: now + LEASE_MS });
           return { sid: ss.data().sid };
         }
         const accounts = ds.data()?.accounts || [];
         tx.set(u, { email: claims.email || '', name: claims.name || '', lastAttempt: now }, { merge: true });
         tx.create(event, { uid, email: claims.email || '', deviceId: b.deviceId, accounts, at: now, code: denied?.code || 'login', review: denied?.code === 'device_review' ? 'pending' : null });
         if (denied) return { denied: { code: denied.code, message: denied.message, status: denied.status } };
-        const same = ss.data()?.secretHash === secretHash && !ss.data()?.revoked && ss.data()?.expiresAt > now;
+        const same = ss.data()?.secretHash === secretHash && !ss.data()?.revoked;
         const sessionId = same ? ss.data().sid : sid;
-        tx.set(s, { sid: sessionId, deviceId: b.deviceId, secretHash, startedAt: same ? ss.data().startedAt : now, expiresAt: now + LEASE_MS, revoked: false });
+        tx.set(s, { sid: sessionId, deviceId: b.deviceId, secretHash, startedAt: same ? ss.data().startedAt : now, revoked: false });
         tx.set(d, { accounts: [...new Set([...accounts, uid])], lastSeen: now, firstSeen: ds.data()?.firstSeen || now }, { merge: true });
         return { sid: sessionId };
       });
@@ -92,7 +91,7 @@ export default async function handler(req, res) {
       // persisted on the account (not just this token) so the sid claim survives the hourly ID-token refresh instead of forcing a fresh Google sign-in every time it rolls
       await auth.setCustomUserClaims(uid, { sid: result.sid });
       const token = await auth.createCustomToken(uid, { sid: result.sid });
-      return send(res, 200, { token, expiresAt: now + LEASE_MS });
+      return send(res, 200, { token });
     }
     const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', write: b.action === 'saveTesterAnimations', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'reviewTester', 'testerRequests', 'saveTesterAnimations', 'tamperAlerts', 'tamperAck'].includes(b.action) });
     if (b.action === 'testerAnimations') {
@@ -120,15 +119,14 @@ export default async function handler(req, res) {
     if (b.action === 'tamperAlerts') return send(res, 200, await listAlerts(db));
     if (b.action === 'tamperAck') return send(res, 200, { ok: true, acknowledged: await acknowledgeAlerts(db, b.id, who.uid) });
     if (b.action === 'heartbeat') {
-      // The lease is 15 minutes and the browser checks in every few minutes: rewrite it only when less than half is left (a read is cheaper than a write)
-      if (who.session.expiresAt - now < LEASE_MS / 2) await db.doc('securitySessions/' + who.uid).update({ expiresAt: now + LEASE_MS });
+      // Nothing to extend: sessions do not expire. The check above already rejects a session that was revoked or replaced by a newer login.
       return send(res, 200, { ok: true });
     }
     if (b.action === 'logout') {
       await db.runTransaction(async tx => {
         const ref = db.doc('securitySessions/' + who.uid), s = await tx.get(ref);
         checkSession(s.data(), who.claims.sid, now);
-        tx.update(ref, { revoked: true, expiresAt: now });
+        tx.update(ref, { revoked: true });
         tx.set(db.doc('securityUsers/' + who.uid), { reauthAfter: Math.floor(now/1000) }, { merge: true });
       });
       return send(res, 200, { ok: true });
@@ -171,7 +169,7 @@ export default async function handler(req, res) {
         if (!role.data()?.enabled) throw new AccessError('admin_required', 'Your admin permission has been removed.');
         checkAccount(actor.data(),Date.now(),true);checkSession(actorSession.data(),who.claims.sid);
         tx.set(db.doc('securityUsers/' + b.uid), { reauthAfter: Math.floor(now/1000), ...(b.status !== 'revoke' ? { status: b.status, until: b.status === 'suspended' ? b.until : 0 } : {}) }, { merge: true });
-        tx.set(db.doc('securitySessions/' + b.uid), { revoked: true, expiresAt: now }, { merge: true });
+        tx.set(db.doc('securitySessions/' + b.uid), { revoked: true }, { merge: true });
         tx.create(db.collection('securityAudit').doc(), { admin: who.uid, target: b.uid, action: b.status, until: b.until || null, at: now });
       });
       return send(res, 200, { ok: true });
@@ -200,7 +198,7 @@ export default async function handler(req, res) {
         tx.set(testerRef, { emails: [...new Set(emails)], anims: config.anims || '{}', limit: config.limit || 0, updatedAt: new Date(now).toISOString(), by: who.claims.email || '' }, { merge: true });
         tx.set(db.doc('securityTesters/' + b.uid), { uid: b.uid, email, name: target.displayName || '', status: b.role === 'tester' ? 'approved' : 'revoked', updatedAt: now, reviewedAt: now, reviewedBy: who.uid, ...(b.role === 'tester' ? { approvedAt: now, approvedBy: who.uid } : {}) }, { merge: true });
         const wasAdmin = targetAdmin.data()?.enabled === true, wasTester = targetTester.data()?.status === 'approved';
-        if (((wasAdmin && b.role !== 'admin') || (wasTester && b.role !== 'tester')) && targetSession.exists) tx.set(targetSessionRef, { revoked: true, expiresAt: now }, { merge: true });
+        if (((wasAdmin && b.role !== 'admin') || (wasTester && b.role !== 'tester')) && targetSession.exists) tx.set(targetSessionRef, { revoked: true }, { merge: true });
         tx.create(auditRef, { admin: who.uid, target: b.uid, action: 'set_role', role: b.role, at: now });
       });
       return send(res, 200, { ok: true, uid: b.uid, role: b.role });
@@ -230,7 +228,7 @@ export default async function handler(req, res) {
         const accounts = new Set(snap.data()?.accounts || []), denied = new Set(snap.data()?.denied || []);
         if (b.approve) { accounts.add(b.uid); denied.delete(b.uid); } else { accounts.delete(b.uid); denied.add(b.uid); }
         tx.set(d, { accounts: [...accounts], denied: [...denied] }, { merge: true });
-        tx.set(db.doc('securitySessions/' + b.uid), { revoked: true, expiresAt: now }, { merge: true });
+        tx.set(db.doc('securitySessions/' + b.uid), { revoked: true }, { merge: true });
         tx.set(db.doc('securityUsers/' + b.uid), { reauthAfter: Math.floor(now/1000) }, { merge: true });
         tx.create(db.collection('securityAudit').doc(), { admin: who.uid, target: b.uid, deviceId: b.deviceId, action: b.approve ? 'approve_device' : 'reject_device', at: now });
       });

@@ -95,7 +95,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     }
     function renderDashboard() {
       content.replaceChildren();
-      const sec = state.security, users = sec?.users || [], sessions = (sec?.sessions || []).filter(s => !s.revoked && Number(s.expiresAt) > Date.now()), payments = state.payments?.payments || [], chats = state.chats?.chats || [], affiliates = state.affiliates?.affiliates || [];
+      const sec = state.security, users = sec?.users || [], sessions = (sec?.sessions || []).filter(s => !s.revoked), payments = state.payments?.payments || [], chats = state.chats?.chats || [], affiliates = state.affiliates?.affiliates || [];
       const captured = payments.filter(p => p.status === 'captured');
       const newUsers = users.filter(u => { const time = Date.parse(u.registeredAt || ''); return Number.isFinite(time) && time >= localDayStart(); }).length;
       const unread = chats.filter(c => c.unreadAdmin === true).length;

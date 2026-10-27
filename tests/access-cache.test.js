@@ -26,17 +26,16 @@ test('with the cache a burst of calls costs three reads; writes and the heartbea
  forgetAccess(uid);await assert.rejects(access(req),e=>e.code==='blocked');
  delete process.env.ACCESS_CACHE_MS;
 });
-test('the heartbeat only writes the session when less than half of the lease is left',async()=>{
+test('the heartbeat never writes the session and a revoked session is rejected',async()=>{
  delete process.env.ACCESS_CACHE_MS;reset();
  let writes=0;const update=db.doc('securitySessions/'+uid).constructor;
  const doc=db.doc;db.doc=(path)=>{const d=doc(path);if(path==='securitySessions/'+uid){const set=d.update?.bind(d);d.update=async(v)=>{writes++;return set?set(v):db.data.set(path,{...db.data.get(path),...v});};}return d;};
  const beat=async()=>{const res=response();await security({method:'POST',headers:req.headers,body:{action:'heartbeat'}},res);return res;};
- reads=0;assert.equal((await beat()).statusCode,200);assert.equal(writes,0);          // 15 minutes left: nothing to write
+ reads=0;assert.equal((await beat()).statusCode,200);assert.equal(writes,0);          // nothing to renew
  assert.equal(reads,0);                                                          // and the heartbeat reads just the session document (not the 3-document batch)
- db.data.set('securitySessions/'+uid,{sid:'ok',revoked:false,expiresAt:now()+5*60*1000});
- assert.equal((await beat()).statusCode,200);assert.equal(writes,1);          // 5 minutes left: lease renewed
- assert.ok(db.data.get('securitySessions/'+uid).expiresAt>now()+14*60*1000);
- db.data.set('securitySessions/'+uid,{sid:'ok',revoked:true,expiresAt:now()+5*60*1000});
+ db.data.set('securitySessions/'+uid,{sid:'ok',revoked:false});
+ assert.equal((await beat()).statusCode,200);assert.equal(writes,0);
+ db.data.set('securitySessions/'+uid,{sid:'ok',revoked:true});
  assert.equal((await beat()).statusCode,401);
  db.doc=doc;
 });

@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { checkAccount, checkSession, checkAcquisition, nextRevision } from '../server/security-policy.js';
-test('second browser rejected while first lease lives; same secret can resume',()=>{
- const s={sid:'one',secretHash:'secret1',expiresAt:100};
+test('a second browser is asked before taking over a live session, however old it is; the same browser can resume; a revoked session is free',()=>{
+ const s={sid:'one',secretHash:'secret1'};
  assert.throws(()=>checkAcquisition(s,null,'u','secret2',50),e=>e.code==='session_active');
+ assert.throws(()=>checkAcquisition(s,null,'u','secret2',9e12),e=>e.code==='session_active');
  assert.doesNotThrow(()=>checkAcquisition(s,null,'u','secret1',50));
- assert.doesNotThrow(()=>checkAcquisition(s,null,'u','secret2',101));
+ assert.doesNotThrow(()=>checkAcquisition(s,null,'u','secret2',50,true));
+ assert.doesNotThrow(()=>checkAcquisition({...s,revoked:true},null,'u','secret2',50));
 });
 test('a browser may be used by any number of different Gmail accounts; only one active session per account is enforced',()=>{
  assert.doesNotThrow(()=>checkAcquisition(null,{accounts:['gmail1']},'gmail2','s',0));
@@ -19,12 +21,12 @@ test('blocked, restricted, suspended and restored accounts',()=>{
  assert.doesNotThrow(()=>checkAccount({status:'suspended',until:100},101));
  assert.doesNotThrow(()=>checkAccount({status:'active'},50,true));
 });
-test('cached token from revoked, expired or replaced session cannot authorize',()=>{
- assert.throws(()=>checkSession({sid:'old',expiresAt:100,revoked:true},'old',50));
- assert.throws(()=>checkSession({sid:'new',expiresAt:100},'old',50));
- assert.throws(()=>checkSession({sid:'old',expiresAt:100},'old',101));
- assert.throws(()=>checkSession({sid:'old',expiresAt:100},undefined,50));
- assert.doesNotThrow(()=>checkSession({sid:'old',expiresAt:100},'old',50));
+test('a revoked or replaced session cannot authorize, but a session never times out',()=>{
+ assert.throws(()=>checkSession({sid:'old',revoked:true},'old',50));
+ assert.throws(()=>checkSession({sid:'new'},'old',50));
+ assert.throws(()=>checkSession({sid:'old'},undefined,50));
+ assert.doesNotThrow(()=>checkSession({sid:'old'},'old',50));
+ assert.doesNotThrow(()=>checkSession({sid:'old'},'old',9e12));
 });
 test('revisions reject stale commits and accept retry of committed operation',()=>{
  assert.equal(nextRevision(null,0,'a'),1);
