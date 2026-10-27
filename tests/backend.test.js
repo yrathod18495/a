@@ -22,12 +22,12 @@ test('actual acquisition handler serializes simultaneous devices; backend reject
  assert.equal((await access(request('session',{}))).uid,uid);
  await assert.rejects(access(request('google',{})),e=>e.code==='session_invalid');
 });
-test('actual handler logs and blocks second Gmail on associated device',async()=>{
+test('actual handler allows a second Gmail account to sign in on a device another account already used',async()=>{
  loginToken('other',other);
  const active=db.data.get('securitySessions/'+uid);
  const r=await call('other',{action:'acquire',deviceId:active.deviceId,secret:'secret_333333333333'});
- assert.equal(r.statusCode,403);assert.equal(r.body.code,'device_review');
- assert.ok([...db.data.values()].some(e=>e.uid===other&&e.code==='device_review'));
+ assert.equal(r.statusCode,200);
+ assert.ok([...db.data.values()].some(e=>e.uid===other&&e.code==='login'));
 });
 test('nonadmin cannot moderate; admin actions enforced on backend and audited',async()=>{
  assert.equal((await call('session',{action:'moderate',uid:other,status:'blocked'})).statusCode,403);

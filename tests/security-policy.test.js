@@ -7,10 +7,9 @@ test('second browser rejected while first lease lives; same secret can resume',(
  assert.doesNotThrow(()=>checkAcquisition(s,null,'u','secret1',50));
  assert.doesNotThrow(()=>checkAcquisition(s,null,'u','secret2',101));
 });
-test('same installation with another Gmail needs approval; rejection remains enforced',()=>{
- assert.throws(()=>checkAcquisition(null,{accounts:['gmail1']},'gmail2','s',0),e=>e.code==='device_review');
- assert.doesNotThrow(()=>checkAcquisition(null,{accounts:['gmail1','gmail2']},'gmail2','s',0));
- assert.throws(()=>checkAcquisition(null,{accounts:['gmail1','gmail2'],denied:['gmail2']},'gmail2','s',0),e=>e.code==='device_rejected');
+test('a browser may be used by any number of different Gmail accounts; only one active session per account is enforced',()=>{
+ assert.doesNotThrow(()=>checkAcquisition(null,{accounts:['gmail1']},'gmail2','s',0));
+ assert.doesNotThrow(()=>checkAcquisition(null,{accounts:['gmail1','gmail2'],denied:['gmail2']},'gmail2','s',0));
 });
 test('blocked, restricted, suspended and restored accounts',()=>{
  assert.throws(()=>checkAccount({status:'blocked'},50));

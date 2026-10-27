@@ -12,9 +12,7 @@ export function checkSession(session, sid, now = Date.now()) {
     throw new AccessError('session_invalid', 'Your session has expired. Please sign in again.', 401);
 }
 export function checkAcquisition(session, device, uid, secretHash, now = Date.now(), force = false) {
-  if (device?.denied?.includes(uid)) throw new AccessError('device_rejected', 'Switching device or account was not approved.');
-  if (device?.accounts?.length && !device.accounts.includes(uid))
-    throw new AccessError('device_review', 'Another account was used on this browser before. An admin review is required.');
+  // Only one device/browser may hold an account's session at a time; which accounts have used which browser is not restricted.
   if (!force && session && !session.revoked && session.expiresAt > now && session.secretHash !== secretHash)
     throw new AccessError('session_active', 'Your session is already active elsewhere. Please log out there or ask an admin for help.', 409);
 }
