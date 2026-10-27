@@ -412,7 +412,10 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     return [sl('Colour', 'hue', -180, 180, 1, (v) => `${v}°`), sl('Richness', 'sat', 0, 2, 0.05, (v) => `${Math.round(v * 100)}%`), sl('Light', 'light', -50, 50, 1, (v) => `${v}`)];
   }
   async function putImage(l, file) {
-    if (!partVisible(l)) { toast('This group has been hidden by the admin.'); return; }
+    if (!partVisible(l)) {
+      toast(getTesterRules().verified ? `The "${groupName(baseOf(), l.group)}" group is hidden for testers in Tester Permissions. Ask the admin to show it.` : 'Your permissions could not be loaded yet. Please check your connection and reload the page.');
+      return;
+    }
     if (st.locked.has(l.region)) { toast('This layer is locked.'); return; }
     try {
       const e = editOf(l.region); e.img = await readImage(file, file.name); e.trim = null;
@@ -817,7 +820,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   function panelLayers() {
     const all = layers(), q = st.filter.toLowerCase(), base = baseOf();
     const byGroup = new Map();
-    for (const l of all) if (!layerHidden(base, l.slot, l.key) && (!q || labelOf(l).toLowerCase().includes(q) || l.key.toLowerCase().includes(q) || groupName(base, l.group).toLowerCase().includes(q))) (byGroup.get(l.group) || byGroup.set(l.group, []).get(l.group)).push(l);
+    for (const l of all) if (partVisible(l) && !layerHidden(base, l.slot, l.key) && (!q || labelOf(l).toLowerCase().includes(q) || l.key.toLowerCase().includes(q) || groupName(base, l.group).toLowerCase().includes(q))) (byGroup.get(l.group) || byGroup.set(l.group, []).get(l.group)).push(l);
     const order = [...groupsData.map((g) => g.name), 'Other', 'Parts'].filter((g, i, a) => byGroup.has(g) && a.indexOf(g) === i);
     const bulk = h('input', { type: 'file', multiple: true, accept: '.psd,.zip,image/*,.svg', style: 'display:none', onchange: (ev) => { const f = [...ev.target.files]; ev.target.value = ''; bulkUpload(f); } });
     const search = h('input', { type: 'text', placeholder: 'Search layers…', value: st.filter, oninput: (ev) => { st.filter = ev.target.value; draw(); const i = panel.querySelector('input[type=text]'); i?.focus(); i?.setSelectionRange(i.value.length, i.value.length); } });
