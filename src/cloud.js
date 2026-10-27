@@ -1,6 +1,6 @@
 // Cloud side of 12toons: profile in Firestore, files in Cloudflare R2 (through /api/r2), and a "sync" that mirrors
 // everything saved on this device (project, audio, characters, backgrounds and animation data).
-import { auth, db, wsDoc, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from './firebase.js';
+import { auth, db, wsDoc, doc, getDoc, setDoc, deleteDoc } from './firebase.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
 import { uploadAssets, confirmAssets, downloadAssets, hashBlob, fetchBlob } from './binary-cloud.js';
@@ -224,12 +224,15 @@ export async function isTester(user) {
   catch { return false; }
 }
 /** the tester's saved character, as a row the admin can see (the files stay in the tester's own cloud folder) */
-export async function saveTesterSubmission(def, user, extra = {}) {
+export async function saveTesterSubmission(def, user) {
   if (!user || user.uid === 'debug') return;
-  await setDoc(doc(db, 'testerCharacters', def.id), { id: def.id, name: def.name, pose: def.pose || '', ownerUid: user.uid, ownerEmail: (user.email || '').toLowerCase(), profile: JSON.stringify(def.profile || {}).slice(0, 200000), thumb: def.thumb || '', updatedAt: new Date().toISOString(), ...extra });
+  await apiCall('/api/security', { action: 'saveTesterCharacter', id: def.id, name: def.name, pose: def.pose || '', profile: JSON.stringify(def.profile || {}), thumb: def.thumb || '' }, user.uid);
 }
+/** admin: every character the testers saved (read on the server, so it does not depend on the Firestore rules) */
 export async function listTesterSubmissions() {
-  try { return (await getDocs(collection(db, 'testerCharacters'))).docs.map((d) => d.data()).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))); } catch { return []; }
+  const uid = auth.currentUser?.uid;
+  if (!uid) return [];
+  try { return (await apiCall('/api/security', { action: 'testerSubmissions' }, uid)).submissions || []; } catch { return []; }
 }
 /** admin: find any user's project by the short ID they read out, with its owner and recent save history */
 export async function adminFindProject(id, user) {

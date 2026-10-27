@@ -94,7 +94,25 @@ export default async function handler(req, res) {
       const token = await auth.createCustomToken(uid, { sid: result.sid });
       return send(res, 200, { token });
     }
-    const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', write: b.action === 'saveTesterAnimations', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'reviewTester', 'testerRequests', 'saveTesterAnimations', 'tamperAlerts', 'tamperAck'].includes(b.action) });
+    const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', write: b.action === 'saveTesterAnimations' || b.action === 'saveTesterCharacter', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'reviewTester', 'testerRequests', 'saveTesterAnimations', 'tamperAlerts', 'tamperAck', 'testerSubmissions'].includes(b.action) });
+    // The tester's saved character row is written here (not from the browser) so it never depends on the Firestore rules, the session record or maintenance mode.
+    if (b.action === 'saveTesterCharacter') {
+      if (!who.admin) {
+        const tester = await db.doc('securityTesters/' + who.uid).get();
+        if (tester.data()?.status !== 'approved') throw new AccessError('tester_required', 'This requires approved tester access.');
+      }
+      const text = (value, max) => (typeof value === 'string' ? value : '').slice(0, max);
+      if (!/^[A-Za-z0-9_-]{4,64}$/.test(String(b.id || ''))) throw new AccessError('invalid_character', 'The character information is not valid.', 400);
+      if (typeof b.profile === 'string' && b.profile.length > 200000) throw new AccessError('too_large', 'The character settings are too large to save.', 413);
+      const ref = db.doc('testerCharacters/' + b.id), prev = (await ref.get()).data();
+      if (prev && prev.ownerUid !== who.uid && !who.admin) throw new AccessError('character_taken', 'This character belongs to another tester.', 409);
+      await ref.set({ id: b.id, name: text(b.name, 120), pose: text(b.pose, 60), ownerUid: prev?.ownerUid || who.uid, ownerEmail: prev?.ownerEmail || String(who.claims.email || '').toLowerCase(), profile: text(b.profile, 200000), thumb: (typeof b.thumb === 'string' && b.thumb.length <= 150000) ? b.thumb : '', updatedAt: new Date(now).toISOString() });
+      return send(res, 200, { ok: true });
+    }
+    if (b.action === 'testerSubmissions') {
+      const snap = await db.collection('testerCharacters').get();
+      return send(res, 200, { submissions: snap.docs.map((d) => d.data()).sort((a, c) => String(c.updatedAt).localeCompare(String(a.updatedAt))) });
+    }
     if (b.action === 'testerAnimations') {
       if (!who.admin) {
         const tester = await db.doc('securityTesters/' + who.uid).get();

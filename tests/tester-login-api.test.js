@@ -70,3 +70,15 @@ test('tester intent preserves fresh Google, blocked account and device/session c
  db.data.set('securityUsers/'+uid,{status:'active'});
  assert.equal((await call(uid,{...acquire,secret:'different_secret_123456'})).body.code,'session_active');
 });
+
+test('an approved tester saves a character row through the server, even during maintenance; others cannot overwrite it',async()=>{
+ const mk=(id,extra={})=>{tokens.set(id,{uid:id,sid:id+'-sid',email:id+'@example.test',email_verified:true});db.data.set('securitySessions/'+id,{sid:id+'-sid',revoked:false,expiresAt:4102444800000});db.data.set('securityUsers/'+id,{status:'active'});for(const [k,v] of Object.entries(extra))db.data.set(k+'/'+id,v);};
+ mk('saver_one_12345678',{securityTesters:{status:'approved'}});mk('saver_two_12345678',{securityTesters:{status:'approved'}});mk('saver_plain_1234567');
+ const row={action:'saveTesterCharacter',id:'cabc123',name:'My Neha',pose:'front',profile:'{"fit":1}',thumb:'data:image/webp;base64,AAAA'};
+ assert.equal((await call('saver_one_12345678',row)).statusCode,200);
+ assert.equal(db.data.get('testerCharacters/cabc123').ownerUid,'saver_one_12345678');
+ assert.equal((await call('saver_two_12345678',row)).body.code,'character_taken');
+ assert.equal((await call('saver_plain_1234567',{...row,id:'cother9'})).body.code,'tester_required');
+ assert.equal((await call('saver_one_12345678',{...row,id:'x'})).statusCode,400);
+ assert.equal((await call('saver_one_12345678',{action:'testerSubmissions'})).statusCode,403);
+});

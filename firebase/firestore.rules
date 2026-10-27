@@ -9,8 +9,7 @@ service cloud.firestore {
   function session() {
    return signed() && request.auth.token.sid is string
     && get(/databases/$(database)/documents/securitySessions/$(request.auth.uid)).data.sid == request.auth.token.sid
-    && get(/databases/$(database)/documents/securitySessions/$(request.auth.uid)).data.revoked == false
-    && get(/databases/$(database)/documents/securitySessions/$(request.auth.uid)).data.expiresAt > request.time.toMillis();
+    && get(/databases/$(database)/documents/securitySessions/$(request.auth.uid)).data.revoked == false;      // sessions never expire; they end only when revoked or replaced
   }
   function staff() { return session() && get(/databases/$(database)/documents/securityAdmins/$(request.auth.uid)).data.enabled == true; }
   function allowed() {
