@@ -5,13 +5,13 @@ import { services } from '../server/firebase-admin.js';
 import { kv } from '../server/rtdb.js';
 import { AccessError, nextRevision } from '../server/security-policy.js';
 import { cleanSummary } from '../shared/project-summary.js';
-import { confirmAssets, objectExists, deleteKey, stateKey, getUrl, isHash, MAX_PROJECT_ASSETS } from '../server/r2-storage.js';
+import { confirmAssets, objectExists, deleteKey, stateKey, assetKey, getUrl, isHash, MAX_PROJECT_ASSETS } from '../server/r2-storage.js';
 const idOK = v => typeof v === 'string' && /^[a-zA-Z0-9_-]{6,128}$/.test(v);
 const KEEP_ACTIVITY = 10;
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
-    const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit' || b.action === 'register', cache: true, admin: b.action === 'adminLookup' });
+    const b = await bodyOf(req, 400 * 1024), who = await access(req, { write: b.action === 'commit' || b.action === 'register', cache: true, admin: b.action === 'adminLookup' || b.action === 'adminCharacter' });
     if (await maintenanceBlocks(who)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     const svc = services(), store = kv(svc), uid = who.uid;
     if (b.action === 'list') {
@@ -39,6 +39,18 @@ export default async function handler(req, res) {
       if (!row) return send(res, 200, { found: true, pending: true, id: b.id, kind: owner.kind, owner: { uid: owner.uid, email: account.email || '', name: account.name || '' } });
       const { activity, ...project } = row;
       return send(res, 200, { found: true, id: b.id, owner: { uid: owner.uid, email: account.email || '', name: account.name || '' }, project, activity: activity || [] });
+    }
+    if (b.action === 'adminCharacter') {
+      // the admin opens a tester's saved character: signed links to its manifest and to the pictures that manifest lists (the tester's own files)
+      if (!/^[A-Za-z0-9_-]{4,64}$/.test(String(b.id || ''))) throw new AccessError('invalid_character', 'The character information is not valid.', 400);
+      const row = (await svc.db.doc('testerCharacters/' + b.id).get()).data();
+      if (!row?.ownerUid) return send(res, 200, { found: false });
+      const pid = ('char_' + b.id).padEnd(16, '_'), project = await store.get(`projects/${row.ownerUid}/${pid}`);
+      if (!project || project.deleted || !project.stateOp) return send(res, 200, { found: true, saved: false });
+      const hashes = [...new Set(Array.isArray(b.hashes) ? b.hashes : [])];
+      if (hashes.length > MAX_PROJECT_ASSETS || !hashes.every(isHash)) throw new AccessError('invalid_asset', 'The asset is not valid.', 400);
+      const urls = Object.fromEntries(await Promise.all(hashes.map(async (hash) => [hash, await getUrl(assetKey(row.ownerUid, hash))])));
+      return send(res, 200, { found: true, saved: true, stateUrl: await getUrl(stateKey(row.ownerUid, pid, project.stateOp)), urls });
     }
     if (!idOK(b.id)) throw new AccessError('invalid_project', 'This project is not valid. Please choose again.', 400);
     if (b.action === 'commit') {

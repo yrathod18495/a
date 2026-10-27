@@ -7,7 +7,7 @@ import { testerAnimationAllowed, changeTesterAnimation } from './tester-animatio
 import { h } from './dom.js';
 import { Stage } from './db/stage.js';
 import { loadCatalog, hydrateCharacter, libraryCharacters, fetchLibraryCharacter, categoriesFor, fetchAnimation, getAnimRules, setAnimRules, setTesterRules, cdn, url as assetUrl } from './catalog.js';
-import { saveAnimRules, loadAnimRules, saveLayerRules, loadLayerRules, loadTesterConfig, saveTesterConfig, listTesterSubmissions } from './cloud.js';
+import { saveAnimRules, loadAnimRules, saveLayerRules, loadLayerRules, loadTesterConfig, saveTesterConfig, listTesterSubmissions, loadTesterCharacterFiles } from './cloud.js';
 import { groupName, layerName } from './layerrules.js';
 import { getLayerRules, setLayerRules, layerId } from './layerrules.js';
 
@@ -262,13 +262,15 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
         : h('div', { class: 'ad-lrows' }, st.subs.map(subRow))));
     listEl.replaceChildren(...out);
   }
-  /** put a tester's saved character on the big canvas: its template with the tester's rig settings (face, offsets, order, outfit) applied */
+  /** put a tester's saved character on the big canvas: their own pictures and rig settings from the cloud (falls back to the template pictures) */
   async function previewSub(r, p) {
-    const tpl = p.template?.id;
-    if (!tpl) { toast('This character has no template, so it cannot be shown on the canvas.'); return; }
     const my = ++st.gen; st.busy = true; loaded = false; drawAll();
     try {
-      const def = await hydrateCharacter({ id: r.id, name: r.name, pose: r.pose, base: `lib:${tpl}`, profile: p, pages: {}, thumb: r.thumb });
+      let rec = null, own = false;
+      try { rec = await loadTesterCharacterFiles(r.id); own = !!rec; } catch (e) { console.warn(e); }
+      if (!rec && p.template?.id) rec = { id: r.id, name: r.name, pose: r.pose, base: `lib:${p.template.id}`, profile: p, pages: {}, thumb: r.thumb };
+      if (!rec) throw new Error('this character has no template and no cloud save');
+      const def = await hydrateCharacter(rec);
       if (!def) throw new Error('its template is not available');
       if (my !== st.gen) return;
       await stage.loadCharacter(def);
@@ -276,7 +278,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       const idle = st.cats.filter((c) => !c.overlay).flatMap((c) => c.animations.map((a) => ({ ...a, cat: c }))).find((a) => /^idle/i.test(a.name));
       st.busy = false; drawAll();
       if (idle) await play(idle);
-      st.note = `Showing "${r.name || r.id}" by ${r.ownerName || r.ownerEmail || 'a tester'} with their rig settings. Their own uploaded pictures are not shown here; the template pictures are.`; drawCaption();
+      st.note = `Showing "${r.name || r.id}" by ${r.ownerName || r.ownerEmail || 'a tester'} ${own ? 'with their own pictures and rig settings.' : 'with their rig settings on the template pictures (their own pictures are not in the cloud yet).'}`; drawCaption();
       root.scrollIntoView?.({ block: 'start' });
     } catch (e) { st.busy = false; toast(`Could not show the character: ${e.message}`); drawAll(); }
   }

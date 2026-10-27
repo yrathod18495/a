@@ -88,6 +88,16 @@ export async function listCharactersCloud() {
     return projects.filter((p) => p.kind === 'character' && !p.deleted && p.stateUrl).map((p) => ({ id: charIdOf(p.id), name: p.name, stateUrl: p.stateUrl, updatedAt: p.updatedAt, format: 'char3' }));
   } catch { return []; }
 }
+/** admin: a tester's saved character as a hydrate-ready record (their own pictures included), or null when they never saved it to the cloud */
+export async function loadTesterCharacterFiles(id) {
+  const first = await apiCall('/api/projects', { action: 'adminCharacter', id });
+  if (!first.saved) return null;
+  const m = JSON.parse(await (await fetchBlob(first.stateUrl)).text()), hashes = m.assetHashes || [], pages = {};
+  const { urls } = hashes.length ? await apiCall('/api/projects', { action: 'adminCharacter', id, hashes }) : { urls: {} };
+  const files = new Map(await Promise.all(hashes.map(async (hash) => [hash, await fetchBlob(urls[hash])])));
+  (m.pages || []).forEach((path, i) => { const b = files.get(m.assetHashes[i]); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); });
+  return { id: m.id, name: m.name, pose: m.pose, base: m.base, pages, thumb: m.thumb, profile: m.profile || {} };
+}
 export async function loadCharacterCloud(meta) {
   if (meta.format !== 'char3') throw new Error('This character was saved in an old format. Recreate it in Character Studio.');
   const m = JSON.parse(await (await fetchBlob(meta.stateUrl)).text()), uid = uidOf(), files = await downloadAssets(uid, m.assetHashes || []), pages = {};
