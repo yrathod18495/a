@@ -70,7 +70,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       const first = withCat.find((a) => !a.cat.overlay && /^idle/i.test(a.name)) || withCat[0];
       st.busy = false; drawAll();
       if (first) await play(first);
-    } catch (e) { st.busy = false; toast(`Character load nahi ho paya: ${e.message}`); drawAll(); }
+    } catch (e) { st.busy = false; toast(`Could not load the character: ${e.message}`); drawAll(); }
   }
 
   /** play an animation on the character (layer animations run on top of an idle body) */
@@ -89,7 +89,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       stage.setRig(st.def.id, st.def.ske);
       stage.setLayers([{ key: 'c', charId: st.def.id, anims, clips, flip: false, slot: 0, visible: true, xf: null, skins: st.def.skins, hide: [] }]);
       t0 = performance.now(); loaded = true;
-    } catch (e) { st.note = 'Is animation ka preview available nahi hai (uski file nahi mili). Aap ise phir bhi dikha ya chhupa sakte hain.'; loaded = false; drawCaption(); }
+    } catch (e) { st.note = 'A preview is not available for this animation (its file was not found). You can still show or hide it.'; loaded = false; drawCaption(); }
   }
 
   /* ---------- editing the rules ---------- */
@@ -127,7 +127,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
       }
       st.dirty = false;
       toast(local ? 'Saved on this device (test mode).' : 'Published — tester permissions update live.');
-    } catch (e) { toast(e.code === 'permission-denied' ? 'Aapko ye karne ki ijazat nahi hai. Aapka email Firestore rules me admin ke roop me hona chahiye.' : `Publish nahi ho paya: ${friendlyError(e)}`); }
+    } catch (e) { toast(e.code === 'permission-denied' ? 'You are not allowed to do this. Your email must be listed as an admin in Firestore rules.' : `Could not publish: ${friendlyError(e)}`); }
     st.busy = false; drawBar();
   }
   async function discard() {
@@ -231,7 +231,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
     const isDenied = (map, id) => (map['*'] || []).includes(id) || (map[st.base] || []).includes(id);
     const changePart = (map, id, deny) => {
       const scope = scopeKey();
-      if (!deny && scope !== '*' && (map['*'] || []).includes(id)) { toast('Ye har character ke liye chhupa hua hai. Pehle Every character wali setting badlein.'); drawTesterList(); return; }
+      if (!deny && scope !== '*' && (map['*'] || []).includes(id)) { toast('This is hidden for every character. Please change the "Every character" setting first.'); drawTesterList(); return; }
       if (!deny && scope === '*') for (const key of Object.keys(map)) map[key] = map[key].filter(value => value !== id);
       else map[scope] = [...new Set([...(map[scope] || []).filter(value => value !== id), ...(deny ? [id] : [])])];
       mark('testers'); drawTesterList();

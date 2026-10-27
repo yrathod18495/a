@@ -12,7 +12,7 @@ export async function assetsView({ user, home, back, toast }) {
   const refresh = async () => {
     state.loading = true; draw();
     try { state.assets = await listStudioAssets(); }
-    catch (e) { toast(`Studio library load nahi ho payi: ${e.message}`); }
+    catch (e) { toast(`Could not load the studio library: ${e.message}`); }
     state.loading = false; draw();
   };
   const openUpload = () => fileInput.click();
@@ -57,7 +57,7 @@ export async function assetsView({ user, home, back, toast }) {
       const values = { target: target.value, layer: layer.value, frameRate: Number(fps.value) }, title = name.value.trim();
       const button = form.querySelector('button'); button.disabled = true; state.loading = true;
       try { await saveStudioAnimation(title, chosen, values); await loadCatalog(); await refresh(); toast('Animation published to the selected character pose.'); }
-      catch (error) { toast(`Animation publish nahi ho payi: ${error.message}`); }
+      catch (error) { toast(`Could not publish the animation: ${error.message}`); }
       finally { state.loading = false; button.disabled = false; }
     } }, field('Animation name', name), field('Character and pose', target), field('Animation layer', layer), field('Source FPS', fps), field('DragonBones JSON · up to 4 MB', file), h('button', { class: 'btn pri', type: 'submit', disabled: state.loading }, 'Publish animation'));
     const records = state.assets.filter(asset => asset.type === 'animation');
@@ -75,7 +75,7 @@ export async function assetsView({ user, home, back, toast }) {
   async function remove(asset) {
     if (!confirm(`Remove “${asset.name}” from the studio library? Existing project copies stay saved.`)) return;
     try { await deleteStudioAsset(asset.id); const preview = state.previews.get(asset.id); if (preview) URL.revokeObjectURL(preview); state.previews.delete(asset.id); state.assets = state.assets.filter((a) => a.id !== asset.id); draw(); toast('Asset removed from the library.'); }
-    catch (e) { toast(`Asset hata nahi paya: ${e.message}`); }
+    catch (e) { toast(`Could not remove the asset: ${e.message}`); }
   }
   fileInput = h('input', { class: 'admin-assets-file', type: 'file', accept: 'image/*', onchange: async (e) => {
     const file = e.target.files?.[0]; e.target.value = '';
@@ -86,7 +86,7 @@ export async function assetsView({ user, home, back, toast }) {
       await saveStudioAsset(assetType(), name, file);
       state.assets = await listStudioAssets();
       toast(`${name} added to the Animation Studio library.`);
-    } catch (error) { toast(`Image add nahi ho payi: ${error.message}`); }
+    } catch (error) { toast(`Could not add the image: ${error.message}`); }
     finally { state.loading = false; draw(); }
   } });
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin · Studio Assets'), h('span', { class: 'sp' }), h('button', { class: 'btn', type: 'button', onclick: back }, 'Back to Admin')), tabs, content);
@@ -95,7 +95,7 @@ export async function assetsView({ user, home, back, toast }) {
     const entries = libraryCharacters().filter((e) => e.template);
     state.chars = [...new Map(entries.map((e) => [e.charBase, { name: e.name, thumb: e.thumbnail, poses: entries.filter((x) => x.charBase === e.charBase) }])).values()];
     state.assets = await listStudioAssets();
-  } catch (error) { toast(`Studio library load nahi ho payi: ${error.message}`); }
+  } catch (error) { toast(`Could not load the studio library: ${error.message}`); }
   state.loading = false; draw();
   root.dispose = () => state.previews.forEach((url) => URL.revokeObjectURL(url));
   return root;

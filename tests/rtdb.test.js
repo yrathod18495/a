@@ -21,7 +21,7 @@ test('transact retries nothing but serialises: two increments both land, returni
   assert.equal(skipped.committed, false); assert.equal(skipped.value.bytes, 30);
 });
 
-test('without FIREBASE_DATABASE_URL the helper says so in Hinglish', () => {
+test('without FIREBASE_DATABASE_URL the helper says so in plain English', () => {
   assert.equal(hasRtdb({}), false);
   assert.throws(() => rtdbOf({}), (e) => e.code === 'rtdb_missing' && e.status === 503 && /Realtime Database/.test(e.message));
 });

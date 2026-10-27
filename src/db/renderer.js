@@ -42,7 +42,7 @@ export class GLTex {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
     const uploadError = gl.getError();
-    if (uploadError !== gl.NO_ERROR) { gl.deleteTexture(this.tex); throw new Error('Graphics memory available nahi hai. Preview quality kam karke dekhein.'); }
+    if (uploadError !== gl.NO_ERROR) { gl.deleteTexture(this.tex); throw new Error('Graphics memory is not available. Try lowering the preview quality.'); }
     const pot = (n) => (n & (n - 1)) === 0, ok = mips && (r.gl2 || (pot(this.w) && pot(this.h)));
     if (ok) gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, ok ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);

@@ -28,11 +28,11 @@ test('a part is placed by hand: drag it on the preview, arrow keys, size, forwar
   await openTester(page);
   await page.locator('.cs-panel input[type=file]').first().setInputFiles([{ name: 'TORSO_2.png', mimeType: 'image/png', buffer: await magenta(page, 160, 160) }]);
   await expect(page.locator('.cs-place')).toBeVisible({ timeout: 20000 });
-  await expect(page.locator('.cs-place-note')).toContainText(/Dhad/i);
+  await expect(page.locator('.cs-place-note')).toContainText(/Torso/i);
   // bring it to the very front first, so nothing hides a part of it while it is measured (this also tests forward)
   await page.evaluate(() => { window.__charstudio.st.order.TORSO_2 = 39; });
-  await page.getByRole('button', { name: '⬆ Aage' }).click();
-  await expect(page.locator('.cs-place-note')).toContainText('aage 40');
+  await page.getByRole('button', { name: '⬆ Forward' }).click();
+  await expect(page.locator('.cs-place-note')).toContainText('forward 40');
   let p0 = null; await expect.poll(async () => { const w = await where(page); if (!w) return false; await page.waitForTimeout(1500); const w2 = await where(page); p0 = w2; return !!w2 && Math.abs(w2.y - w.y) < 1 && Math.abs(w2.n - w.n) < w.n * 0.01; }, { timeout: 40000 }).toBe(true);
   // drag it 70 px right and 40 px down with the mouse
   const box = await page.locator('.cs-stage canvas').boundingBox();
@@ -46,16 +46,16 @@ test('a part is placed by hand: drag it on the preview, arrow keys, size, forwar
   const p2 = await settle(page, p1, (w, b) => Math.abs(w.x - b.x + 10) < 4);
   expect(Math.abs(p2.y - p1.y)).toBeLessThan(4);
   // the buttons: down
-  await page.locator('.cs-place button[title="Neeche"]').click();
+  await page.locator('.cs-place button[title="Down"]').click();
   const p3 = await settle(page, p2, (w, b) => w.y - b.y > 1.5);
   expect(p3.y).toBeGreaterThan(p2.y);
   // bigger
   await page.locator('.cs-place .btn', { hasText: '＋' }).click(); await page.locator('.cs-place .btn', { hasText: '＋' }).click();
   await settle(page, p3, (w, b) => w.n > b.n * 1.05);
   // forward / back is remembered per part and shown
-  await page.getByRole('button', { name: '⬆ Aage' }).click();
+  await page.getByRole('button', { name: '⬆ Forward' }).click();
   expect(await page.evaluate(() => Object.values(window.__charstudio.st.order))).toEqual([41]);
-  await expect(page.locator('.cs-place-note')).toContainText('aage 41');
+  await expect(page.locator('.cs-place-note')).toContainText('forward 41');
   // saved with the character (profile) and undone by Reset
   const profile = await page.evaluate(() => ({ xf: Object.keys(window.__charstudio.st.xf).length, order: Object.keys(window.__charstudio.st.order).length }));
   expect(profile).toEqual({ xf: 1, order: 1 });
@@ -64,12 +64,12 @@ test('a part is placed by hand: drag it on the preview, arrow keys, size, forwar
   expect(errors).toEqual([]);
 });
 
-test('with "Hath se rakho" off the preview is not dragged, and the bar is hidden on the Start tab', async ({ page }) => {
+test('with "Hand placement" off the preview is not dragged, and the bar is hidden on the Start tab', async ({ page }) => {
   await openTester(page);
   await page.locator('.cs-panel input[type=file]').first().setInputFiles([{ name: 'TORSO_2.png', mimeType: 'image/png', buffer: await magenta(page, 160, 160) }]);
   await expect(page.locator('.cs-place')).toBeVisible({ timeout: 20000 });
-  await page.getByRole('button', { name: /Hath se rakho: ON/ }).click();
-  await expect(page.getByRole('button', { name: /Hath se rakho: OFF/ })).toBeVisible();
+  await page.getByRole('button', { name: /Hand placement: ON/ }).click();
+  await expect(page.getByRole('button', { name: /Hand placement: OFF/ })).toBeVisible();
   const box = await page.locator('.cs-stage canvas').boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3); await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 3 + 30, { steps: 4 }); await page.mouse.up();
   expect(await page.evaluate(() => Object.keys(window.__charstudio.st.xf).length)).toBe(0);
@@ -95,7 +95,7 @@ test('right click on the preview lists the parts under the mouse and selects the
   expect(await page.evaluate(() => window.__charstudio.st.guideFocus)).toBeTruthy();
   // right click on empty canvas: only a note, Escape closes it
   await page.mouse.click(box.x + 3, box.y + 3, { button: 'right' });
-  await expect(page.locator('.cs-ctx')).toContainText('koi part nahi');
+  await expect(page.locator('.cs-ctx')).toContainText('no part here');
   await page.keyboard.press('Escape');
   await expect(page.locator('.cs-ctx')).toBeHidden();
   expect(errors).toEqual([]);

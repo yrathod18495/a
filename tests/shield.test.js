@@ -39,7 +39,7 @@ test('opening the console is reported once per ten minutes with a single notice'
   f.setProbe(true);
   assert.equal(f.shield.check(), 'console');
   assert.deepEqual(f.reports, [{ kind: 'devtools', detail: 'console', path: '#/toons' }]);
-  assert.equal(f.notices.length, 1); assert.match(f.notices[0], /record ho gayi/);
+  assert.equal(f.notices.length, 1); assert.match(f.notices[0], /recorded/);
   f.shield.check(); assert.equal(f.reports.length, 1);
   f.tick(REPORT_EVERY_MS + 1); f.shield.check(); assert.equal(f.reports.length, 2); assert.equal(f.notices.length, 1);
 });

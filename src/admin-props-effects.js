@@ -19,47 +19,47 @@ export async function propsEffectsView({ back, home, toast }) {
   async function refresh() {
     state.loading = true; draw();
     try { state.assets = await listStudioAssets({ fresh: true }); }
-    catch (e) { toast(`Library load nahi ho payi: ${friendlyError(e)}`); }
+    catch (e) { toast(`Could not load the library: ${friendlyError(e)}`); }
     state.loading = false; draw();
   }
   async function remove(asset) {
-    if (!confirm(`"${asset.name}" ko library se hatayein? Jin projects me ye pehle se laga hai, wahan bacha rahega.`)) return;
-    try { await deleteStudioAsset(asset.id); state.assets = state.assets.filter((a) => a.id !== asset.id); draw(); toast(`${asset.name} library se hata diya.`); }
-    catch (e) { toast(`Hata nahi paya: ${friendlyError(e)}`); }
+    if (!confirm(`Remove "${asset.name}" from the library? It will remain in projects that already use it.`)) return;
+    try { await deleteStudioAsset(asset.id); state.assets = state.assets.filter((a) => a.id !== asset.id); draw(); toast(`${asset.name} removed from the library.`); }
+    catch (e) { toast(`Could not remove it: ${friendlyError(e)}`); }
   }
 
   function form() {
     const effect = state.kind === 'effect';
     const file = h('input', { type: 'file', accept: 'image/*', multiple: !effect, required: true, 'aria-label': 'Image file' });
-    const name = h('input', { type: 'text', maxlength: 100, placeholder: 'Khali chhodein to file ka naam use hoga', 'aria-label': 'Naam' });
-    const category = h('input', { type: 'text', maxlength: 40, list: 'asset-categories', placeholder: effect ? 'jaise Weather, Light, Magic' : 'jaise Furniture, Food, Nature', 'aria-label': 'Category' });
+    const name = h('input', { type: 'text', maxlength: 100, placeholder: 'Leave blank to use the file name', 'aria-label': 'Name' });
+    const category = h('input', { type: 'text', maxlength: 40, list: 'asset-categories', placeholder: effect ? 'e.g. Weather, Light, Magic' : 'e.g. Furniture, Food, Nature', 'aria-label': 'Category' });
     const datalist = h('datalist', { id: 'asset-categories' }, categories().map((value) => h('option', { value })));
     const field = (label, input, wide = false) => h('label', { class: 'admin-animation-field', style: wide ? 'grid-column:1/-1' : '' }, h('span', {}, label), input);
     const blend = h('select', { 'aria-label': 'Blend mode' }, Object.entries(BLEND_LABEL).map(([value, label]) => h('option', { value }, label)));
     const opacity = h('input', { type: 'number', min: 0.05, max: 1, step: 0.05, value: 1, 'aria-label': 'Opacity' });
-    const placement = h('select', { 'aria-label': 'Placement' }, [['full', 'Poori frame par'], ['sticker', 'Chhote sticker ki tarah']].map(([value, label]) => h('option', { value }, label)));
+    const placement = h('select', { 'aria-label': 'Placement' }, [['full', 'Full frame'], ['sticker', 'Small sticker']].map(([value, label]) => h('option', { value }, label)));
     const sheetOn = h('input', { type: 'checkbox', checked: state.sheet, onchange: (e) => { state.sheet = e.target.checked; draw(); } });
     const cols = h('input', { type: 'number', min: 1, max: 16, value: 4, 'aria-label': 'Sprite sheet columns' }), rows = h('input', { type: 'number', min: 1, max: 16, value: 4, 'aria-label': 'Sprite sheet rows' }), fps = h('input', { type: 'number', min: 1, max: 60, value: 12, 'aria-label': 'Sprite sheet fps' });
-    const submit = h('button', { class: 'btn pri', type: 'submit', disabled: state.loading }, effect ? 'Effect publish karein' : 'Prop publish karein');
+    const submit = h('button', { class: 'btn pri', type: 'submit', disabled: state.loading }, effect ? 'Publish effect' : 'Publish prop');
     return h('form', { class: 'admin-animation-form', onsubmit: async (event) => {
       event.preventDefault();
       const files = [...(file.files || [])];
-      if (!files.length) { toast('Pehle image file chunein.'); return; }
+      if (!files.length) { toast('Please choose an image file first.'); return; }
       const meta = { category: category.value.trim() };
       if (effect) Object.assign(meta, { blend: blend.value, opacity: Number(opacity.value), placement: placement.value, ...(state.sheet ? { sheet: { cols: Number(cols.value), rows: Number(rows.value), fps: Number(fps.value) } } : {}) });
       try { cleanAssetMeta(state.kind, meta); } catch (error) { toast(error.message); return; }
       submit.disabled = true; state.loading = true;
       try {
         for (const picture of files) await saveStudioAsset(state.kind, name.value.trim() || picture.name.replace(/\.[^.]+$/, ''), picture, meta);
-        toast(`${files.length > 1 ? `${files.length} props` : effect ? 'Effect' : 'Prop'} publish ho gaya. Creators ko studio me dikhega.`);
+        toast(`${files.length > 1 ? `${files.length} props` : effect ? 'Effect' : 'Prop'} published. Creators will see it in the studio.`);
         await refresh();
-      } catch (e) { toast(`Publish nahi ho paya: ${friendlyError(e)}`); }
+      } catch (e) { toast(`Could not publish: ${friendlyError(e)}`); }
       finally { state.loading = false; submit.disabled = false; }
     } },
       field(effect ? 'Effect image / sprite sheet (up to 40 MB)' : 'Prop image(s) (PNG / WebP, up to 40 MB each)', file, true),
-      field('Naam', name), field('Category', category), datalist,
-      ...(effect ? [field('Blend mode', blend), field('Opacity (0.05 – 1)', opacity), field('Kahan lage', placement),
-        h('label', { class: 'admin-animation-field' }, h('span', {}, 'Ye sprite sheet hai (frames wali animation)'), sheetOn),
+      field('Name', name), field('Category', category), datalist,
+      ...(effect ? [field('Blend mode', blend), field('Opacity (0.05 – 1)', opacity), field('Placement', placement),
+        h('label', { class: 'admin-animation-field' }, h('span', {}, 'This is a sprite sheet (frame-based animation)'), sheetOn),
         ...(state.sheet ? [field('Columns', cols), field('Rows', rows), field('Frames per second', fps)] : [])] : []),
       submit);
   }
@@ -69,8 +69,8 @@ export async function propsEffectsView({ back, home, toast }) {
       ? `${asset.sheet ? `Animated ${asset.sheet.cols}×${asset.sheet.rows} · ${asset.sheet.fps} fps` : 'Still'} · ${BLEND_LABEL[asset.blend] || 'Normal'} · ${Math.round((asset.opacity ?? 1) * 100)}%`
       : `${(asset.size / 1024).toFixed(0)} KB`;
     return h('article', { class: 'admin-asset-card' }, asset.thumb ? h('img', { src: asset.thumb, alt: asset.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '◌'),
-      h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${asset.category || 'Bina category'} · ${detail}`)),
-      h('button', { class: 'btn sm', type: 'button', title: `${asset.name} hatayein`, onclick: () => remove(asset) }, 'Hatayein'));
+      h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${asset.category || 'No category'} · ${detail}`)),
+      h('button', { class: 'btn sm', type: 'button', title: `Remove ${asset.name}`, onclick: () => remove(asset) }, 'Remove'));
   }
 
   function draw() {
@@ -79,12 +79,12 @@ export async function propsEffectsView({ back, home, toast }) {
     const shown = list.filter((asset) => state.filter === 'all' || (asset.category || '') === state.filter);
     content.replaceChildren(...[
       h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, effect ? 'Effects' : 'Props'),
-        h('p', {}, effect ? 'Rain, sparkle, light leak jaise effects yahan se upload karein. Creators inhe studio ke Effects tab me dekhte aur scene par lagate hain. Sprite sheet dene par effect animate hota hai.' : 'Props yahan se upload karein. Creators inhe studio ke Props tab me category ke hisaab se dekhte aur scene me lagate hain.')),
+        h('p', {}, effect ? 'Upload effects like rain, sparkle, light leak here. Creators see them in the studio\'s Effects tab and apply them to the scene. The effect animates when a sprite sheet is provided.' : 'Upload props here. Creators see them by category in the studio\'s Props tab and place them in the scene.')),
       form(),
       cats.length ? h('div', { class: 'admin-assets-tabs', style: 'padding-left:0' }, [['all', 'All'], ...cats.map((c) => [c, c])].map(([value, label]) => h('button', { class: `admin-assets-tab ${state.filter === value ? 'active' : ''}`, type: 'button', onclick: () => { state.filter = value; draw(); } }, label))) : null,
-      state.loading && !list.length ? h('p', { class: 'admin-assets-empty' }, 'Library load ho rahi hai…')
+      state.loading && !list.length ? h('p', { class: 'admin-assets-empty' }, 'Loading library…')
         : shown.length ? h('div', { class: 'admin-assets-grid' }, shown.map(card))
-          : h('div', { class: 'admin-assets-empty' }, h('span', {}, effect ? '💫' : '🧸'), h('b', {}, `Abhi koi ${effect ? 'effect' : 'prop'} nahi hai`), h('p', {}, 'Upar se pehla upload karein; wo creators ko turant dikhega.')),
+          : h('div', { class: 'admin-assets-empty' }, h('span', {}, effect ? '💫' : '🧸'), h('b', {}, `No ${effect ? 'effect' : 'prop'} yet`), h('p', {}, 'Upload the first one above; it will show up for creators right away.')),
       h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'),
     ].filter(Boolean));
   }

@@ -81,14 +81,14 @@ test('effects can be removed and props can be sent behind characters', async ({ 
   await rail.getByRole('button', { name: 'Props', exact: true }).click();
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
-  await page.getByLabel('Character ke peeche rakhein').check();
+  await page.getByLabel('Place behind the character').check();
   expect(await page.evaluate(() => window.__toon.S.props[0].behind)).toBe(true);
-  await page.getByRole('button', { name: 'Prop hatayein' }).click();
+  await page.getByRole('button', { name: 'Remove prop' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(0);
   await rail.getByRole('button', { name: 'Effects', exact: true }).click();
   await page.locator('.lib-card').filter({ hasText: 'Sparkle' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
-  await page.getByRole('button', { name: 'Effect hatayein' }).click();
+  await page.getByRole('button', { name: 'Remove effect' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(0);
 });
 
@@ -128,7 +128,7 @@ test('a prop can be held in the left or right hand of a character and follows th
   // the prop has no free-position sliders while it is held, and goes back to the stage when released
   await expect(page.getByText('Position · left / right')).toHaveCount(0);
   await expect(page.getByText('Pakad point · left / right')).toBeVisible();
-  await page.getByRole('button', { name: 'Stage par', exact: true }).click();
+  await page.getByRole('button', { name: 'On stage', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props[0].attach)).toBeUndefined();
   await expect(page.getByText('Position · left / right')).toBeVisible();
   // the held prop moves when the hand moves (a different animation puts the hand elsewhere)

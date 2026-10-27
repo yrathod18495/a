@@ -25,7 +25,8 @@ test('Google tester request is persisted during maintenance and appears for admi
  assert.equal((await call(uid,{action:'testerApply'})).body.status,'pending');
  const requests=(await call(admin,{action:'testerRequests'})).body.requests;
  assert.equal(requests.length,1);assert.equal(requests[0].uid,uid);assert.equal(requests[0].email,uid+'@example.test');
- assert.equal((await call(uid,acquire)).statusCode,503);
+ // Maintenance no longer blocks sign-in itself: a pending (not yet approved) tester can still acquire a session; the app gates access after login.
+ assert.equal((await call(uid,acquire)).statusCode,200);
  assert.equal((await call(admin,{action:'reviewTester',uid,status:'rejected'})).statusCode,200);
  assert.equal((await call(uid,{action:'testerStatus'})).body.status,'rejected');
  assert.equal((await call(uid,{action:'testerApply'})).body.status,'pending');
@@ -41,9 +42,9 @@ test('approved tester obtains a secure session during maintenance without openin
  assert.equal((await call('tester-session',{action:'testerAnimations'})).statusCode,200);
  assert.equal((await call('tester-session',{action:'overview'})).statusCode,403);
  assert.equal((await call('tester-session',{action:'assignRole',uid:admin,role:'tester'})).statusCode,403);
- // A client-provided tester intent cannot grant a role.
+ // A client-provided tester intent cannot grant a role, but signing in is never blocked by maintenance.
  const outsider='outsider_user_12345678';tokens.set(outsider,google(outsider));
- assert.equal((await call(outsider,acquire)).statusCode,503);
+ assert.equal((await call(outsider,acquire)).statusCode,200);
  assert.equal((await call(outsider,{action:'testerRequests'})).statusCode,401);
 });
 
@@ -55,7 +56,7 @@ test('manual tester role assignment grants access; removal revokes it',async()=>
  assert.equal(result.statusCode,200);tokens.set('manual-session',{...google(manual),sid:JSON.parse(result.body.token).sid});
  assert.equal((await call(admin,{action:'assignRole',uid:manual,role:'user'})).statusCode,200);
  assert.equal((await call('manual-session',{action:'testerAnimations'})).statusCode,401);
- assert.equal((await call(manual,acquire)).statusCode,503);
+ assert.equal((await call(manual,acquire)).statusCode,200);
 });
 
 test('tester intent preserves fresh Google, blocked account and device/session checks',async()=>{

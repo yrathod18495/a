@@ -24,7 +24,7 @@ test('reports are cleaned: only known kinds, short text, no raw IP', () => {
   assert.deepEqual(TAMPER_KINDS, ['devtools', 'shortcut', 'view-source', 'console', 'integrity']);
   assert.deepEqual(cleanReport({ kind: 'devtools', detail: ' size\n\tchange ', path: '/#/toons' }), { kind: 'devtools', detail: 'size change', path: '/#/toons' });
   assert.equal(cleanReport({ kind: 'shortcut', detail: 'x'.repeat(500) }).detail.length, 120);
-  for (const bad of [{}, { kind: 'hack' }, { kind: 1 }, null]) assert.throws(() => cleanReport(bad), /Report sahi nahi hai/);
+  for (const bad of [{}, { kind: 'hack' }, { kind: 1 }, null]) assert.throws(() => cleanReport(bad), /report is not valid/);
   assert.equal(ipHash(''), ''); assert.match(ipHash('203.0.113.9, 10.0.0.1'), /^[a-f0-9]{16}$/); assert.equal(ipHash('203.0.113.9'), ipHash('203.0.113.9, 10.0.0.1'));
 });
 

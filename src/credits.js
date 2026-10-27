@@ -12,19 +12,19 @@ function loadCheckout() {
   if (window.Razorpay) return Promise.resolve();
   return checkoutScript ||= new Promise((resolve, reject) => {
     const script = document.createElement('script'); script.src = 'https://checkout.razorpay.com/v1/checkout.js'; script.async = true;
-    script.onload = () => window.Razorpay ? resolve() : reject(new Error('Razorpay ka checkout load nahi hua.'));
-    script.onerror = () => reject(new Error('Razorpay checkout load nahi ho paya. Internet check karke dobara try karein.'));
+    script.onload = () => window.Razorpay ? resolve() : reject(new Error('The Razorpay checkout did not load.'));
+    script.onerror = () => reject(new Error('Could not load the Razorpay checkout. Check your internet and try again.'));
     document.head.append(script);
   });
 }
 
 export async function view({ user, home }) {
   const root = h('div', { class: 'sh credits-page' });
-  const content = h('main', { class: 'credit-main' }, h('p', { class: 'hint' }, 'Gold Coin plans load ho rahe hain…'));
+  const content = h('main', { class: 'credit-main' }, h('p', { class: 'hint' }, 'Loading Gold Coin plans…'));
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, `Buy ${COIN_NAME}`), h('span', { class: 'sp' }), h('button', { class: 'btn', onclick: home }, '⌂ Home')), content);
   let catalog;
   try { catalog = await apiCall('/api/payments', { action: 'catalog' }, user.uid); }
-  catch (e) { content.replaceChildren(h('section', { class: 'card credit-error' }, h('h2', {}, 'Gold Coin plans load nahi ho paye'), h('p', {}, friendlyError(e)), h('button', { class: 'btn', onclick: home }, 'Back to Home'))); return root; }
+  catch (e) { content.replaceChildren(h('section', { class: 'card credit-error' }, h('h2', {}, 'Could not load Gold Coin plans'), h('p', {}, friendlyError(e)), h('button', { class: 'btn', onclick: home }, 'Back to Home'))); return root; }
   const balance = h('b', { class: 'credit-balance' }, coinAmount(catalog.credits, { size: 26 }));
   const message = h('p', { class: 'credit-message', role: 'status', 'aria-live': 'polite' }, '');
   const history = h('div', { class: 'credit-history' }, h('p', { class: 'hint' }, 'Loading your payment history…'));
@@ -53,11 +53,11 @@ export async function view({ user, home }) {
             const result = await apiCall('/api/payments', { action: 'verify', orderId: response.razorpay_order_id, paymentId: response.razorpay_payment_id, signature: response.razorpay_signature }, user.uid);
             if (result.status === 'captured') {
               balance.replaceChildren(coinAmount(result.balance, { size: 26 }));
-              message.textContent = result.credited ? `${coinText(plan.credits)} aapke account me add ho gaye.` : 'Payment is already recorded in your account.';
+              message.textContent = result.credited ? `${coinText(plan.credits)} added to your account.` : 'Payment is already recorded in your account.';
               message.className = 'credit-message success'; toast(message.textContent);
             } else message.textContent = result.message || 'Payment is waiting for confirmation.';
             await refreshHistory();
-          } catch (e) { message.textContent = `Payment submit ho gaya, lekin confirmation nahi ho paya: ${friendlyError(e)}. Aapka order payment history me rahega.`; message.className = 'credit-message error'; await refreshHistory(); }
+          } catch (e) { message.textContent = `The payment was submitted, but confirmation did not complete: ${friendlyError(e)}. Your order will remain in the payment history.`; message.className = 'credit-message error'; await refreshHistory(); }
         },
         modal: { ondismiss: () => { if (!finished) apiCall('/api/payments', { action: 'cancel', orderId: order.orderId }, user.uid).then(refreshHistory).catch(() => {}); } },
       };
@@ -65,14 +65,14 @@ export async function view({ user, home }) {
       checkout.on('payment.failed', (event) => {
         finished = true; const error = event.error || {};
         apiCall('/api/payments', { action: 'failed', orderId: order.orderId, code: error.code, description: error.description }, user.uid).catch(() => {});
-        message.textContent = error.description || 'Payment nahi ho paya. Aap dobara try kar sakte hain.'; message.className = 'credit-message error'; refreshHistory();
+        message.textContent = error.description || 'The payment could not be completed. You can try again.'; message.className = 'credit-message error'; refreshHistory();
       });
       checkout.open(); message.textContent = '';
     } catch (e) { message.textContent = e.message; message.className = 'credit-message error'; }
     finally { button.disabled = false; }
   };
   content.replaceChildren(
-    h('section', { class: 'credit-hero' }, h('div', {}, h('span', { class: 'credit-kicker' }, 'YOUR GOLD COINS'), h('h1', {}, 'Apna Gold Coins plan chunein'), h('p', { class: 'sub' }, 'One-time purchases. Razorpay se payment confirm hote hi aapke Gold Coins account me add ho jaate hain.')),
+    h('section', { class: 'credit-hero' }, h('div', {}, h('span', { class: 'credit-kicker' }, 'YOUR GOLD COINS'), h('h1', {}, 'Choose your Gold Coins plan'), h('p', { class: 'sub' }, 'One-time purchases. As soon as Razorpay confirms the payment, the coins are added to your Gold Coins account.')),
       h('div', { class: 'credit-balance-card' }, h('small', {}, 'Your balance'), balance)),
     h('div', { class: 'credit-grid' }, ...catalog.plans.map((plan) => {
       const button = h('button', { class: 'btn pri big', disabled: !catalog.configured, onclick: null }, catalog.configured ? 'Buy this plan' : 'Payment setup pending');
@@ -85,7 +85,7 @@ export async function view({ user, home }) {
         h('ul', {}, ...plan.features.map((feature) => h('li', {}, feature))), button);
     })),
     ...(!catalog.configured ? [h('p', { class: 'credit-setup' }, 'Checkout is disabled until RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set on the server.')] : []),
-    h('p', { class: 'credit-note' }, 'Gold Coins abhi AI tools me kharch nahi hote. AI tools aapki apni OpenRouter API key se chalte hain, aur provider ka alag charge lag sakta hai.'),
+    h('p', { class: 'credit-note' }, 'Gold Coins are not spent on AI tools. AI tools run on your own OpenRouter API key, and the provider may charge separately.'),
     message,
     h('section', { class: 'credit-history-section' }, h('div', { class: 'credit-section-heading' }, h('h2', {}, 'Payment history'), h('button', { class: 'btn sm', onclick: refreshHistory }, '↻ Refresh')), history));
   refreshHistory();

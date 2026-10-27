@@ -23,7 +23,7 @@ export async function effectiveTier(db, who) {
 }
 
 export async function setTier(db, uid, tier, by) {
-  if (tier !== 'free' && tier !== 'paid') throw Object.assign(new Error('Tier sirf free ya paid ho sakta hai.'), { status: 400, code: 'invalid_tier' });
+  if (tier !== 'free' && tier !== 'paid') throw Object.assign(new Error('Tier must be either free or paid.'), { status: 400, code: 'invalid_tier' });
   const now = Date.now(), ref = entitlementRef(db, uid), current = (await ref.get()).data() || {};
   await ref.set({ tier, source: 'admin', by, ...(tier === 'paid' ? { paidSince: current.paidSince || now } : {}), updatedAt: now }, { merge: true });
   await db.collection('securityAudit').doc().set({ target: uid, action: `tier_${tier}`, by, at: now });

@@ -14,27 +14,27 @@ function confirmTakeover() {
     const overlay = h('div', { class: 'project-dialog-backdrop', onclick: e => { if (e.target === overlay) close(false); } },
       h('section', { class: 'project-dialog', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'session-dialog-title' },
         h('span', { class: 'project-dialog-icon', 'aria-hidden': 'true' }, '!'),
-        h('h2', { id: 'session-dialog-title' }, 'Doosra login mila'),
-        h('p', { class: 'project-dialog-description' }, 'Aapka account kisi doosre device par pehle se login hai. Kya aap yahin continue karna chahte hain?'),
+        h('h2', { id: 'session-dialog-title' }, 'Another login found'),
+        h('p', { class: 'project-dialog-description' }, 'Your account is already signed in on another device. Do you want to continue here?'),
         h('div', { class: 'project-dialog-actions' },
           h('button', { class: 'btn project-dialog-cancel', onclick: () => close(false) }, 'Cancel'),
           h('button', { class: 'btn pri project-dialog-confirm', onclick: () => close(true) }, 'Continue here')),
-        h('p', { class: 'project-dialog-description', style: 'margin:14px 0 0' }, 'Continue karne se doosre device logout ho jayega.')));
+        h('p', { class: 'project-dialog-description', style: 'margin:14px 0 0' }, 'Continuing will sign out the other device.')));
     window.addEventListener('keydown', onKey);
     document.body.append(overlay);
   });
 }
 export async function apiCall(url, body, owner = auth.currentUser?.uid) {
   const offline = import.meta.env.DEV && location.search.includes('debug');   // dev test mode: no sign-in, the browser tests answer the API themselves
-  if (!offline && (!owner || auth.currentUser?.uid !== owner)) throw Error('Account badal gaya hai. Project dobara kholein.');
+  if (!offline && (!owner || auth.currentUser?.uid !== owner)) throw Error('The account has changed. Please reopen the project.');
   const token = offline ? 'debug' : await idToken();
-  if (!offline && auth.currentUser?.uid !== owner) throw Error('Account badal gaya. Dobara try karein.');
+  if (!offline && auth.currentUser?.uid !== owner) throw Error('The account has changed. Please try again.');
   let r;
   try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body) }); }
-  catch (cause) { const e = Error(friendlyError(cause, 'Server tak request nahi pahunchi. Internet check karke dobara try karein.')); e.code = 'network'; throw e; }
+  catch (cause) { const e = Error(friendlyError(cause, 'The request did not reach the server. Please check your internet and try again.')); e.code = 'network'; throw e; }
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = Error(j.error || 'Cloud request fail ho gayi. Dobara try karein.'); e.code = j.code; e.status = r.status; throw e; }
-  if (!offline && auth.currentUser?.uid !== owner) throw Error('Account badal gaya. Dobara try karein.');
+  if (!r.ok) { const e = Error(j.error || 'The cloud request failed. Please try again.'); e.code = j.code; e.status = r.status; throw e; }
+  if (!offline && auth.currentUser?.uid !== owner) throw Error('The account has changed. Please try again.');
   return j;
 }
 export async function acquireSession(scope) {

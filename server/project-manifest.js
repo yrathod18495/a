@@ -2,7 +2,7 @@ import { AccessError } from './security-policy.js';
 export { summarizeProjectSnapshot } from '../shared/project-summary.js';
 /** the snapshot is only read back by the owner's browser; this checks its shape when a tool wants to look inside (the server no longer reads it on every save) */
 export function validateManifest(manifest) {
- const bad=()=>{throw new AccessError('invalid_snapshot','Project snapshot sahi nahi hai.',400);};
+ const bad=()=>{throw new AccessError('invalid_snapshot','The project snapshot is not valid.',400);};
  const stores=new Set(['characters','animations','backgrounds','swaps','project','audio','draft']);
  if(manifest.version!==1||!Array.isArray(manifest.records)||!Array.isArray(manifest.assets)||manifest.assets.length>10000)bad();
  const assets=new Map();

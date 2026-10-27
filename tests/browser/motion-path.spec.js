@@ -23,7 +23,7 @@ test('a line drawn with the pen tool becomes the path the character walks along,
   await studio(page);
   await page.locator('.advanced-tools').evaluate((el) => { el.open = true; });
   await page.locator('.advanced-tools .advanced-tools-list').getByRole('button', { name: 'Move', exact: true }).click();
-  await page.getByRole('button', { name: /Pen se path banayein/ }).click();
+  await page.getByRole('button', { name: /Draw a path with the pen/ }).click();
   const box = await page.locator('#app .stagewrap canvas').boundingBox();
   const pt = (fx, fy) => [box.x + box.width * fx, box.y + box.height * fy];
   await page.mouse.move(...pt(0.15, 0.8)); await page.mouse.down();
@@ -37,15 +37,15 @@ test('a line drawn with the pen tool becomes the path the character walks along,
   const mid = await page.evaluate(() => { const { S, stage } = window.__toon, p = Object.values(S.paths)[0], l = stage.layers[0]; stage.render(p.start + p.dur / 2, 0, [], []); return l.axf; });
   expect(mid).toBeGreaterThan(0.4); expect(mid).toBeLessThan(0.6);
   // the points can be edited: drag one and the walk follows the new shape
-  await page.getByRole('button', { name: /Points badlein/ }).click();
+  await page.getByRole('button', { name: /Edit points/ }).click();
   const dots = page.locator('#app .pathpt');
   expect(await dots.count()).toBeGreaterThanOrEqual(2); expect(await dots.count()).toBeLessThanOrEqual(14);
   const last = dots.last(), lb = await last.boundingBox();
   await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2); await page.mouse.down(); await page.mouse.move(lb.x + lb.width / 2 - 60, lb.y + lb.height / 2 + 40, { steps: 5 }); await page.mouse.up();
   const moved = await page.evaluate(() => Object.values(window.__toon.S.charKeys)[0].at(-1));
   expect(moved.x).toBeLessThan(keys.at(-1).x - 0.02);
-  await page.getByRole('button', { name: /Points ho gaye/ }).click();
-  await page.getByRole('button', { name: /Path hatayein/ }).click();
+  await page.getByRole('button', { name: /Points done/ }).click();
+  await page.getByRole('button', { name: /Remove path/ }).click();
   await expect.poll(() => page.evaluate(() => Object.keys(window.__toon.S.charKeys).length)).toBe(0);
   expect(errors).toEqual([]);
 });
@@ -56,7 +56,7 @@ test('a path can be drawn while the camera is zoomed in; it lands where the pen 
   await page.evaluate(() => { const { S } = window.__toon; S.camKeys = [{ id: 'c1', t: 0, zoom: 2, cx: 0.25, cy: 0.5, ease: 'smooth' }]; window.__toon.syncCam?.(); });
   await page.locator('.advanced-tools').evaluate((el) => { el.open = true; });
   await page.locator('.advanced-tools .advanced-tools-list').getByRole('button', { name: 'Move', exact: true }).click();
-  await page.getByRole('button', { name: /Pen se path banayein/ }).click();
+  await page.getByRole('button', { name: /Draw a path with the pen/ }).click();
   const box = await page.locator('#app .stagewrap canvas').boundingBox();
   await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5); await page.mouse.down();
   for (let i = 1; i <= 10; i++) await page.mouse.move(box.x + box.width * (0.2 + 0.5 * i / 10), box.y + box.height * 0.5);

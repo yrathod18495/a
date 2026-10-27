@@ -17,18 +17,18 @@ export function cleanAssetMeta(type, input = {}) {
   const category = String(input.category ?? '').trim().slice(0, ASSET_CATEGORY_MAX);
   if (category) meta.category = category;
   if (input.thumb != null && input.thumb !== '') {
-    if (typeof input.thumb !== 'string' || input.thumb.length > THUMB_MAX_CHARS || !THUMB_PATTERN.test(input.thumb)) throw bad('Thumbnail sahi nahi hai. Image dobara upload karein.');
+    if (typeof input.thumb !== 'string' || input.thumb.length > THUMB_MAX_CHARS || !THUMB_PATTERN.test(input.thumb)) throw bad('The thumbnail is not valid. Please upload the image again.');
     meta.thumb = input.thumb;
   }
   if (type !== 'effect') return meta;
   const blend = input.blend ?? 'normal';
-  if (!(blend in EFFECT_BLENDS)) throw bad('Blend mode sahi nahi hai.');
+  if (!(blend in EFFECT_BLENDS)) throw bad('The blend mode is not valid.');
   const placement = input.placement ?? 'full';
-  if (!EFFECT_PLACEMENTS.includes(placement)) throw bad('Placement sahi nahi hai.');
+  if (!EFFECT_PLACEMENTS.includes(placement)) throw bad('The placement is not valid.');
   Object.assign(meta, { blend, placement, opacity: +num(input.opacity, 0.05, 1, 1).toFixed(2) });
   if (input.sheet) {
     const cols = Math.floor(Number(input.sheet.cols)), rows = Math.floor(Number(input.sheet.rows)), fps = Number(input.sheet.fps);
-    if (!(cols >= 1 && cols <= 16 && rows >= 1 && rows <= 16 && cols * rows >= 2 && cols * rows <= 144 && fps >= 1 && fps <= 60)) throw bad('Sprite sheet ke columns, rows (kul 2 se 144 frames) aur fps (1 se 60) sahi likhein.');
+    if (!(cols >= 1 && cols <= 16 && rows >= 1 && rows <= 16 && cols * rows >= 2 && cols * rows <= 144 && fps >= 1 && fps <= 60)) throw bad('Please enter valid sprite sheet columns, rows (2 to 144 frames total) and fps (1 to 60).');
     meta.sheet = { cols, rows, fps: +fps.toFixed(1) };
   }
   return meta;

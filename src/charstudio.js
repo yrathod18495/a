@@ -88,7 +88,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const templateChoices = () => libraryCharacters().filter((e) => e.template && (!tester || (e.charBase === 'sadhubaba' && e.id.endsWith('-front-side'))));
   const partVisible = l => !tester || testerGroupVisible(getTesterRules(), baseOf(), l.group);
   const partDownloadable = l => !tester || (partVisible(l) && !layerHidden(baseOf(), l.slot, l.key) && testerLayerDownloadable(getTesterRules(), baseOf(), l));
-  const saveButton = h('button', { class: 'btn ok', hidden: restrictedTester(), onclick: () => { if (restrictedTester()) return; if (st.def) { st.tab = 'save'; draw(); } else toast('Pehle ek character chunein.'); } }, '💾 Save');
+  const saveButton = h('button', { class: 'btn ok', hidden: restrictedTester(), onclick: () => { if (restrictedTester()) return; if (st.def) { st.tab = 'save'; draw(); } else toast('Please choose a character first.'); } }, '💾 Save');
   const root = h('div', { class: 'sh cs' },
     h('header', { class: 'sh-bar' }, tester ? h('span', { class: 'sh-crumb' }, 'Character Tester') : logo(home), h('span', { class: 'sp' }),
       saveButton, tester ? h('button', { class: 'btn', onclick: logout }, '⎋ Log out') : h('button', { class: 'btn', onclick: home }, '⌂ Home')),
@@ -307,7 +307,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       await stage.loadCharacter(d);
       for (const pg of st.pages) await pageCanvas(pg);
 
-    } catch (e) { toast(`Load nahi ho paya: ${e.message}`); return; }
+    } catch (e) { toast(`Could not load: ${e.message}`); return; }
     try { await setAnimation(defaultAnim()); } catch { /* static pose */ }
     rebuild(); t0 = performance.now(); st.tab = st.createMode || !tester ? 'create' : 'anims'; draw(); drawAnimBar();
     toast(`${label || d.name} is ready — change any layer.`);
@@ -318,7 +318,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const defaultAnim = () => { const l = animChoices(); return l.find((a) => /^idle/i.test(a.name)) || l.find((a) => a.cat === 'Idle') || l[0] || null; };
   async function setAnimation(a) {
     const json = a ? await fetchAnimation(a.ref.file) : null;
-    if (tester && a && !animChoices().some(item => String(item.ref.id) === String(a.ref.id))) throw new Error('Ye animation ab testers ke liye on nahi hai.');
+    if (tester && a && !animChoices().some(item => String(item.ref.id) === String(a.ref.id))) throw new Error('This animation is no longer enabled for testers.');
     st.anim = a ? { key: a.ref.rigAnim || `a${a.ref.id}`, name: a.name, json } : null;
     t0 = performance.now(); lastFrame = 0;
     rebuild(); drawAnimBar();
@@ -351,7 +351,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
 
   async function importCharacterFiles(files) {
     const { characters } = await ingest(files).catch((er) => { toast(er.message); return { characters: [] }; });
-    if (!characters.length) { toast('Koi character nahi mila. DragonBones character ZIP me skeleton (_ske.json), texture atlas (_tex.json) aur picture honi chahiye.'); return; }
+    if (!characters.length) { toast('No character was found. A DragonBones character ZIP must contain the skeleton (_ske.json), texture atlas (_tex.json) and image.'); return; }
     for (const c of characters) { await saveCharacter(c); const i = mine.findIndex((x) => x.id === c.id); if (i >= 0) mine[i] = c; else mine.push(c); }
     if (tester) { st.createMode = false; await pick(characters[0], 'your uploaded character'); }
     toast(`Added ${characters.length} character${characters.length > 1 ? 's' : ''}.`); draw();
@@ -362,7 +362,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       const files = [...e.target.files]; e.target.value = ''; await importCharacterFiles(files);
     } });
     const lib = tester ? [] : libraryCharacters();
-    const open = (e) => async () => { try { await pick(await fetchLibraryCharacter(e), `${e.name} · ${e.pose}`); st.tpl = e.template ? { id: e.id } : null; } catch (er) { toast(`Download nahi ho paya: ${er.message}`); } };
+    const open = (e) => async () => { try { await pick(await fetchLibraryCharacter(e), `${e.name} · ${e.pose}`); st.tpl = e.template ? { id: e.id } : null; } catch (er) { toast(`Could not download: ${er.message}`); } };
     const templates = lib;
     const cloudOnly = st.cloud.filter((c) => !mine.some((m) => m.id === c.id));
     if (tester) return [
@@ -372,16 +372,16 @@ export async function view({ user, home, toast, tester = false, logout, localPre
             st.createMode = true; st.outline = false; st.autoLen = false;
             if (st.def) { rebuild(); st.tab = 'create'; draw(); focusRig(createRows()[0]); return; }
             const base = templateChoices().find((e) => e.template);
-            if (!base) { toast('Abhi koi animation rig set nahi hai.'); return; }
+            if (!base) { toast('No animation rig is set yet.'); return; }
             try { await pick(await fetchLibraryCharacter(base), 'custom character base'); rebuild(); st.tab = 'create'; draw(); focusRig(createRows()[0]); }
-            catch (er) { toast(`Animation rig load nahi ho payi: ${er.message}`); }
+            catch (er) { toast(`Could not load the animation rig: ${er.message}`); }
           } }, h('b', {}, 'Create my own character'), h('small', {}, 'Open custom upload workspace')))),
       (mine.length || cloudOnly.length) ? h('div', { class: 'cs-sec' }, h('h3', {}, 'Your saved characters'),
         h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Tap one to keep editing it — this is exactly what the admin sees in the review list.'),
         h('div', { class: 'cs-grid' },
           mine.map((c) => h('div', { class: `cs-card ${st.def?.id === c.id ? 'on' : ''}`, onclick: () => { st.createMode = true; pick(c); } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'), h('b', {}, c.name),
             h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); deleteCharacterCloud(c.id).then(() => { st.cloud = st.cloud.filter((x) => x.id !== c.id); }).catch(() => {}); mine.splice(mine.indexOf(c), 1); draw(); } }, '✕'))),
-          cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('Iska template ab available nahi hai.'); mine.push(d); st.createMode = true; await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ saved earlier'),
+          cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('This template is no longer available.'); mine.push(d); st.createMode = true; await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ saved earlier'),
             h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacterCloud(c.id); st.cloud = st.cloud.filter((x) => x.id !== c.id); draw(); } }, '✕'))))) : null,
     ];
     return [
@@ -391,7 +391,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         h('div', { class: 'cs-card add', onclick: () => file.click() }, h('span', { class: 'cs-th' }, '+'), h('b', {}, 'Add ZIP'), h('small', {}, 'DragonBones ske + tex + png')),
         mine.map((c) => h('div', { class: `cs-card ${st.def?.id === c.id ? 'on' : ''}`, onclick: () => pick(c) }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'), h('b', {}, c.name),
           h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); deleteCharacterCloud(c.id).then(() => { st.cloud = st.cloud.filter((x) => x.id !== c.id); }).catch(() => {}); mine.splice(mine.indexOf(c), 1); draw(); } }, '✕'))),
-        cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('Iska template ab available nahi hai.'); mine.push(d); await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ from your account')))), file),
+        cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('This template is no longer available.'); mine.push(d); await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ from your account')))), file),
     ];
   }
 
@@ -414,19 +414,19 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     return [sl('Colour', 'hue', -180, 180, 1, (v) => `${v}°`), sl('Richness', 'sat', 0, 2, 0.05, (v) => `${Math.round(v * 100)}%`), sl('Light', 'light', -50, 50, 1, (v) => `${v}`)];
   }
   async function putImage(l, file) {
-    if (!partVisible(l)) { toast('Ye group admin ne chhupa diya hai.'); return; }
-    if (st.locked.has(l.region)) { toast('Ye layer lock hai.'); return; }
+    if (!partVisible(l)) { toast('This group has been hidden by the admin.'); return; }
+    if (st.locked.has(l.region)) { toast('This layer is locked.'); return; }
     try {
       const e = editOf(l.region); e.img = await readImage(file, file.name); e.trim = null;
       if (st.outline && !e.mode) e.mode = 'outline'; e.removed = false;
       if (tester) { st.attach[l.slot] = l.key; st.hide.delete(l.slot); st.guideFocus = l.region; rebuild(); }
       queue([l.region]); autoSoon();
-    } catch (er) { toast(`${file.name} padh nahi paye: ${er.message}`); }
+    } catch (er) { toast(`Could not read ${file.name}: ${er.message}`); }
   }
   /** many files / a ZIP of layers: matched by layer name (ARM_L.svg, Mouth_A.png, PS_TORSO_2.svg ...) */
   async function bulkUpload(files) {
     const items = []; let psds = 0, unreadable = 0;
-    toast(`${files.length} file${files.length > 1 ? 's' : ''} padh raha hu…`);
+    toast(`Reading ${files.length} file${files.length > 1 ? 's' : ''}…`);
     for (const f of files) {
       try {
         if (/\.psd$/i.test(f.name)) { psds++; await importPsd(f); continue; }
@@ -453,14 +453,14 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     }
     if (hits.size) { queue([...hits.keys()]); autoSoon(); }
     const parts = [hits.size ? `${hits.size} layer${hits.size > 1 ? 's' : ''} replaced.` : 'No file matched a layer name. Name files like the layers (ARM_L.png, Mouth_A.svg …).'];
-    if (hits.size && unmatched.length) parts.push(`${unmatched.length} file ka naam kisi layer se match nahi hua (${unmatched.slice(0, 3).join(', ')}${unmatched.length > 3 ? ' …' : ''}).`);
-    if (unreadable) parts.push(`${unreadable} file padhi nahi ja saki.`);
+    if (hits.size && unmatched.length) parts.push(`${unmatched.length} file name${unmatched.length > 1 ? 's' : ''} did not match any layer (${unmatched.slice(0, 3).join(', ')}${unmatched.length > 3 ? ' …' : ''}).`);
+    if (unreadable) parts.push(`${unreadable} file${unreadable > 1 ? 's' : ''} could not be read.`);
     toast(parts.join(' '));
     draw();
     if (tester && lastHit) focusRig(lastHit);
   }
   async function downloadLayer(l) {
-    if (!partDownloadable(l)) { toast('Ye part download ke liye available nahi hai.'); return; }
+    if (!partDownloadable(l)) { toast('This part is not available for download.'); return; }
     const c = cropOf(l.region), blob = await toBlob(c, 'image/png'), a = h('a', { href: URL.createObjectURL(blob), download: `${safe(l.region)}.png` });
     document.body.append(a); a.click(); a.remove();
   }
@@ -505,7 +505,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       const a = h('a', { href: URL.createObjectURL(blob), download: `${safe(st.def.name).replace(/[^\w\-]+/g, '_')}-${safe(st.def.pose || 'pose')}.psd` });
       document.body.append(a); a.click(); a.remove();
       toast(`PSD ready: ${items.length} layers (clothes + face), named like the parts. Edit it anywhere and upload it back.`);
-    } catch (e) { console.warn(e); toast(`PSD ban nahi payi: ${e.message}`); }
+    } catch (e) { console.warn(e); toast(`Could not create the PSD: ${e.message}`); }
   }
   /** a PSD from downloadPsd (edited): each layer goes back to the picture of the same name, keeping its place inside the box */
   async function importPsd(file) {
@@ -531,10 +531,10 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       toast(hit ? `${hit} layer${hit > 1 ? 's' : ''} taken from the PSD.` : `No layer of this PSD matches a part of this pose (PSD layers: ${found.slice(0, 4).map((l) => l.name).join(', ') || 'none found'}${found.length > 4 ? ' …' : ''}). Download the PSD from this character and pose, edit it and keep the layer names.`);
       draw();
       if (tester && lastHit) focusRig(lastHit);
-    } catch (e) { console.warn(e); toast(`PSD padh nahi paye: ${e.message}`); }
+    } catch (e) { console.warn(e); toast(`Could not read the PSD: ${e.message}`); }
   }
   async function downloadAll() {
-    if (!layers().some(partDownloadable)) { toast('Download ke liye koi part available nahi hai.'); return; }
+    if (!layers().some(partDownloadable)) { toast('No part is available for download.'); return; }
     const z = new JSZip();
     for (const l of layers().filter(partDownloadable)) { const blob = await toBlob(cropOf(l.region), 'image/png'); z.file(`${safe(l.region)}.png`, blob); }
     const blob = await z.generateAsync({ type: 'blob' }), a = h('a', { href: URL.createObjectURL(blob), download: `${safe(st.def.name)}-layers.zip` });
@@ -658,7 +658,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   }
   const cssToCanvas = () => { const r = stage.out.getBoundingClientRect(), v = stage.view || { w: stage.W, h: stage.H }; return { kx: v.w / (r.width || 1), ky: v.h / (r.height || 1) }; };
   const S_dirtyDraft = () => { if (placeNote) placeNote.textContent = noteOf(selectedPart()); };
-  const noteOf = (l) => { if (!l) return 'Pehle koi part chunein (list me uska naam dabayein).'; const e = st.xf[xfKey(l)], moved = e && (e.dx || e.dy || (e.s && e.s !== 1)), order = st.order[l.slot] || 0; return `${labelOf(l)}${moved || order ? ` · hilaya hua${order ? ` · ${order > 0 ? 'aage' : 'peeche'} ${Math.abs(order)}` : ''}` : ''}`; };
+  const noteOf = (l) => { if (!l) return 'Please choose a part first (tap its name in the list).'; const e = st.xf[xfKey(l)], moved = e && (e.dx || e.dy || (e.s && e.s !== 1)), order = st.order[l.slot] || 0; return `${labelOf(l)}${moved || order ? ` · moved${order ? ` · ${order > 0 ? 'forward' : 'backward'} ${Math.abs(order)}` : ''}` : ''}`; };
   let placeNote = null;
   function drawPlaceBar() {
     if (!tester) return;
@@ -669,11 +669,11 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     const order = (n) => () => { st.order[l.slot] = (st.order[l.slot] || 0) + n; if (!st.order[l.slot]) delete st.order[l.slot]; queueRig(); S_dirtyDraft(); };
     placeNote = h('span', { class: 'cs-place-note' }, noteOf(l));
     placeBar.replaceChildren(
-      h('button', { type: 'button', class: `btn sm ${st.place ? 'pri' : ''}`, 'aria-pressed': String(st.place), title: 'Chalu ho to preview par part ko mouse se kheench sakte hain', onclick: () => { st.place = !st.place; stage.out.style.cursor = st.place && selectedPart() ? 'move' : ''; drawPlaceBar(); } }, st.place ? '✋ Hath se rakho: ON' : '✋ Hath se rakho: OFF'),
-      btn('⬅', 'Left', step(-1, 0)), btn('⬆', 'Upar', step(0, -1)), btn('⬇', 'Neeche', step(0, 1)), btn('➡', 'Right', step(1, 0)),
-      btn('−', 'Chhota', size(0.97)), btn('＋', 'Bada', size(1.03)),
-      btn('⬆ Aage', 'Is part ko doosre parts ke aage laao', order(1)), btn('⬇ Peeche', 'Is part ko doosre parts ke peeche bhejo', order(-1)),
-      btn('↺ Reset', 'Is part ki jagah, size aur aage-peeche pehle jaisa karo', () => { delete st.xf[xfKey(l)]; delete st.order[l.slot]; queueRig(); drawPlaceBar(); if (st.tab === 'layers') draw(); }),
+      h('button', { type: 'button', class: `btn sm ${st.place ? 'pri' : ''}`, 'aria-pressed': String(st.place), title: 'When on, you can drag the part in the preview with the mouse', onclick: () => { st.place = !st.place; stage.out.style.cursor = st.place && selectedPart() ? 'move' : ''; drawPlaceBar(); } }, st.place ? '✋ Hand placement: ON' : '✋ Hand placement: OFF'),
+      btn('⬅', 'Left', step(-1, 0)), btn('⬆', 'Up', step(0, -1)), btn('⬇', 'Down', step(0, 1)), btn('➡', 'Right', step(1, 0)),
+      btn('−', 'Smaller', size(0.97)), btn('＋', 'Bigger', size(1.03)),
+      btn('⬆ Forward', 'Bring this part forward, in front of other parts', order(1)), btn('⬇ Backward', 'Send this part backward, behind other parts', order(-1)),
+      btn('↺ Reset', 'Reset this part\'s position, size and front-to-back order', () => { delete st.xf[xfKey(l)]; delete st.order[l.slot]; queueRig(); drawPlaceBar(); if (st.tab === 'layers') draw(); }),
       placeNote);
     stage.out.style.cursor = st.place && l ? 'move' : '';
   }
@@ -710,7 +710,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       if (!tester || !st.def) return;
       e.preventDefault(); e.stopImmediatePropagation(); closeCtx();
       const r = cv.getBoundingClientRect(), { kx, ky } = cssToCanvas(), found = partsAt((e.clientX - r.left) * kx, (e.clientY - r.top) * ky);
-      ctx = h('div', { class: 'cs-ctx', role: 'menu' }, h('b', {}, found.length ? 'Layer chunein' : 'Yahan koi part nahi hai'),
+      ctx = h('div', { class: 'cs-ctx', role: 'menu' }, h('b', {}, found.length ? 'Choose a layer' : 'There is no part here'),
         found.map((l) => h('button', { type: 'button', role: 'menuitem', class: st.guideFocus === l.region ? 'on' : '', onclick: () => { closeCtx(); st.place = true; focusRig(l); draw(); } }, labelOf(l))));
       document.body.append(ctx);
       ctx.style.left = Math.min(e.clientX, innerWidth - ctx.offsetWidth - 8) + 'px'; ctx.style.top = Math.min(e.clientY, innerHeight - ctx.offsetHeight - 8) + 'px';
@@ -762,7 +762,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
     const grad = g.createLinearGradient(0, 0, W, 0); grad.addColorStop(0, '#2563eb'); grad.addColorStop(1, '#0ea5e9'); g.fillStyle = grad; g.fillRect(0, 0, W, 110);
     if (!tester) { g.fillStyle = '#fff'; g.font = '700 56px sans-serif'; g.fillText('12toons', M, 74); }
-    g.fillStyle = '#fff'; g.font = '600 34px sans-serif'; g.fillText(`${st.def.name} · PART TEMPLATE — har part apne box me banao, same angle, file ka naam wahi rakho (box ke andar chhota naam)`, M + (tester ? 0 : 290), 70);
+    g.fillStyle = '#fff'; g.font = '600 34px sans-serif'; g.fillText(`${st.def.name} · PART TEMPLATE — draw each part inside its own box, same angle, keep the file name the same (shown as the small label inside the box)`, M + (tester ? 0 : 290), 70);
     for (const b of lay) {
       g.fillStyle = GROUP_COLOUR[b.l.group] || '#ddd'; g.fillRect(b.x, b.y, b.bw, b.bh); g.strokeStyle = '#444'; g.lineWidth = 2; g.strokeRect(b.x, b.y, b.bw, b.bh);
       g.fillStyle = '#111'; g.font = '600 20px sans-serif'; g.fillText(labelOf(b.l).slice(0, Math.max(8, Math.floor(b.bw / 11))), b.x + 8, b.y + 26); g.fillStyle = '#444'; g.font = '14px sans-serif'; g.fillText(safe(b.l.region).slice(0, Math.floor(b.bw / 8)), b.x + 8, b.y + 44); g.fillStyle = '#111';
@@ -795,7 +795,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
             st.createMode = true; st.outline = false; st.autoLen = false; st.guideFocus = null;
             await pick(def, `${entry.name} · ${entry.pose}`);
             st.tpl = { id: entry.id };
-          } catch (error) { toast(`Template load nahi ho paya: ${error.message}`); }
+          } catch (error) { toast(`Could not load the template: ${error.message}`); }
           finally { st.loadingTemplate = false; draw(); }
         },
       }, templateChoices().map(e => h('option', {
@@ -842,7 +842,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   /* ---------- tester: the animations the admin allowed ---------- */
   async function playOver(a) {
     const json = a && !a.ref.rigAnim ? await fetchAnimation(a.ref.file) : null;
-    if (tester && a && !categoriesFor(st.def.rig, { tester }).some(c => c.animations.some(item => String(item.ref.id) === String(a.ref.id)))) throw new Error('Ye animation ab testers ke liye on nahi hai.');
+    if (tester && a && !categoriesFor(st.def.rig, { tester }).some(c => c.animations.some(item => String(item.ref.id) === String(a.ref.id)))) throw new Error('This animation is no longer enabled for testers.');
     st.over = a ? { key: a.ref.rigAnim || `a${a.ref.id}`, kind: a.ref.layer || 'face', name: a.name, json } : null;
     rebuild(); draw();
   }
@@ -861,17 +861,17 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         class: `btn sm ${active ? 'pri' : ''}`,
         disabled: !clip,
         title: clip ? `Play the approved ${clip.name} animation` : `No ${key} animation is enabled for this tester account`,
-        onclick: async () => { if (!clip) return; try { await setAnimation(clip); if (key === 'talk') st.mouth = true; draw(); drawAnimBar(); } catch (e) { toast(`${key} chal nahi payi: ${e.message}`); } },
+        onclick: async () => { if (!clip) return; try { await setAnimation(clip); if (key === 'talk') st.mouth = true; draw(); drawAnimBar(); } catch (e) { toast(`${key} could not play: ${e.message}`); } },
       }, label);
     }) : [];
-    return [!cats.length ? h('p', { class: 'sub', role: st.permissionsError ? 'alert' : 'status' }, st.permissionsError ? `Animation permissions load nahi ho payin: ${friendlyError({ message: st.permissionsError })}` : tester ? 'No animations are enabled for this template. Ask the admin to enable clips in Tester Permissions.' : 'This character has no animations.') : null,
+    return [!cats.length ? h('p', { class: 'sub', role: st.permissionsError ? 'alert' : 'status' }, st.permissionsError ? `Could not load animation permissions: ${friendlyError({ message: st.permissionsError })}` : tester ? 'No animations are enabled for this template. Ask the admin to enable clips in Tester Permissions.' : 'This character has no animations.') : null,
       tester ? h('button', { class: 'btn sm', onclick: () => offTesterRules.refresh?.() }, 'Refresh animation permissions') : null,
       h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, `${total} animation${total > 1 ? 's' : ''}${tester ? ' for you' : ''}. Tap one to see it on your character — check how the face and the layers move. Arms / legs / face animations play on top of the body animation.`),
       tester ? h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap', 'aria-label': 'Quick animation preview' }, ...quick) : null,
       ...cats.map((c) => h('div', { class: 'cs-lgroup' }, h('div', { class: 'cs-ghead', style: 'cursor:default' }, h('b', {}, c.name), h('small', {}, `${c.animations.length}`)),
         h('div', { class: 'cs-lrows tst-anims' }, c.animations.map((a) => {
           const k = a.ref.rigAnim || `a${a.ref.id}`, on = c.overlay ? st.over?.key === k : st.anim?.key === k;
-          return h('button', { class: `tst-a ${on ? 'on' : ''}`, onclick: async () => { try { if (c.overlay) await playOver(a); else { await setAnimation(a); draw(); } } catch (e) { toast(`Animation chal nahi payi: ${e.message}`); } } }, h('b', {}, a.name), h('small', {}, a.length ? `${(+a.length).toFixed(1)}s` : ''));
+          return h('button', { class: `tst-a ${on ? 'on' : ''}`, onclick: async () => { try { if (c.overlay) await playOver(a); else { await setAnimation(a); draw(); } } catch (e) { toast(`The animation could not play: ${e.message}`); } } }, h('b', {}, a.name), h('small', {}, a.length ? `${(+a.length).toFixed(1)}s` : ''));
         })))),
       st.over ? h('button', { class: 'btn sm', onclick: () => playOver(null) }, '✕ Remove the layer animation') : null].filter(Boolean);
   }
@@ -904,7 +904,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     const fromArt = h('button', { class: 'btn', title: 'Compares your uploaded arm / leg / hand pictures with the original ones', onclick: () => { autoProportions(); draw(); } }, '📏 Set from my art');
     const preset = ([name, v]) => h('button', { class: 'btn', onclick: () => { Object.assign(f, v); apply(); draw(); } }, name);
     const mapRows = () => {
-      let auto; try { auto = stage.limbsOf(st.def.id, st.skins).limbs; } catch { return [h('p', { class: 'sub' }, 'Ye is character ke liye available nahi hai.')]; }
+      let auto; try { auto = stage.limbsOf(st.def.id, st.skins).limbs; } catch { return [h('p', { class: 'sub' }, 'This is not available for this character.')]; }
       const guess = { legs: auto.legs.map((c) => c[0]).join(', '), arms: auto.arms.map((c) => c[0]).join(', '), hands: auto.hands.join(', '), hip: auto.hip || '' };
       return [['legs', 'Legs'], ['arms', 'Arms'], ['hands', 'Hands'], ['hip', 'Hips']].map(([key, label]) => {
         const input = h('input', { type: 'text', placeholder: guess[key] || 'auto', value: f.map?.[key] || '', style: 'flex:1;min-width:0' });
@@ -963,13 +963,13 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   const newId = () => `c${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-3)}`;
   /** saves the character: small record on this device and (logged in) in the account; checks the per-user limits first */
   async function saveNow(nameVal, asNew) {
-    if (restrictedTester()) throw new Error('Tester page par character save karna sirf admin ke liye hai.');
+    if (restrictedTester()) throw new Error('Only an admin can save a character on the Tester page.');
     const { ske, tex, pages, profile } = await bake(), baseId = st.def.base || (st.def.lib ? st.def.id : null), id = !asNew && st.savedId ? st.savedId : newId();
     const kept = mine.filter((c) => c.id !== id).length + st.cloud.filter((c) => c.id !== id && !mine.some((m) => m.id === c.id)).length;
-    if (kept >= LIMITS.characters) throw new Error(`Aap sirf ${LIMITS.characters} characters rakh sakte hain. Pehle ek delete karein.`);
+    if (kept >= LIMITS.characters) throw new Error(`You can only keep ${LIMITS.characters} characters. Please delete one first.`);
     let total = 0;
-    for (const b of Object.values(pages)) { if (b.size > LIMITS.pageBytes) throw new Error(`Ek picture page ${mb(b.size)} ka hai, jabki limit ${mb(LIMITS.pageBytes)} hai. Chhoti pictures use karein.`); total += b.size; }
-    if (total > LIMITS.characterBytes) throw new Error(`Is character ki pictures ${mb(total)} ki hain, jabki limit ${mb(LIMITS.characterBytes)} hai.`);
+    for (const b of Object.values(pages)) { if (b.size > LIMITS.pageBytes) throw new Error(`One picture page is ${mb(b.size)}, but the limit is ${mb(LIMITS.pageBytes)}. Please use smaller pictures.`); total += b.size; }
+    if (total > LIMITS.characterBytes) throw new Error(`This character's pictures total ${mb(total)}, but the limit is ${mb(LIMITS.characterBytes)}.`);
     setFit(id, profile.fit);
     const name = nameVal.trim() || 'My character', thumb = snapshot(), pose = st.def.pose || '';
     let rec;
@@ -985,7 +985,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         await saveCharacterCloud(rec); if (!st.cloud.some((c) => c.id === id)) st.cloud.push({ id }); msg = '✓ Saved on this device and in your account.';
         if (tester) { await saveTesterSubmission(rec, user); msg = '✓ Saved in the database — the animation studio now uses this character with your face settings.'; }
       } catch (er) { msg = `✓ Saved on this device. Account: ${er.message}`; }
-    } else if (tester) { try { await saveTesterSubmission(rec, user); msg = '✓ Settings database me save ho gayi. Pictures upload nahi ho payin (cloud storage set nahi hai), wo sirf is device par hain.'; } catch (er) { msg = `✓ Is device par save ho gaya. Database me save nahi hua: ${friendlyError(er)}`; } }
+    } else if (tester) { try { await saveTesterSubmission(rec, user); msg = '✓ Settings saved to the database. The pictures were not uploaded (cloud storage is not set up); they only exist on this device.'; } catch (er) { msg = `✓ Saved on this device. Not saved to the database: ${friendlyError(er)}`; } }
     else if (user?.uid && user.uid !== 'debug') msg += ' (Cloud saving is not set up yet.)';
     return msg;
   }
@@ -995,7 +995,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     const changed = st.edit.size + st.hide.size + Object.keys(st.xf).length + Object.keys(st.attach).length + (st.skins ? 1 : 0);
     const go = (asNew) => async (e) => {
       const btn = e.currentTarget; btn.disabled = true; status.textContent = 'Saving…';
-      try { const msg = await saveNow(name.value, asNew); status.textContent = msg; toast(msg); draw(); } catch (er) { status.textContent = `Save nahi ho paya: ${friendlyError(er)}`; } finally { btn.disabled = false; }
+      try { const msg = await saveNow(name.value, asNew); status.textContent = msg; toast(msg); draw(); } catch (er) { status.textContent = `Could not save: ${friendlyError(er)}`; } finally { btn.disabled = false; }
     };
     return [h('div', { class: 'cs-sec' }, h('h3', {}, 'Save this character'),
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, tester ? 'Your character and settings are saved for the animation review. Your uploaded pictures are stored with this character; the animation rig makes the allowed movements available.' : `Saved on this device and, when you are logged in, in your 12toons account (up to ${LIMITS.characters} characters). Only your own pictures and settings are stored — the skeleton and the untouched parts come from the template. 12toons (the animation studio) then loads exactly this character and plays every animation on it.`),
@@ -1044,11 +1044,11 @@ export async function view({ user, home, toast, tester = false, logout, localPre
     while(st.busy)await new Promise(resolve=>setTimeout(resolve,20));
     if(pending.size)await flush();await saveDraft();
   };
-  const hideSave=()=>{if(document.hidden&&root.isConnected)root.flushDraft().catch(e=>{draftStatus.textContent='Local save nahi ho paya: '+friendlyError(e);});};
+  const hideSave=()=>{if(document.hidden&&root.isConnected)root.flushDraft().catch(e=>{draftStatus.textContent='Local save failed: '+friendlyError(e);});};
   document.addEventListener('visibilitychange',hideSave);
   const draftStatus=h('span',{class:'sub'},localPreview ? 'Preview only · cloud saving disabled' : 'Saved locally');root.querySelector('header').append(draftStatus);
   const offStatus=localPreview ? () => {} : onSyncStatus(s=>{draftStatus.textContent=s.text;draftStatus.title=s.error;});
-  const draftTimer=setInterval(()=>{if(root.isConnected&&!document.hidden)saveDraft().catch(e=>{draftStatus.textContent='Local save nahi ho paya: '+friendlyError(e);});},3000);
+  const draftTimer=setInterval(()=>{if(root.isConnected&&!document.hidden)saveDraft().catch(e=>{draftStatus.textContent='Local save failed: '+friendlyError(e);});},3000);
   const offTesterRules = tester && !localPreview ? watchTesterConfig(config => {
     st.permissionsError = '';
     setTesterRules(config);
@@ -1077,27 +1077,27 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         st.createMode = true;
         st.tab = 'create'; rebuild(); draw(); drawAnimBar();
       }
-    } catch (er) { toast(`Custom character ka workspace taiyar nahi ho paya: ${er.message}`); }
+    } catch (er) { toast(`Could not set up the custom character workspace: ${er.message}`); }
   }
   if (localPreview) {
     root.captureArtworkFrame = () => {
-      if (stage.gl.isContextLost()) throw new Error('Browser ka graphics context chala gaya. Is local preview ko reload karein.');
+      if (stage.gl.isContextLost()) throw new Error('The browser\'s graphics context was lost. Please reload this local preview.');
       const time = previewTime(performance.now());
       stage.render(time, 0, mouthClips(time), [{ start: 0, end: 1e9, speaker: 'c', type: st.zoom, focus: 'auto' }]);
       return stage.out.toDataURL('image/png');
     };
     root.loadArtworkPack = async (manifestUrl) => {
       const response = await fetch(manifestUrl);
-      if (!response.ok) throw new Error('Artwork ki list available nahi hai.');
+      if (!response.ok) throw new Error('The artwork list is not available.');
       const manifest = await response.json(), all = layers(), report = [];
       st.previewUtilityRegions = new Set(manifest.filter(p => p.status === 'transparent-utility-slot').map(p => p.region));
       for (const part of manifest) {
         const layer = all.find(l => l.slot === part.slot && l.key === part.key && l.region === part.region);
-        if (!layer) throw new Error(`Rig me ye layer nahi mili: ${part.slot}/${part.region}`);
+        if (!layer) throw new Error(`This layer was not found in the rig: ${part.slot}/${part.region}`);
         const imageResponse = await fetch(`/local-character-art/${part.file}`);
-        if (!imageResponse.ok) throw new Error(`Artwork nahi mili: ${part.file}`);
+        if (!imageResponse.ok) throw new Error(`Artwork not found: ${part.file}`);
         const img = await readImage(await imageResponse.blob()), reg = st.regions.get(layer.region);
-        if (img.width !== reg.w || img.height !== reg.h) throw new Error(`Size match nahi hua: ${part.file}`);
+        if (img.width !== reg.w || img.height !== reg.h) throw new Error(`Size mismatch: ${part.file}`);
         Object.assign(editOf(layer.region), { img, trim: null, removed: false });
         st.attach[layer.slot] = layer.key; st.hide.delete(layer.slot); pending.add(layer.region);
         report.push({ slot: layer.slot, region: layer.region, width: img.width, height: img.height });

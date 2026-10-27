@@ -15,13 +15,13 @@ async function pool(jobs, run) {
   if (failure) throw failure;
 }
 function cloudError(e, what) {
-  if (e instanceof TypeError) { const err = Error(`Cloud storage se ${what} nahi ho paya. Internet check karein; agar ye baar baar ho to admin se R2 ki CORS setting dobara dekhne ko kahein.`); err.code = 'r2_unreachable'; return err; }
+  if (e instanceof TypeError) { const err = Error(`Could not ${what} with cloud storage. Check your internet; if this keeps happening, ask the admin to review the R2 CORS setting.`); err.code = 'r2_unreachable'; return err; }
   return e;
 }
 async function put(target, blob) {
   let r;
   try { r = await fetch(target.url, { method: 'PUT', headers: target.headers, body: blob }); } catch (e) { throw cloudError(e, 'upload'); }
-  if (!r.ok) { const err = Error(r.status === 403 ? 'Upload ka link khatam ho gaya ya sahi nahi tha. Dobara try karein.' : `Cloud storage ne upload nahi liya (${r.status}). Dobara try karein.`); err.code = 'r2_put_failed'; throw err; }
+  if (!r.ok) { const err = Error(r.status === 403 ? 'The upload link expired or was not valid. Please try again.' : `Cloud storage did not accept the upload (${r.status}). Please try again.`); err.code = 'r2_put_failed'; throw err; }
 }
 
 /**
@@ -34,7 +34,7 @@ const knownSet = (uid) => { try { return new Set(JSON.parse(localStorage.getItem
 const rememberKnown = (uid, set) => { try { localStorage.setItem(knownKey(uid), JSON.stringify([...set].slice(-KNOWN_LIMIT))); } catch { /* optional */ } };
 export async function uploadAssets(uid, assets, state = null) {
   const known = knownSet(uid), list = [...assets].filter(([hash]) => !known.has(hash));
-  for (const [hash, blob] of list) if (blob.size > 40 * 1024 * 1024) throw Error('File 40 MB ki limit se badi hai.');
+  for (const [hash, blob] of list) if (blob.size > 40 * 1024 * 1024) throw Error('The file is larger than the 40 MB limit.');
   if (!list.length && !state) return { sent: 0, fresh: [] };
   let sent = 0, first = true;
   const fresh = [];
@@ -69,7 +69,7 @@ async function remember(uid, hash, blob) { try { await (await caches.open(CACHE)
 export async function fetchBlob(url, what = 'download') {
   let r;
   try { r = await fetch(url); } catch (e) { throw cloudError(e, what); }
-  if (!r.ok) { const err = Error('Cloud file abhi nahi mil rahi. Thodi der baad dobara try karein.'); err.code = 'r2_get_failed'; throw err; }
+  if (!r.ok) { const err = Error('The cloud file is not available right now. Please try again shortly.'); err.code = 'r2_get_failed'; throw err; }
   return r.blob();
 }
 /** download files by hash (each is checked against its hash); `known` can carry sizes to check too. Returns Map hash -> Blob */
@@ -80,7 +80,7 @@ export async function downloadAssets(uid, hashes, sizes = new Map()) {
     const { urls } = await apiCall('/api/r2', { action: 'urls', hashes: missing.slice(i, i + BATCH) }, uid);
     await pool(missing.slice(i, i + BATCH), async (hash) => {
       const blob = await fetchBlob(urls[hash]);
-      if (sizes.has(hash) && blob.size !== sizes.get(hash) || await hashBlob(blob) !== hash) throw Error('Cloud file kharab nikli (integrity check fail hua). Dobara try karein.');
+      if (sizes.has(hash) && blob.size !== sizes.get(hash) || await hashBlob(blob) !== hash) throw Error('The cloud file came back corrupted (integrity check failed). Please try again.');
       out.set(hash, blob); await remember(uid, hash, blob);
     });
   }

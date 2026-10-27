@@ -93,7 +93,7 @@ test('denied sync reports an actionable cause and preserves local records',async
   await assert.rejects(sync.syncProject(user.uid,p.id));
   assert.equal(sync.syncStatus.projectId,p.id);
   assert.equal(sync.syncStatus.issue.retryable,false);
-  assert.match(sync.syncStatus.issue.message,/Cloud access mana kar diya gaya/);
+  assert.match(sync.syncStatus.issue.message,/Cloud access was denied/);
   assert.equal((await store.get('project','current')).doc.name,'Keep my edits');
   assert.equal((await store.projectMeta(user.uid,p.id)).dirty,true);
  } finally {denyCommit=false;}

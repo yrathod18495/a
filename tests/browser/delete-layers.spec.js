@@ -49,7 +49,7 @@ test('background layer delete clears its base and clips, preserves uploaded file
   await page.locator('.panel input[type=file]').setInputFiles({ name: 'red.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgId)).toBeTruthy();
   const id = await page.evaluate(() => window.__toon.S.bgId);
-  await page.getByRole('button', { name: 'Timeline par (playhead se)', exact: true }).click();
+  await page.getByRole('button', { name: 'On the timeline (from the playhead)', exact: true }).click();
   await page.getByRole('button', { name: 'Sky', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(1);
   await page.getByLabel('Options for Scene 1', { exact: true }).click();

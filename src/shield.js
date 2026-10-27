@@ -39,7 +39,7 @@ export function createShield({ win = window, doc = document, report, notice = ()
     if (last.has(key) && t - last.get(key) < REPORT_EVERY_MS) return false;
     last.set(key, t);
     Promise.resolve(report({ kind, detail, path: String(win.location?.hash || '').slice(0, 60) })).catch(() => {});
-    if (!noticed) { noticed = true; notice('Security notice: is website ka source, developer tools aur data dekhna ya copy karna allowed nahi hai. Ye activity record ho gayi hai aur admin ko bata di gayi hai.'); }
+    if (!noticed) { noticed = true; notice('Security notice: viewing or copying this website\'s source, developer tools or data is not allowed. This activity has been recorded and reported to the admin.'); }
     return true;
   };
   function check() {

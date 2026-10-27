@@ -42,7 +42,7 @@ export async function loadCatalog() {
     library = mine;
   } catch (e) {
     console.warn('12toons data failed to load', e);
-    libraryProblem = 'Character library abhi load nahi ho payi. Internet check karke page reload karein; na chale to admin ko batayein.';
+    libraryProblem = 'The character library could not be loaded. Check your internet and reload the page; if it still fails, tell the admin.';
   }
 }
 export const libraryCharacters = () => library;
@@ -50,8 +50,8 @@ export const cdn = (p) => url(p);
 
 /** Downloads a character (DragonBones skeleton + texture atlases + pictures) from its files and returns the same shape ingest() produces. */
 export async function fetchLibraryCharacter(entry) {
-  const ok = (r) => { if (!r.ok) throw new Error(`File load nahi hui (code ${r.status}): ${r.url}`); return r; };
-  if (!entry?.template) throw new Error('Ye character template ab available nahi hai.');
+  const ok = (r) => { if (!r.ok) throw new Error(`The file did not load (code ${r.status}): ${r.url}`); return r; };
+  if (!entry?.template) throw new Error('This character template is no longer available.');
   const a = entry.template, load = async () => {
     const [ske, texJsons] = await Promise.all([fetch(url(a.ske)).then(ok).then((r) => r.json()), Promise.all(a.tex.map((u) => fetch(url(u)).then(ok).then((r) => r.json())))]);
     const blobs = await Promise.all(texJsons.map((t, i) => fetch(url(dirOf(a.tex[i]) + t.imagePath)).then(ok).then((r) => r.blob())));
@@ -143,7 +143,7 @@ const cache = new AssetCache();
 export function fetchAnimation(file) {
   if (file.startsWith('managed:')) return cache.load(file, () => loadStudioAnimation(file.slice(8)));
   return cache.load(file, () => fetch(url(file), { signal: AbortSignal.timeout(20000) })
-    .then(r => { if (!r.ok) throw new Error(`Animation load nahi hui (code ${r.status}).`); return r.json(); })
+    .then(r => { if (!r.ok) throw new Error(`The animation did not load (code ${r.status}).`); return r.json(); })
     .then(j => j && j.bone ? j : Object.values(j)[0]));
 }
 

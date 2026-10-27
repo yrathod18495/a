@@ -6,28 +6,28 @@ import { AccessError } from '../server/security-policy.js';
 
 const validUid = value => typeof value === 'string' && /^[A-Za-z0-9_-]{10,128}$/.test(value);
 const cleanText = value => {
-  if (typeof value !== 'string') throw new AccessError('invalid_message', 'Pehle message likhein.', 400);
+  if (typeof value !== 'string') throw new AccessError('invalid_message', 'Please enter a message first.', 400);
   const text = value.trim();
-  if (!text || text.length > 2000) throw new AccessError('invalid_message', 'Message 1 se 2000 akshar ke beech hona chahiye.', 400);
+  if (!text || text.length > 2000) throw new AccessError('invalid_message', 'The message must be between 1 and 2000 characters.', 400);
   return text;
 };
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
     const b = await bodyOf(req, 12000);
     const isAdminAction = ['adminList', 'adminMessages', 'adminReply'].includes(b.action);
     const isWrite = ['send', 'adminReply'].includes(b.action);
     const who = await access(req, { admin: isAdminAction, write: isWrite });
     const { db } = services();
-    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
+    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
 
     if (b.action === 'send') {
       const message = cleanText(b.message), ref = db.collection('supportChats').doc(who.uid);
       const chat = await ref.get();
       const data = chat.data() || {};
       const now = Date.now();
-      if (data.lastUserMessageAt && now - data.lastUserMessageAt < 800) throw new AccessError('rate_limited', 'Doosra message bhejne se pehle thoda ruk jaayein.', 429);
+      if (data.lastUserMessageAt && now - data.lastUserMessageAt < 800) throw new AccessError('rate_limited', 'Please wait a moment before sending another message.', 429);
       const row = { sender: 'user', message, createdAt: now };
       const summary = { uid: who.uid, email: String(who.claims.email || '').slice(0, 254), displayName: String(who.claims.name || '').slice(0, 120), updatedAt: now, lastMessage: message, lastSender: 'user', unreadAdmin: true, lastUserMessageAt: now };
       const messageRef = ref.collection('messages').doc();
@@ -37,12 +37,12 @@ export default async function handler(req, res) {
     }
     if (b.action === 'messages' || b.action === 'adminMessages') {
       const uid = b.action === 'messages' ? who.uid : b.uid;
-      if (!validUid(uid)) throw new AccessError('invalid_user', 'Ye chat sahi nahi hai.', 400);
+      if (!validUid(uid)) throw new AccessError('invalid_user', 'This chat is not valid.', 400);
       const ref = db.collection('supportChats').doc(uid);
       const thread = await ref.get();
       // Opening a user's inbox must not create an empty conversation record.
       if (!thread.exists) {
-        if (b.action === 'adminMessages') throw new AccessError('chat_not_found', 'Ye conversation ab maujood nahi hai.', 404);
+        if (b.action === 'adminMessages') throw new AccessError('chat_not_found', 'This conversation no longer exists.', 404);
         return send(res, 200, { messages: [], unreadUser: false });
       }
       if (b.action === 'adminMessages' ? thread.data()?.unreadAdmin === true : thread.data()?.unreadUser === true) {
@@ -59,9 +59,9 @@ export default async function handler(req, res) {
       return send(res, 200, { chats: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
     }
     if (b.action === 'adminReply') {
-      if (!validUid(b.uid)) throw new AccessError('invalid_user', 'Kisi user ki conversation chunein.', 400);
+      if (!validUid(b.uid)) throw new AccessError('invalid_user', 'Please choose a user\'s conversation.', 400);
       const message = cleanText(b.message), ref = db.collection('supportChats').doc(b.uid), chat = await ref.get();
-      if (!chat.exists) throw new AccessError('chat_not_found', 'Ye conversation ab maujood nahi hai.', 404);
+      if (!chat.exists) throw new AccessError('chat_not_found', 'This conversation no longer exists.', 404);
       const now = Date.now(), row = { sender: 'admin', message, createdAt: now };
       const summary = { updatedAt: now, lastMessage: message, lastSender: 'admin', unreadAdmin: false, unreadUser: true };
       const messageRef = ref.collection('messages').doc();
@@ -73,6 +73,6 @@ export default async function handler(req, res) {
       // catch (error) { console.warn('Could not send support reply notification:', error.code || error.message); }
       return send(res, 200, { message: row });
     }
-    throw new AccessError('invalid_action', 'Ye chat action supported nahi hai.', 400);
+    throw new AccessError('invalid_action', 'This chat action is not supported.', 400);
   } catch (e) { return failure(res, e); }
 }

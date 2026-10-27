@@ -4,11 +4,11 @@ export async function identity(req) {
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   try {
     const claims = await services().auth.verifyIdToken(token, true);
-    if (!claims.email_verified) throw Error('Pehle apna email verify karein.');
+    if (!claims.email_verified) throw Error('Please verify your email first.');
     return claims;
   } catch (error) {
     console.error('Firebase ID token verification failed:', error?.code || 'unknown_error');
-    throw new AccessError('unauthorized', 'Pehle verified account se sign in karein.', 401);
+    throw new AccessError('unauthorized', 'Please sign in with a verified account.', 401);
   }
 }
 // Every API call checks the account, the session and the admin list: three Firestore reads. A server instance remembers them for a few seconds
@@ -34,15 +34,15 @@ export async function access(req, { write = false, admin = false, fresh = false,
   }
   checkAccount(docs.account, now, write);
   checkSession(docs.session, claims.sid);
-  if (admin && docs.role?.enabled !== true) throw new AccessError('admin_required', 'Ye kaam sirf admin kar sakta hai.');
+  if (admin && docs.role?.enabled !== true) throw new AccessError('admin_required', 'Only an admin can do this.');
   return { uid: claims.uid, claims, admin: docs.role?.enabled === true, session: docs.session };
 }
 export const send = (res, code, body) => {
   res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(body));
 };
 export async function bodyOf(req,max=1000000) {
-  if (req.body && typeof req.body === 'object') { if(JSON.stringify(req.body).length>max)throw new AccessError('too_large','Request bahut badi hai.',413);return req.body; }
-  let body = ''; for await (const chunk of req) { body += chunk; if (body.length > max) throw new AccessError('too_large', 'Request bahut badi hai.', 413); }
-  try { return JSON.parse(body || '{}'); } catch { throw new AccessError('invalid_json', 'Request ka data sahi nahi hai.', 400); }
+  if (req.body && typeof req.body === 'object') { if(JSON.stringify(req.body).length>max)throw new AccessError('too_large','The request is too large.',413);return req.body; }
+  let body = ''; for await (const chunk of req) { body += chunk; if (body.length > max) throw new AccessError('too_large', 'The request is too large.', 413); }
+  try { return JSON.parse(body || '{}'); } catch { throw new AccessError('invalid_json', 'The request data is not valid.', 400); }
 }
-export const failure = (res, e) => (e.status || console.error('Server error:', e), send(res, e.status || 500, { code: e.code || 'server_error', error: e.status ? e.message : 'Server par kuch gadbad ho gayi. Thodi der baad dobara try karein.' }));
+export const failure = (res, e) => (e.status || console.error('Server error:', e), send(res, e.status || 500, { code: e.code || 'server_error', error: e.status ? e.message : 'Something went wrong on the server. Please try again shortly.' }));

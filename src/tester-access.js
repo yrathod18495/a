@@ -43,7 +43,7 @@ export function testerAccessView({ user, status = 'none', error = '', accessOnly
     if (busy || !user) return;
     busy = true; render();
     try { const result = await apiCall('/api/security', { action: 'testerApply' }, user.uid); state = result.status; }
-    catch (error) { toast(friendlyError(error, 'Tester request bheji nahi ja saki. Dobara try karein.')); }
+    catch (error) { toast(friendlyError(error, 'Could not send the tester request. Please try again.')); }
     finally { busy = false; render(); }
   }
 

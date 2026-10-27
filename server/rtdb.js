@@ -4,7 +4,7 @@ import { AccessError } from './security-policy.js';
 
 /** the RTDB of this deployment, or a Hinglish error when FIREBASE_DATABASE_URL is not set yet */
 export function rtdbOf(svc) {
-  if (!svc?.rtdb) throw new AccessError('rtdb_missing', 'Server par Realtime Database abhi set nahi hai. Admin ko batayein.', 503);
+  if (!svc?.rtdb) throw new AccessError('rtdb_missing', 'The Realtime Database is not set up on the server yet. Please tell the admin.', 503);
   return svc.rtdb;
 }
 export const hasRtdb = (svc) => !!svc?.rtdb;

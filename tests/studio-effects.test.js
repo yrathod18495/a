@@ -8,8 +8,8 @@ test('effect metadata is cleaned and validated', () => {
   const meta = cleanAssetMeta('effect', { blend: 'screen', placement: 'sticker', opacity: 5, sheet: { cols: 4, rows: 2, fps: 12 }, category: 'Light' });
   assert.deepEqual(meta, { category: 'Light', blend: 'screen', placement: 'sticker', opacity: 1, sheet: { cols: 4, rows: 2, fps: 12 } });
   for (const bad of [{ blend: 'multiply2' }, { placement: 'corner' }, { sheet: { cols: 1, rows: 1, fps: 10 } }, { sheet: { cols: 20, rows: 2, fps: 10 } }, { sheet: { cols: 2, rows: 2, fps: 0 } }, { thumb: 'javascript:alert(1)' }, { thumb: 'data:image/svg+xml;base64,AAAA' }])
-    assert.throws(() => cleanAssetMeta('effect', bad), /sahi/);
-  assert.throws(() => cleanAssetMeta('prop', { thumb: 'data:image/webp;base64,' + 'A'.repeat(9100) }), /Thumbnail/);
+    assert.throws(() => cleanAssetMeta('effect', bad), /not valid|valid/);
+  assert.throws(() => cleanAssetMeta('prop', { thumb: 'data:image/webp;base64,' + 'A'.repeat(9100) }), /thumbnail/i);
   assert.equal(cleanAssetMeta('prop', { thumb: 'data:image/webp;base64,AAAA' }).thumb, 'data:image/webp;base64,AAAA');
   assert.deepEqual(Object.keys(EFFECT_BLENDS), ['normal', 'add', 'screen']);
 });

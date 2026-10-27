@@ -100,5 +100,5 @@ export function extractJson(text) {
     const a = c.indexOf('{'), b = c.lastIndexOf('}');
     if (a >= 0 && b > a) { try { return JSON.parse(c.slice(a, b + 1)); } catch { /* try the next candidate */ } }
   }
-  throw new Error('Us file me JSON nahi mila. AI se kahein ki sirf JSON me jawab de.');
+  throw new Error('No JSON was found in that file. Ask the AI to respond with JSON only.');
 }

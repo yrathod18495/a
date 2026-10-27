@@ -7,11 +7,11 @@ const validUid = value => typeof value === 'string' && /^[A-Za-z0-9_-]{10,128}$/
 const validProjectId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{16,128}$/.test(value);
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
     const b = await bodyOf(req, 12000), who = await access(req, { admin: true }), store = kv(services());
-    if (b.action !== 'userProjects' && b.action !== 'projectDetails') throw new AccessError('invalid_action', 'Ye action abhi supported nahi hai.', 400);
-    if (!validUid(b.uid)) throw new AccessError('invalid_user', 'User sahi nahi hai. Dobara chunein.', 400);
+    if (b.action !== 'userProjects' && b.action !== 'projectDetails') throw new AccessError('invalid_action', 'This action is not supported yet.', 400);
+    if (!validUid(b.uid)) throw new AccessError('invalid_user', 'This user is not valid. Please choose again.', 400);
 
     if (b.action === 'userProjects') {
       const rows = Object.entries((await store.get(`projects/${b.uid}`)) || {}).sort((x, y) => (y[1].updatedAt || 0) - (x[1].updatedAt || 0));
@@ -21,9 +21,9 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!validProjectId(b.projectId)) throw new AccessError('invalid_project', 'Project sahi nahi hai. Dobara chunein.', 400);
+    if (!validProjectId(b.projectId)) throw new AccessError('invalid_project', 'This project is not valid. Please choose again.', 400);
     const project = await store.get(`projects/${b.uid}/${b.projectId}`);
-    if (!project) throw new AccessError('not_found', 'Ye project nahi mila.', 404);
+    if (!project) throw new AccessError('not_found', 'This project was not found.', 404);
     const summary = project.summary || {}, detail = { audioCount: Number(summary.audioCount || 0), audioFiles: summary.audioFiles || [], audioFilesTruncated: summary.audioFilesTruncated === true, snapshotAvailable: !project.deleted && !!project.stateOp };
     if (project.deleted) detail.snapshotMessage = 'This project is marked deleted; no current cloud snapshot is available.';
     else if (!project.stateOp) detail.snapshotMessage = 'This project has no saved cloud snapshot.';

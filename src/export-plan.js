@@ -41,7 +41,7 @@ export async function authorizeExport({ seconds, scenes = 1, scope = 'current' }
     }
     if (error.status && error.status < 500 && error.status !== 429) throw error;   // sign-in / account problems are shown as they are
     // server unreachable: the free limit decides
-    if (!withinLimit(seconds, 'free')) throw new ExportLimitError(`${limitMessage(seconds, 'free')} (Aapka plan check nahi ho paya. Internet chalu hone par dobara try karein.)`, 'free', limitFor('free'));
+    if (!withinLimit(seconds, 'free')) throw new ExportLimitError(`${limitMessage(seconds, 'free')} (Could not check your plan. Please try again once you are online.)`, 'free', limitFor('free'));
     return { grantId: null, tier: 'free', limitSeconds: limitFor('free'), unverified: true };
   }
 }

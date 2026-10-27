@@ -33,7 +33,7 @@ export async function view({ user, home, back, toast }) {
           h('td', {}, p.planName || p.planId || '—'), h('td', {}, money(p.amountPaise)), h('td', {}, Number(p.credits || 0).toLocaleString('en-IN')),
           h('td', {}, h('span', { class: `credit-status ${p.status}` }, statusName(p.status))), h('td', {}, when(p.createdAt)), h('td', {}, p.paymentId || '—')))));
       rows.replaceChildren(table, h('p', { class: 'hint' }, `Showing ${payments.length} payment records.`), cursor ? h('button', { class: 'btn', onclick: () => load(true) }, 'Load more payments') : null);
-    } catch (e) { rows.replaceChildren(h('p', { class: 'credit-message error' }, friendlyError(e))); toast?.(`Payments load nahi ho paye: ${friendlyError(e)}`); }
+    } catch (e) { rows.replaceChildren(h('p', { class: 'credit-message error' }, friendlyError(e))); toast?.(`Could not load payments: ${friendlyError(e)}`); }
     finally { loading = false; }
   }
   await load();

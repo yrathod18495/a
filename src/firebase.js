@@ -1,8 +1,7 @@
-import { friendlyError } from '../shared/hinglish-errors.js';
 // Firebase (login + database). The web config below is public by design (it only names the project);
 // what protects the data are the Firestore rules (firebase/firestore.rules) and the server check in api/r2.js.
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeFirestore, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 
 const env = import.meta.env;
@@ -28,6 +27,18 @@ export async function signInGoogle() {
     throw e;
   }
 }
+/** one "Continue" for both sign-in and sign-up: try signing in first, and if the account doesn't exist yet, create it with the same credentials. */
+export async function continueWithEmail(email, password) {
+  try { return (await signInWithEmailAndPassword(auth, email, password)).user; }
+  catch (e) {
+    if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+      try { return (await createUserWithEmailAndPassword(auth, email, password)).user; }
+      catch (e2) { if (e2.code === 'auth/email-already-in-use') throw e; throw e2; }
+    }
+    throw e;
+  }
+}
+export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 export const finishRedirect = () => getRedirectResult(auth).catch(() => null);
 export async function signOutUser({ release = true } = {}) {
   const session = await import('./session.js');
@@ -50,18 +61,9 @@ export const onUser = (cb) => {
     let confirmedTesterStatus = 'none';
     try {
       const session = await import('./session.js');
-      const staffLogin = sessionStorage.getItem('12toons-staff-login') === '1';
-      if (staffLogin) {
-        const access = await session.apiCall('/api/security', { action: 'staffStatus' }, user.uid);
-        if (!access.admin) {
-          sessionStorage.setItem('12toons-staff-error', 'This Google account is not enabled in the securityAdmins list.');
-          await signOut(auth);
-          return;
-        }
-      }
       const testerRoute = location.hash.split('/').slice(0, 2).join('/') === '#/tester';
       const testerLogin = sessionStorage.getItem('12toons-tester-login') === '1';
-      if (!staffLogin && (testerRoute || testerLogin)) {
+      if (testerRoute || testerLogin) {
         let tester = await session.apiCall('/api/security', { action: 'testerStatus' }, user.uid);
         if (tester.status === 'none' || (testerLogin && ['rejected', 'revoked'].includes(tester.status))) {
           try { tester = await session.apiCall('/api/security', { action: 'testerApply' }, user.uid); }
@@ -90,11 +92,6 @@ export const onUser = (cb) => {
       await session.validateSession();
       if (auth.currentUser?.uid === user.uid) cb(user);
     } catch (e) {
-      if (sessionStorage.getItem('12toons-staff-login') === '1') {
-        sessionStorage.setItem('12toons-staff-error', friendlyError(e, 'Staff access verify nahi ho paya. Dobara try karein.'));
-        await signOut(auth);
-        return;
-      }
       if (location.hash.split('/')[1] === 'tester' && auth.currentUser?.uid === user.uid) {
         (await import('./session.js')).stopSession();
         cb(user, { testerAccessOnly: true, testerStatus: confirmedTesterStatus, testerError: e.message });

@@ -8,17 +8,15 @@ async function setup(page){
  await page.goto('/?debug#/toons');
  await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
 }
-test('maintenance covers public routes and direct admin URLs while staff login stays available',async({page})=>{
+test('maintenance never blocks signing in: anonymous visitors reach the login page for private routes and direct admin URLs',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:true}}));
  await page.goto('/#/admin');
- await expect(page.getByRole('heading',{name:'We’ll be back soon'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Welcome back'})).toBeVisible();
  await page.goto('/#/hub');
- await expect(page.getByRole('heading',{name:'We’ll be back soon'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Welcome back'})).toBeVisible();
  await page.goto('/admin');
- await expect(page).toHaveURL(/#\/admin$/);
- await expect(page.getByRole('heading',{name:'We’ll be back soon'})).toBeVisible();
- await page.getByRole('link',{name:'Admin / staff? Sign in'}).click();
- await expect(page.getByRole('heading',{name:'12toons staff sign in'})).toBeVisible();
+ await expect(page).toHaveURL(/#\/login$/);
+ await expect(page.getByRole('heading',{name:'Welcome back'})).toBeVisible();
 });
 test('expanded FAQ and complete legal pages are linked and render by direct URL',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));

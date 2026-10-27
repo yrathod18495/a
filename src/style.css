@@ -308,6 +308,9 @@ header{gap:10px}
 .sh-foot{margin-top:auto;padding:22px;text-align:center;color:var(--mute);font-size:13px;border-top:1px solid var(--line)}
 .sh-login{width:min(420px,100%);background:#191610;border:1px solid var(--line);border-radius:24px;padding:34px 28px;text-align:center;box-shadow:0 20px 50px #0806031a;display:flex;flex-direction:column;align-items:center}
 .sh-login h1{margin-top:22px}.sh-login .sub{margin-bottom:22px}
+.sh-login input{width:100%;margin-bottom:12px}
+.sh-login-divider{display:flex;align-items:center;gap:10px;width:100%;margin:16px 0;color:var(--mute);font-size:11px;letter-spacing:.1em;font-weight:700}
+.sh-login-divider::before,.sh-login-divider::after{content:'';flex:1;height:1px;background:var(--line)}
 .gbtn{width:100%;display:flex;gap:10px;justify-content:center;align-items:center}
 .gbtn .g{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#191610;color:#efd08a;font-weight:900;font-size:14px}
 .sh-profile{position:relative}
@@ -807,39 +810,12 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 :root[data-theme] .legal-header nav a,:root[data-theme] .legal-section a,:root[data-theme] .legal-switch a,:root[data-theme] .legal-footer button{color:var(--acc)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
-/* Crown the number itself; the same wordmark is shared by every app header. */
-.logo .brand-number,.projects-brand .brand-number,.legal-brand .brand-number{
-  position:relative;
-  display:inline-flex;
-  align-items:baseline;
-  padding-top:.55em;
-  margin-right:.025em;
-  flex:none;
-  isolation:isolate;
-}
-.logo .brand-number b,.projects-brand .brand-number b,.legal-brand .brand-number b{
-  display:block;
-  margin:0;
-  font-size:1.18em;
-  line-height:1;
-  letter-spacing:-.06em;
-  font-weight:900;
-  background:none;
-}
-.brand-number .brand-crown{
-  position:absolute;
-  left:50%;
-  top:-.32em;
-  width:1.45em;
-  height:auto;
-  max-width:none;
-  transform:translateX(-50%) rotate(-7deg);
-  transform-origin:50% 85%;
-  pointer-events:none;
-  filter:drop-shadow(0 2px 3px #0004);
-}
+/* The brand mark badge sits beside the wordmark text; the same wordmark is shared by every app header. */
+.brand-mark{display:inline-flex;flex:none;width:1.3em;height:1.3em;margin-right:.3em}
+.brand-mark svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 3px #0004)}
 .logo .brand-name,.projects-brand .brand-name,.legal-brand .brand-name{line-height:1}
-.projects-brand,.legal-brand{display:inline-flex;align-items:baseline;gap:0;overflow:visible}
+.projects-brand,.legal-brand{display:inline-flex;align-items:center;gap:0;overflow:visible}
+.logo{display:inline-flex;align-items:center}
 /* admin console: one persistent top bar + section tabs; each section opens inside the host below them */
 .admin-console-host{min-height:60vh}
 .admin-console-host>*{min-height:0!important}

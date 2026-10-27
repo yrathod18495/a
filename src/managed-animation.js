@@ -1,9 +1,9 @@
 export const MAX_ANIMATION_BYTES = 4 * 1024 * 1024;
 export const ANIMATION_LAYERS = ['body', 'hand', 'legs', 'face'];
 export function animationData(raw) {
-  if (!raw || typeof raw !== 'object' || raw.skeleton?.spine || raw.spine) throw Error('DragonBones animation ki JSON file chunein.');
+  if (!raw || typeof raw !== 'object' || raw.skeleton?.spine || raw.spine) throw Error('Please choose a DragonBones animation JSON file.');
   const animation = raw.armature?.[0]?.animation?.[0] || (Array.isArray(raw.bone) || Array.isArray(raw.slot) ? raw : Object.values(raw).find(value => value && (Array.isArray(value.bone) || Array.isArray(value.slot))));
-  if (!animation || !(animation.bone?.length || animation.slot?.length) || !Number.isFinite(animation.duration) || animation.duration < 1 || animation.duration > 1e7) throw Error('File me ek sahi DragonBones animation honi chahiye.');
+  if (!animation || !(animation.bone?.length || animation.slot?.length) || !Number.isFinite(animation.duration) || animation.duration < 1 || animation.duration > 1e7) throw Error('The file must contain a valid DragonBones animation.');
   return animation;
 }
 export function animationTarget(value, manifest) {

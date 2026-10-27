@@ -13,11 +13,11 @@ let libraryCache = null;
 const maintenanceEnabled = () => process.env.MAINTENANCE_MODE !== 'false';
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
     const b = await bodyOf(req, 16_000), isAdminAction = ['save', 'delete'].includes(b.action);
     const who = await access(req, { write: isAdminAction, admin: isAdminAction });
-    if (maintenanceEnabled() && !who.admin) throw new AccessError('maintenance', '12toons par abhi maintenance chal raha hai. Thodi der baad try karein.', 503);
+    if (maintenanceEnabled() && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     const store = kv(services());
 
     if (b.action === 'list') {
@@ -35,14 +35,14 @@ export default async function handler(req, res) {
       if (!idOK(b.id) || !['background', 'prop', 'effect', 'animation'].includes(b.type) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 100 ||
           typeof b.key !== 'string' || !/^assets\/[a-f0-9]{64}$/.test(b.key) || !Number.isSafeInteger(b.size) || b.size < 1 || b.size > (animation ? MAX_ANIMATION_BYTES : 40 * 1024 * 1024) ||
           typeof b.mime !== 'string' || (animation ? b.mime !== 'application/json' || !animationTarget(b.target, manifest) || !ANIMATION_LAYERS.includes(b.layer) || !Number.isFinite(b.frameRate) || b.frameRate < 1 || b.frameRate > 120 : !b.mime.startsWith('image/')))
-        throw new AccessError('invalid_asset', 'Sahi asset aur character pose chunein.', 400);
-      if (!configured()) throw new AccessError('storage_unavailable', 'Cloud storage abhi set nahi hai.', 503);
+        throw new AccessError('invalid_asset', 'Please choose a valid asset and character pose.', 400);
+      if (!configured()) throw new AccessError('storage_unavailable', 'Cloud storage is not set up yet.', 503);
       await confirmAssets(who.uid, store, [{ hash: b.key.slice(7), size: b.size }]);   // the file must really be in R2 with this size
       let animationMeta = {};
       let imageMeta = {};
       if (!animation) { try { imageMeta = cleanAssetMeta(b.type, b); } catch (error) { throw new AccessError(error.code || 'invalid_asset', error.message, 400); } }
       if (animation) {
-        let data; try { data = animationData(JSON.parse(await readAssetText(who.uid, b.key.slice(7)))); } catch { throw new AccessError('invalid_animation', 'Sahi DragonBones animation JSON file chunein.', 400); }
+        let data; try { data = animationData(JSON.parse(await readAssetText(who.uid, b.key.slice(7)))); } catch { throw new AccessError('invalid_animation', 'Please choose a valid DragonBones animation JSON file.', 400); }
         animationMeta = { target: b.target, layer: b.layer, frameRate: b.frameRate, length: data.duration / b.frameRate };
       }
       const asset = { ...animationMeta, ...imageMeta, id: b.id, type: b.type, name: b.name.trim(), key: b.key, size: b.size, mime: b.mime, ownerUid: who.uid, enabled: true, updatedAt: new Date().toISOString() };
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     }
 
     if (b.action === 'delete') {
-      if (!idOK(b.id)) throw new AccessError('invalid_asset', 'Asset sahi nahi hai.', 400);
+      if (!idOK(b.id)) throw new AccessError('invalid_asset', 'The asset is not valid.', 400);
       const existing = await store.get(`studioAssets/${b.id}`);
       if (existing?.type === 'animation') await store.update(`studioAssets/${b.id}`, { enabled: false });
       else await store.remove(`studioAssets/${b.id}`);
@@ -61,22 +61,22 @@ export default async function handler(req, res) {
     }
 
     if (b.action === 'animation') {
-      if (!idOK(b.id)) throw new AccessError('invalid_asset', 'Animation sahi nahi hai.', 400);
+      if (!idOK(b.id)) throw new AccessError('invalid_asset', 'The animation is not valid.', 400);
       const asset = await store.get(`studioAssets/${b.id}`);
       // Retired clips remain readable by existing projects, but leave the library list.
-      if (asset?.type !== 'animation' || asset.size > MAX_ANIMATION_BYTES) throw new AccessError('not_found', 'Animation nahi mili.', 404);
+      if (asset?.type !== 'animation' || asset.size > MAX_ANIMATION_BYTES) throw new AccessError('not_found', 'Animation not found.', 404);
       return send(res, 200, { animation: { ...animationData(JSON.parse(await readAssetText(asset.ownerUid, asset.key.slice(7)))), _sourceFrameRate: asset.frameRate } });
     }
 
     if (b.action === 'get') {
-      if (!idOK(b.id)) throw new AccessError('invalid_asset', 'Asset sahi nahi hai.', 400);
+      if (!idOK(b.id)) throw new AccessError('invalid_asset', 'The asset is not valid.', 400);
       const asset = await store.get(`studioAssets/${b.id}`);
-      if (!asset?.enabled) throw new AccessError('not_found', 'Asset nahi mila.', 404);
+      if (!asset?.enabled) throw new AccessError('not_found', 'Asset not found.', 404);
       // the browser downloads the file straight from R2 with this short-lived link
       const hash = asset.key.slice(7), urls = await signDownloads(asset.ownerUid, [hash]);
       return send(res, 200, { url: urls[hash], size: asset.size, type: asset.mime });
     }
 
-    throw new AccessError('unknown_action', 'Ye asset action pehchana nahi gaya.', 400);
+    throw new AccessError('unknown_action', 'This asset action was not recognized.', 400);
   } catch (error) { return failure(res, error); }
 }

@@ -51,15 +51,15 @@ const charIdOf = (pid) => pid.replace(/^char_/, '').replace(/_+$/, '');
 const revisionOf = async (uid, pid) => (await apiCall('/api/projects', { action: 'list' }, uid)).projects.find((p) => p.id === pid)?.revision ?? 0;
 export async function saveCharacterCloud(def) {
   const uid = uidOf();
-  if (!uid) throw new Error('Character account me save karne ke liye pehle log in karein.');
-  if (!(await r2Configured())) throw new Error('Cloud storage abhi set nahi hai, isliye character sirf is device par save hua.');
-  if (!def.base) throw new Error('Ye character purane format me save hua tha. Character Studio me kholkar dobara save karein.');
+  if (!uid) throw new Error('Please log in first to save the character to your account.');
+  if (!(await r2Configured())) throw new Error('Cloud storage is not set up yet, so the character was only saved on this device.');
+  if (!def.base) throw new Error('This character was saved in an old format. Open it in Character Studio and save it again.');
   const paths = Object.keys(def.pages || {}), files = new Map(), hashes = [];
   for (const path of paths) { const blob = def.pages[path], hash = await hashBlob(blob); files.set(hash, blob); hashes.push(hash); }
   const pid = cloudId(def.id), operationId = crypto.randomUUID(), now = new Date().toISOString();
   const manifest = { format: 'char3', id: def.id, name: def.name, pose: def.pose || '', base: def.base, pages: paths, assetHashes: hashes, profile: def.profile || {}, thumb: def.thumb || '', updatedAt: now };
   const sent = await uploadAssets(uid, files, { projectId: pid, opId: operationId, blob: new Blob([JSON.stringify(manifest)], { type: 'application/json' }) });    // only pictures the cloud does not have yet are sent
-  if (auth.currentUser?.uid !== uid) throw new Error('Account badal gaya. Dobara try karein.');
+  if (auth.currentUser?.uid !== uid) throw new Error('The account changed. Please try again.');
   const expected = await revisionOf(uid, pid);
   await apiCall('/api/projects', { action: 'commit', id: pid, kind: 'character', name: def.name || 'My character', deleted: false, operationId, expected, assets: sent.fresh, summary: null }, uid);
 }
@@ -81,7 +81,7 @@ export async function listCharactersCloud() {
   } catch { return []; }
 }
 export async function loadCharacterCloud(meta) {
-  if (meta.format !== 'char3') throw new Error('Ye character purane format me save hua tha. Isse Character Studio me dobara banayein.');
+  if (meta.format !== 'char3') throw new Error('This character was saved in an old format. Recreate it in Character Studio.');
   const m = JSON.parse(await (await fetchBlob(meta.stateUrl)).text()), uid = uidOf(), files = await downloadAssets(uid, m.assetHashes || []), pages = {};
   (m.pages || []).forEach((path, i) => { const b = files.get(m.assetHashes[i]); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); });
   return { id: m.id, name: m.name, pose: m.pose, base: m.base, pages, thumb: m.thumb, profile: m.profile || {} };      // opened with hydrateCharacter()
@@ -132,7 +132,7 @@ export async function isAdmin(user) {
 export async function maintenanceStatus() {
  try {
   const r = await fetch('/api/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'maintenanceStatus' }) });
-  if (!r.ok) throw Error('Maintenance ka status abhi nahi mil raha.');
+  if (!r.ok) throw Error('Could not get the maintenance status right now.');
   return await r.json();
  }
  catch { return { maintenance: true, unavailable: true }; }
@@ -204,7 +204,7 @@ export async function loadTesterConfig() {
   return config;
 }
 export async function saveTesterConfig(cfg, user) {
-  if (!user || auth.currentUser?.uid !== user.uid) throw Error('Iske liye verified admin se sign in karna zaroori hai.');
+  if (!user || auth.currentUser?.uid !== user.uid) throw Error('You must sign in as a verified admin for this.');
   const config = await apiCall('/api/security', { action: 'saveTesterAnimations', anims: cfg.anims, limit: cfg.limit, blockedAnims: cfg.blockedAnims, hiddenGroups: cfg.hiddenGroups, blockedDownloads: cfg.blockedDownloads }, user.uid);
   try { localStorage.setItem(TESTER_KEY, JSON.stringify(config)); } catch { /* optional */ }
   return config;

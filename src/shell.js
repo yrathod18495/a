@@ -5,7 +5,7 @@ import './day-theme.css';
 import './royal-surfaces.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
 import { h, toast, logo } from './dom.js';
-import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser } from './firebase.js';
+import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser, continueWithEmail, resetPassword } from './firebase.js';
 import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
 import { selectProject, projectMeta, listProjects, createProject } from './store.js';
 import { projectsView } from './projects-view.js';
@@ -27,7 +27,7 @@ window.addEventListener('project-id-changed', e => {
   if (parts[2] === oldId) { parts[2] = newId; history.replaceState(null, '', location.pathname + location.search + parts.join('/')); }
 });
 const $shell = document.getElementById('shell'), $app = document.getElementById('app');
-let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true, testerAccessOnly = false, testerApplicationStatus = 'none', staffLoginPending = sessionStorage.getItem('12toons-staff-login') === '1', staffMessage = '';
+let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true, testerAccessOnly = false, testerApplicationStatus = 'none';
 let loadedAnimationProject=null, testerAuthError='';
 
 function readTheme() { try { return localStorage.getItem('12toons-theme') === 'night' ? 'night' : 'day'; } catch { return 'day'; } }
@@ -65,7 +65,7 @@ let routing = Promise.resolve();
 function route() {
   routing = routing.then(renderRoute).catch(e => {
     if (reloadForNewVersion(e)) return;
-    toast(`Page khul nahi paya: ${e.message}`);
+    toast(`Could not open the page: ${e.message}`);
   });
   return routing;
 }
@@ -88,17 +88,14 @@ async function renderRoute() {
   document.title = hash === '#/tester' ? 'Character Tester' : hash === '#/affiliates' ? 'Affiliate Partners | 12toons' : '12toons';
   if (favicon) favicon.href = hash === '#/tester' ? testerFavicon : brandFavicon;
   if (user && (role === 'tester' || role === 'tester-pending') && hash !== '#/tester') { go('#/tester'); return; }
-  if (maintenance && !(user && role === 'admin') && hash !== '#/staff-login' && hash !== '#/tester') {
-    if (user && adminUnknown) { $app.hidden = true; $shell.hidden = false; $shell.replaceChildren(adminRetryView()); return; }
+  // Maintenance never blocks signing in — only a signed-in, non-admin user sees the maintenance page; admins always get through.
+  if (maintenance && user && role !== 'admin' && hash !== '#/tester') {
+    if (adminUnknown) { $app.hidden = true; $shell.hidden = false; $shell.replaceChildren(adminRetryView()); return; }
     const oldView = $shell.firstElementChild; oldView?.dispose?.();
     current = '#/maintenance'; $app.hidden = true; $shell.hidden = false;
     $shell.replaceChildren(maintenanceView()); return;
   }
-  if (hash === '#/staff-login' && user && role === 'admin') { go('#/admin'); return; }
   if (PRIVATE.includes(hash) && !user) { go('#/login'); return; }
-  if (hash === '#/staff-login') {
-    $app.hidden = true; $shell.hidden = false; $shell.replaceChildren(staffLoginView()); return;
-  }
   if (hash === '#/terms' || hash === '#/website-license') {
     const { legalView } = await import('./legal.js');
     $app.hidden = true; $shell.hidden = false;
@@ -157,7 +154,7 @@ async function renderRoute() {
     $shell.replaceChildren(await m.view({ user, tester: true, toast, home: () => {}, logout: async () => { await signOutUser(); role = 'user'; go('#/'); } })); return;
   }
   if (hash === '#/admin') {
-    if (!(await isAdmin(user))) { toast('Admin panel sirf admin ke liye hai.'); go('#/hub'); return; }
+    if (!(await isAdmin(user))) { toast('The admin panel is for admins only.'); go('#/hub'); return; }
     const m = await import('./admin.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/hub'), toast })); return;
   }
   if (hash === '#/characters') { const m = await import('./charstudio.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/characters'), toast })); return; }
@@ -166,26 +163,14 @@ async function renderRoute() {
 
 /* ---------------- shared bits ---------------- */
 async function login() {
-  try { const u = await signInGoogle(); if (u) go('#/hub'); } catch (e) { if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Is website ke address se login abhi allowed nahi hai. Firebase → Authentication → Settings → Authorized domains me ise jodna hoga.' : `Login nahi ho paya: ${friendlyError(e)}`); }
-}
-async function loginStaff() {
-  staffLoginPending = true; sessionStorage.setItem('12toons-staff-login', '1'); staffMessage = '';
-  try { await signInGoogle(); }
-  catch (e) {
-    staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
-    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-      staffMessage = e.code === 'auth/unauthorized-domain' ? 'Is website ke address se login abhi allowed nahi hai. Firebase Authentication ke authorized domains me ise jodna hoga.' : `Google se sign in nahi ho paya: ${friendlyError(e)}`;
-    }
-    route();
-  }
+  try { const u = await signInGoogle(); if (u) go('#/hub'); } catch (e) { if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Sign-in isn’t allowed from this website address yet. Add it under Firebase → Authentication → Settings → Authorized domains.' : `Sign-in failed: ${friendlyError(e)}`); }
 }
 async function loginTester() {
-  staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
   sessionStorage.setItem('12toons-tester-login', '1');
   try { const signedIn = await signInGoogle(); if (signedIn) await refreshUser(); }
   catch (e) {
     sessionStorage.removeItem('12toons-tester-login');
-    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Is website ke address se login abhi allowed nahi hai. Firebase Authentication ke authorized domains me ise jodna hoga.' : `Google se sign in nahi ho paya: ${friendlyError(e)}`);
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Signing in from this website address is not allowed yet. This domain needs to be added to the authorized domains in Firebase Authentication.' : `Could not sign in with Google: ${friendlyError(e)}`);
   }
 }
 const initial = (u) => (u.displayName || u.email || '?').trim()[0].toUpperCase();
@@ -271,9 +256,40 @@ function landingView() {
 /* ---------------- login ---------------- */
 function loginView() {
   if (user) { queueMicrotask(() => go('#/hub')); return h('div'); }
+  const emailInput = h('input', { type: 'email', class: 'project-dialog-input', placeholder: 'Email address', autocomplete: 'email', 'aria-label': 'Email address' });
+  const passInput = h('input', { type: 'password', class: 'project-dialog-input', placeholder: 'Password', autocomplete: 'current-password', 'aria-label': 'Password' });
+  const errorEl = h('p', { class: 'staff-error', role: 'alert', hidden: true });
+  const showError = (msg) => { errorEl.textContent = msg; errorEl.hidden = false; };
+  const continueBtn = h('button', { class: 'btn pri big', style: 'width:100%', onclick: continueEmail }, 'Continue →');
+  async function continueEmail() {
+    const email = emailInput.value.trim(), password = passInput.value;
+    errorEl.hidden = true;
+    if (!email || !password) { showError('Please enter your email and password.'); return; }
+    continueBtn.disabled = true; continueBtn.textContent = 'Please wait…';
+    try { await continueWithEmail(email, password); go('#/hub'); }
+    catch (e) {
+      showError(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ? 'Incorrect email or password.'
+        : e.code === 'auth/invalid-email' ? 'Please enter a valid email address.'
+        : e.code === 'auth/weak-password' ? 'Password should be at least 6 characters.'
+        : e.code === 'auth/too-many-requests' ? 'Too many attempts. Please try again later.'
+        : `Sign-in failed: ${friendlyError(e)}`);
+    }
+    finally { continueBtn.disabled = false; continueBtn.textContent = 'Continue →'; }
+  }
+  async function forgotPassword() {
+    const email = emailInput.value.trim();
+    errorEl.hidden = true;
+    if (!email) { showError('Enter your email above, then tap Forgot password.'); return; }
+    try { await resetPassword(email); toast('Password reset email sent — check your inbox.'); }
+    catch (e) { showError(`Could not send the reset email: ${friendlyError(e)}`); }
+  }
   return h('div', { class: 'sh sh-center' },
     h('div', { class: 'sh-login' }, logo(() => go('#/')),
-      h('h1', {}, 'Welcome back'), h('p', { class: 'sub' }, 'Log in to open your studio. Your work is saved to your account.'),
+      h('h1', {}, 'Welcome back'), h('p', { class: 'sub' }, 'Sign in or create your account to continue.'),
+      emailInput, passInput, continueBtn,
+      h('button', { class: 'btn-link', style: 'margin-top:6px', onclick: forgotPassword }, 'Forgot password?'),
+      errorEl,
+      h('div', { class: 'sh-login-divider' }, 'OR'),
       h('button', { class: 'btn pri big gbtn', onclick: login }, h('span', { class: 'g' }, 'G'), 'Continue with Google'),
       h('button', { class: 'btn-link', onclick: () => go('#/') }, '← Back to home')));
 }
@@ -282,28 +298,17 @@ function maintenanceView() {
   return h('main', { class: 'sh sh-center' }, h('section', { class: 'sh-login maintenance-card' },
     logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, '🔧'),
     h('h1', {}, 'We’ll be back soon'),
-    h('p', { class: 'sub' }, '12toons par abhi maintenance chal raha hai. Thodi der baad dobara aayein.'),
-    h('a', { class: 'btn pri', href: '/#/staff-login' }, 'Admin / staff? Sign in')));
+    h('p', { class: 'sub' }, '12toons is in maintenance right now. Please check back shortly.'),
+    h('button', { class: 'btn pri', onclick: async () => { await signOutUser(); go('#/'); } }, 'Sign out')));
 }
 
 /** a signed-in account whose admin status could not be checked (bad network): it is not sent to the maintenance page, it can just try again */
 function adminRetryView() {
   return h('main', { class: 'sh sh-center' }, h('section', { class: 'sh-login maintenance-card' },
     logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, '📡'),
-    h('h1', {}, 'Account check nahi ho paya'),
-    h('p', { class: 'sub' }, 'Server se aapka access verify nahi ho paya. Internet check karke dobara try karein.'),
-    h('button', { class: 'btn pri big', onclick: () => location.reload() }, 'Dobara try karein')));
-}
-
-function staffLoginView() {
-  return h('main', { class: 'sh sh-center' }, h('section', { class: 'sh-login' },
-    logo(() => go('#/')),
-    h('span', { class: 'staff-tag' }, 'STAFF ACCESS'),
-    h('h1', {}, '12toons staff sign in'),
-    h('p', { class: 'sub' }, 'Sign in with the Google account enabled for staff access.'),
-    h('button', { class: 'btn pri big gbtn', disabled: staffLoginPending, onclick: loginStaff }, h('span', { class: 'g' }, 'G'), staffLoginPending ? 'Checking access…' : 'Continue with Google'),
-    staffMessage ? h('p', { class: 'staff-error', role: 'alert' }, staffMessage) : null,
-    h('button', { class: 'btn-link', onclick: () => go('#/') }, '← Back to maintenance page')));
+    h('h1', {}, 'Could not check your account'),
+    h('p', { class: 'sub' }, 'We couldn’t verify your access with the server. Check your internet connection and try again.'),
+    h('button', { class: 'btn pri big', onclick: () => location.reload() }, 'Try again')));
 }
 
 /* ---------------- hub ---------------- */
@@ -358,31 +363,17 @@ async function start() {
       maintenance = (await maintenanceStatus()).maintenance === true;
       const adminAnswer = await isAdmin(u), admin = adminAnswer === true;
       if (adminAnswer === null) {          // the server could not be asked: keep the login, show a retry instead of the maintenance page
-        staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login'); role = 'user'; adminUnknown = true; ready = true; route(); return;
+        role = 'user'; adminUnknown = true; ready = true; route(); return;
       }
       adminUnknown = false;
-      if (staffLoginPending && !admin) {
-        staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
-        staffMessage = sessionStorage.getItem('12toons-staff-error') || 'Staff access verify nahi ho paya. Dobara try karein.';
-        sessionStorage.removeItem('12toons-staff-error');
-        await signOutUser({ release: false }); user = null; role = 'user'; ready = true; route(); return;
-      }
-      staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
       testerAccessOnly = false; sessionStorage.removeItem('12toons-tester-login');
       const testerStatus = admin ? 'none' : (await apiCall('/api/security', { action: 'testerStatus' }, u.uid).catch(() => ({ status: 'none' }))).status;
       const tester = testerStatus === 'approved';
       role = admin ? 'admin' : tester ? 'tester' : 'user';
       testerApplicationStatus = testerStatus || 'none';
-      if (maintenance && !admin && !tester) {
-        await signOutUser(); user = null; role = 'user';
-      }
+      // Signed-in users stay signed in during maintenance — a non-admin, non-tester just sees the maintenance page instead of being logged out.
     } else {
       role = 'user';
-      if (staffLoginPending) {
-        staffLoginPending = false; sessionStorage.removeItem('12toons-staff-login');
-        staffMessage = sessionStorage.getItem('12toons-staff-error') || 'Staff access verify nahi ho paya. Dobara try karein.';
-        sessionStorage.removeItem('12toons-staff-error');
-      }
     }
     ready = true;
     if (user) {
@@ -395,7 +386,7 @@ async function start() {
       }
     }
     document.querySelector('.support-widget')?.remove();
-    const publicHome = !user && !maintenance && (location.hash || '#/') === '#/';
+    const publicHome = !user && (location.hash || '#/') === '#/';
     const adminHome = user && role === 'admin' && (location.hash || '#/') === '#/';
     if ((user && role !== 'admin') || publicHome || adminHome) {
       try { const { chatWidget } = await import('./chat-widget.js'); document.body.append(chatWidget(user, () => go('#/login'))); }
@@ -403,7 +394,7 @@ async function start() {
     }
     guardSession(u);
     if (u && role !== 'tester') { ensureProfile(u); syncAll().catch(e=>console.warn('Pending cloud sync:',e.message)); }
-    if (first) { first = false; route(); } else if (!u && PRIVATE.includes(location.hash) && !maintenance) go('#/login'); else if (u && (location.hash === '#/login' || location.hash === '#/staff-login')) go(maintenance ? '#/admin' : '#/hub'); else route();
+    if (first) { first = false; route(); } else if (!u && PRIVATE.includes(location.hash)) go('#/login'); else if (u && location.hash === '#/login') go('#/hub'); else route();
   });
 }
 start();

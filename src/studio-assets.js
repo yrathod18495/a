@@ -15,7 +15,7 @@ const forgetList = () => { try { sessionStorage.removeItem(LIST_KEY); } catch { 
 /** the shared library; kept for a few minutes in this tab so opening the studio again does not read the database again */
 export async function listStudioAssets({ fresh = false } = {}) {
   const owner = uid();
-  if (!owner) throw new Error('Studio asset library dekhne ke liye sign in karein.');
+  if (!owner) throw new Error('Please sign in to view the studio asset library.');
   const cached = fresh ? null : readListCache(owner);
   if (cached) return cached;
   const assets = (await apiCall('/api/studio-assets', { action: 'list' }, owner)).assets;
@@ -37,9 +37,9 @@ export async function makeThumb(file, sheet = null) {
 }
 export async function saveStudioAsset(type, name, file, meta = {}) {
   const owner = uid();
-  if (!owner) throw new Error('Studio assets jodne ke liye sign in karein.');
-  if (!['background', 'prop', 'effect'].includes(type) || !file?.type?.startsWith('image/')) throw new Error('Image file chunein.');
-  if (file.size > 40 * 1024 * 1024) throw new Error('Image 40 MB ya usse chhoti honi chahiye.');
+  if (!owner) throw new Error('Please sign in to add studio assets.');
+  if (!['background', 'prop', 'effect'].includes(type) || !file?.type?.startsWith('image/')) throw new Error('Please choose an image file.');
+  if (file.size > 40 * 1024 * 1024) throw new Error('The image must be 40 MB or smaller.');
   const hash = await digest(file), key = `assets/${hash}`, id = crypto.randomUUID();
   await uploadAssets(owner, new Map([[hash, file]]));
   const thumb = type === 'background' ? '' : (meta.thumb ?? await makeThumb(file, meta.sheet).catch(() => ''));
@@ -54,17 +54,17 @@ export async function deleteStudioAsset(id) {
 }
 export async function downloadStudioAsset(asset) {
   const owner = uid();
-  if (!owner) throw new Error('Studio assets download karne ke liye sign in karein.');
+  if (!owner) throw new Error('Please sign in to download studio assets.');
   const out = await apiCall('/api/studio-assets', { action: 'get', id: asset.id }, owner);     // a short-lived R2 link; the file itself does not pass through the server
   const blob = await fetchBlob(out.url);
-  if (blob.size !== asset.size) throw new Error('Download hui image ka size library ke record se match nahi hua.');
+  if (blob.size !== asset.size) throw new Error('The downloaded image\'s size does not match the library record.');
   return new Blob([blob], { type: asset.mime || 'image/png' });
 }
 
 export async function saveStudioAnimation(name, file, { target, layer = 'body', frameRate = 24 }) {
   const owner = uid();
-  if (!owner) throw Error('Admin se sign in karna zaroori hai.');
-  if (!file || file.size > MAX_ANIMATION_BYTES) throw Error('Animation JSON 4 MB ya usse chhoti honi chahiye.');
+  if (!owner) throw Error('You must sign in as an admin.');
+  if (!file || file.size > MAX_ANIMATION_BYTES) throw Error('The animation JSON must be 4 MB or smaller.');
   const animation = animationData(JSON.parse(await file.text()));
   const blob = new Blob([JSON.stringify(animation)], { type: 'application/json' });
   const key = `assets/${await digest(blob)}`, id = crypto.randomUUID();

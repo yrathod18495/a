@@ -16,20 +16,20 @@ export async function packRecords(records, upload) {
   return { version: 1, records: await walk(records), assets: [...assets.values()] };
 }
 export async function unpackRecords(manifest, download) {
-  if (manifest.version !== 1 || !Array.isArray(manifest.records) || !Array.isArray(manifest.assets)) throw Error('Ye project snapshot supported nahi hai');
+  if (manifest.version !== 1 || !Array.isArray(manifest.records) || !Array.isArray(manifest.assets)) throw Error('This project snapshot is not supported');
   const assets = new Map(manifest.assets.map(a => [a.key, a])), cache = new Map();
   async function walk(v) {
     if (v?.__asset) {
-      const a = assets.get(v.__asset); if (!a) throw Error('Asset ki jaankari nahi mili');
+      const a = assets.get(v.__asset); if (!a) throw Error('Asset details were not found');
       if (!cache.has(a.key)) cache.set(a.key, (async () => {
         const b = await download(a.key), ab = await b.arrayBuffer();
-        if (b.size !== a.size || 'assets/' + hex(await crypto.subtle.digest('SHA-256', ab)) !== a.key) throw Error('Asset kharab nikla (integrity check fail hua)');
+        if (b.size !== a.size || 'assets/' + hex(await crypto.subtle.digest('SHA-256', ab)) !== a.key) throw Error('The asset came back corrupted (integrity check failed)');
         return ab;
       })());
       const ab = (await cache.get(a.key)).slice(0);
       if (v.kind === 'Blob') return new Blob([ab], { type: v.type });
       if (v.kind === 'ArrayBuffer') return ab;
-      if (!typed[v.kind]) throw Error('Ye file type supported nahi hai');
+      if (!typed[v.kind]) throw Error('This file type is not supported');
       return new typed[v.kind](ab);
     }
     if (Array.isArray(v)) return Promise.all(v.map(walk));

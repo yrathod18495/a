@@ -9,7 +9,7 @@ let current = admin;
 for (const uid of [admin, visitor]) { db.data.set('securityUsers/' + uid, { status: 'active' }); db.data.set('securitySessions/' + uid, { sid: 'ok', expiresAt: Date.now() + 100000, revoked: false }); }
 db.data.set('securityAdmins/' + admin, { enabled: true });
 mock.module('../server/firebase-admin.js', { exports: { services: () => ({ db, rtdb, auth: { verifyIdToken: async () => ({ uid: current, email_verified: true, sid: 'ok' }) } }) } });
-mock.module('../server/r2-storage.js', { exports: { configured: () => true, signDownloads: async () => ({}), readAssetText: async (_, hash) => String(objects.get('assets/' + hash)), confirmAssets: async (_, __, items) => { for (const it of items) { const o = objects.get('assets/' + it.hash); if (!o || o.length !== it.size) { const e = Error('Upload poora nahi hua.'); e.status = 409; e.code = 'incomplete_upload'; throw e; } } return { added: items.length }; } } });
+mock.module('../server/r2-storage.js', { exports: { configured: () => true, signDownloads: async () => ({}), readAssetText: async (_, hash) => String(objects.get('assets/' + hash)), confirmAssets: async (_, __, items) => { for (const it of items) { const o = objects.get('assets/' + it.hash); if (!o || o.length !== it.size) { const e = Error('The upload did not finish.'); e.status = 409; e.code = 'incomplete_upload'; throw e; } } return { added: items.length }; } } });
 const { default: handler } = await import('../api/studio-assets.js');
 async function call(body, as = admin) { current = as; const res = response(); await handler({ method: 'POST', headers: { authorization: 'Bearer test' }, body }, res); return res; }
 const key = 'assets/' + 'b'.repeat(64);

@@ -29,7 +29,7 @@ export function affiliateView({ home }) {
     const data = Object.fromEntries(new FormData(form));
     try {
       const response = await fetch('/api/affiliates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit', ...data, consent: data.consent === 'on' }) });
-      const result = await response.json().catch(() => ({})); if (!response.ok) throw Error(result.error || 'Abhi submit nahi ho paya. Thodi der baad dobara try karein.');
+      const result = await response.json().catch(() => ({})); if (!response.ok) throw Error(result.error || 'Could not submit right now. Please try again shortly.');
       form.reset(); message.classList.add('success'); message.textContent = 'Thanks — your partnership request has been sent. The team will review it and contact you using the details you provided.';
     } catch (err) { message.classList.add('error'); message.textContent = err.message; }
     finally { button.disabled = false; button.textContent = 'Submit partnership request'; }

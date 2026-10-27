@@ -9,7 +9,7 @@ const statusOK = new Set(['new', 'contacted', 'approved', 'declined']);
 const ipHash = req => createHash('sha256').update(String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown').split(',')[0].trim()).digest('hex');
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'Ye request sahi nahi hai. Page reload karke dobara try karein.' });
+  if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
     const b = await bodyOf(req, 16000), isAdmin = ['adminList', 'adminStatus', 'adminSettings', 'adminPayout'].includes(b.action);
     const isUser = ['attribute', 'dashboard'].includes(b.action);
@@ -31,19 +31,19 @@ export default async function handler(req, res) {
       return send(res, 200, { tracked: true });
     }
     if (b.action === 'submit') {
-      if (process.env.MAINTENANCE_MODE !== 'false') throw new AccessError('maintenance', 'Affiliate form abhi thodi der ke liye band hai. Baad me try karein.', 503);
+      if (process.env.MAINTENANCE_MODE !== 'false') throw new AccessError('maintenance', 'The affiliate form is closed for a short while. Please try again later.', 503);
       if (text(b.website, 200)) return send(res, 200, { submitted: true }); // honeypot
       const name = text(b.name, 120), email = text(b.email, 254).toLowerCase(), phone = text(b.phone, 32), company = text(b.company, 120), platform = text(b.platform, 80), audience = text(b.audience, 80), profile = text(b.profile, 400), message = text(b.message, 1500);
-      if (name.length < 2) throw new AccessError('invalid_name', 'Apna naam likhein (kam se kam 2 akshar).', 400);
-      if (!emailOK(email)) throw new AccessError('invalid_email', 'Sahi email address likhein.', 400);
-      if (phone.replace(/\D/g, '').length < 7 || phone.length > 32) throw new AccessError('invalid_phone', 'Aisa phone ya WhatsApp number likhein jis par aapse baat ho sake.', 400);
-      if (!company || !platform) throw new AccessError('missing_details', 'Apni organization aur platform ka naam bhi bharein.', 400);
-      if (profile && !/^https:\/\//i.test(profile)) throw new AccessError('invalid_profile', 'Profile ya channel ke link https:// se shuru hone chahiye.', 400);
-      if (b.consent !== true) throw new AccessError('consent_required', 'Submit karne se pehle data-use notice ko manzoor karein.', 400);
+      if (name.length < 2) throw new AccessError('invalid_name', 'Please enter your name (at least 2 characters).', 400);
+      if (!emailOK(email)) throw new AccessError('invalid_email', 'Please enter a valid email address.', 400);
+      if (phone.replace(/\D/g, '').length < 7 || phone.length > 32) throw new AccessError('invalid_phone', 'Please enter a phone or WhatsApp number where you can be reached.', 400);
+      if (!company || !platform) throw new AccessError('missing_details', 'Please also enter your organization and platform name.', 400);
+      if (profile && !/^https:\/\//i.test(profile)) throw new AccessError('invalid_profile', 'The profile or channel link must start with https://.', 400);
+      if (b.consent !== true) throw new AccessError('consent_required', 'Please accept the data-use notice before submitting.', 400);
       const now = Date.now(), day = new Date(now).toISOString().slice(0, 10), rateRef = db.doc(`affiliateRateLimits/${day}_${ipHash(req)}`);
       await db.runTransaction(async tx => {
         const snap = await tx.get(rateRef), rate = snap.data() || {};
-        if ((rate.count || 0) >= 3) throw new AccessError('rate_limited', 'Aaj ki submission limit poori ho gayi. Kal dobara try karein.', 429);
+        if ((rate.count || 0) >= 3) throw new AccessError('rate_limited', 'Today\'s submission limit has been reached. Please try again tomorrow.', 429);
         tx.set(rateRef, { count: (rate.count || 0) + 1, day, updatedAt: now }, { merge: true });
       });
       const id = randomUUID();
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       return send(res, 201, { submitted: true, id });
     }
     if (b.action === 'attribute') {
-      if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', 'Affiliate referral abhi thodi der ke liye band hai. Baad me try karein.', 503);
+      if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', 'Affiliate referrals are closed for a short while. Please try again later.', 503);
       const code = text(b.code, 12).toUpperCase();
       if (!/^[A-Z0-9]{8,12}$/.test(code)) return send(res, 200, { attributed: false, reason: 'invalid_code' });
       const [account, existing] = await Promise.all([services().auth.getUser(who.uid), db.doc(`affiliateReferrals/${who.uid}`).get()]);
@@ -72,10 +72,10 @@ export default async function handler(req, res) {
     }
     if (b.action === 'dashboard') {
       const email = String(who.claims.email || '').trim().toLowerCase();
-      if (!email) throw new AccessError('affiliate_unavailable', 'Jis email se application approve hui thi, usi se sign in karein.', 403);
+      if (!email) throw new AccessError('affiliate_unavailable', 'Please sign in with the email the application was approved with.', 403);
       const matches = await db.collection('affiliatePartners').where('email', '==', email).limit(10).get();
       const partnerDoc = matches.docs.find(d => d.data()?.status === 'approved' && (!d.data()?.affiliateUid || d.data().affiliateUid === who.uid));
-      if (!partnerDoc) throw new AccessError('affiliate_unavailable', 'Is Google account se koi approved affiliate profile juda hua nahi hai.', 403);
+      if (!partnerDoc) throw new AccessError('affiliate_unavailable', 'No approved affiliate profile is linked to this Google account.', 403);
       const partner = partnerDoc.data(), partnerRef = db.doc(`affiliatePartners/${partnerDoc.id}`);
       if (!partner.affiliateUid) await partnerRef.set({ affiliateUid: who.uid, linkedAt: Date.now() }, { merge: true });
       const [clicks, referrals, commissions] = await Promise.all([
@@ -91,7 +91,7 @@ export default async function handler(req, res) {
       const ref = db.doc('affiliateSettings/config');
       if (b.save === true) {
         const percent = Number(b.commissionPercent);
-        if (!Number.isFinite(percent) || percent < 1 || percent > 50) throw new AccessError('invalid_commission_rate', 'Commission rate 1% se 50% ke beech hona chahiye.', 400);
+        if (!Number.isFinite(percent) || percent < 1 || percent > 50) throw new AccessError('invalid_commission_rate', 'The commission rate must be between 1% and 50%.', 400);
         await ref.set({ commissionPercent: percent, updatedAt: Date.now(), updatedBy: who.uid }, { merge: true });
       }
       return send(res, 200, { commissionPercent: Number((await ref.get()).data()?.commissionPercent || 10) });
@@ -106,26 +106,26 @@ export default async function handler(req, res) {
       return send(res, 200, { affiliates });
     }
     if (b.action === 'adminStatus') {
-      if (typeof b.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.id) || !statusOK.has(b.status)) throw new AccessError('invalid_update', 'Sahi application aur status chunein.', 400);
+      if (typeof b.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.id) || !statusOK.has(b.status)) throw new AccessError('invalid_update', 'Please choose a valid application and status.', 400);
       const ref = db.doc(`affiliatePartners/${b.id}`), snap = await ref.get();
-      if (!snap.exists) throw new AccessError('not_found', 'Affiliate application nahi mili.', 404);
+      if (!snap.exists) throw new AccessError('not_found', 'Affiliate application not found.', 404);
       const partner = snap.data(), code = b.status === 'approved' ? (partner.referralCode || randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()) : partner.referralCode || '';
       await ref.set({ status: b.status, ...(code ? { referralCode: code, affiliateUid: partner.affiliateUid || null } : {}), updatedAt: Date.now(), updatedBy: who.uid }, { merge: true });
       return send(res, 200, { updated: true, referralCode: code || null });
     }
     if (b.action === 'adminPayout') {
       const id = text(b.id, 40), commissionId = text(b.commissionId, 100), payoutReference = text(b.payoutReference, 120);
-      if (!/^[0-9a-f-]{36}$/i.test(id) || !/^order_[a-zA-Z0-9]+$/.test(commissionId) || b.status !== 'paid' || payoutReference.length < 2) throw new AccessError('invalid_payout', 'Commission chunein aur payout ka reference likhein.', 400);
+      if (!/^[0-9a-f-]{36}$/i.test(id) || !/^order_[a-zA-Z0-9]+$/.test(commissionId) || b.status !== 'paid' || payoutReference.length < 2) throw new AccessError('invalid_payout', 'Please choose a commission and enter a payout reference.', 400);
       const ref = db.doc(`affiliatePartners/${id}/commissions/${commissionId}`), snap = await ref.get();
-      if (!snap.exists) throw new AccessError('commission_not_found', 'Commission ka record nahi mila.', 404);
+      if (!snap.exists) throw new AccessError('commission_not_found', 'Commission record not found.', 404);
       await db.runTransaction(async tx => {
         const current = await tx.get(ref);
-        if (!current.exists) throw new AccessError('commission_not_found', 'Commission ka record nahi mila.', 404);
-        if (current.data()?.payoutStatus === 'paid') throw new AccessError('already_paid', 'Ye commission pehle se paid mark ho chuka hai.', 409);
+        if (!current.exists) throw new AccessError('commission_not_found', 'Commission record not found.', 404);
+        if (current.data()?.payoutStatus === 'paid') throw new AccessError('already_paid', 'This commission is already marked as paid.', 409);
         tx.set(ref, { payoutStatus: 'paid', paidAt: Date.now(), payoutReference, paidBy: who.uid }, { merge: true });
       });
       return send(res, 200, { updated: true });
     }
-    throw new AccessError('invalid_action', 'Ye affiliate action supported nahi hai.', 400);
+    throw new AccessError('invalid_action', 'This affiliate action is not supported.', 400);
   } catch (e) { return failure(res, e); }
 }

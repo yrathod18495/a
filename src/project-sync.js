@@ -111,7 +111,7 @@ export async function syncAll() {
 }
 /** download a cloud snapshot: the manifest from its signed link, then every file it names (files this browser already has come from its cache) */
 async function openSnapshot(uid,p) {
-  if(!p.stateUrl)throw Error('Cloud snapshot nahi mila. Thodi der baad dobara try karein.');
+  if(!p.stateUrl)throw Error('Cloud snapshot not found. Please try again shortly.');
   const manifest=JSON.parse(await(await fetchBlob(p.stateUrl)).text()),sizes=new Map(manifest.assets.map(a=>[a.key.slice(7),a.size]));
   const files=await downloadAssets(uid,[...sizes.keys()],sizes);
   return unpackRecords(manifest,async k=>files.get(k.slice(7)));
@@ -130,9 +130,9 @@ export async function refreshProjects(uid) {
 }
 export const syncCurrent=()=>{const c=context();return c?syncProject(c.uid,c.id):Promise.resolve();};
 export async function resolveConflict(uid,id) {
- if(!navigator.onLine)throw Error('Conflict hatane ke liye internet se dobara judein. Aapka local kaam safe hai.');
+ if(!navigator.onLine)throw Error('Reconnect to the internet to resolve the conflict. Your local work is safe.');
  const local=await snapshot(uid,id),{projects}=await apiCall('/api/projects',{action:'list'},uid),remote=projects.find(p=>p.id===id);
- if(!remote||remote.revision===local.meta.revision)throw Error('Cloud par isse naya version nahi hai. Is project ko dobara sync karke dekhein.');
+ if(!remote||remote.revision===local.meta.revision)throw Error('There is no newer version in the cloud than this one. Try syncing this project again.');
  const records=remote.deleted?[]:await openSnapshot(uid,remote);
  const backup=await copyProject(uid,id);
  await acknowledge(uid,id,local.meta.generation,local.meta.revision);

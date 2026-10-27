@@ -12,7 +12,7 @@ const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f\u007f\s
 
 export function cleanReport(body) {
   const kind = String(body?.kind ?? '');
-  if (!TAMPER_KINDS.includes(kind)) throw new AccessError('invalid_report', 'Report sahi nahi hai.', 400);
+  if (!TAMPER_KINDS.includes(kind)) throw new AccessError('invalid_report', 'The report is not valid.', 400);
   return { kind, detail: text(body.detail, 120), path: text(body.path, 80) };
 }
 export const ipHash = (ip) => (ip ? createHash('sha256').update(String(ip).split(',')[0].trim()).digest('hex').slice(0, 16) : '');
@@ -46,9 +46,9 @@ export async function acknowledgeAlerts(db, id, by, now = Date.now()) {
     await Promise.all(snap.docs.map((doc) => doc.ref.set({ acknowledged: true, acknowledgedBy: by, acknowledgedAt: now }, { merge: true })));
     return snap.docs.length;
   }
-  if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{4,40}$/.test(id)) throw new AccessError('invalid_alert', 'Alert sahi nahi hai.', 400);
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{4,40}$/.test(id)) throw new AccessError('invalid_alert', 'The alert is not valid.', 400);
   const ref = db.doc(`securityAlerts/${id}`);
-  if (!(await ref.get()).exists) throw new AccessError('alert_not_found', 'Ye alert nahi mila.', 404);
+  if (!(await ref.get()).exists) throw new AccessError('alert_not_found', 'This alert was not found.', 404);
   await ref.set({ acknowledged: true, acknowledgedBy: by, acknowledgedAt: now }, { merge: true });
   return 1;
 }

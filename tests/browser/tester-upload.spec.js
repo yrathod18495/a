@@ -28,7 +28,7 @@ test('uploading many part files at once is fast, reports what happened, and rebu
   await page.locator('.cs-panel input[type=file]').first().setInputFiles(files);
   const text = await toastText(page, /layers replaced/);
   expect(Date.now() - t0).toBeLessThan(15000);                        // the rig is rebuilt once (this headless browser draws in software, so it is much faster on a real GPU)
-  expect(text).toMatch(/8 layers replaced/); expect(text).toMatch(/1 file ka naam kisi layer se match nahi hua \(not-a-part\.png\)/); expect(text).toMatch(/2 file padhi nahi ja saki/);
+  expect(text).toMatch(/8 layers replaced/); expect(text).toMatch(/1 file name did not match any layer \(not-a-part\.png\)/); expect(text).toMatch(/2 files could not be read/);
   await expect.poll(() => count(page)).toMatch(/^8 of \d+ parts uploaded/);
   expect(errors).toEqual([]);
 });

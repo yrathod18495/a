@@ -29,5 +29,5 @@ export function tearDrops(config, time, side = 'left', seed = 0) {
 }
 let spriteJob;
 export function loadTearSprite() {
-  return spriteJob ||= fetch(TEAR_IMAGE_URL).then(response=>{if(!response.ok)throw Error('Tear artwork load nahi ho payi. Dobara try karein.');return response.blob();}).catch(error=>{spriteJob=null;throw error;});
+  return spriteJob ||= fetch(TEAR_IMAGE_URL).then(response=>{if(!response.ok)throw Error('Could not load the tear artwork. Please try again.');return response.blob();}).catch(error=>{spriteJob=null;throw error;});
 }

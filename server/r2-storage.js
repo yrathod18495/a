@@ -25,7 +25,7 @@ export const isHash = (v) => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
 const isId = (v) => typeof v === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(v);
 export const assetKey = (uid, hash) => `u/${uid}/a/${hash.slice(0, 2)}/${hash}`;
 export const stateKey = (uid, projectId, opId) => `u/${uid}/p/${projectId}/state-${opId}.json`;
-const bad = (msg = 'File ki jaankari sahi nahi hai.') => new AccessError('invalid_file', msg, 400);
+const bad = (msg = 'The file details are not valid.') => new AccessError('invalid_file', msg, 400);
 const bucket = () => env('CLOUDFLARE_R2_BUCKET_NAME');
 
 async function head(key) {
@@ -45,10 +45,10 @@ const putUrl = async (key, size) => ({
 export const getUrl = (key) => getSignedUrl(client(), new GetObjectCommand({ Bucket: bucket(), Key: key }), { expiresIn: DOWNLOAD_TTL });
 
 function cleanItems(items, max = MAX_ITEMS) {
-  if (!Array.isArray(items) || items.length > max) throw bad('Ek baar me bahut zyada files hain.');
+  if (!Array.isArray(items) || items.length > max) throw bad('Too many files at once.');
   const seen = new Map();
   for (const it of items) {
-    if (!isHash(it?.hash) || !Number.isSafeInteger(it.size) || it.size < 0 || it.size > MAX_FILE) throw bad('File ya uska size sahi nahi hai (limit 40 MB).');
+    if (!isHash(it?.hash) || !Number.isSafeInteger(it.size) || it.size < 0 || it.size > MAX_FILE) throw bad('The file or its size is not valid (limit 40 MB).');
     seen.set(it.hash, it.size);
   }
   return seen;
@@ -69,11 +69,11 @@ export async function signUploads(uid, store, { items = [], state = null }) {
   let extra = 0;
   for (const [hash, size] of wanted) { if (known.has(hash)) have.push(hash); else extra += size; }
   if (state) {
-    if (!isId(state.projectId) || !isId(state.opId) || !Number.isSafeInteger(state.size) || state.size < 1 || state.size > MAX_FILE) throw bad('Project snapshot ki jaankari sahi nahi hai.');
+    if (!isId(state.projectId) || !isId(state.opId) || !Number.isSafeInteger(state.size) || state.size < 1 || state.size > MAX_FILE) throw bad('The project snapshot details are not valid.');
     extra += state.size;
   }
   const usage = (await store.get(`usage/${uid}`)) || {};
-  if ((usage.bytes || 0) + extra > MAX_USER) throw new AccessError('quota_exceeded', 'Cloud storage ki limit poori ho gayi. Purane projects ya files hatakar dobara try karein.', 413);
+  if ((usage.bytes || 0) + extra > MAX_USER) throw new AccessError('quota_exceeded', 'The cloud storage limit has been reached. Remove old projects or files and try again.', 413);
   for (const [hash, size] of wanted) if (!known.has(hash)) upload[hash] = await putUrl(assetKey(uid, hash), size);
   const out = { upload, have };
   if (state) out.state = await putUrl(stateKey(uid, state.projectId, state.opId), state.size);
@@ -86,7 +86,7 @@ export async function confirmAssets(uid, store, items) {
   for (const [hash, size] of wanted) {
     if (known.has(hash)) continue;
     const h = await head(assetKey(uid, hash));
-    if (!h.exists || h.size !== size) throw new AccessError('incomplete_upload', 'File ka upload poora nahi hua. Dobara try karein.', 409);
+    if (!h.exists || h.size !== size) throw new AccessError('incomplete_upload', 'The file upload did not finish. Please try again.', 409);
     fresh.push([hash, size]);
   }
   if (!fresh.length) return { added: 0 };
@@ -108,7 +108,7 @@ export async function readAssetText(uid, hash, maxBytes = 4 * 1024 * 1024) {
   const id = uid + '/' + hash;
   if (animationCache.has(id)) return animationCache.get(id);
   const out = await client().send(new GetObjectCommand({ Bucket: bucket(), Key: assetKey(uid, hash) }));
-  if (out.ContentLength > maxBytes) throw new AccessError('too_large', 'File bahut badi hai.', 413);
+  if (out.ContentLength > maxBytes) throw new AccessError('too_large', 'The file is too large.', 413);
   const text = Buffer.from(await out.Body.transformToByteArray()).toString('utf8');
   if (animationCache.size >= 20) animationCache.delete(animationCache.keys().next().value);
   animationCache.set(id, text);

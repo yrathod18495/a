@@ -12,13 +12,15 @@
 
 When in doubt: DragonBones. This rule applies to every future change, by anyone (human or AI).
 
-## Error messages are user-friendly Hinglish (permanent rule)
+## Error messages and all app text are plain, professional English (permanent rule)
 
-Every error a user can see — toasts, form errors, failed/empty states and API error responses — must be written in **simple Hinglish** (Roman-script Hindi with common English tech words), never raw English or raw library text.
+Every error a user can see — toasts, form errors, failed/empty states and API error responses — and every other piece of user-facing copy in the app must be written in **plain, professional English**, never Hinglish/Hindi and never raw library text.
 
-- Write our own messages in Hinglish where they are thrown: what happened + what to do next, polite ("aap", "karein", "dobara try karein"). Example: `'Pehle verified account se sign in karein.'`
-- Raw errors from Firebase, Firestore rules (`permission-denied`, `Missing or insufficient permissions`), auth, network, quota or the browser go through `friendlyError(e)` / `hinglishify(text)` from `shared/hinglish-errors.js`. `toast()` already applies it as a safety net.
-- Keep error `code` values, logs, field names and HTTP statuses in English; never compare against message text, use `code` / `status`.
-- `tests/hinglish-errors.test.js` fails if `api/` or `server/` contain English error messages.
+- Write our own messages in clear English where they are thrown: what happened + what to do next, polite ("please", "try again"). Example: `'Please sign in with a verified account.'`
+- Raw errors from Firebase, Firestore rules (`permission-denied`, `Missing or insufficient permissions`), auth, network, quota or the browser go through `friendlyError(e)` / `hinglishify(text)` from `shared/hinglish-errors.js` (these now produce English, despite the file/function names — do not rename them mid-refactor without checking every import). `toast()` already applies it as a safety net.
+- Keep error `code` values, logs, field names and HTTP statuses in English as before; never compare against message text, use `code` / `status`.
+- `tests/hinglish-errors.test.js` enforces this — it fails if `api/` or `server/` contain Hinglish/Hindi error messages.
 - Full style guide, examples and checklist: `docs/ERROR-MESSAGES.md`.
+
+This also applies to how Claude talks to the user in chat for this project: reply in English, not Hinglish.
 

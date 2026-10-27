@@ -144,7 +144,7 @@ async function onFiles(files) {
         const raw = await a.e.read();
         const buffer = await audioCtx.decodeAudioData(raw.slice(0));
         S.lines.push({ id: crypto.randomUUID(), order: a.order, file: a.file, speaker: a.speaker, raw, buffer, visemes: analyse(buffer) });
-      } catch { toast(`${a.file} decode nahi ho payi`); }
+      } catch { toast(`${a.file} could not be decoded`); }
     }
     S.lines.sort((x, y) => x.order - y.order || x.file.localeCompare(y.file, undefined, { numeric: true }));
     if (scripts?.length) {
@@ -158,8 +158,8 @@ async function onFiles(files) {
       });
       if (hit) toast(`Script found — text added for ${hit} line${hit > 1 ? 's' : ''}.`);
     }
-    if (!characters.length && !audio.length) toast('In files me koi audio ya character bundle nahi mila.');
-  } catch (e) { toast(`Padh nahi paye: ${e.message}`); }
+    if (!characters.length && !audio.length) toast('No audio or character bundle was found in these files.');
+  } catch (e) { toast(`Could not read: ${e.message}`); }
   b.done(); await afterAudioChange();
 }
 
@@ -209,11 +209,11 @@ async function ensureCharacter(id) {
   const job = (async () => {
     if (saved) {
       const def = await hydrateCharacter(saved);
-      if (!def) throw new Error('Saved character ka template available nahi hai.');
+      if (!def) throw new Error('The template for the saved character is not available.');
       S.characters[S.characters.indexOf(saved)] = def; return def;
     }
     const entry = libraryCharacters().find(e => `lib:${e.id}` === id);
-    if (!entry) throw new Error('Ye character template ab available nahi hai.');
+    if (!entry) throw new Error('This character template is no longer available.');
     const def = await fetchLibraryCharacter(entry); S.libDefs.set(id, def); return def;
   })().finally(() => definitionJobs.delete(id));
   definitionJobs.set(id, job); return job;
@@ -222,7 +222,7 @@ async function useCharacter(s, id) {
   if (id) {
     const loading = busy('Loading character…');
     try { await ensureCharacter(id); }
-    catch (error) { toast(`Character load nahi ho paya: ${error.message}`); return false; }
+    catch (error) { toast(`Could not load the character: ${error.message}`); return false; }
     finally { loading.done(); }
   }
   s.charId = id; s._chosen = true; if (id) S.sel = s.key;
@@ -247,7 +247,7 @@ function chooseCharacter(s, after) {
     if (!list.length) return;
     cloudBox.replaceChildren(h('h2', { style: 'margin:16px 0 8px' }, '☁ Saved in your account'), h('div', { class: 'gridc' }, list.map((m) => card(m.thumb || null, m.name, 'tap to download', async () => {
       const b = busy(`Downloading ${m.name}…`);
-      try { const d = await loadCharacterCloud(m); await saveCharacter(d); S.characters.push(d); b.done(); await pick(d.id); } catch (e) { b.done(); toast(`Download nahi ho paya: ${e.message}`); }
+      try { const d = await loadCharacterCloud(m); await saveCharacter(d); S.characters.push(d); b.done(); await pick(d.id); } catch (e) { b.done(); toast(`Could not download: ${e.message}`); }
     }, false))));
   }).catch(() => {});
 }
@@ -298,7 +298,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
   const draw = () => {
     observer?.disconnect(); browserObservers.delete(observer);
     const s = getSpeaker(), def = s && charOf(s);
-    if (!def) { root.replaceChildren(h('p', { class: 'sub' }, 'Pehle ek character chunein.')); return; }
+    if (!def) { root.replaceChildren(h('p', { class: 'sub' }, 'Please choose a character first.')); return; }
     const modes = modeEntries(def.rig);
     const cats = [...(modes.animations.length ? [modes] : []), ...categoriesFor(def.rig)];
     if (!cats.length) { root.replaceChildren(h('p', { class: 'sub' }, 'No admin animations are available for this character.')); return; }
@@ -320,7 +320,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
         const apply = h('button', { class: 'animation-apply', 'aria-pressed': String(!!chosen), title: `Apply ${a.name}`, onclick: async () => {
           apply.disabled = true;
           try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
-          catch (error) { toast(`Animation lag nahi payi: ${error.message}`); apply.disabled = false; }
+          catch (error) { toast(`Could not apply the animation: ${error.message}`); apply.disabled = false; }
         } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, a.poster ? h('img', { src: assetUrl(a.poster), alt: '', loading: 'lazy', decoding: 'async' }) : '▶'),
         h('span', { class: 'animation-copy' }, h('b', {}, a.name), h('small', {}, `${a.cat.layer || a.cat.name}${a.length ? ` · ${Number(a.length).toFixed(1)} s` : ''}`)), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+'));
         const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${(start + offset) * 64}px` }, apply);
@@ -466,7 +466,7 @@ async function prepareStudio({ quiet = false } = {}) {
     if (!tl.clips.length) tl.total = sceneLen();       // an empty scene is 8 seconds long (longer when clips or camera keys are placed later)
     player.setTimeline(tl);
     await applyLayers();
-  } catch (e) { console.error(e); toast(`Setup fail ho gaya: ${e.message}`); }
+  } catch (e) { console.error(e); toast(`Setup failed: ${e.message}`); }
   S.animFor = S.speakers.find((s) => s.charId)?.key ?? null;
   if (!lineById(S.lineSel)) S.lineSel = player.clips[0]?.id ?? null;
   b.done(); S.dirty = true;
@@ -481,7 +481,7 @@ async function buildLayerSpecs() {
     for (const ref of plan.refs) {
       const name = animKey(ref);
       if (name in anims) continue;
-      try { anims[name] = await animJson(def, ref); } catch (e) { toast(`Animation "${ref.name}" load nahi ho payi: ${e.message}`); }
+      try { anims[name] = await animJson(def, ref); } catch (e) { toast(`Could not load the animation "${ref.name}": ${e.message}`); }
     }
     // gestures that only move the arms get the idle animation underneath, so head / chest keep moving
     const idleKey = plan.idleRef ? animKey(plan.idleRef) : null, drives = (j) => (j?.bone || []).some((b) => /^(head|pelvis|neck|torso\d*)$/i.test(b.name));
@@ -499,7 +499,7 @@ async function applyLayers() {
   for (const id of stage.assets.keys()) if (!activeIds.has(id)) stage.unload(id);
   const unused = [...S.libDefs.keys()].filter(id => !activeIds.has(id));
   for (const id of unused.slice(0, Math.max(0, unused.length - 2))) S.libDefs.delete(id);
-  if (bad.length) toast(`Kuch animations is character par fit nahi hui, isliye chhod di gayi (${bad.map((k) => sOf(k)?.name).join(', ')})`);
+  if (bad.length) toast(`Some animations did not fit this character, so they were skipped (${bad.map((k) => sOf(k)?.name).join(', ')})`);
   S.dirty = true;
 }
 /** cheap update when only the "in frame" switches changed */
@@ -723,7 +723,7 @@ async function switchScene(id, { play = false } = {}) {
     await activateScene(S.scenes.find(scene => scene.id === id));
     render(); await tick({ sceneCommit: true });
     if (play) await player.play();
-  } catch (error) { toast(`Scene khul nahi paya: ${error.message}`); }
+  } catch (error) { toast(`The scene could not be opened: ${error.message}`); }
   finally { progress.done(); sceneChanging = false; S.dirty = true; }
 }
 let sceneDialogOpen = false;
@@ -757,7 +757,7 @@ async function editScene(id, action) {
   const index = S.scenes.findIndex(scene => scene.id === id), scene = S.scenes[index];
   let name;
   if (action === 'rename') { name = prompt('Scene name', scene.name)?.trim().slice(0, 80); if (!name) return; }
-  if (action === 'delete' && S.scenes.length === 1) { toast('Project me kam se kam ek scene rakhna zaroori hai.'); return; }
+  if (action === 'delete' && S.scenes.length === 1) { toast('A project must have at least one scene.'); return; }
   if (action === 'delete' && !await confirmSceneDelete(scene)) return;
   sceneChanging = true; player.pause();
   const progress = busy('Updating scenes…');
@@ -778,7 +778,7 @@ async function editScene(id, action) {
       if (S.sceneId === id) await activateScene(S.scenes[Math.min(index, S.scenes.length - 1)]);
     }
     render(); await tick({ sceneCommit: true });
-  } catch (error) { toast(`Scene badalna fail ho gaya: ${error.message}`); }
+  } catch (error) { toast(`Switching scenes failed: ${error.message}`); }
   finally { progress.done(); sceneChanging = false; S.dirty = true; }
 }
 
@@ -842,9 +842,9 @@ function drawTabs() {
     ...['chars', 'anim', 'tears', 'effects', 'grade'].map(key => button(byKey[key])), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
-  panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag karke panel kahin bhi rakhein · double-click se wapas', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
+  panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
     { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
-  tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag karke menu kahin bhi rakhein · double-click se wapas', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
+  tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   S.dirty = true; syncLayoutUi();
 }
@@ -893,7 +893,7 @@ function drawTimeline() {
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
     const lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' }), trimmed = (S.lines.find((l) => l.id === c.id)?.trimStart || 0) + (S.lines.find((l) => l.id === c.id)?.trimEnd || 0) > 0;
-    const el = h('div', { class: `tclip voice ${c.id === S.lineSel ? 'sel' : ''} ${trimmed ? 'trimmed' : ''}`, title: 'Edge kheench kar audio chhota-bada karein · double-click = trim hatao', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
+    const el = h('div', { class: `tclip voice ${c.id === S.lineSel ? 'sel' : ''} ${trimmed ? 'trimmed' : ''}`, title: 'Drag the edge to resize the audio · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
       lz, h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), rz);
     el.addEventListener('pointerdown', (e) => { if (e.target === lz || e.target === rz) dragVoice(e, c, e.target === rz ? 'right' : 'left', el); });
     el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
@@ -908,7 +908,7 @@ function drawTimeline() {
     labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, timelineIcon(background?.blob, 'background'), h('span', { class: 'lt' }, 'Background'),
       h('button', { type: 'button', class: 'rx delete-layer', title: 'Delete background layer', 'aria-label': 'Delete background layer', disabled: S.exporting, onclick: event => { event.stopPropagation(); return removeBackgroundLayer(); } }, '🗑')));
     const bgLane = h('div', { class: 'lane2 bg', style: 'height:38px' },
-      S.bgId || stage.bg.preset !== 0 ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (poori scene)`, onclick: () => openTab('canvas'), style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
+      S.bgId || stage.bg.preset !== 0 ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (whole scene)`, onclick: () => openTab('canvas'), style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
     for (const c of S.bgClips) {
       const nm = (c.bgId ? (S.myBgs.find((r) => r.id === c.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[c.preset] || BACKGROUNDS[0]).name), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
       const el = h('div', { class: `tclip bg mine ${c.id === S.bgSel ? 'sel' : ''}`, title: `${nm} — drag to move, drag an edge to resize`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `🖼 ${nm}`), rz);
@@ -1033,7 +1033,7 @@ async function addClip(s, ref, overlay, length) {
   (S.manual[s.key] ||= []).push(m); S.mclip = m.id;
   updateTotal();
   const b = busy('Adding animation…');
-  try { await applyLayers(); } catch (e) { console.error(e); toast(`Animation add nahi ho payi: ${e.message}`); } finally { b.done(); }
+  try { await applyLayers(); } catch (e) { console.error(e); toast(`Could not add the animation: ${e.message}`); } finally { b.done(); }
   drawTimeline(); S.dirty = true;
 }
 /** opens the animation list for one character; the chosen animation is placed at the playhead */
@@ -1139,9 +1139,9 @@ function drawClipBar() {
   clipBar.replaceChildren(
     h('span', { class: 'dot', style: `background:${s?.color || '#888'}` }), h('b', { class: 'cb-name' }, m.ref.name), h('small', {}, `${s?.name || ''} · ${m.kind}`),
     num('Start s', () => m.start, (v) => { m.start = Math.max(0, snap(v)); }), num('Length s', () => m.dur, (v) => { m.dur = Math.max(0.2, v); }),
-    btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — playhead par'),
+    btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — at the playhead'),
     btn('⧉ Duplicate', () => { const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(m.start + m.dur) }; list.push(c); S.mclip = c.id; commitClips(); }, 'Same animation again, right after this one'),
-    btn('✂ Split', () => { const t = player.time; if (t <= m.start + 0.1 || t >= m.start + m.dur - 0.1) { toast('Pehle playhead ko is clip ke andar le jaayein.'); return; } const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(t), dur: m.start + m.dur - snap(t), off: (m.off || 0) + (snap(t) - m.start) }; m.dur = snap(t) - m.start; list.push(c); S.mclip = c.id; commitClips(); }, 'Cut this clip at the playhead'),
+    btn('✂ Split', () => { const t = player.time; if (t <= m.start + 0.1 || t >= m.start + m.dur - 0.1) { toast('Please move the playhead inside this clip first.'); return; } const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(t), dur: m.start + m.dur - snap(t), off: (m.off || 0) + (snap(t) - m.start) }; m.dur = snap(t) - m.start; list.push(c); S.mclip = c.id; commitClips(); }, 'Cut this clip at the playhead'),
     btn('⇄ Replace', () => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); }), 'Pick another animation for this clip'),
     btn('🗑 Delete', () => { list.splice(list.indexOf(m), 1); S.mclip = null; commitClips(); }),
     btn('✕', () => { S.mclip = null; drawTimeline(); }, 'Close'));
@@ -1153,18 +1153,18 @@ function copySelected() {
   if (f) S.clipboard = { type: 'clip', key: f.s?.key, data: clone(f.m) };
   else if (bc) S.clipboard = { type: 'bg', data: clone(bc) };
   else if (pr) S.clipboard = { type: 'prop', data: { ...pr } };
-  else { toast('Pehle timeline par koi clip chunein, phir copy karein.'); return false; }
-  toast('Clip copy ho gaya. Paste ke liye playhead rakhein aur Ctrl+V dabayein.'); drawClipBar(); return true;
+  else { toast('Please choose a clip on the timeline first, then copy it.'); return false; }
+  toast('Clip copied. Place the playhead where you want it and press Ctrl+V to paste.'); drawClipBar(); return true;
 }
 async function pasteClip() {
   const cb = S.clipboard;
-  if (!cb) { toast('Pehle koi clip copy karein.'); return; }
+  if (!cb) { toast('Please copy a clip first.'); return; }
   const at = snapTo(player.time);
   if (cb.type === 'clip') {
     const s = sOf(cb.key) || S.speakers.find((x) => x.charId);
-    if (!s?.charId) { toast('Is clip ke liye character scene me nahi hai.'); return; }
+    if (!s?.charId) { toast('The character for this clip is not in the scene.'); return; }
     const m = { ...clone(cb.data), id: uid(), start: at }; (S.manual[s.key] ||= []).push(m); selectOnly('clip', m.id);
-    const b = busy('Clip paste ho raha hai…'); try { await applyLayers(); } catch (e) { toast(`Clip paste nahi ho paya: ${e.message}`); } finally { b.done(); }
+    const b = busy('Pasting clip…'); try { await applyLayers(); } catch (e) { toast(`Could not paste the clip: ${e.message}`); } finally { b.done(); }
   } else if (cb.type === 'bg') {
     const c = { ...clone(cb.data), id: uid(), start: at }; S.bgClips.push(c); selectOnly('bg', c.id); await syncBgClips();
   } else {
@@ -1183,8 +1183,8 @@ function rangeBar(bc, pr) {
   clipBar.replaceChildren(h('b', { class: 'cb-name' }, name), h('small', {}, bc ? 'Background' : isEffect(pr) ? 'Effect' : 'Prop'),
     bc ? num('Start s', () => bc.start, (v) => { bc.start = Math.max(0, snapTo(v)); }) : num('Start s', () => pr.start || 0, (v) => { pr.start = Math.max(0, snapTo(v)); }),
     bc ? num('Length s', () => bc.dur, (v) => { bc.dur = Math.max(MIN_CLIP, v); }) : num('Length s', () => (pr.end ?? player.total) - (pr.start || 0), (v) => { pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }),
-    btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — playhead par'),
-    bc ? btn('🗑 Delete', () => { S.bgClips = S.bgClips.filter((x) => x !== bc); S.bgSel = null; syncBgClips(); commitClips(); }) : btn('↔ Poori scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Start / end hata do: poori scene me dikhe'),
+    btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — at the playhead'),
+    bc ? btn('🗑 Delete', () => { S.bgClips = S.bgClips.filter((x) => x !== bc); S.bgSel = null; syncBgClips(); commitClips(); }) : btn('↔ Whole scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Remove start / end: show through the whole scene'),
     btn('✕', () => { S.bgSel = null; S.propSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
 }
 
@@ -1302,23 +1302,23 @@ function tabGrade() {
   const tint = h('input', { type: 'color', class: 'grade-color', value: shown.tint, 'aria-label': 'Tint colour' });
   tint.addEventListener('input', () => { setGrade({ tint: tint.value, ...(gradeNow().tintAmount === 0 ? { tintAmount: 0.3 } : {}) }); refreshGradeFields(); markTouched(); });
   const reset = h('button', { class: 'btn sm', type: 'button', disabled: !on, onclick: () => { S.gradeKeys = []; S.gradeSel = null; setGrade({}, true); drawTimeline(); drawTabs(); } }, 'Reset All ↺');
-  const text = () => (S.gradeKeys.length ? `Grade time ke saath badalta hai (${S.gradeKeys.length} keyframe). Sliders playhead wale keyframe ko badalte hain.` : gradeActive(S.grade) ? 'Grade chalu hai: poori scene par lagta hai.' : 'Abhi koi grade nahi.');
+  const text = () => (S.gradeKeys.length ? `The grade changes over time (${S.gradeKeys.length} keyframe). The sliders change the keyframe at the playhead.` : gradeActive(S.grade) ? 'Grade is on: it applies to the whole scene.' : 'No grade yet.');
   const status = h('small', { class: 'sub' }, text());
   const markTouched = () => { status.textContent = text(); reset.disabled = !(gradeActive(S.grade) || S.gradeKeys.length); };
   const groups = [...new Set(GRADE_CONTROLS.map((c) => c.group))], keys = S.gradeKeys.slice().sort((a, b) => a.t - b.t);
   return h('div', { class: 'list grade-panel' },
     h('div', { class: 'card flat' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('h2', { style: 'margin:0' }, '🎨 Colour Grading'), reset),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 8px' }, 'Poori scene par asar karta hai (background + characters + props + effects). Export me bhi wahi look aata hai. Slider par double-click karo to wo control neutral ho jaata hai.'), status),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 8px' }, 'Affects the whole scene (background + characters + props + effects). The same look appears in the export. Double-click a slider to reset that control to neutral.'), status),
     h('div', { class: 'card flat' }, h('h3', {}, 'Looks'), h('div', { class: 'grade-presets' }, GRADE_PRESETS.map((p) => h('button', { type: 'button', class: current === p.id ? 'on' : '', onclick: () => { setGrade(presetGrade(p.id), !keyed); drawTabs(); } }, p.label)))),
-    h('div', { class: 'card flat' }, h('h3', {}, '◆ Time ke saath badlo'),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Playhead ko jahan chaho le jao, look chuno, phir keyframe lagao. Do keyframe ke beech grade apne aap glide karta hai (jaise din se raat).'),
+    h('div', { class: 'card flat' }, h('h3', {}, '◆ Change over time'),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Move the playhead wherever you like, pick a look, then add a keyframe. The grade glides automatically between two keyframes (like day to night).'),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', type: 'button', onclick: addGradeKey }, '＋ Keyframe here')),
       keys.map((k, i) => h('div', { class: `item ${k.id === S.gradeSel ? 'on' : ''}`, style: 'cursor:pointer', onclick: () => { S.gradeSel = k.id; player.seek(Math.min(player.total, k.t)); S.dirty = true; drawTabs(); } },
         h('span', { class: 'chip' }, i + 1), h('b', {}, `${k.t.toFixed(2)} s`),
-        h('button', { class: 'ib', style: 'margin-left:auto', title: 'Keyframe hatayein', onclick: (e) => { e.stopPropagation(); S.gradeKeys = S.gradeKeys.filter((x) => x !== k); syncGrade(); drawTimeline(); drawTabs(); } }, '✕')))),
+        h('button', { class: 'ib', style: 'margin-left:auto', title: 'Remove keyframe', onclick: (e) => { e.stopPropagation(); S.gradeKeys = S.gradeKeys.filter((x) => x !== k); syncGrade(); drawTimeline(); drawTabs(); } }, '✕')))),
     ...groups.map((group) => h('div', { class: 'card flat' }, h('h3', {}, group), ...GRADE_CONTROLS.filter((c) => c.group === group).map(row),
       group === 'Colour' ? h('div', { class: 'grade-row grade-tint' }, h('label', {}, 'Tint colour'), tint) : null)),
-    h('p', { class: 'sub', style: 'font-size:12px' }, 'Tip: Pehle background aur characters lagao, phir grade karo.'));
+    h('p', { class: 'sub', style: 'font-size:12px' }, 'Tip: add the background and characters first, then grade.'));
 }
 
 /* ---------- motion paths: draw a line with the pen, the character follows it ---------- */
@@ -1367,7 +1367,7 @@ function updatePathView(force = true) {
       const up = () => { dot.removeEventListener('pointermove', mv); dot.removeEventListener('pointerup', up); applyPath(S.motionFor); updatePathView(); };
       dot.addEventListener('pointermove', mv); dot.addEventListener('pointerup', up);
     });
-    dot.addEventListener('dblclick', (e) => { e.stopPropagation(); if (path.pts.length <= 2) { toast('Path me kam se kam 2 point chahiye.'); return; } path.pts.splice(i, 1); applyPath(S.motionFor); updatePathView(); });
+    dot.addEventListener('dblclick', (e) => { e.stopPropagation(); if (path.pts.length <= 2) { toast('A path needs at least 2 points.'); return; } path.pts.splice(i, 1); applyPath(S.motionFor); updatePathView(); });
     pathDots.push(dot); wrapEl.append(dot);
   });
 }
@@ -1376,9 +1376,9 @@ function stopPathDraw() { S.pathDraw?.cleanup(); S.pathDraw = null; }
 function startPathDraw(s) {
   if (S.exporting || !wrapEl) return;
   stopPathDraw(); removePathView(); S.pathEdit = false; player.pause();
-  const layer = h('div', { class: 'pathdraw', title: 'Pen se line kheenchein' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const layer = h('div', { class: 'pathdraw', title: 'Draw a line with the pen' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<polyline points=""/>';
-  layer.append(svg, h('span', { class: 'pathhint' }, `✏️ ${s.name} ke liye line kheenchein · Esc = cancel`));
+  layer.append(svg, h('span', { class: 'pathhint' }, `✏️ Draw a line for ${s.name} · Esc = cancel`));
   wrapEl.append(layer);
   const line = svg.querySelector('polyline'); let pts = null;
   const at = (e) => { const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); return { x: Math.min(1.2, Math.max(-0.2, p.x)), y: Math.min(1.2, Math.max(-0.2, p.y)) }; };
@@ -1387,7 +1387,7 @@ function startPathDraw(s) {
   const up = () => {
     if (!pts) return;
     const clean = thin(pts, 0.006), now = charNow(s.key);
-    if (clean.length < 2 || pathLength(clean) < 0.03) { pts = null; line.setAttribute('points', ''); toast('Line bahut chhoti hai. Thodi lambi line kheenchein.'); return; }
+    if (clean.length < 2 || pathLength(clean) < 0.03) { pts = null; line.setAttribute('points', ''); toast('The line is too short. Please draw a slightly longer line.'); return; }
     const old = S.paths[s.key];
     S.paths[s.key] = { pts: clean, start: old?.start ?? +player.time.toFixed(2), dur: old?.dur ?? Math.max(1, +(pathLength(clean) * 8).toFixed(1)), face: old?.face ?? true, smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
     stopPathDraw(); applyPath(s.key); player.seek(Math.min(player.total, S.paths[s.key].start)); drawTabs();
@@ -1401,13 +1401,13 @@ function pathCard(s) {
   const path = S.paths[s.key], num = (label, get, set) => h('label', { class: 'cs-sl' }, h('span', {}, label), h('input', { type: 'number', step: 0.1, min: 0, value: get().toFixed(1), onchange: (e) => { set(Math.max(0, +e.target.value || 0)); applyPath(s.key); drawTabs(); } }));
   const tog = (label, key) => h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: !!path[key], onchange: (e) => { path[key] = e.target.checked; applyPath(s.key); } }), label);
   return h('div', { class: 'card flat path-card' }, h('h2', {}, `✏️ Path · ${s.name}`),
-    h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, path ? `Character is line ke saath chalta hai (${fmt(path.start)} se ${fmt(path.start + path.dur)} tak).` : 'Pen se stage par ek line kheenchein; character usi raaste par chalega.'),
-    S.pathDraw ? h('button', { class: 'btn', onclick: () => { stopPathDraw(); drawTabs(); } }, '✕ Cancel') : h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', onclick: () => startPathDraw(s) }, path ? '✏️ Dobara kheenchein' : '✏️ Pen se path banayein'),
-      path ? h('button', { class: `btn${S.pathEdit ? ' pri' : ''}`, onclick: () => { S.pathEdit = !S.pathEdit; if (S.pathEdit) path.pts = simplify(path.pts, 14); applyPath(s.key); drawTabs(); } }, S.pathEdit ? '✔ Points ho gaye' : '✎ Points badlein') : null,
-      path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; S.pathEdit = false; applyPath(s.key); drawTabs(); } }, '🗑 Path hatayein') : null),
-    path && S.pathEdit ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Pili dots ko kheench kar raasta badlein. Line par double-click = naya point, point par double-click = hatao.') : null,
-    path && !S.pathDraw ? [num('Shuru (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), num('Kitni der me (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
-      tog('↔ Chalne ki direction me muden', 'face'), tog('🐢 Shuru / end me dheere', 'smooth')] : null);
+    h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, path ? `The character follows this line (from ${fmt(path.start)} to ${fmt(path.start + path.dur)}).` : 'Draw a line on the stage with the pen; the character will follow that path.'),
+    S.pathDraw ? h('button', { class: 'btn', onclick: () => { stopPathDraw(); drawTabs(); } }, '✕ Cancel') : h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', onclick: () => startPathDraw(s) }, path ? '✏️ Redraw' : '✏️ Draw a path with the pen'),
+      path ? h('button', { class: `btn${S.pathEdit ? ' pri' : ''}`, onclick: () => { S.pathEdit = !S.pathEdit; if (S.pathEdit) path.pts = simplify(path.pts, 14); applyPath(s.key); drawTabs(); } }, S.pathEdit ? '✔ Points done' : '✎ Edit points') : null,
+      path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; S.pathEdit = false; applyPath(s.key); drawTabs(); } }, '🗑 Remove path') : null),
+    path && S.pathEdit ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Drag the yellow dots to change the path. Double-click the line to add a point, double-click a point to remove it.') : null,
+    path && !S.pathDraw ? [num('Start (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), num('Duration (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
+      tog('↔ Turn to face the direction of travel', 'face'), tog('🐢 Slow at start / end', 'smooth')] : null);
 }
 
 /* ---------- camera keyframes ---------- */
@@ -1484,7 +1484,7 @@ function tabCamera() {
   const goto = (key) => { S.camSel = key.id; player.seek(Math.min(player.total, key.t)); S.dirty = true; drawTimeline(); drawTabs(); };
   const focusOn = (s) => { const l = stage.layers.find((x) => x.key === s.key); if (!l?.box) return; const b = l.box, hgt = b.y1 - b.y0; editKey({ zoom: 2.2, cx: ((b.x0 + b.x1) / 2) / stage.W, cy: (b.y0 + hgt * 0.35) / stage.H }); drawTabs(); };
   const chars = S.order.map(sOf).filter((x) => x?.charId);
-  const custom = h('input', { type: 'text', placeholder: 'w:h  e.g. 2:1', value: ASPECTS[S.aspect] ? '' : S.aspect, class: 'cb-ratio', onchange: (e) => { const v = e.target.value.trim(); if (aspectOf(v).label.startsWith('Custom')) setAspect(v); else toast('2:1 ya 5:4 jaisa ratio likhein (8:1 se chauda nahi).'); } });
+  const custom = h('input', { type: 'text', placeholder: 'w:h  e.g. 2:1', value: ASPECTS[S.aspect] ? '' : S.aspect, class: 'cb-ratio', onchange: (e) => { const v = e.target.value.trim(); if (aspectOf(v).label.startsWith('Custom')) setAspect(v); else toast('Please enter a ratio like 2:1 or 5:4 (no wider than 8:1).'); } });
   return h('div', { class: 'list' },
     h('div', { class: 'card flat' }, h('h2', {}, '🎥 Camera keyframes'),
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, S.camKeys.length ? 'The camera follows your keyframes. Move the playhead, then drag the frame on the stage (or its corners to zoom) — a keyframe is made there automatically. Only the camera view is rendered into the video.' : 'Now the camera uses the automatic shots (one per audio line). Add a keyframe to take over: move the playhead, then drag the frame on the stage.'),
@@ -1525,7 +1525,7 @@ function tabMask() {
     h('div', { class: 'card flat' }, h('h2', {}, '◩ Character mask'), h('p', { class: 'sub', style: 'font-size:12px' }, 'Show only part of this character. The mask is saved with the scene and appears in video exports.'),
       h('label', { class: 'row', style: 'gap:8px;justify-content:flex-start' }, h('input', { type: 'checkbox', checked: mask.enabled, onchange: (e) => { update('enabled', e.target.checked); drawTabs(); } }), h('b', {}, 'Enable mask')),
       h('div', { class: 'cb-ease' }, h('span', {}, 'Shape'), h('div', { class: 'seg' }, [['rect', 'Rectangle'], ['ellipse', 'Ellipse'], ['polygon','Custom polygon']].map(([v, label]) => h('button', { class: mask.shape === v ? 'on' : '', onclick: () => choose(v) }, label)))),
-      mask.shape==='polygon' ? h('label',{class:'cs-sl'},h('span',{},'Points as x,y percentages; separate with semicolons'),h('input',{type:'text',value:(mask.points||[{x:0,y:0},{x:1,y:0},{x:.8,y:1},{x:.2,y:1}]).map(p=>`${Math.round(p.x*100)},${Math.round(p.y*100)}`).join(';'),onchange:e=>{const pts=e.target.value.split(';').map(v=>v.split(',').map(Number)).filter(v=>v.length===2&&v.every(Number.isFinite)).slice(0,8);if(pts.length<3){toast('Kam se kam teen sahi x,y points likhein.');return}mask.points=pts.map(([x,y])=>({x:Math.max(0,Math.min(100,x))/100,y:Math.max(0,Math.min(100,y))/100}));update('points',mask.points)}})) : null,
+      mask.shape==='polygon' ? h('label',{class:'cs-sl'},h('span',{},'Points as x,y percentages; separate with semicolons'),h('input',{type:'text',value:(mask.points||[{x:0,y:0},{x:1,y:0},{x:.8,y:1},{x:.2,y:1}]).map(p=>`${Math.round(p.x*100)},${Math.round(p.y*100)}`).join(';'),onchange:e=>{const pts=e.target.value.split(';').map(v=>v.split(',').map(Number)).filter(v=>v.length===2&&v.every(Number.isFinite)).slice(0,8);if(pts.length<3){toast('Please enter at least three valid x,y points.');return}mask.points=pts.map(([x,y])=>({x:Math.max(0,Math.min(100,x))/100,y:Math.max(0,Math.min(100,y))/100}));update('points',mask.points)}})) : null,
       h('label', { class: 'row', style: 'gap:8px;justify-content:flex-start;margin:10px 0' }, h('input', { type: 'checkbox', checked: mask.invert, onchange: (e) => update('invert', e.target.checked) }), h('span', {}, 'Invert · hide inside the shape')),
       range('x', 'Left position'), range('y', 'Top position'), range('w', 'Width'), range('h', 'Height'),
       h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap;margin-top:8px' }, h('button', { class: 'btn sm ok', onclick: () => { selected.maskKeys ||= []; const key = { t: player.time, x: mask.x, y: mask.y, w: mask.w, h: mask.h }; const i = selected.maskKeys.findIndex((k) => Math.abs(k.t - key.t) < 0.02); if (i >= 0) selected.maskKeys[i] = key; else selected.maskKeys.push(key); selected.maskKeys.sort((a,b)=>a.t-b.t); const layer=stage.layers.find(x=>x.key===selected.key); if(layer) layer.maskKeys=selected.maskKeys; S.dirty=true; drawTimeline(); drawTabs(); } }, '＋ Mask key at playhead'),
@@ -1586,12 +1586,12 @@ async function pickAnimation(s, ref, overlay, length) {
     const o = (S.solo[s.key] ||= {}); o[kind || 'body'] = ref;
     if (!kind) { if (ref.source !== 'mode' && length > 0) o.bodyLen = +(+length).toFixed(2); else delete o.bodyLen; updateTotal(); drawTimeline(); }   // the scene is exactly as long as the animation
   } else {
-    if (!L) { toast('Pehle ek audio line par tap karein.'); return; }
+    if (!L) { toast('Please tap an audio line first.'); return; }
     const lines = S.applyAll ? player.clips : [L];
     for (const l of lines) { const o = castOf(l.id, s.key); o.in = o.in; if (kind) o[kind] = ref; else { o.body = ref; delete o.seq; } }
   }
   const b = busy('Applying animation…');
-  try { await applyLayers(); } catch (e) { console.error(e); toast(`Animation lag nahi payi: ${e.message}`); } finally { b.done(); }
+  try { await applyLayers(); } catch (e) { console.error(e); toast(`Could not apply the animation: ${e.message}`); } finally { b.done(); }
   drawLineBox();
 }
 
@@ -1607,7 +1607,7 @@ async function changePreviewQuality(value) {
     await stage.setTextureLimit(mode.maxTex);
     S.previewMode = value; S.preview = mode.short; stage.setSize(S.aspect, mode.short);
     await applyLayers(); savePreviewMode(value); fitEditor();
-  } catch (error) { previewSelect.value = S.previewMode; toast(`Preview quality badal nahi payi: ${error.message}`); }
+  } catch (error) { previewSelect.value = S.previewMode; toast(`Could not change the preview quality: ${error.message}`); }
   finally {
     previewChanging = false; previewSelect.disabled = false; previewSelect.value = S.previewMode;
     document.querySelector('.ws')?.setAttribute('data-preview-quality', S.previewMode);
@@ -1635,7 +1635,7 @@ let localSaveError = '', saveDetails, saveBody;
 function updateSaveStatus(state = syncStatus) {
   if (state.projectId && state.projectId !== projectContext()?.id) state = { text: 'Saved locally' };
   if (!savedEl || !saveBody) return;
-  const feedback = localSaveError ? { label: 'Local save nahi ho paya', tone: 'error' } : syncPresentation(state);
+  const feedback = localSaveError ? { label: 'Local save failed', tone: 'error' } : syncPresentation(state);
   savedEl.replaceChildren(h('span', { class: 'save-dot', 'aria-hidden': 'true' }, icon(feedback.tone === 'saved' ? 'cloud-check' : feedback.tone === 'error' ? 'cloud-alert' : 'cloud')), h('span', { class: 'save-label' }, feedback.label));
   savedEl.dataset.tip = feedback.label;
   savedEl.setAttribute('aria-label', `${feedback.label}. Open save details`);
@@ -1645,7 +1645,7 @@ function updateSaveStatus(state = syncStatus) {
   const retry = h('button', { class: 'btn sm', disabled: !navigator.onLine && !localSaveError, onclick: async () => {
     retry.disabled = true;
     try { await tick({ sceneCommit: true }); if (localSaveError) return; await syncCurrent(); }
-    catch (error) { toast(`Sync poora nahi ho paya: ${error.message}`); }
+    catch (error) { toast(`Sync did not complete: ${error.message}`); }
     finally { retry.disabled = false; }
   } }, localSaveError ? 'Retry local save' : 'Retry sync');
   saveBody.replaceChildren(h('b', {}, feedback.label),
@@ -1705,7 +1705,7 @@ function mountStage() {
     if (S.exporting || syncFullView() || stage.camZoom > 1.02 || e.target.dataset?.c) return;
     e.preventDefault(); closeCtx();
     const found = stage.hitLayers(pt(e)).map((l) => sOf(l.key)).filter(Boolean);
-    ctxMenu = h('div', { class: 'cs-ctx', role: 'menu' }, h('b', {}, found.length ? 'Character chunein' : 'Yahan koi character nahi hai'),
+    ctxMenu = h('div', { class: 'cs-ctx', role: 'menu' }, h('b', {}, found.length ? 'Choose a character' : 'There is no character here'),
       found.map((sp) => h('button', { type: 'button', role: 'menuitem', class: S.sel === sp.key ? 'on' : '', onclick: () => { closeCtx(); selectChar(sp.key); } }, h('span', { class: 'dot', style: `background:${sp.color}` }), ` ${sp.name}`)));
     document.body.append(ctxMenu);
     ctxMenu.style.left = Math.min(e.clientX, innerWidth - ctxMenu.offsetWidth - 8) + 'px'; ctxMenu.style.top = Math.min(e.clientY, innerHeight - ctxMenu.offsetHeight - 8) + 'px';
@@ -1734,7 +1734,7 @@ function mountStage() {
     l.axf = a.x / W; l.ayf = (H - a.y) / H;
     saveXf(l); stage.layout(); updateSel(); S.dirty = true;
   });
-  const end = async () => { if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Prop ki position save nahi ho payi: ${e.message}`); } } if (drag && S.tab === 'motion') drawTabs(); drag = null; };
+  const end = async () => { if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag && S.tab === 'motion') drawTabs(); drag = null; };
   wrapEl.addEventListener('pointerup', end); wrapEl.addEventListener('pointercancel', end);
   S.dirty = true; updateSel();
 }
@@ -1806,7 +1806,7 @@ function selectChar(key) {
   if (!sOf(key)?.charId) return;
   S.sel = key; S.selectedPropId = null; S.animFor = key;
   const l = stage.layers.find((x) => x.key === key);
-  if (l && l.shown === false && l.present?.length) { const t = Math.min(...l.present.map((x) => x.start)); if (Number.isFinite(t)) { player.seek(t); toast(`${sOf(key)?.name || 'Character'} is time par frame me nahi tha, isliye playhead uske pehle shot par le gaye.`); } }
+  if (l && l.shown === false && l.present?.length) { const t = Math.min(...l.present.map((x) => x.start)); if (Number.isFinite(t)) { player.seek(t); toast(`${sOf(key)?.name || 'Character'} was not in frame at this time, so the playhead was moved to its earlier shot.`); } }
   updateSel(); drawLineBox(); S.dirty = true;
 }
 function drawSelBar(l) {
@@ -1839,9 +1839,9 @@ async function removeCharacterFrom(s) {
   if (S.sel === s.key) S.sel = null;
   if (S.tearFor === s.key) { S.tearFor = null; S.tearPlacement = false; }
   S.animFor = S.speakers.find(speaker => speaker.charId)?.key ?? null;
-  const b = busy('Character hataya ja raha hai…');
+  const b = busy('Removing character…');
   try { await applyLayers(); }
-  catch (error) { toast(`Character hatate waqt dikkat aayi: ${error.message}`); }
+  catch (error) { toast(`A problem occurred while removing the character: ${error.message}`); }
   finally { b.done(); }
   updateTotal(); drawTimeline(); drawLineBox(); drawTabs(); updateSel(); S.dirty = true;
 }
@@ -2079,9 +2079,9 @@ function applyDirection(L, res, libs) {
 }
 async function runDirector(lines) {
   const ai = S.ai;
-  if (!ai.key) { toast('Pehle apni OpenRouter API key daalein.'); return; }
+  if (!ai.key) { toast('Please enter your OpenRouter API key first.'); return; }
   const onStage = S.speakers.filter((s) => s.charId && charOf(s));
-  if (!onStage.length) { toast('Pehle stage par kam se kam ek character lagayein.'); return; }
+  if (!onStage.length) { toast('Please place at least one character on the stage first.'); return; }
   const need = new Set();
   for (const L of lines) { const i = player.clips.indexOf(L); for (const c of [player.clips[i - 1], L, player.clips[i + 1]]) if (c && !lineText(c.id)) need.add(c); }
   if (need.size) { await runTranscribe([...need]); if ([...need].some((c) => !lineText(c.id))) return; }   // no script in the bundle: the AI listens to the audio first
@@ -2106,7 +2106,7 @@ async function runDirector(lines) {
   } catch (e) { if (e.name !== 'AbortError') { console.error(e); toast(`AI: ${e.message}`); } } finally { b.done(); }
 }
 async function runTranscribe(lines) {
-  if (!S.ai.key) { toast('Pehle apni OpenRouter API key daalein.'); return; }
+  if (!S.ai.key) { toast('Please enter your OpenRouter API key first.'); return; }
   const ctrl = new AbortController(), b = busy('AI is writing the script…', () => ctrl.abort());
   let done = 0, next = 0, failed = null;
   const worker = async () => {
@@ -2126,7 +2126,7 @@ const lineList = () => S.lines.map((l) => { const key = l.speaker.toLowerCase();
 const download = (name, text) => { const a = h('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' })), download: name }); document.body.append(a); a.click(); a.remove(); };
 async function makeBriefFile() {
   const chars = S.speakers.filter((s) => s.charId && charOf(s));
-  if (!chars.length) { toast('Pehle kam se kam ek character chunein.'); return; }
+  if (!chars.length) { toast('Please choose at least one character first.'); return; }
   const b = busy('Preparing the brief…');
   try {
     const libs = new Map(chars.map((s) => [s.key, libraryFor(charOf(s))]));
@@ -2152,15 +2152,15 @@ async function makeBriefFile() {
     });
     download('12toons-brief.txt', text);
     toast('Brief downloaded — give this file to Claude / ChatGPT / Gemini, then import the file it sends back.');
-  } catch (e) { console.error(e); toast(`Brief taiyar nahi ho paya: ${e.message}`); } finally { b.done(); }
+  } catch (e) { console.error(e); toast(`Could not prepare the brief: ${e.message}`); } finally { b.done(); }
 }
 async function importDirectionFile(file) {
   const chars = S.speakers.filter((s) => s.charId && charOf(s));
-  if (!chars.length) { toast('Pehle kam se kam ek character chunein.'); return; }
+  if (!chars.length) { toast('Please choose at least one character first.'); return; }
   let data;
   try { data = extractJson(await file.text()); } catch (e) { toast(e.message); return; }
   const entries = Array.isArray(data.lines) ? data.lines : Array.isArray(data) ? data : [];
-  if (!entries.length) { toast('Us file me "lines" ki list nahi hai.'); return; }
+  if (!entries.length) { toast('That file does not have a "lines" list.'); return; }
   const libs = new Map(chars.map((s) => [s.key, libraryFor(charOf(s))]));
   const list = lineList();
   let applied = 0, dropped = 0;
@@ -2170,7 +2170,7 @@ async function importDirectionFile(file) {
     dropped += applyDirection({ id: l.id, speaker: l.speaker, dur: l.dur }, e, libs); applied++;
   }
   S.dirty = true;
-  if (S.step === 3) { const b = busy('Applying the direction…'); try { await applyLayers(); drawLineBox(); drawTimeline(); } catch (e) { toast(`Lagaya nahi ja paya: ${e.message}`); } finally { b.done(); } }
+  if (S.step === 3) { const b = busy('Applying the direction…'); try { await applyLayers(); drawLineBox(); drawTimeline(); } catch (e) { toast(`Could not apply it: ${e.message}`); } finally { b.done(); } }
   const notes = [...(data.animation_notes || []).map((n) => `Animation ${n.anim}: ${n.note}`), ...entries.filter((e) => e.note && /change|fix|problem|issue|wrong/i.test(e.note)).map((e) => `Line ${e.line}: ${e.note}`)];
   modal('Direction imported', h('div', { class: 'list' },
     h('p', {}, `Applied to ${applied} of ${list.length} lines.`),
@@ -2212,7 +2212,7 @@ function tabAi() {
       h('input', { type: 'text', style: 'margin-top:8px', list: 'ai-models', placeholder: 'Model id', value: ai.model, onchange: (e) => set({ model: e.target.value.trim() || ai.model }) }), dl,
       h('button', { class: 'btn sm', style: 'margin-top:8px', onclick: async (e) => {
         const btn = e.currentTarget; btn.disabled = true;
-        try { const ids = await listModels(); dl.replaceChildren(...ids.map((id) => h('option', { value: id }))); toast(`${ids.length} Gemini models found — tap the model field to pick the flash one.`); } catch (er) { toast(`Models load nahi ho paye: ${er.message}`); }
+        try { const ids = await listModels(); dl.replaceChildren(...ids.map((id) => h('option', { value: id }))); toast(`${ids.length} Gemini models found — tap the model field to pick the flash one.`); } catch (er) { toast(`Could not load models: ${er.message}`); }
         btn.disabled = false;
       } }, 'Find Gemini models')),
     h('div', { class: 'card flat' }, h('h2', {}, '2 · Direct with AI'),
@@ -2230,7 +2230,7 @@ async function refreshShared(fresh = false) {
   try {
     const next = await listStudioAssets({ fresh });
     if (JSON.stringify(next.map((a) => [a.id, a.updatedAt])) !== JSON.stringify(S.sharedAssets.map((a) => [a.id, a.updatedAt]))) { S.sharedAssets = next; return true; }
-  } catch (e) { if (fresh) toast(`Library load nahi ho payi: ${friendlyError(e)}`); }
+  } catch (e) { if (fresh) toast(`Could not load the library: ${friendlyError(e)}`); }
   return false;
 }
 const coversFrame = (prop) => isEffect(prop) && (prop.w ?? 1) >= 0.99 && (prop.h ?? 1) >= 0.99;
@@ -2244,18 +2244,18 @@ async function putProp(prop) {
   await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
 }
 async function addLibraryProp(asset) {
-  const loading = busy(asset.type === 'effect' ? 'Effect laga rahe hain…' : 'Prop laga rahe hain…');
+  const loading = busy(asset.type === 'effect' ? 'Applying effect…' : 'Applying prop…');
   try { await putProp(propFromAsset(asset, await libraryBlob(asset), crypto.randomUUID())); }
-  catch (e) { toast(`${asset.type === 'effect' ? 'Effect' : 'Prop'} add nahi ho paya: ${friendlyError(e)}`); }
+  catch (e) { toast(`Could not add the ${asset.type === 'effect' ? 'effect' : 'prop'}: ${friendlyError(e)}`); }
   finally { loading.done(); }
 }
 async function addOwnProps(files) {
   try {
     for (const f of files) {
-      if (!f.type.startsWith('image/')) { toast('Sirf image file chunein.'); continue; }
+      if (!f.type.startsWith('image/')) { toast('Please choose an image file only.'); continue; }
       await putProp({ id: crypto.randomUUID(), kind: 'prop', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My prop', blob: f, x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true });
     }
-  } catch (e) { toast(`Prop add nahi ho paya: ${friendlyError(e)}`); }
+  } catch (e) { toast(`Could not add the prop: ${friendlyError(e)}`); }
 }
 function libraryTab(kind) {
   if (!libraryTab.checked) { libraryTab.checked = true; refreshShared().then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'effects')) redrawPanel(); }); }
@@ -2265,7 +2265,7 @@ function libraryTab(kind) {
   if (libraryFilter[kind] !== 'all' && !categories.includes(libraryFilter[kind])) libraryFilter[kind] = 'all';
   const shown = assets.filter((asset) => libraryFilter[kind] === 'all' || (asset.category || 'Other') === libraryFilter[kind]);
   const chip = (value, text) => h('button', { type: 'button', class: `btn sm ${libraryFilter[kind] === value ? 'pri' : ''}`, 'aria-pressed': String(libraryFilter[kind] === value), onclick: () => { libraryFilter[kind] = value; redrawPanel(); } }, text);
-  const card = (asset) => h('button', { class: 'studio-shared-card lib-card', type: 'button', title: `Scene me lagayein: ${asset.name}`, onclick: () => addLibraryProp(asset) },
+  const card = (asset) => h('button', { class: 'studio-shared-card lib-card', type: 'button', title: `Add to scene: ${asset.name}`, onclick: () => addLibraryProp(asset) },
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, icon), h('b', {}, asset.name),
     h('small', {}, effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'}` : (asset.category || 'Shared library')));
   const ownFile = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; await addOwnProps(files); } });
@@ -2278,33 +2278,33 @@ function libraryTab(kind) {
     const value = selected[key] ?? fallback, out = h('b', {}, format(value));
     return h('label', { class: 'studio-prop-range' }, h('span', {}, text, out), h('input', { type: 'range', min, max, step, value, oninput: (e) => { set(Number(e.target.value)); out.textContent = format(Number(e.target.value)); } }));
   };
-  const seconds = (key, text) => h('label', { class: 'prop-time' }, h('span', {}, text), h('input', { type: 'number', min: 0, step: 0.1, placeholder: 'poori scene', value: selected[key] ?? '', 'aria-label': text, onchange: (e) => edit(key, e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))) }));
+  const seconds = (key, text) => h('label', { class: 'prop-time' }, h('span', {}, text), h('input', { type: 'number', min: 0, step: 0.1, placeholder: 'whole scene', value: selected[key] ?? '', 'aria-label': text, onchange: (e) => edit(key, e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))) }));
   const held = !effects && selected && isHeld(selected), freeform = !(effects && coversFrame(selected || {}));
   const actors = S.speakers.filter((speaker) => speaker.charId);
   const holdWith = (hand) => change(() => { if (!hand) { delete selected.attach; if (selected.rotation === -90) selected.rotation = 0; return; } if (!isHeld(selected) && !selected.rotation) selected.rotation = -90; selected.attach = { key: selected.attach?.key && actors.some((a) => a.key === selected.attach.key) ? selected.attach.key : actors[0].key, hand }; });
-  const holdBlock = effects || !selected ? [] : [h('div', { class: 'card flat prop-hold' }, h('h4', {}, '🤚 Haath me pakdayein'),
-    h('div', { class: 'seg', role: 'group', 'aria-label': 'Prop kahan rahe' }, [[null, 'Stage par'], ['L', 'Left hand'], ['R', 'Right hand']].map(([hand, text]) => h('button', { type: 'button', disabled: !!hand && !actors.length, class: (hand ? selected.attach?.hand === hand && held : !held) ? 'on' : '', onclick: () => { holdWith(hand); redrawPanel(); } }, text))),
-    !actors.length ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Pehle koi character lagayein, tab prop uske haath me aayega.') : null,
-    held && actors.length > 1 ? h('label', { class: 'prop-time' }, h('span', {}, 'Kis character ke haath me'), h('select', { 'aria-label': 'Character', onchange: (e) => change(() => { selected.attach = { ...selected.attach, key: e.target.value }; }) }, actors.map((a) => h('option', { value: a.key, selected: a.key === selected.attach.key }, a.name)))) : null,
+  const holdBlock = effects || !selected ? [] : [h('div', { class: 'card flat prop-hold' }, h('h4', {}, '🤚 Hold in hand'),
+    h('div', { class: 'seg', role: 'group', 'aria-label': 'Where the prop stays' }, [[null, 'On stage'], ['L', 'Left hand'], ['R', 'Right hand']].map(([hand, text]) => h('button', { type: 'button', disabled: !!hand && !actors.length, class: (hand ? selected.attach?.hand === hand && held : !held) ? 'on' : '', onclick: () => { holdWith(hand); redrawPanel(); } }, text))),
+    !actors.length ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Place a character first, then the prop will attach to its hand.') : null,
+    held && actors.length > 1 ? h('label', { class: 'prop-time' }, h('span', {}, 'In which character\'s hand'), h('select', { 'aria-label': 'Character', onchange: (e) => change(() => { selected.attach = { ...selected.attach, key: e.target.value }; }) }, actors.map((a) => h('option', { value: a.key, selected: a.key === selected.attach.key }, a.name)))) : null,
     ...(held ? [range('grip.x', 'Pakad point · left / right', 0, 1, 0.01, selected.grip?.x ?? .5, percent, (v) => change(() => { selected.grip = { ...(selected.grip || { x: .5, y: .5 }), x: v }; })), range('grip.y', 'Pakad point · up / down', 0, 1, 0.01, selected.grip?.y ?? .5, percent, (v) => change(() => { selected.grip = { ...(selected.grip || { x: .5, y: .5 }), y: v }; })),
-      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.follow !== false, onchange: (e) => edit('follow', e.target.checked ? undefined : false) }), 'Haath ke saath ghumayein')] : []))];
+      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.follow !== false, onchange: (e) => edit('follow', e.target.checked ? undefined : false) }), 'Rotate with the hand')] : []))];
   const editor = !selected ? null : h('div', { class: 'card flat studio-prop-editor' }, h('h3', {}, selected.name),
     range('opacity', 'Opacity', 0.05, 1, 0.01, 1),
     ...(effects ? [h('div', { class: 'seg', role: 'group', 'aria-label': 'Blend mode' }, [['normal', 'Normal'], ['add', 'Glow'], ['screen', 'Screen']].map(([value, text]) => h('button', { type: 'button', class: (selected.blend || 'normal') === value ? 'on' : '', onclick: () => { edit('blend', value); redrawPanel(); } }, text))),
-      freeform ? h('button', { class: 'btn sm', type: 'button', onclick: () => { change(() => Object.assign(selected, { x: .5, y: .5, w: 1, h: 1, rotation: 0 })); redrawPanel(); } }, 'Poori frame par failayein') : null] : []),
+      freeform ? h('button', { class: 'btn sm', type: 'button', onclick: () => { change(() => Object.assign(selected, { x: .5, y: .5, w: 1, h: 1, rotation: 0 })); redrawPanel(); } }, 'Stretch to fill the frame') : null] : []),
     ...holdBlock,
     ...(freeform ? [...(held ? [] : [range('x', 'Position · left / right', 0, 1, 0.01, .5), range('y', 'Position · top / bottom', 0, 1, 0.01, .66)]), range('w', 'Width', 0.04, effects ? 1 : 0.8, 0.01, .18), range('h', 'Height', 0.04, effects ? 1 : 0.8, 0.01, .18), range('rotation', 'Rotation', -180, 180, 1, 0, (v) => `${Math.round(v)}°`)] : []),
     ...(selected.sheet ? [range('sheet', 'Animation speed', 1, 60, 1, selected.sheet.fps, (v) => `${Math.round(v)} fps`, (v) => change(() => { selected.sheet = { ...selected.sheet, fps: v }; }))] : []),
-    ...(effects ? [] : [h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.behind === true, onchange: (e) => edit('behind', e.target.checked ? true : undefined) }), 'Character ke peeche rakhein')]),
+    ...(effects ? [] : [h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.behind === true, onchange: (e) => edit('behind', e.target.checked ? true : undefined) }), 'Place behind the character')]),
     h('div', { class: 'prop-times' }, seconds('start', 'Dikhe: shuru (s)'), seconds('end', 'Dikhe: khatam (s)')),
-    h('button', { class: 'btn sm', type: 'button', style: 'color:#b91c1c;border-color:#fecaca', onclick: async () => { await dbDel('props', selected.id); S.props = S.props.filter((p) => p.id !== selected.id); S.selectedPropId = null; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel(); } }, `${effects ? 'Effect' : 'Prop'} hatayein`));
+    h('button', { class: 'btn sm', type: 'button', style: 'color:#b91c1c;border-color:#fecaca', onclick: async () => { await dbDel('props', selected.id); S.props = S.props.filter((p) => p.id !== selected.id); S.selectedPropId = null; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel(); } }, `Remove ${effects ? 'effect' : 'prop'}`));
   return h('div', { class: 'list' },
     h('div', { class: 'card flat' }, h('h2', {}, label),
-      h('p', { class: 'sub studio-help' }, effects ? 'Effect tap karke poori scene par lagayein (rain, sparkle, light…). Opacity aur blend se look badlein, aur chahein to sirf kuch seconds ke liye dikhayein.' : 'Prop tap karke scene me lagayein. Stage par drag karke hilayein; yahin se size, rotation aur kab dikhe ye badlein.'),
+      h('p', { class: 'sub studio-help' }, effects ? 'Tap an effect to apply it to the whole scene (rain, sparkle, light…). Change the look with opacity and blend, and optionally show it for only a few seconds.' : 'Tap a prop to place it in the scene. Drag it on the stage to move it; change its size, rotation and when it shows from here.'),
       categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
-      shown.length ? h('div', { class: 'studio-shared-grid' }, shown.map(card)) : h('p', { class: 'sub studio-library-empty' }, assets.length ? 'Is category me kuch nahi hai.' : `Abhi koi shared ${label.toLowerCase()} publish nahi hue. Admin panel ke "Props & Effects" tab se add hote hain.`),
-      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, effects ? null : h('button', { class: 'btn sm', type: 'button', onclick: () => ownFile.click() }, '＋ Apni image upload karein'), h('button', { class: 'btn sm', type: 'button', title: 'Admin ne jo naya publish kiya hai wo dekhein', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Naya dekhein')), ownFile),
-    onStage.length ? h('div', { class: 'card flat' }, h('h3', {}, `Scene me (${onStage.length})`), h('div', { class: 'lib-onstage' }, onStage.map((prop) => h('div', { class: `lib-row${prop.id === S.selectedPropId ? ' on' : ''}` },
+      shown.length ? h('div', { class: 'studio-shared-grid' }, shown.map(card)) : h('p', { class: 'sub studio-library-empty' }, assets.length ? 'There is nothing in this category.' : `No shared ${label.toLowerCase()} have been published yet. They are added from the "Props & Effects" tab in the admin panel.`),
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, effects ? null : h('button', { class: 'btn sm', type: 'button', onclick: () => ownFile.click() }, '＋ Upload your own image'), h('button', { class: 'btn sm', type: 'button', title: 'See what the admin has newly published', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new')), ownFile),
+    onStage.length ? h('div', { class: 'card flat' }, h('h3', {}, `In scene (${onStage.length})`), h('div', { class: 'lib-onstage' }, onStage.map((prop) => h('div', { class: `lib-row${prop.id === S.selectedPropId ? ' on' : ''}` },
       h('button', { type: 'button', class: 'lib-pick', onclick: () => { S.selectedPropId = prop.id; S.sel = null; redrawPanel(); updateSel(); S.dirty = true; } }, h('span', {}, icon), h('b', {}, prop.name)),
       h('button', { type: 'button', class: 'ib', title: prop.visible === false ? 'Dikhayein' : 'Chhupayein', 'aria-pressed': String(prop.visible !== false), onclick: () => { prop.visible = prop.visible === false; stage.setProps(S.props); S.dirty = true; dbPut('props', prop); redrawPanel(); } }, prop.visible === false ? '🚫' : '👁'))))) : null,
     editor);
@@ -2329,18 +2329,18 @@ function tabCanvas() {
       let rec = S.myBgs.find((item) => item.id === id);
       if (!rec) { rec = { id, name: asset.name, blob }; await dbPut('backgrounds', rec); S.myBgs.push(rec); }
       await pickBg(rec);
-    } catch (e) { toast(`Background add nahi ho paya: ${e.message}`); }
+    } catch (e) { toast(`Could not add the background: ${e.message}`); }
   };
   const sharedGrid = (type, choose) => shared(type).length ? h('div', { class: 'studio-shared-grid' }, shared(type).map((asset) => h('button', { class: 'studio-shared-card', type: 'button', onclick: () => choose(asset) }, h('span', {}, type === 'background' ? '🖼' : '🧸'), h('b', {}, asset.name), h('small', {}, 'Shared library · tap to add')))) : h('p', { class: 'sub studio-library-empty' }, 'No shared items have been added by the admin yet.');
   const mine = h('div', { class: 'bggrid' },
     h('button', { class: 'bgc add', onclick: () => file.click() }, h('span', {}, '+'), h('small', {}, 'Add images')),
     S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },
       h('img', { src: URL.createObjectURL(r.blob), alt: r.name, loading: 'lazy' }),
-      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('Ye background kisi doosre scene me use ho raha hai.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
+      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('This background is being used in another scene.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
   const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })));
   return h('div', { class: 'list' },
-    h('div', { class: 'card flat' }, h('h2', {}, 'Background kahan lagana hai?'), seg([[0, 'Poori scene'], [1, 'Timeline par (playhead se)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `Jo background chunoge wo playhead (${fmt(player.time)}) se timeline par judega. Jitne chaaho utne daalo, edge kheench kar chota-bada karo.` : 'Jo background chunoge wo poori scene me peeche rahega.')),
+    h('div', { class: 'card flat' }, h('h2', {}, 'Where should the background be applied?'), seg([[0, 'Whole scene'], [1, 'On the timeline (from the playhead)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `The background you choose will be added to the timeline at the playhead (${fmt(player.time)}). Add as many as you like, and drag the edges to resize.` : 'The background you choose will stay behind for the whole scene.')),
     h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), sharedGrid('background', addSharedBackground), mine, file),
     h('div', { class: 'card flat' }, h('h2', {}, 'Plain colours'), sw));
 }
@@ -2421,8 +2421,8 @@ async function doExport() {
     await applyLayers();
     stage.setSize(S.aspect, S.quality);
     const offline = (sequence || S.expMethod === 'fast') && await canExportOffline(stage.W, stage.H, S.fps, S.format, sequence ? !sequence.some(scene => scene.doc.lines?.length) : !player.clips.length);
-    if (sequence && !offline) throw Error('Saare scenes ek saath export karne ke liye Fast render aur WebCodecs support chahiye. Fast render chunein ya sirf current scene export karein.');
-    if (S.expMethod === 'fast' && !offline) toast('Is device par Fast render supported nahi hai, isliye live recording ho rahi hai.');
+    if (sequence && !offline) throw Error('Exporting all scenes together needs Fast render and WebCodecs support. Choose Fast render, or export only the current scene.');
+    if (S.expMethod === 'fast' && !offline) toast('Fast render is not supported on this device, so a live recording is being made instead.');
     let t0 = performance.now();
     const progress = (p) => {
       const sec = (performance.now() - t0) / 1000, x = p > 0.02 ? (p * player.total) / sec : 0;
@@ -2459,7 +2459,7 @@ async function doExport() {
       } catch (e) {
         if (e.message === 'cancelled') throw e;
         console.warn('parallel export failed, using one thread', e);
-        toast('Yahan parallel rendering nahi ho sakti, ek thread se render ho raha hai.');
+        toast('Parallel rendering is not possible here; rendering with a single thread instead.');
         t0 = performance.now(); res = await single();
       }
     } else res = offline ? await single() : await exportRealtime({ canvas: stage.out, stage, audioStream: player.rec.stream, player, onProgress: progress, level: S.level });
@@ -2469,10 +2469,10 @@ async function doExport() {
     document.body.append(a); a.click(); a.remove();
     exported = true;
     toast(`Done in ${took.toFixed(0)}s (${((sequence ? sequence.at(-1).end : player.total) / took).toFixed(1)}× real time) · ${ext.toUpperCase()} · ${info}`);
-  } catch (e) { toast(e.message === 'cancelled' ? 'Export rok diya gaya.' : `Export fail ho gaya: ${e.message}`); console.error(e); }
-  if (sequence) { try { await activateScene(S.scenes.find(scene => scene.id === originalScene)); } catch (error) { toast(`Scene wapas nahi laya ja paya: ${error.message}`); } }
+  } catch (e) { toast(e.message === 'cancelled' ? 'Export was stopped.' : `Export failed: ${e.message}`); console.error(e); }
+  if (sequence) { try { await activateScene(S.scenes.find(scene => scene.id === originalScene)); } catch (error) { toast(`Could not switch back to the scene: ${error.message}`); } }
   wl?.release?.().catch(() => {});
-  try { await stage.setTextureLimit(PREVIEW_MODES[S.previewMode].maxTex); await applyLayers(); } catch (error) { toast(`Preview ki textures wapas nahi laayi ja sakin: ${error.message}`); }
+  try { await stage.setTextureLimit(PREVIEW_MODES[S.previewMode].maxTex); await applyLayers(); } catch (error) { toast(`Could not restore the preview textures: ${error.message}`); }
   finishExport(grant.grantId, exported);
   b.done(); S.exporting = false; if (sequence) render(); stage.setSize(S.aspect, S.preview); player.pause(); player.seek(0); fitEditor(); S.dirty = true;
 }
@@ -2530,7 +2530,7 @@ async function ensureDefs() {
   for (const speaker of S.speakers) {
     if (!speaker.charId) continue;
     try { await ensureCharacter(speaker.charId); }
-    catch (error) { toast(`${speaker.name} ka character load nahi ho paya: ${error.message}`); speaker.charId = null; }
+    catch (error) { toast(`Could not load ${speaker.name}'s character: ${error.message}`); speaker.charId = null; }
   }
 }
 /** put a saved / undone document back into the app */
@@ -2664,7 +2664,7 @@ async function stepHistory(dir) {
     render();
   } catch (error) {
     try { await loadDoc(original); await prepareStudio({ quiet: true }); player.seek(time); render(); } catch (restoreError) { console.error(restoreError); }
-    toast(`${dir < 0 ? 'Undo' : 'Redo'} nahi ho paya: ${error.message}`);
+    toast(`${dir < 0 ? 'Undo' : 'Redo'} failed: ${error.message}`);
   } finally { b.done(); hist.busy = false; updateHistoryButtons(); S.dirty = true; }
   await tick();
 }
@@ -2741,7 +2741,7 @@ if (location.search.includes("debug")) window.__toon = { S, fillSoloLengths, sha
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
 export const setHome = (fn) => { homeFn = fn; };
-async function goHome() { if (S.exporting) { toast('Export poora hone tak ruk jaayein.'); return; } player?.pause(); try { await tick({ sceneCommit: true }); } catch { /* best effort */ } homeFn?.(); }
+async function goHome() { if (S.exporting) { toast('Please wait for the export to finish.'); return; } player?.pause(); try { await tick({ sceneCommit: true }); } catch { /* best effort */ } homeFn?.(); }
 export async function openStudio() {
   studioTheme.enter();
   $app.hidden = false;
