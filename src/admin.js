@@ -6,7 +6,7 @@ import { testerAnimationAllowed, changeTesterAnimation } from './tester-animatio
 // The big preview plays the chosen animation on the real character, so the admin can judge it before showing it to users.
 import { h } from './dom.js';
 import { Stage } from './db/stage.js';
-import { loadCatalog, libraryCharacters, fetchLibraryCharacter, categoriesFor, fetchAnimation, getAnimRules, setAnimRules, setTesterRules, cdn, url as assetUrl } from './catalog.js';
+import { loadCatalog, hydrateCharacter, libraryCharacters, fetchLibraryCharacter, categoriesFor, fetchAnimation, getAnimRules, setAnimRules, setTesterRules, cdn, url as assetUrl } from './catalog.js';
 import { saveAnimRules, loadAnimRules, saveLayerRules, loadLayerRules, loadTesterConfig, saveTesterConfig, listTesterSubmissions } from './cloud.js';
 import { groupName, layerName } from './layerrules.js';
 import { getLayerRules, setLayerRules, layerId } from './layerrules.js';
@@ -262,20 +262,39 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
         : h('div', { class: 'ad-lrows' }, st.subs.map(subRow))));
     listEl.replaceChildren(...out);
   }
+  /** put a tester's saved character on the big canvas: its template with the tester's rig settings (face, offsets, order, outfit) applied */
+  async function previewSub(r, p) {
+    const tpl = p.template?.id;
+    if (!tpl) { toast('This character has no template, so it cannot be shown on the canvas.'); return; }
+    const my = ++st.gen; st.busy = true; loaded = false; drawAll();
+    try {
+      const def = await hydrateCharacter({ id: r.id, name: r.name, pose: r.pose, base: `lib:${tpl}`, profile: p, pages: {}, thumb: r.thumb });
+      if (!def) throw new Error('its template is not available');
+      if (my !== st.gen) return;
+      await stage.loadCharacter(def);
+      st.def = def; st.cats = categoriesFor(def.rig, { all: true }); st.layers = await adminLayers(def);
+      const idle = st.cats.filter((c) => !c.overlay).flatMap((c) => c.animations.map((a) => ({ ...a, cat: c }))).find((a) => /^idle/i.test(a.name));
+      st.busy = false; drawAll();
+      if (idle) await play(idle);
+      st.note = `Showing "${r.name || r.id}" by ${r.ownerName || r.ownerEmail || 'a tester'} with their rig settings. Their own uploaded pictures are not shown here; the template pictures are.`; drawCaption();
+      root.scrollIntoView?.({ block: 'start' });
+    } catch (e) { st.busy = false; toast(`Could not show the character: ${e.message}`); drawAll(); }
+  }
   /** one saved tester character: who saved it, and every rig setting the tester chose */
   function subRow(r) {
     let p = {}; try { p = JSON.parse(r.profile || '{}') || {}; } catch { /* keep empty */ }
     const count = (v) => Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0;
     const block = (title, v) => !count(v) && !(typeof v === 'string' && v) ? null : h('details', { class: 'cs-lgroup' }, h('summary', {}, `${title}${count(v) ? ` · ${count(v)}` : ''}`), h('pre', { class: 'hint', style: 'text-align:left;white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto;margin:4px 0' }, typeof v === 'string' ? v : JSON.stringify(v, null, 1)));
     const download = () => { const url = URL.createObjectURL(new Blob([JSON.stringify({ ...r, profile: p }, null, 2)], { type: 'application/json' })), a = h('a', { href: url, download: `${r.id}.json` }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+    const show = () => previewSub(r, p);
     return h('details', { class: 'ad-lrow', style: 'display:block' },
-      h('summary', { style: 'display:flex;gap:8px;align-items:center;cursor:pointer' }, r.thumb ? h('img', { src: r.thumb, alt: '', class: 'ad-sthumb' }) : h('span', { class: 'ad-sthumb' }, '🎭'),
+      h('summary', { style: 'display:flex;gap:8px;align-items:center;cursor:pointer', onclick: show }, r.thumb ? h('img', { src: r.thumb, alt: '', class: 'ad-sthumb' }) : h('span', { class: 'ad-sthumb' }, '🎭'),
         h('div', { class: 'ad-lorig', style: 'width:auto;flex:1' }, h('b', {}, r.name || r.id), h('small', {}, `${r.ownerName ? r.ownerName + ' · ' : ''}${r.ownerEmail || ''} · ${r.updatedAt ? new Date(r.updatedAt).toLocaleString() : ''}`))),
       h('div', { style: 'padding:6px 2px' },
         h('p', { class: 'hint', style: 'text-align:left;margin:0 0 6px' }, `Tester: ${r.ownerName || '—'} (${r.ownerEmail || '—'}) · Character ID: ${r.id} · Pose: ${r.pose || '—'} · Template: ${p.template || 'custom rig'}`),
         block('Face settings (eyes, brows, nose, lips, ears)', p.face), block('Position and size changes', p.xf), block('Fit', p.fit), block('Skins', p.skins),
         block('Hidden layers', p.hide), block('Layer order', p.order), block('Attachments', p.attach), block('Locked layers', p.locked),
-        h('button', { class: 'btn sm', onclick: download }, '⬇ Download full JSON')));
+        h('button', { class: 'btn sm pri', onclick: show }, '▶ Show on canvas'), ' ', h('button', { class: 'btn sm', onclick: download }, '⬇ Download full JSON')));
   }
   function drawLayerList() {
     if (st.busy && !st.def) { listEl.replaceChildren(h('p', { class: 'hint' }, 'Loading…')); return; }
