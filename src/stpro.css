@@ -453,3 +453,33 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 :root[data-theme] body .project-row .btn:not(.project-open):not(.danger){background:var(--btn)!important}
 :root[data-theme] body .project-row .btn.project-open{border-color:transparent}
 :root[data-theme] body .project-row .btn.danger{border-color:transparent}
+
+/* slimmer header (56 px, 60 px on a computer) and a compact, tidy account menu */
+:root,:root[data-theme="night"],:root[data-theme="day"]{--bar-h:56px}
+@media(min-width:861px){:root,:root[data-theme="night"],:root[data-theme="day"]{--bar-h:60px}}
+:root[data-theme] body .sh-bar:not(.lp-header),:root[data-theme] body .projects-header{padding:0 12px;gap:10px}
+:root[data-theme] body .logo-btn{font-size:20px}
+.hdr-burger{width:38px;height:38px;border-radius:12px;margin-right:0}
+.hdr-burger svg{width:20px;height:20px}
+:root[data-theme] body .sh-profile .sh-avatar{width:38px;height:38px;border-radius:50%;border-width:2px;font-size:15px}
+:root[data-theme] body .lp .lp-header{padding-block:8px;min-height:56px}
+:root[data-theme] body .sh-profile .sh-menu{top:calc(100% + 10px);width:min(300px,calc(100vw - 24px));padding:0;border:1px solid var(--edge);border-radius:20px;background:linear-gradient(180deg,var(--card1),var(--card2));box-shadow:0 22px 54px #0006;overflow:hidden}
+:root[data-theme] body .sh-profile .sh-who{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:2px 12px;padding:14px 16px;margin:0;border-bottom:1px solid var(--edge);background:none}
+:root[data-theme] body .sh-profile .sh-who .sh-account-avatar{grid-row:1 / span 3;width:44px;height:44px;border:0;border-radius:50%;background:var(--brand);color:var(--on-brand);font-size:17px;font-weight:800;overflow:hidden}
+:root[data-theme] body .sh-profile .sh-who .sh-account-avatar img{width:100%;height:100%;object-fit:cover}
+:root[data-theme] body .sh-profile .sh-who .sh-menu-kicker{display:none}
+:root[data-theme] body .sh-profile .sh-who b{font-size:15px;color:var(--ink);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root[data-theme] body .sh-profile .sh-who small{font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root[data-theme] body .sh-profile .sh-plan{justify-self:start;margin-top:3px;padding:2px 9px;border:0;border-radius:99px;background:var(--hover);color:var(--accent);font-size:11px;font-weight:800}
+:root[data-theme] body .sh-profile .sh-menu-section{padding:6px}
+:root[data-theme] body .sh-profile .sh-mi{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:6px 10px;border:0;border-radius:14px;background:none}
+:root[data-theme] body .sh-profile .sh-mi:hover,:root[data-theme] body .sh-profile .sh-mi:focus-visible{background:var(--hover)}
+:root[data-theme] body .sh-profile .sh-mi-icon{width:36px;height:36px;border:0;border-radius:12px;background:var(--hover);color:var(--accent)}
+:root[data-theme] body .sh-profile .sh-mi-icon svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:root[data-theme] body .sh-profile .sh-mi-copy{gap:1px}
+:root[data-theme] body .sh-profile .sh-mi-label{font-size:14px;font-weight:700;color:var(--ink)}
+:root[data-theme] body .sh-profile .sh-mi-copy small{font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root[data-theme] body .sh-profile .sh-mi-arrow{display:none}
+:root[data-theme] body .sh-profile .sh-menu-footer{padding:6px;border-top:1px solid var(--edge)}
+:root[data-theme] body .sh-profile .sh-mi-logout .sh-mi-label{color:var(--danger)}
+:root[data-theme] body .sh-profile .sh-mi-logout .sh-mi-icon{background:var(--danger-bg);color:var(--danger)}

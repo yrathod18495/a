@@ -14,7 +14,6 @@ import { projectsView } from './projects-view.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
 import { createShield } from './shield.js';
-import { goldCoin } from './coin.js';
 
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
@@ -260,6 +259,7 @@ function profileMenu() {
       tester: 'M12 3l8 9-8 9-8-9 8-9Zm0 5v5m0 3v.1',
       admin: 'M4 7h16M4 17h16M8 4v6m8 4v6',
       logout: 'M10 4H4v16h6m4-12 4 4-4 4M8 12h10',
+      coins: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.5h-3a1.7 1.7 0 0 0 0 3.5h4',
     };
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
@@ -268,7 +268,7 @@ function profileMenu() {
   };
   const item = (icon, label, description, action, extraClass = '') => h('button', {
     class: `sh-mi ${extraClass}`.trim(), type: 'button', onclick: () => { close(); action(); },
-  }, h('span', { class: 'sh-mi-icon', 'aria-hidden': 'true' }, icon === 'coins' ? goldCoin(30) : menuIcon(icon)),
+  }, h('span', { class: 'sh-mi-icon', 'aria-hidden': 'true' }, menuIcon(icon)),
   h('span', { class: 'sh-mi-copy' }, h('span', { class: 'sh-mi-label' }, label), h('small', {}, description)),
   h('span', { class: 'sh-mi-arrow', 'aria-hidden': 'true' }, '›'));
   const themeItem = item('moon', '', '', () => {
