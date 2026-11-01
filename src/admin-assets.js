@@ -26,7 +26,7 @@ export async function assetsView({ user, home, back, toast }) {
     drawTabs();
     if (state.type === 'character') {
       content.replaceChildren(
-        h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'CHARACTER LIBRARY'), h('h1', {}, 'Add Character'), h('p', {}, 'These are the characters available to Animation Studio and Character Studio. Use Studio Controls to adjust their animations and layers.')),
+        h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'CHARACTER LIBRARY'), h('h1', {}, 'Add Character'), h('p', {}, 'These are the characters available to Animator Studio and Character Editor. Use Studio Controls to adjust their animations and layers.')),
         state.chars.length ? h('div', { class: 'admin-assets-grid' }, state.chars.map((c) => h('article', { class: 'admin-asset-card' }, c.thumb ? h('img', { src: cdn(c.thumb), alt: c.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '🎭'), h('div', { class: 'admin-asset-copy' }, h('b', {}, c.name), h('small', {}, `${c.poses.length} poses · available in both studios`))))) : h('p', { class: 'admin-assets-empty' }, 'Loading the character catalog…'),
         h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'));
       return;
@@ -35,13 +35,13 @@ export async function assetsView({ user, home, back, toast }) {
     const kind = assetType(), label = kind === 'background' ? 'Backgrounds' : 'Props';
     const records = state.assets.filter((a) => a.type === kind);
     content.replaceChildren(
-      h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, `Add ${label}`), h('p', {}, kind === 'background' ? 'Upload scene images once. Creators can preview and apply them from Animation Studio → Background.' : 'Upload transparent PNG or WebP objects. Creators can add them to the stage, drag them into place, resize and rotate them.')),
+      h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, `Add ${label}`), h('p', {}, kind === 'background' ? 'Upload scene images once. Creators can preview and apply them from Animator Studio → Background.' : 'Upload transparent PNG or WebP objects. Creators can add them to the stage, drag them into place, resize and rotate them.')),
       h('section', { class: 'admin-assets-upload' }, h('div', {}, h('b', {}, `Upload a ${kind}`), h('small', {}, 'Image files · up to 40 MB · available to signed-in creators')), h('button', { class: 'btn pri', type: 'button', disabled: state.loading, onclick: openUpload }, '＋ Choose image'), fileInput),
       state.loading && !records.length ? h('p', { class: 'admin-assets-empty' }, 'Loading assets…') : records.length ? h('div', { class: 'admin-assets-grid' }, records.map((asset) => {
         const preview = state.previews.get(asset.id);
         if (!preview) previewAsset(asset).catch((e) => console.warn('Asset preview failed:', e.message));
         return h('article', { class: 'admin-asset-card' }, preview ? h('img', { src: preview, alt: asset.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '◌'), h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${(asset.size / 1024 / 1024).toFixed(1)} MB · ${new Date(asset.updatedAt).toLocaleDateString()}`)), h('button', { class: 'btn sm', type: 'button', title: `Remove ${asset.name}`, onclick: () => remove(asset) }, 'Remove'));
-      })) : h('div', { class: 'admin-assets-empty' }, h('span', {}, kind === 'background' ? '🖼' : '🧸'), h('b', {}, `No ${label.toLowerCase()} yet`), h('p', {}, 'Upload the first image and it will appear in the Animation Studio library.')),
+      })) : h('div', { class: 'admin-assets-empty' }, h('span', {}, kind === 'background' ? '🖼' : '🧸'), h('b', {}, `No ${label.toLowerCase()} yet`), h('p', {}, 'Upload the first image and it will appear in the Animator Studio library.')),
       h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'));
   }
   function drawAnimations() {
@@ -85,7 +85,7 @@ export async function assetsView({ user, home, back, toast }) {
       state.loading = true; draw();
       await saveStudioAsset(assetType(), name, file);
       state.assets = await listStudioAssets();
-      toast(`${name} added to the Animation Studio library.`);
+      toast(`${name} added to the Animator Studio library.`);
     } catch (error) { toast(`Could not add the image: ${error.message}`); }
     finally { state.loading = false; draw(); }
   } });

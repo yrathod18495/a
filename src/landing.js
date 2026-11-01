@@ -11,7 +11,7 @@ const sectionTitle = (ey, title, description) => h('div', { class: 'lp-heading' 
 const FEATURES = [
   { icon: '🎙', title: 'Audio-driven lip-sync', body: 'Upload recorded dialogue, match each speaker to a character, and make conversations move with your voice.', detail: 'Built for talking characters, not just silent motion clips.' },
   { icon: '✨', title: 'AI scene direction', body: 'Let AI propose who appears, which gestures to use, and how to frame the camera for each line.', detail: 'Adjust every suggestion on your timeline.' },
-  { icon: '🎭', title: '2D Character Studio', body: 'Edit character outfits, facial features, layers and colours or import your own DragonBones characters.', detail: 'Design once, use your character in your scenes.' },
+  { icon: '🎭', title: '2D Character Editor', body: 'Edit character outfits, facial features, layers and colours or import your own DragonBones characters.', detail: 'Design once, use your character in your scenes.' },
   { icon: '🎥', title: 'Camera & motion keyframes', body: 'Plan close-ups, wide shots, character positions and camera moves on editable keyframes.', detail: 'Keep control of pacing and composition.' },
   { icon: '🖼', title: 'Backgrounds and scenes', body: 'Add your own images, place characters on the stage, and build a scene around your script.', detail: 'Works for dialogue and visual storytelling.' },
   { icon: '🎞', title: 'WebM & MP4 export', body: 'Preview your work and export videos in multiple sizes and aspect ratios, including up to 4K.', detail: 'Finish your work in the same browser studio.' }
@@ -38,7 +38,7 @@ function heroIcon(name) {
 
 const FAQ = [
   ['What is 12toons?', '12toons is a browser-based studio for making 2D animated videos. Pick a character, add your voice recordings or work silently, direct the scenes on a timeline and export a finished video.'],
-  ['Do I need to draw to make an animation?', 'No. Choose a ready-made character and animation clips, or build and customise your own character in Character Studio.'],
+  ['Do I need to draw to make an animation?', 'No. Choose a ready-made character and animation clips, or build and customise your own character in Character Editor.'],
   ['Can I use my own voice recordings?', 'Yes. Add audio files one by one, or upload a ZIP of numbered voice lines, and assign each voice to a character. Lip-sync is added automatically.'],
   ['Can I make a video without any audio?', 'Yes. You can build a silent scene with character motion, backgrounds and camera moves.'],
   ['Do I need an account?', 'You can look around this page without one. To open the studios and save your work, sign in with your Google account, which takes a few seconds.'],
@@ -125,7 +125,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
       h('section', { id: 'how', class: 'lp-section lp-section-soft' },
         sectionTitle('A simple workflow', 'From idea to animated video', 'Start with a script, audio recording or a blank scene. Make the rest your own.'),
         h('div', { class: 'lp-how-grid' }, [
-          ['01', 'Choose your cast', 'Select an available character or create and customise one in Character Studio.'],
+          ['01', 'Choose your cast', 'Select an available character or create and customise one in Character Editor.'],
           ['02', 'Build and animate', 'Add voice recordings if you have them, arrange animation clips, and fine-tune scenes and cameras.'],
           ['03', 'Preview and export', 'Review your animation and export a WebM or MP4 video from the browser.']
         ].map(([number, title, body]) => h('article', { class: 'lp-how-card' }, h('span', {}, number), h('h3', {}, title), h('p', {}, body))))

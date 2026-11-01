@@ -4,7 +4,7 @@ import { landingView as marketingLandingView } from './landing.js';
 import './day-theme.css';
 import './royal-surfaces.css';
 import './stpro.css';
-// 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
+// 12toons shell: landing page -> login -> hub (12toons / 12toons Character Editor)
 import { h, toast, logo } from './dom.js';
 import { startRoute, doneRoute } from './route-feedback.js';
 import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser } from './firebase.js';
@@ -171,8 +171,8 @@ async function renderRoute() {
 const RAIL_ICONS = {
   menu: 'M4 6h16M4 12h16M4 18h16',
   home: 'M3 11 12 3l9 8M5 10v10h5v-6h4v6h5V10',
-  animate: 'm12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5',
-  actor: 'M12 6a2 2 0 1 0 0-.01M9 22v-7H7l1.6-6.4A2 2 0 0 1 10.5 7h3a2 2 0 0 1 1.9 1.6L17 15h-2v7',
+  animate: 'M3 9h18v11H3zM3 9l2.5-5h3L6 9m2.5 0L11 4h3l-2.5 5M14 9l2.5-5h3L17 9M10 13.5l4 2.5-4 2.5z',
+  actor: 'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM3.5 20a6.5 6.5 0 0 1 10-5.2M14.5 21l.7-3 5.3-5.3 2.3 2.3-5.3 5.3-3 .7Z',
   coins: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.5h-3a1.7 1.7 0 0 0 0 3.5h4',
   earn: 'M4 17l6-6 4 4 6-10m-6 0h6v6',
   admin: 'M4 7h16M4 17h16M8 4v6m8 4v6',
@@ -195,8 +195,8 @@ function syncPhoneNav() {
       h('button', { type: 'button', class: 'rail-item rail-burger', 'aria-label': 'Menu', 'aria-expanded': String(railOpen), onclick: () => setRail(!railOpen) }, railIcon('menu')),
       item('#/hub', 'home', 'Dashboard'),
       group('Studio apps'),
-      item('#/toons', 'animate', 'Animator'),
-      item('#/characters', 'actor', 'Character Studio'),
+      item('#/toons', 'animate', 'Animator Studio'),
+      item('#/characters', 'actor', 'Character Editor'),
       group('Account'),
       item('#/credits', 'coins', 'Coins'),
       item('#/affiliate-dashboard', 'earn', 'Earn with us'),
@@ -356,8 +356,8 @@ function hubView() {
     h('main', { class: 'sh-hub' }, h('h1', {}, 'Welcome to 12toons Studio'), h('p', { class: 'sub' }, `Hi ${name}, create professional animations directly in your browser.`),
       h('div', { class: 'st-label' }, 'Tools'),
       h('div', { class: 'sh-tools' },
-        tool('animator', '12toons Animator', 'Create animations with a timeline, voice lines, AI scene direction and character assets, then export a video.', '#/toons', 'Launch Animator'),
-        tool('actor', '12toons Character Studio', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Studio')),
+        tool('animator', '12toons Animator Studio', 'Create animations with a timeline, voice lines, AI scene direction and character assets, then export a video.', '#/toons', 'Launch Animator Studio'),
+        tool('actor', '12toons Character Editor', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Editor')),
       recent,
       cloudLine));
 }

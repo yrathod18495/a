@@ -1,4 +1,4 @@
-// What the admin decided about the layers of the Character Studio:
+// What the admin decided about the layers of the Character Editor:
 //   names:  { '<character>' | '*': { 'slot|key': 'Display name', '@Group': 'Display group name' } }
 //   hidden: { '<character>' | '*': ['slot|key', ...] }   (not shown in the layer list for users; the picture itself stays on the character)
 // Stored in Firestore config/layers (see cloud.js) and applied in charstudio.js.

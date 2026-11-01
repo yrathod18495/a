@@ -1,4 +1,4 @@
-// What one user may keep in their account (checked in the Character Studio and again by the server, api/r2.js).
+// What one user may keep in their account (checked in the Character Editor and again by the server, api/r2.js).
 export const LIMITS = {
   characters: 20,                       // saved characters per user
   pageBytes: 15 * 1024 * 1024,          // one picture page of a character

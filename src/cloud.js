@@ -38,7 +38,7 @@ let autoTimer;
 export function startAutoSync() {clearInterval(autoTimer);syncAll().catch(()=>{});autoTimer=setInterval(()=>syncAll().catch(()=>{}),180000);}   // only a safety net: saving is scheduled by project-sync (quiet 45 s, max 3 min) and when the tab is hidden
 export const stopAutoSync=()=>clearInterval(autoTimer);
 
-/* ---------- characters (saved from the Character Studio) ---------- */
+/* ---------- characters (saved from the Character Editor) ---------- */
 const uidOf = () => { const u = auth.currentUser?.uid; return u && u !== 'debug' ? u : null; };
 export async function cloudReady() { return !!uidOf() && (await r2Configured()); }
 /**
@@ -53,7 +53,7 @@ export async function saveCharacterCloud(def) {
   const uid = uidOf();
   if (!uid) throw new Error('Please log in first to save the character to your account.');
   if (!(await r2Configured())) throw new Error('Cloud saving is unavailable right now, so the character was only saved on this device.');
-  if (!def.base) throw new Error('This character was saved in an old format. Open it in Character Studio and save it again.');
+  if (!def.base) throw new Error('This character was saved in an old format. Open it in Character Editor and save it again.');
   const paths = Object.keys(def.pages || {}), files = new Map(), hashes = [];
   for (const path of paths) { const blob = def.pages[path], hash = await hashBlob(blob); files.set(hash, blob); hashes.push(hash); }
   const pid = cloudId(def.id), operationId = crypto.randomUUID(), now = new Date().toISOString();
@@ -99,7 +99,7 @@ export async function loadTesterCharacterFiles(id) {
   return { id: m.id, name: m.name, pose: m.pose, base: m.base, pages, thumb: m.thumb, profile: m.profile || {} };
 }
 export async function loadCharacterCloud(meta) {
-  if (meta.format !== 'char3') throw new Error('This character was saved in an old format. Recreate it in Character Studio.');
+  if (meta.format !== 'char3') throw new Error('This character was saved in an old format. Recreate it in Character Editor.');
   const m = JSON.parse(await (await fetchBlob(meta.stateUrl)).text()), uid = uidOf(), files = await downloadAssets(uid, m.assetHashes || []), pages = {};
   (m.pages || []).forEach((path, i) => { const b = files.get(m.assetHashes[i]); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); });
   return { id: m.id, name: m.name, pose: m.pose, base: m.base, pages, thumb: m.thumb, profile: m.profile || {} };      // opened with hydrateCharacter()
@@ -157,7 +157,7 @@ export async function maintenanceStatus() {
  catch { return { maintenance: true, unavailable: true }; }
 }
 
-/* ---------- admin: names + visibility of the Character Studio layers (Firestore config/layers) ---------- */
+/* ---------- admin: names + visibility of the Character Editor layers (Firestore config/layers) ---------- */
 const LAYER_KEY = 'toons-layerrules';
 export const cachedLayerRules = () => { try { return JSON.parse(localStorage.getItem(LAYER_KEY) || 'null'); } catch { return null; } };
 export async function loadLayerRules() {

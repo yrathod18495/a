@@ -1,4 +1,4 @@
-// Layered PSD for the Character Studio: every picture of the current pose as its own named layer with a FIXED box (the box of the
+// Layered PSD for the Character Editor: every picture of the current pose as its own named layer with a FIXED box (the box of the
 // picture inside the rig's texture), the body assembled in an A-pose, the swappable pictures (hands, mouths, brows ...) in a tidy grid below. And the way back.
 import { writePsd, readPsd } from 'ag-psd';
 

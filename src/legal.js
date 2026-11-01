@@ -5,7 +5,7 @@ const UPDATED = '22 October 2026';
 
 const TERMS = [
   ['1. About these terms', [
-    'These Terms of Use apply when you visit or use the 12toons website, Animation Studio, Character Studio, account features and related services (together, “12toons”). By using 12toons, you agree to these terms. Stop using the service if you do not agree.',
+    'These Terms of Use apply when you visit or use the 12toons website, Animator Studio, Character Editor, account features and related services (together, “12toons”). By using 12toons, you agree to these terms. Stop using the service if you do not agree.',
     '12toons is the service name shown on this website. This build does not publish a separate operating-company name or postal address. No governing-law or court-location clause is stated here because the operator’s legal jurisdiction has not been supplied. Consumer and other rights that apply by law remain in force.'
   ]],
   ['2. Who may use 12toons and accounts', [

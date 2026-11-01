@@ -1,5 +1,5 @@
 import { hinglishify } from '../shared/hinglish-errors.js';
-/** tiny element builder shared by the shell and the Character Studio */
+/** tiny element builder shared by the shell and the Character Editor */
 export const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {

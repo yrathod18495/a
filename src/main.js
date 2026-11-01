@@ -2764,7 +2764,7 @@ async function goHome() { if (S.exporting) { toast('Please wait for the export t
 export async function openStudio() {
   studioTheme.enter();
   $app.hidden = false;
-  if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Studio meanwhile
+  if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Editor meanwhile
   startAutoSync();
   S.scenes.forEach((scene) => fillSoloLengths(scene.doc));
   S.ready = true; S.dirty = true; fitEditor(); dockShow('rail'); dockShow('panel');

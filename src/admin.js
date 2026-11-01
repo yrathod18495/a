@@ -2,7 +2,7 @@ import { friendlyError } from '../shared/hinglish-errors.js';
 import { testerAnimationAllowed, changeTesterAnimation } from './tester-animation-policy.js';
 // Admin panel: decide which animation of which character users get to see.
 // The rules are stored in Firestore config/animations ({ '*': [...], neha: [...], mybaby: [...] }) and applied in catalog.categoriesFor().
-// A second page, "Layers", renames the Character Studio layers and switches them on / off for users (Firestore config/layers).
+// A second page, "Layers", renames the Character Editor layers and switches them on / off for users (Firestore config/layers).
 // The big preview plays the chosen animation on the real character, so the admin can judge it before showing it to users.
 import { h } from './dom.js';
 import { Stage } from './db/stage.js';
@@ -142,7 +142,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
     st.dirty = st.dirtyA = st.dirtyL = st.dirtyT = false; drawAll();
   }
 
-  /* ---------- the layers of a character (same list the Character Studio shows, all outfits together) ---------- */
+  /* ---------- the layers of a character (same list the Character Editor shows, all outfits together) ---------- */
   async function adminLayers(def) {
     if (!st.groups) { try { st.groups = await fetch(assetUrl('12toons/groups.json')).then((r) => r.json()); } catch { st.groups = []; } }
     const groupOf = new Map();
@@ -167,7 +167,7 @@ async function studioView({ user, home, toast, initialMode = 'anim' }) {
   /* ---------- drawing ---------- */
   const capEl = h('div', { class: 'ad-cap' }), stageBox = h('div', { class: 'cs-stage ad-stage' }, stage.out), barEl = h('div', { class: 'ad-bar' }), listEl = h('div', { class: 'ad-list' }), topEl = h('div', { class: 'ad-top' });
   function drawCaption() {
-    if (st.mode === 'layers') { capEl.replaceChildren(h('div', { class: 'ad-capname' }, h('b', {}, 'Character Studio layers'), h('small', {}, 'Rename a layer (users see your name) and switch it on or off. Off = users do not see that layer in their list; the picture stays on the character.'))); return; }
+    if (st.mode === 'layers') { capEl.replaceChildren(h('div', { class: 'ad-capname' }, h('b', {}, 'Character Editor layers'), h('small', {}, 'Rename a layer (users see your name) and switch it on or off. Off = users do not see that layer in their list; the picture stays on the character.'))); return; }
     const a = st.cur;
     if (!a) { capEl.replaceChildren(h('p', { class: 'hint' }, st.busy ? 'Loading the character…' : 'Pick an animation to see it on the character.')); return; }
     const tm = st.mode === 'testers', hid = tm ? !allowed(a.ref.id) : isHid(a.ref.id), byAll = hidAll(a.ref.id);

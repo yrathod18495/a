@@ -1,4 +1,4 @@
-// Character picker shared by the Character Studio and the animation studio:
+// Character picker shared by the Character Editor and the animation studio:
 // one card per character (full-body picture + name); tapping a character opens its poses (front, side, back ...), each as a full-body picture.
 import { h } from './dom.js';
 import { cdn, libraryStatus } from './catalog.js';

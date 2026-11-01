@@ -6,7 +6,7 @@ async function setup(page){
  // These UI tests exercise local storage only; missing bundled catalogs use empty fixtures.
  await page.route('**/12toons/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
  await page.goto('/?debug#/toons');
- await expect(page.getByRole("heading",{name:"Animator Projects"})).toBeVisible();
+ await expect(page.getByRole("heading",{name:"Animator Studio Projects"})).toBeVisible();
 }
 test('maintenance never blocks signing in: anonymous visitors reach the login page for private routes and direct admin URLs',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:true}}));
@@ -46,7 +46,7 @@ test('brightness preference persist across landing, legal and studios',async({pa
  await page.getByRole('link',{name:'Terms of Use'}).first().click();
  await expect(page.getByRole('heading',{name:'Terms of Use'})).toBeVisible();
  await page.goto('/?debug#/toons');
- await expect(page.getByRole("heading",{name:"Animator Projects"})).toBeVisible();
+ await expect(page.getByRole("heading",{name:"Animator Studio Projects"})).toBeVisible();
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();
  await page.getByRole('button',{name:'Cancel'}).click();
  await page.goto('/?debug#/characters');
@@ -136,7 +136,7 @@ test('tester opens the fixed rig from Create my own character and its live previ
 // the studio logo now leaves for the home page, so the picker is opened by its address
 async function openProjects(page){
  await page.evaluate(()=>{location.hash='#/toons';});
- await expect(page.getByRole("heading",{name:"Animator Projects"})).toBeVisible();
+ await expect(page.getByRole("heading",{name:"Animator Studio Projects"})).toBeVisible();
 }
 async function create(page,name){
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();

@@ -76,14 +76,14 @@ export class Stage {
     this.gl = this.r.gl;
     this.maxTex = Math.min(maxTex, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
     this.assets = new Map();  // charId -> { def, pages: Map(imagePath -> GLTex) }
-    this.artworkTextures = new Map(); // Character Studio canvas key -> GLTex
+    this.artworkTextures = new Map(); // Character Editor canvas key -> GLTex
     this.propTex = new Map(); // shared image props by project prop id
     this.props = [];
     this.tearTex = null; this.tearBlob = null;
     this.layers = [];         // back -> front draw order
     this.bg = { preset: 0, image: null };
     this.camKeys = [];        // camera keyframes [{t, cx, cy, zoom, ease}] (cx, cy = 0..1 of the canvas); empty = automatic shots
-    this.userCam = null;      // Character Studio: free zoom / pan {zoom, cx, cy} in canvas pixels (zoom below 1 = out, nothing is clamped)
+    this.userCam = null;      // Character Editor: free zoom / pan {zoom, cx, cy} in canvas pixels (zoom below 1 = out, nothing is clamped)
     this.fullView = false;    // editing: show the whole canvas instead of what the camera sees
     this.grade = null; this.gradeKeys = []; this.bgTex = null; this.bgCache = new Map(); this.bgClips = []; this.imgIds = new WeakMap(); this.imgSeq = 0;   // backgrounds can change over time: one texture per (colour, picture, size)
     this.prepCache = new Map(); this.uid = 0;
@@ -125,9 +125,9 @@ export class Stage {
   }
   /** forget a loaded character (its pictures changed) */
   unload(charId) { const a = this.assets.get(charId); if (a) { a.pages.forEach((t) => t.dispose()); this.assets.delete(charId); } for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); }
-  /** replace the armature data of a loaded character (Character Studio edits) without reloading its textures */
+  /** replace the armature data of a loaded character (Character Editor edits) without reloading its textures */
   setRig(charId, ske) { const a = this.assets.get(charId); if (a) { a.def = { ...a.def, ske }; for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); } }      // the cache is keyed by character AND outfit set, so every key of this character goes
-  /** an edited Character Studio canvas page */
+  /** an edited Character Editor canvas page */
   async loadArtworkCanvas(key, canvas) {
     const k = Math.min(1, this.maxTex / Math.max(canvas.width, canvas.height));
     const opts = { premultiplyAlpha: 'premultiply', colorSpaceConversion: 'none' };

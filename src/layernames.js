@@ -1,4 +1,4 @@
-// Names of the character parts in plain English (what users see in the Character Studio). The technical names (ARM_L, Palm_17 …) stay inside the files
+// Names of the character parts in plain English (what users see in the Character Editor). The technical names (ARM_L, Palm_17 …) stay inside the files
 // and in PSD / ZIP layer names, so uploads by name keep working. The admin can still rename any layer (layerrules.js); this is the default.
 
 const SIDE = { L: 'Left', R: 'Right' }, SIDE2 = { L: 'Left', R: 'Right' }, SIDE3 = { L: 'Left', R: 'Right' };

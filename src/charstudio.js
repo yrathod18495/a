@@ -1,5 +1,5 @@
 import { friendlyError } from '../shared/hinglish-errors.js';
-// 12toons Character Studio.
+// 12toons Character Editor.
 // Start from a template (or any rig ZIP), then change it layer by layer: upload / download / remove / lock every layer, colour it,
 // nudge it, fit the face (eyes, brows, nose, lips, ears), pick the outfit — all live on the canvas. Save = baked character
 // (rig + atlas + images + edit profile) in this device's database and, when logged in, in your cloud account.
@@ -84,7 +84,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
   let rigGuideStatus = null;
   const animBar = h('div', { class: 'cs-anim' }), placeBar = h('div', { class: 'cs-place', hidden: true });
   const restrictedTester = () => tester && !testerCanSave(getTesterRules());
-  /** testers only get Sadhu Baba in the 3/4 front pose; the full character / pose list stays with the admin Character Studio */
+  /** testers only get Sadhu Baba in the 3/4 front pose; the full character / pose list stays with the admin Character Editor */
   const templateChoices = () => libraryCharacters().filter((e) => e.template && (!tester || (e.charBase === 'sadhubaba' && e.id.endsWith('-front-side'))));
   const partVisible = l => !tester || testerGroupVisible(getTesterRules(), baseOf(), l.group);
   const partDownloadable = l => !tester || (partVisible(l) && !layerHidden(baseOf(), l.slot, l.key) && testerLayerDownloadable(getTesterRules(), baseOf(), l));
@@ -769,7 +769,7 @@ export async function view({ user, home, toast, tester = false, logout, localPre
       g.fillStyle = '#111'; g.font = '600 20px sans-serif'; g.fillText(labelOf(b.l).slice(0, Math.max(8, Math.floor(b.bw / 11))), b.x + 8, b.y + 26); g.fillStyle = '#444'; g.font = '14px sans-serif'; g.fillText(safe(b.l.region).slice(0, Math.floor(b.bw / 8)), b.x + 8, b.y + 44); g.fillStyle = '#111';
       g.fillStyle = '#555'; g.font = '16px sans-serif'; g.fillText(`${b.w}×${b.h}px`, b.x + 8, b.y + b.bh - 10);
     }
-    if (!tester) { g.fillStyle = '#2563eb'; g.font = '600 24px sans-serif'; g.fillText('12toons AI Animation Studio · Character template · upload the finished parts in the Character Studio (Create tab) or as a ZIP / PSD', M, H - 30); }
+    if (!tester) { g.fillStyle = '#2563eb'; g.font = '600 24px sans-serif'; g.fillText('12toons AI Animator Studio · Character template · upload the finished parts in the Character Editor (Create tab) or as a ZIP / PSD', M, H - 30); }
     const blob = await toBlob(c, 'image/png'), a = h('a', { href: URL.createObjectURL(blob), download: `${tester ? 'character' : '12toons'}-${safe(st.def.name).replace(/[^\w\-]+/g, '_')}-part-template.png` });
     document.body.append(a); a.click(); a.remove();
   }
