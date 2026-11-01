@@ -65,3 +65,8 @@
 .bgg-ring[hidden]{display:none}
 .bgg .btn[aria-pressed=true]{background:linear-gradient(135deg,#7c6cf5,#a597ff);border-color:transparent;color:#fff}
 .bgg-card output{min-width:34px;text-align:right}
+.bgg-samples{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.bgg-sample{display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px;border:1px solid var(--line,#34363c);border-radius:8px;background:var(--card2,#26272c);color:inherit;cursor:pointer;font:inherit}
+.bgg-sample:hover{border-color:#a597ff}
+.bgg-sample img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:5px;image-rendering:auto}
+.bgg-sample small{font-size:10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

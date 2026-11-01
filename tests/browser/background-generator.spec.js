@@ -73,3 +73,17 @@ test('a brush paints a road on its own layer, undo takes it back, and the painti
   await expect.poll(async () => { const c = await colour(); return c.r - c.b; }).toBeGreaterThan(30);   // the saved painting came back
   expect(errors).toEqual([]);
 });
+
+test('a sample texture can be picked and painted with', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await open(page);
+  await page.getByRole('heading', { name: 'Background Generator' }).click();
+  await expect(page.locator('.bgg-sample')).toHaveCount(9);
+  await page.locator('.bgg-sample', { hasText: 'Brick' }).click();
+  await expect(page.locator('select[aria-label="Brush"]')).toHaveValue('texture');
+  const box = await page.locator('.bgg-canvas').boundingBox(), y = box.y + box.height / 2;
+  await page.mouse.move(box.x + 60, y); await page.mouse.down(); await page.mouse.move(box.x + box.width - 60, y, { steps: 20 }); await page.mouse.up();
+  const px = await page.locator('.bgg-canvas').evaluate((c) => { const d = c.getContext('2d').getImageData(Math.round(c.width / 2), Math.round(c.height / 2), 1, 1).data; return { r: d[0], g: d[1], b: d[2] }; });
+  expect(px.r).toBeGreaterThan(px.b + 25);                       // the red-brown of the brick, not the grey checkerboard
+  expect(errors).toEqual([]);
+});

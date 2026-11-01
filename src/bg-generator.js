@@ -43,6 +43,29 @@ export function paint(ctx, doc, bitmaps, scale = 1, { checker = false } = {}) {
 }
 const toBlob = (canvas, type = 'image/png', q) => new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('The picture could not be created. Please try a smaller size.'))), type, q));
 
+
+/** ready-made seamless textures (drawn in code, so there is nothing to download): each is a 256 px tile that repeats without a visible edge */
+const TILE = 256;
+export const SAMPLE_TEXTURES = [
+  ['mud', 'Mud'], ['grass', 'Grass'], ['gravel', 'Gravel'], ['cobble', 'Cobblestone'], ['wood', 'Wood planks'], ['water', 'Water'], ['snow', 'Snow'], ['brick', 'Brick'], ['sand', 'Sand'],
+];
+export function makeSampleTexture(kind) {
+  const c = document.createElement('canvas'); c.width = c.height = TILE; const g = c.getContext('2d');
+  const r = (a, b) => a + Math.random() * (b - a), pick = (l) => l[Math.floor(Math.random() * l.length)];
+  const wrap = (fn) => { for (const dx of [-TILE, 0, TILE]) for (const dy of [-TILE, 0, TILE]) { g.save(); g.translate(dx, dy); fn(); g.restore(); } };   // everything is drawn 9 times, so it continues on the opposite edge
+  const dots = (n, cols, rmin, rmax) => { for (let i = 0; i < n; i++) { const x = r(0, TILE), y = r(0, TILE), rad = r(rmin, rmax), col = pick(cols); wrap(() => { g.fillStyle = col; g.beginPath(); g.arc(x, y, rad, 0, 6.283); g.fill(); }); } };
+  if (kind === 'mud') { g.fillStyle = '#8a5a30'; g.fillRect(0, 0, TILE, TILE); dots(26, ['#7a4c26aa', '#a06c3caa', '#6e4422aa'], 14, 34); dots(500, ['#9c6b3c', '#c99a62', '#6b4020', '#b98a55', '#d8b283'], 1, 4); }
+  else if (kind === 'grass') { g.fillStyle = '#4c8a2c'; g.fillRect(0, 0, TILE, TILE); dots(18, ['#3f7d2a99', '#5aa13a99'], 16, 36); for (let i = 0; i < 900; i++) { const x = r(0, TILE), y = r(0, TILE), a = -Math.PI / 2 + r(-0.5, 0.5), l = r(6, 16), col = pick(['#3f7d2a', '#5aa13a', '#7bbf4a', '#2f5f22', '#8fcf58']); wrap(() => { g.strokeStyle = col; g.lineWidth = r(1, 2.2); g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }); } }
+  else if (kind === 'gravel') { g.fillStyle = '#7d7b78'; g.fillRect(0, 0, TILE, TILE); for (let i = 0; i < 260; i++) { const x = r(0, TILE), y = r(0, TILE), rx = r(3, 9), col = pick(['#8d8f93', '#a6a8ac', '#6f7175', '#b4a79a', '#9a9288']), rot = r(0, 3); wrap(() => { g.fillStyle = col; g.strokeStyle = '#3d3e41'; g.lineWidth = 1; g.beginPath(); g.ellipse(x, y, rx, rx * r(0.6, 0.9), rot, 0, 6.283); g.fill(); g.stroke(); }); } }
+  else if (kind === 'cobble') { g.fillStyle = '#4a4742'; g.fillRect(0, 0, TILE, TILE); const n = 4, sz = TILE / n; for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) { const x = col * sz + (row % 2 ? sz / 2 : 0) + 3, y = row * sz + 3, shade = pick(['#8b8780', '#9b968d', '#7a766f', '#a39d92']); wrap(() => { g.fillStyle = shade; g.beginPath(); g.roundRect(x, y, sz - 6, sz - 6, 10); g.fill(); g.fillStyle = '#ffffff18'; g.fillRect(x + 6, y + 5, sz - 22, 4); }); } }
+  else if (kind === 'wood') { const n = 4, sz = TILE / n; for (let i = 0; i < n; i++) { g.fillStyle = pick(['#9a6a3a', '#a8763f', '#8c5f33', '#b0804a']); g.fillRect(0, i * sz, TILE, sz); g.strokeStyle = '#4a2e14'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, i * sz); g.lineTo(TILE, i * sz); g.stroke(); for (let k = 0; k < 9; k++) { const y = i * sz + r(6, sz - 6); g.strokeStyle = '#5a3a1a55'; g.lineWidth = r(0.6, 1.6); g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(TILE * 0.3, y + r(-3, 3), TILE * 0.7, y + r(-3, 3), TILE, y); g.stroke(); } } }
+  else if (kind === 'water') { const gr = g.createLinearGradient(0, 0, 0, TILE); gr.addColorStop(0, '#2f7fc4'); gr.addColorStop(1, '#2468a8'); g.fillStyle = gr; g.fillRect(0, 0, TILE, TILE); for (let i = 0; i < 26; i++) { const x = r(0, TILE), y = r(0, TILE), w = r(24, 60); wrap(() => { g.strokeStyle = pick(['#ffffff55', '#bfe3ff66', '#1d5a9a66']); g.lineWidth = r(1.5, 3); g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w / 2, y - r(3, 7), x + w, y); g.stroke(); }); } }
+  else if (kind === 'snow') { g.fillStyle = '#eef3f8'; g.fillRect(0, 0, TILE, TILE); dots(30, ['#ffffffcc', '#d5e2ee99'], 10, 30); dots(260, ['#ffffff', '#cfdce8', '#e4edf5'], 1, 3); }
+  else if (kind === 'brick') { g.fillStyle = '#7b5d50'; g.fillRect(0, 0, TILE, TILE); const rows = 8, bh = TILE / rows, bw = TILE / 4; for (let row = 0; row < rows; row++) for (let col = 0; col < 4; col++) { const x = col * bw + (row % 2 ? bw / 2 : 0) + 2, y = row * bh + 2; wrap(() => { g.fillStyle = pick(['#a4513a', '#b35c42', '#94472f', '#a95b44']); g.fillRect(x, y, bw - 4, bh - 4); g.fillStyle = '#ffffff14'; g.fillRect(x, y, bw - 4, 3); }); } }
+  else { g.fillStyle = '#d9bf86'; g.fillRect(0, 0, TILE, TILE); dots(20, ['#e6d29faa', '#c9ad73aa'], 14, 30); dots(600, ['#e9d6a4', '#d2b97f', '#f1e2b8', '#c9ad73', '#b99a5f'], 0.8, 2.2); }
+  return c;
+}
+
 export async function view({ user, home, toast }) {
   let doc = newDoc(), id = uid8(), name = 'My background', sel = null, saved = false, busy = false;
   const bitmaps = new Map();                                // item id -> ImageBitmap
@@ -105,9 +128,9 @@ export async function view({ user, home, toast }) {
 
   // ---------- brush ----------
   let tool = 'select';                                        // 'select' | 'brush' | 'eraser'
-  const brush = { type: 'dirt', size: Math.round(doc.size.w * 0.03), flow: 80, hardness: 60, colour: '#8b5a2b', texture: null };
+  const brush = { type: 'dirt', size: Math.round(doc.size.w * 0.03), flow: 80, hardness: 60, colour: '#8b5a2b', texture: null, scale: 2, _pat: null };
   const rnd = (a, b) => a + Math.random() * (b - a), pick = (list) => list[Math.floor(Math.random() * list.length)];
-  const BRUSHES = [['colour', 'Colour'], ['dirt', 'Dirt road'], ['grass', 'Grass'], ['stones', 'Stones'], ['sand', 'Sand'], ['texture', 'My texture']];
+  const BRUSHES = [['colour', 'Colour'], ['dirt', 'Dirt road'], ['grass', 'Grass'], ['stones', 'Stones'], ['sand', 'Sand'], ['texture', 'Texture']];
   const blob = (g, x, y, r, rgb, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); };
   const hexRgb = (hex) => { const n = parseInt(hex.slice(1), 16); return `${n >> 16},${(n >> 8) & 255},${n & 255}`; };
   /** one dab of the brush at (x, y); strokes are many dabs in a row, so a texture brush looks like real grass / mud / gravel */
@@ -138,7 +161,9 @@ export async function view({ user, home, toast }) {
         g.beginPath(); g.ellipse(x + Math.cos(t) * d, y + Math.sin(t) * d, rx, rx * rnd(0.6, 0.9), rnd(0, 3), 0, 6.283); g.fill(); g.stroke();
       }
     } else if (brush.type === 'texture' && brush.texture) {
-      g.globalAlpha = a; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.clip(); g.fillStyle = g.createPattern(brush.texture, 'repeat'); g.fillRect(x - r, y - r, S, S);
+      g.globalAlpha = a; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.clip();
+      if (!brush._pat || brush._pat.g !== g || brush._pat.tex !== brush.texture || brush._pat.k !== brush.scale) { const pat = g.createPattern(brush.texture, 'repeat'); pat.setTransform?.(new DOMMatrix().scale(brush.scale)); brush._pat = { g, tex: brush.texture, k: brush.scale, pat }; }
+      g.fillStyle = brush._pat.pat; g.fillRect(x - r, y - r, S, S);
     }
     g.restore();
   }
@@ -294,6 +319,9 @@ export async function view({ user, home, toast }) {
   const sizeSlider = slider('Size', 4, 1200, () => brush.size, (v) => { brush.size = v; });
   const flowSlider = slider('Flow', 5, 100, () => brush.flow, (v) => { brush.flow = v; });
   const hardSlider = slider('Soft edge', 0, 100, () => brush.hardness, (v) => { brush.hardness = v; });
+  const scaleSlider = slider('Texture size', 1, 12, () => brush.scale, (v) => { brush.scale = v; });
+  const pickTexture = (canvas, label) => { brush.texture = canvas; brush.type = 'texture'; brushType.value = 'texture'; setTool('brush'); toast(`${label} texture ready. Paint with it on the canvas.`); };
+  const sampleGrid = h('div', { class: 'bgg-samples' }, SAMPLE_TEXTURES.map(([k, label]) => { const tex = makeSampleTexture(k); return h('button', { type: 'button', class: 'bgg-sample', title: `${label} — paint with it`, onclick: () => pickTexture(tex, label) }, h('img', { src: tex.toDataURL('image/png'), alt: '' }), h('small', {}, label)); }));
   const brushColour = h('input', { type: 'color', value: brush.colour, 'aria-label': 'Brush colour', oninput: (e) => { brush.colour = e.target.value; } });
   const colourRow = h('label', { class: 'bgg-inline' }, 'Colour', brushColour);
   const moveRingCentre = () => {};
@@ -301,11 +329,14 @@ export async function view({ user, home, toast }) {
     h('p', { class: 'bgg-sub' }, 'Paint a road, grass, gravel or sand right on the canvas.'),
     h('div', { class: 'bgg-row' }, toolBtn('select', '↖ Select', 'Move and resize items'), toolBtn('brush', '🖌 Brush', 'Paint (B)'), toolBtn('eraser', '⌫ Eraser', 'Rub out the painting (E)')),
     brushType, sizeSlider.box, flowSlider.box, hardSlider.box, colourRow,
+    h('p', { class: 'bgg-sub' }, 'Sample textures'), sampleGrid, scaleSlider.box,
     h('button', { type: 'button', class: 'btn', onclick: () => texFile.click() }, '＋ Paint with my own texture'), texFile,
+    h('p', { class: 'bgg-sub' }, 'Your own texture: choose any picture (best: a square, seamless PNG or JPG of mud, grass, stone, water…). It repeats as you paint.'),
     h('p', { class: 'bgg-sub' }, 'Tip: the mouse wheel on the canvas changes the brush size. Painting sits on its own layer, so you can move it Back or Forward behind or in front of props.'));
   function syncPaintUi() {
     for (const [t, b] of Object.entries(toolBtns)) b.setAttribute('aria-pressed', String(tool === t));
     sizeSlider.input.value = brush.size; sizeSlider.out.textContent = String(brush.size);
+    scaleSlider.box.style.display = tool !== 'select' && brush.type === 'texture' ? '' : 'none'; scaleSlider.input.value = brush.scale; scaleSlider.out.textContent = String(brush.scale);
     colourRow.hidden = brush.type !== 'colour'; hardSlider.box.hidden = brush.type !== 'colour';
     for (const el of [brushType, sizeSlider.box, flowSlider.box, hardSlider.box, colourRow]) el.style.display = tool === 'select' ? 'none' : '';
     if (tool !== 'select') { colourRow.style.display = brush.type === 'colour' ? '' : 'none'; hardSlider.box.style.display = brush.type === 'colour' ? '' : 'none'; }
