@@ -37,8 +37,8 @@ export async function apiCall(url, body, owner = auth.currentUser?.uid) {
   if (!offline && auth.currentUser?.uid !== owner) throw Error('The account has changed. Please try again.');
   return j;
 }
-export async function acquireSession(scope) {
-  const body = { action: 'acquire', ...(scope === 'tester' ? { scope } : {}), deviceId: persistent('12toons-device'), secret: persistent('12toons-session-secret') };
+export async function acquireSession() {
+  const body = { action: 'acquire', deviceId: persistent('12toons-device'), secret: persistent('12toons-session-secret') };
   try { return await apiCall('/api/security', body); }
   catch (e) {
     if (e.code !== 'session_active' || !(await confirmTakeover())) throw e;

@@ -7,7 +7,7 @@ const money = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString('en-IN'
 const dateTime = (value) => value ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const localDayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
-export function dashboardView({ user, home, toast, openStudio, openTesters }) {
+export function dashboardView({ user, home, toast, openStudio }) {
   // The console (top bar + section tabs) stays on screen; every section opens inside `host`, so the tabs and the back buttons always work.
   const shell = h('div', { class: 'sh admin-console' });
   const nav = h('nav', { class: 'admin-console-nav', 'aria-label': 'Admin sections' });
@@ -29,15 +29,12 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     }
   }
   const goOverview = () => show('Overview', overview);
-  const openRequests = () => import('./security-view.js').then(m => m.securityView({ initialTab: 'testers', home: goOverview, toast }));
   const navItems = [
     ['Overview', overview],
     ['Users', () => import('./security-view.js').then(m => m.securityView({ home: goOverview, toast }))],
     ['Live Chat', () => import('./admin-chat.js').then(m => m.chatView({ user, toast, back: goOverview }))],
     ['Payments', () => import('./admin-payments.js').then(m => m.view({ user, home, toast, back: goOverview }))],
     ['Studio Controls', openStudio],
-    ['Tester Requests', openRequests],
-    ['Tester Permissions', openTesters],
     ['Find Project', () => import('./admin-find-project.js').then(m => m.findProjectView({ user, back: goOverview, toast }))],
     ['Props & Effects', () => import('./admin-props-effects.js').then(m => m.propsEffectsView({ home, toast, back: goOverview }))],
     ['Add Assets', () => import('./admin-assets.js').then(m => m.assetsView({ user, home, toast, back: goOverview }))],
@@ -49,8 +46,6 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     'Live Chat': 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z',
     'Payments': 'M6 4h12M6 9h12M9 4c4 0 6 2 6 5s-2 5-6 5l7 6',
     'Studio Controls': 'M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M8 14v6',
-    'Tester Requests': 'M9 4h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h2V5a1 1 0 0 1 1-1ZM9 14l2 2 4-4',
-    'Tester Permissions': 'M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6l-8-3ZM9 12l2 2 4-4',
     'Find Project': 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7ZM15 15l3 3M13.5 14a2.5 2.5 0 1 0 0-.01',
     'Props & Effects': 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z',
     'Add Assets': 'M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM12 8v8M8 12h8',
@@ -80,9 +75,8 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     const state = { security: null, payments: null, chats: null, affiliates: null, alerts: null, failures: {} };
     let knownAlerts = null;
     let busy = false;
-    const requestNotice = h('button', { class: 'btn sm', type: 'button', hidden: true, 'aria-live': 'polite', onclick: () => show('Tester Requests', openRequests) });
     root.append(
-      h('div', { class: 'admin-console-statusbar' }, status, requestNotice, h('span', { class: 'sp' }), h('button', { class: 'btn sm', type: 'button', onclick: () => refresh(true) }, '↻ Refresh')),
+      h('div', { class: 'admin-console-statusbar' }, status, h('span', { class: 'sp' }), h('button', { class: 'btn sm', type: 'button', onclick: () => refresh(true) }, '↻ Refresh')),
       content,
     );
 
@@ -181,24 +175,8 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
       busy = false;
     }
 
-    let knownRequests = null, requestBusy = false;
-    async function refreshRequests() {
-      if (requestBusy || !root.isConnected || document.hidden) return;
-      requestBusy = true;
-      try {
-        const { requests = [] } = await apiCall('/api/security', {action:'testerRequests'}, user.uid);
-        if (!root.isConnected) return;
-        const added = knownRequests ? requests.filter(r=>!knownRequests.has(r.uid)) : [];
-        knownRequests = new Set(requests.map(r=>r.uid));
-        requestNotice.hidden = !requests.length;
-        requestNotice.textContent = `${requests.length} tester request${requests.length===1?'':'s'} pending · Review`;
-        if (added.length) toast(`${added.length} new tester access request${added.length===1?'':'s'} awaiting approval.`);
-      } catch { requestNotice.hidden = false; requestNotice.textContent = 'Tester requests are not available right now · Please try again'; }
-      finally { requestBusy = false; }
-    }
     renderDashboard();
     refresh();
-    setTimeout(refreshRequests, 50);       // the page is attached to the document by then
     // no automatic refresh: the numbers update when the page opens or when Refresh is pressed
     root.dispose = () => {};
     return root;

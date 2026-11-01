@@ -29,12 +29,10 @@ export async function signInGoogle() {
   }
 }
 export const finishRedirect = () => getRedirectResult(auth).catch(() => null);
-export async function signOutUser({ release = true } = {}) {
+export async function signOutUser() {
   const session = await import('./session.js');
-  try { if (release) await session.releaseSession(); } finally { await signOut(auth); }
+  try { await session.releaseSession(); } finally { await signOut(auth); }
 }
-let refreshCurrentUser;
-export const refreshUser = () => refreshCurrentUser?.(auth.currentUser);
 export const onUser = (cb) => {
   let inFlight;
   const refresh = user => {
@@ -44,34 +42,16 @@ export const onUser = (cb) => {
     promise.finally(() => { if (inFlight === task) inFlight = null; });
     return promise;
   };
-  refreshCurrentUser = refresh;
   async function handleUser(user) {
     if (!user) { (await import('./session.js')).stopSession(); cb(null); return; }
-    let confirmedTesterStatus = 'none';
     try {
       const session = await import('./session.js');
-      const testerRoute = location.hash.split('/').slice(0, 2).join('/') === '#/tester';
-      const testerLogin = sessionStorage.getItem('12toons-tester-login') === '1';
-      if (testerRoute || testerLogin) {
-        let tester = await session.apiCall('/api/security', { action: 'testerStatus' }, user.uid);
-        if (tester.status === 'none' || (testerLogin && ['rejected', 'revoked'].includes(tester.status))) {
-          try { tester = await session.apiCall('/api/security', { action: 'testerApply' }, user.uid); }
-          catch (error) { cb(user, { testerAccessOnly: true, testerStatus: tester.status, testerError: error.message }); return; }
-        }
-        confirmedTesterStatus = tester.status;
-        sessionStorage.removeItem('12toons-tester-login');
-        if (tester.status !== 'approved') {
-          session.stopSession();
-          cb(user, { testerAccessOnly: true, testerStatus: tester.status });
-          return;
-        }
-      }
       if (!navigator.onLine && localStorage.getItem('12toons-validated-'+user.uid)) {
         await session.validateSession();cb(user);return;
       }
       const token = await user.getIdTokenResult();
       if (!token.claims.sid) {
-        const acquired = await session.acquireSession(testerRoute || testerLogin ? 'tester' : undefined);
+        const acquired = await session.acquireSession();
         if (auth.currentUser?.uid !== user.uid) return;
         const credential=await signInWithCustomToken(auth, acquired.token);
         await session.validateSession();
@@ -81,11 +61,6 @@ export const onUser = (cb) => {
       await session.validateSession();
       if (auth.currentUser?.uid === user.uid) cb(user);
     } catch (e) {
-      if (location.hash.split('/')[1] === 'tester' && auth.currentUser?.uid === user.uid) {
-        (await import('./session.js')).stopSession();
-        cb(user, { testerAccessOnly: true, testerStatus: confirmedTesterStatus, testerError: e.message });
-        return;
-      }
       window.dispatchEvent(new CustomEvent('session-error', { detail: e.message }));
       await signOut(auth);
     }

@@ -592,16 +592,6 @@ header .logo-btn{font-size:20px}
 .lane2.move { background: #172b1f; }
 .lane2.cam .kf.mv { top: 4px; width: 12px; height: 12px; margin-left: -6px; }
 .sh-who-s { color: var(--mute); font-size: 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tst-anims { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; padding: 6px 0; }
-.tst-a { display: flex; flex-direction: column; text-align: left; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #1d1e22; cursor: pointer; font: inherit; color: var(--text); }
-.tst-a.on { border-color: var(--acc); background: #1d1e22; }
-.tst-a b { font-size: 12px; line-height: 1.25; }
-.tst-a small { color: var(--mute); font-size: 11px; }
-.ad-temails { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.ad-tmail { display: inline-flex; align-items: center; gap: 6px; background: #1d1e22; border: 1px solid #3a3c43; border-radius: 99px; padding: 3px 4px 3px 10px; font-size: 12px; }
-.ad-tmail button { border: 0; background: #1d1e22; border-radius: 99px; width: 20px; height: 20px; cursor: pointer; font-size: 10px; }
-.ad-num { width: 80px; border: 1px solid #3a3c43; border-radius: 10px; padding: 6px 8px; font: inherit; }
-.ad-sthumb { width: 36px; height: 44px; object-fit: contain; border-radius: 8px; background: #1d1e22; display: grid; place-items: center; flex: none; }
 
 /* Affiliate reporting and payout controls */
 .affiliate-rate-card{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 18px;padding:17px 18px;background:#1d1e22;border:1px solid var(--line);border-radius:15px;box-shadow:0 5px 20px #0b0d1e08}.affiliate-rate-card h2{margin:0;font-size:15px}.affiliate-rate-card p{margin:4px 0 0;color:var(--mute);font-size:11px;line-height:1.5}.affiliate-rate-controls{display:flex;align-items:center;gap:8px;flex:none}.affiliate-rate-input{width:86px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#1d1e22;color:var(--ink);font:inherit}.affiliate-rate-message{color:var(--mute);font-size:10px}.affiliate-admin-code{margin:13px 0 0;padding:9px 11px;border-radius:9px;background:#1d1e22;color:#c4bcff;font-size:11px;font-weight:700}.affiliate-admin-totals{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.affiliate-admin-totals span{padding:6px 8px;border-radius:8px;background:#1d1e22;color:var(--text);font-size:10px;font-weight:650}.affiliate-admin-commissions{margin-top:14px;padding-top:12px;border-top:1px solid #3a3c43}.affiliate-admin-commissions h3{margin:0 0 8px;font-size:12px}.affiliate-admin-commission{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #3a3c43}.affiliate-admin-commission>div{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:5px}.affiliate-admin-commission b{font-size:11px}.affiliate-admin-commission small{color:var(--mute);font-size:10px;line-height:1.5}.affiliate-payout-controls{display:flex!important;flex-direction:row!important;align-items:center!important;gap:5px!important}.affiliate-payout-reference{width:min(140px,35vw);padding:6px 7px;border:1px solid var(--line);border-radius:7px;font:10px Arial,sans-serif}.affiliate-payout-controls .btn{padding:6px 8px;font-size:10px}
@@ -637,7 +627,7 @@ header .logo-btn{font-size:20px}
 :root[data-theme="night"] .tabs.big,:root[data-theme="night"] .ws .tabs.big,:root[data-theme="night"] .ws .panel,:root[data-theme="night"] .panel.open{background:var(--card);color:var(--text);border-color:var(--line)}
 :root[data-theme="night"] .tabs button,:root[data-theme="night"] .seg button,:root[data-theme="night"] .seg3 button,:root[data-theme="night"] .shotfocus button{background:var(--card2);color:var(--text);border-color:var(--line)}
 :root[data-theme="night"] .tabs button.on,:root[data-theme="night"] .seg button.on,:root[data-theme="night"] .seg3 button.on,:root[data-theme="night"] .shotfocus button.on,:root[data-theme="night"] .cs-tabs button.on{background:#6d5ce6;color:#edeefb;border-color:#45484f}
-:root[data-theme="night"] .drop:hover,:root[data-theme="night"] .drop.over,:root[data-theme="night"] .tst-a.on,:root[data-theme="night"] .cs-mode.on,:root[data-theme="night"] .rl.on,:root[data-theme="night"] .rl.char.on,:root[data-theme="night"] .ad-tmail,:root[data-theme="night"] .ad-tmail button{background:#26272c;color:#c4bcff;border-color:#45484f}
+:root[data-theme="night"] .drop:hover,:root[data-theme="night"] .drop.over,:root[data-theme="night"] .cs-mode.on,:root[data-theme="night"] .rl.on,:root[data-theme="night"] .rl.char.on,:root[data-theme="night"] .ad-tmail button{background:#26272c;color:#c4bcff;border-color:#45484f}
 :root[data-theme="night"] .tl2,:root[data-theme="night"] .tl,:root[data-theme="night"] .linebox,:root[data-theme="night"] .selbar,:root[data-theme="night"] .lrow,:root[data-theme="night"] .cs-ghead{background-color:var(--card)}
 :root[data-theme="night"] .cs-th,:root[data-theme="night"] .th,:root[data-theme="night"] .acard .ath,:root[data-theme="night"] .bgc,:root[data-theme="night"] .cp-img,:root[data-theme="night"] .ad-char img{background-color:#26272c}
 :root[data-theme="night"] .project-actions,:root[data-theme="night"] .affiliate-commission-row,:root[data-theme="night"] .affiliate-admin-commissions,:root[data-theme="night"] .credit-history-row,:root[data-theme="night"] .payments-table td,:root[data-theme="night"] .payments-table th{border-color:var(--line)}
@@ -760,9 +750,6 @@ input,select,textarea{accent-color:#6d5ce6}
 .admin-role-controls{display:flex;flex-basis:100%;align-items:flex-end;gap:9px;margin:8px 0 5px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}.admin-role-controls label{display:grid;flex:1;gap:5px;color:var(--mute);font-size:11px;font-weight:700}.admin-role-select{min-height:38px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--text);font:inherit}.admin-role-controls .btn{margin:0!important}
 :root[data-theme="night"] .admin-role-controls{background:#16171a;border-color:#45484f}:root[data-theme="night"] .admin-role-select{background:#16171a;border-color:#45484f;color:#edeefb}
 @media(max-width:460px){.admin-role-controls{align-items:stretch;flex-direction:column}.admin-role-controls .btn{width:100%}}
-.tester-access-page{min-height:100vh;padding:24px;background:var(--bg)}.tester-access-card{width:min(480px,100%);text-align:center}.tester-access-card h1{margin:18px 0 8px}.tester-access-icon{display:grid;width:54px;height:54px;margin:0 auto 14px;place-items:center;border-radius:18px;background:#1d1e22;color:#c4bcff;font-size:26px;font-weight:800}.tester-access-actions{display:grid;gap:10px;margin:24px 0 12px}.tester-account{margin:15px 0 0;color:var(--mute);font-size:13px;overflow-wrap:anywhere}.tester-pending-indicator{color:var(--mute);font-size:12px}:root[data-theme="night"] .tester-access-icon{background:#26272c;color:#c4bcff}
-.admin-tester-requests{display:grid;gap:10px;margin:16px 0 22px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--card)}.admin-tester-requests-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.admin-tester-requests-heading h2{margin:0 0 4px;font-size:18px}.admin-tester-requests-heading p{margin:0;color:var(--mute);font-size:12px}.admin-request-count{display:grid;min-width:30px;height:30px;place-items:center;padding:0 8px;border-radius:99px;background:#1d1e22;color:#c4bcff;font-weight:800}.admin-tester-request{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}.admin-tester-request>div:first-child{display:grid;min-width:0;gap:4px}.admin-tester-request b{overflow-wrap:anywhere}.admin-tester-request small{color:var(--mute);overflow-wrap:anywhere}.admin-tester-request-actions{display:flex;flex:none;gap:7px}:root[data-theme="night"] .admin-tester-requests{background:var(--card)}:root[data-theme="night"] .admin-request-count{background:#26272c;color:#c4bcff}:root[data-theme="night"] .admin-tester-request{background:#16171a;border-color:#45484f;color:var(--text)}
-@media(max-width:560px){.admin-tester-request{align-items:stretch;flex-direction:column}.admin-tester-request-actions .btn{flex:1}}
 
 
 
@@ -790,10 +777,10 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 :root[data-theme] .sh-bar,:root[data-theme] .projects-header,:root[data-theme] .admin-console-topbar,:root[data-theme] .legal-header{
   border-bottom:1px solid var(--line);box-shadow:0 5px 24px #0003;
 }
-:root[data-theme] .sh-login,:root[data-theme] .maintenance-card,:root[data-theme] .tester-access-card,:root[data-theme] .project-dialog{
+:root[data-theme] .sh-login,:root[data-theme] .maintenance-card,:root[data-theme] .project-dialog{
   border:1px solid #535c8a;box-shadow:0 24px 70px #0006,inset 0 1px #c4bcff12;
 }
-:root[data-theme] .sh-login h1,:root[data-theme] .maintenance-card h1,:root[data-theme] .tester-access-card h1{color:#c4bcff}
+:root[data-theme] .sh-login h1,:root[data-theme] .maintenance-card h1{color:#c4bcff}
 :root[data-theme] .project-card,:root[data-theme] .credit-plan,:root[data-theme] .admin-kpi,:root[data-theme] .affiliate-kpi{border-color:var(--line)}
 :root[data-theme] .project-card:hover,:root[data-theme] .credit-plan:hover{border-color:#9a8bff;box-shadow:0 12px 30px #0004}
 :root[data-theme] .sh-google{background:#26272c;color:var(--text);border-color:#535c8a}
@@ -861,7 +848,7 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .pathview.editing polyline{pointer-events:stroke;stroke-width:14;stroke:#9a8bff33;paint-order:stroke}
 .pathview.editing{pointer-events:none}
 .pathpt{position:absolute;z-index:31;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#9a8bff;border:2px solid #4a3205;cursor:grab;box-shadow:0 0 0 2px #fff8,0 2px 6px #0008;touch-action:none}
-/* Character Studio panels of the tester page (Layers, Face, Body, Outfit) */
+/* Character Studio panels */
 .cs-part{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#1d1e22}.cs-part.off{opacity:.55}
 .cs-prow{display:flex;align-items:center;gap:8px}.cs-prow .nm{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .cs-ctl{display:flex;flex-direction:column;gap:8px;margin-top:10px}
@@ -869,15 +856,7 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .cs-layer{border:1px solid var(--line);border-radius:12px;padding:6px 8px;background:#1d1e22}.cs-layer.off{opacity:.55}.cs-layer.locked{background:#1d1e22}
 .cs-lgroup .cs-ctl{padding:4px 12px 12px}.cs-layer .cs-ctl{padding:6px 2px 4px}
 .cs-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.cs-place{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:12px;background:#1d1e22}
-.cs-place[hidden]{display:none}
-.cs-place .btn.sm{padding:5px 9px}
-.cs-place-note{flex:1 1 100%;font-size:12px;color:var(--mute)}
 
-.cs-ctx{position:fixed;z-index:1000;min-width:170px;max-height:60vh;overflow:auto;display:flex;flex-direction:column;padding:4px;background:var(--panel,#fff);color:inherit;border:1px solid rgba(128,128,128,.4);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
-.cs-ctx b{font-size:11px;opacity:.7;padding:4px 8px}
-.cs-ctx button{all:unset;cursor:pointer;padding:6px 8px;border-radius:5px;font-size:13px}
-.cs-ctx button:hover,.cs-ctx button.on{background:rgba(37,99,235,.18)}
 
 /* ---- phone app look: glass bottom bar + softer, rounder cards (phones only) ---- */
 .mnav{display:none}

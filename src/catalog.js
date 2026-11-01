@@ -1,9 +1,8 @@
 import { listStudioAssets, loadStudioAnimation } from './studio-assets.js';
 import { AssetCache } from './asset-cache.js';
-import { testerAnimationAllowed } from './tester-animation-policy.js';
 // Bundled 12toons characters and their animation library.
 
-import { loadAnimRules, cachedRules, loadTesterConfig } from './cloud.js';
+import { loadAnimRules, cachedRules } from './cloud.js';
 import { rigInfo, dirOf } from './db/info.js';
 import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
@@ -18,14 +17,6 @@ export const libraryStatus = () => libraryProblem;
 let hiddenRules = {};
 export const setAnimRules = (r) => { hiddenRules = (r && r.hidden) || {}; };
 export const getAnimRules = () => hiddenRules;
-/* ---- tester rules: the only animations testers may use { anims: {'*': [ids], neha: [ids]}, limit } ---- */
-let testerRules = { anims: {}, limit: 0, admin: false, blockedAnims: {}, verified: false, hiddenGroups: {}, blockedDownloads: {} };
-export const setTesterRules = (r) => { testerRules = { anims: (r && r.anims) || {}, limit: (r && +r.limit) || 0, admin: r?.admin === true, blockedAnims: r?.blockedAnims || {}, verified: !!r, hiddenGroups: r?.hiddenGroups || {}, blockedDownloads: r?.blockedDownloads || {} }; };
-export const getTesterRules = () => testerRules;
-export async function refreshTesterRules() {
-  setTesterRules(null);
-  try { const r = await Promise.race([loadTesterConfig(), new Promise((res) => setTimeout(() => res(null), 2500))]); if (r) setTesterRules(r); } catch { setTesterRules(null); }
-}
 const isHiddenAnim = (rig, id) => { const k = String(id), all = hiddenRules['*'], mine = rig?.toonChar && hiddenRules[rig.toonChar]; return !!(all?.includes(k) || mine?.includes(k)); };
 
 export async function loadCatalog() {
@@ -105,15 +96,9 @@ function adCategories(pose) {
   return cats.filter((c) => c.animations.length);
 }
 /** the animation lists a user may pick from (the admin's hidden animations are left out); { all: true } = everything (admin screen) */
-export function categoriesFor(rig, { all = false, tester = false } = {}) {
+export function categoriesFor(rig, { all = false } = {}) {
   const cats = allCategories(rig);
   if (all) return cats;
-  if (tester && testerRules.admin) return cats; // Only the authenticated server response grants admin preview access.
-  if (tester) {                   // testers get exactly what the admin ticked, at most `limit` animations
-    const ok = new Set([...(testerRules.anims['*'] || []), ...(rig?.toonChar ? testerRules.anims[rig.toonChar] || [] : [])].map(String));
-    let left = testerRules.limit > 0 ? testerRules.limit : Infinity;
-    return cats.map((c) => ({ ...c, animations: c.animations.filter((a) => { if (!testerAnimationAllowed(testerRules.anims, testerRules.blockedAnims, rig?.toonChar, a.ref.id) || left <= 0) return false; left--; return true; }) })).filter((c) => c.animations.length);
-  }
   return cats.map((c) => ({ ...c, animations: c.animations.filter((a) => a.ref.source !== 'lib' || !isHiddenAnim(rig, a.ref.id)) })).filter((c) => c.animations.length);
 }
 /** List a rig's own animations, grouped into body, hand, leg and face tracks. */

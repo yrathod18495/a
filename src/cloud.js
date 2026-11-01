@@ -88,16 +88,6 @@ export async function listCharactersCloud() {
     return projects.filter((p) => p.kind === 'character' && !p.deleted && p.stateUrl).map((p) => ({ id: charIdOf(p.id), name: p.name, stateUrl: p.stateUrl, updatedAt: p.updatedAt, format: 'char3' }));
   } catch { return []; }
 }
-/** admin: a tester's saved character as a hydrate-ready record (their own pictures included), or null when they never saved it to the cloud */
-export async function loadTesterCharacterFiles(id) {
-  const first = await apiCall('/api/projects', { action: 'adminCharacter', id });
-  if (!first.saved) return null;
-  const m = JSON.parse(await (await fetchBlob(first.stateUrl)).text()), hashes = m.assetHashes || [], pages = {};
-  const { urls } = hashes.length ? await apiCall('/api/projects', { action: 'adminCharacter', id, hashes }) : { urls: {} };
-  const files = new Map(await Promise.all(hashes.map(async (hash) => [hash, await fetchBlob(urls[hash])])));
-  (m.pages || []).forEach((path, i) => { const b = files.get(m.assetHashes[i]); pages[path] = new Blob([b], { type: b.type || 'image/webp' }); });
-  return { id: m.id, name: m.name, pose: m.pose, base: m.base, pages, thumb: m.thumb, profile: m.profile || {} };
-}
 export async function loadCharacterCloud(meta) {
   if (meta.format !== 'char3') throw new Error('This character was saved in an old format. Recreate it in Character Editor.');
   const m = JSON.parse(await (await fetchBlob(meta.stateUrl)).text()), uid = uidOf(), files = await downloadAssets(uid, m.assetHashes || []), pages = {};
@@ -185,66 +175,6 @@ export async function saveLayerRules({ names, hidden }, user) {
   return r;
 }
 
-/* ---------- testers: who they are, which animations they may use, what they saved (Firestore config/testers, testerCharacters) ---------- */
-const TESTER_KEY = 'toons-testers';
-const emptyTesters = () => ({ emails: [], anims: {}, limit: 0, at: '' });
-export const cachedTesters = () => { try { return JSON.parse(localStorage.getItem(TESTER_KEY) || 'null'); } catch { return null; } };
-export function watchTesterConfig(next, error) {
-  const owner = auth.currentUser?.uid;
-  let stopped = false, timer, busy = false, signature = '';
-  const refresh = async () => {
-    if (stopped || busy || document.hidden) return;
-    busy = true;
-    try {
-      const config = await apiCall('/api/security', { action: 'testerAnimations' }, owner);
-      if (stopped) return;
-      const current = JSON.stringify([config.admin === true, config.blockedAnims, config.anims, config.limit, config.hiddenGroups, config.blockedDownloads]);
-      if (current !== signature) { signature = current; next(config); }
-      try { localStorage.setItem(TESTER_KEY, JSON.stringify(config)); } catch { /* optional */ }
-    } catch (e) {
-      signature = '';
-      if (!stopped) error?.(e);
-    } finally {
-      busy = false;
-      if (!stopped) timer = setTimeout(refresh, 30000);   // admin changes reach a tester within half a minute (or at once when the tab comes back)
-    }
-  };
-  const wake = () => { clearTimeout(timer); refresh(); };
-  document.addEventListener('visibilitychange', wake);
-  refresh();
-  const stop = () => { stopped = true; clearTimeout(timer); document.removeEventListener('visibilitychange', wake); };
-  stop.refresh = wake;
-  return stop;
-}
-export async function loadTesterConfig() {
-  if (!auth.currentUser) return emptyTesters();
-  const config = await apiCall('/api/security', { action: 'testerAnimations' });
-  try { localStorage.setItem(TESTER_KEY, JSON.stringify(config)); } catch { /* optional */ }
-  return config;
-}
-export async function saveTesterConfig(cfg, user) {
-  if (!user || auth.currentUser?.uid !== user.uid) throw Error('You must sign in as a verified admin for this.');
-  const config = await apiCall('/api/security', { action: 'saveTesterAnimations', anims: cfg.anims, limit: cfg.limit, blockedAnims: cfg.blockedAnims, hiddenGroups: cfg.hiddenGroups, blockedDownloads: cfg.blockedDownloads }, user.uid);
-  try { localStorage.setItem(TESTER_KEY, JSON.stringify(config)); } catch { /* optional */ }
-  return config;
-}
-/** Tester page access is granted only by the server-verified Firebase UID role. */
-export async function isTester(user) {
-  if (!user || user.uid === 'debug') return false;
-  try { return (await apiCall('/api/security', { action: 'testerStatus' }, user.uid)).status === 'approved'; }
-  catch { return false; }
-}
-/** the tester's saved character, as a row the admin can see (the files stay in the tester's own cloud folder) */
-export async function saveTesterSubmission(def, user) {
-  if (!user || user.uid === 'debug') return;
-  await apiCall('/api/security', { action: 'saveTesterCharacter', id: def.id, name: def.name, pose: def.pose || '', profile: JSON.stringify(def.profile || {}), thumb: def.thumb || '' }, user.uid);
-}
-/** admin: every character the testers saved (read on the server, so it does not depend on the Firestore rules) */
-export async function listTesterSubmissions() {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return [];
-  try { return (await apiCall('/api/security', { action: 'testerSubmissions' }, uid)).submissions || []; } catch { return []; }
-}
 /** admin: find any user's project by the short ID they read out, with its owner and recent save history */
 export async function adminFindProject(id, user) {
   return apiCall('/api/projects', { action: 'adminLookup', id: String(id || '').trim() }, user.uid);
