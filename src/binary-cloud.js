@@ -15,7 +15,7 @@ async function pool(jobs, run) {
   if (failure) throw failure;
 }
 function cloudError(e, what) {
-  if (e instanceof TypeError) { const err = Error(`Could not ${what} with cloud storage. Check your internet; if this keeps happening, ask the admin to review the R2 CORS setting.`); err.code = 'r2_unreachable'; return err; }
+  if (e instanceof TypeError) { const err = Error(`Could not ${what} with cloud storage. Check your internet; if this keeps happening, please contact support.`); err.code = 'r2_unreachable'; return err; }
   return e;
 }
 async function put(target, blob) {

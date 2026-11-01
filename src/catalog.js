@@ -41,7 +41,7 @@ export async function loadCatalog() {
     library = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `12toons/pose/${c.id}-${p.pose}.webp`, template: p, paid: false })));
   }).catch((e) => {
     console.warn('12toons data failed to load', e);
-    libraryProblem = 'The character library could not be loaded. Check your internet and reload the page; if it still fails, tell the admin.';
+    libraryProblem = 'The character library could not be loaded. Check your internet and reload the page; if it still fails, please contact support.';
   });
   await Promise.all([rulesTask, managedTask, libraryTask]);
 }

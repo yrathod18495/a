@@ -183,7 +183,7 @@ function syncPhoneNav() {
 
 /* ---------------- shared bits ---------------- */
 async function login() {
-  try { const u = await signInGoogle(); if (u) go('#/hub'); } catch (e) { if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Sign-in isn’t allowed from this website address yet. Add it under Firebase → Authentication → Settings → Authorized domains.' : `Sign-in failed: ${friendlyError(e)}`); }
+  try { const u = await signInGoogle(); if (u) go('#/hub'); } catch (e) { if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Sign-in is not available from this web address. Please open the official 12toons website and try again.' : `Sign-in failed: ${friendlyError(e)}`); }
 }
 async function loginTester() {
   sessionStorage.setItem('12toons-tester-login', '1');
@@ -305,7 +305,7 @@ function hubView() {
   const name = (user.displayName || 'Creator').split(' ')[0];
   const cloudLine = h('p', { class: 'sh-cloud' }, 'Checking cloud…');
   r2Configured().then(async (ok) => {
-    if (!ok) { cloudLine.textContent = 'Cloud save is not switched on yet — your work is saved on this device.'; return; }
+    if (!ok) { cloudLine.textContent = 'Your work is saved on this device.'; return; }
     const info = await cloudInfo();
     cloudLine.textContent = info ? `☁ Last cloud save: ${new Date(info.updatedAt).toLocaleString()}` : '☁ Projects save automatically while you edit.';
   }).catch(() => { cloudLine.textContent = ''; });

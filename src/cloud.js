@@ -52,7 +52,7 @@ const revisionOf = async (uid, pid) => (await apiCall('/api/projects', { action:
 export async function saveCharacterCloud(def) {
   const uid = uidOf();
   if (!uid) throw new Error('Please log in first to save the character to your account.');
-  if (!(await r2Configured())) throw new Error('Cloud storage is not set up yet, so the character was only saved on this device.');
+  if (!(await r2Configured())) throw new Error('Cloud saving is unavailable right now, so the character was only saved on this device.');
   if (!def.base) throw new Error('This character was saved in an old format. Open it in Character Studio and save it again.');
   const paths = Object.keys(def.pages || {}), files = new Map(), hashes = [];
   for (const path of paths) { const blob = def.pages[path], hash = await hashBlob(blob); files.set(hash, blob); hashes.push(hash); }

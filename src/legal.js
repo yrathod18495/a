@@ -60,7 +60,7 @@ const TERMS = [
     `We may update these terms when the service changes. The date at the top shows the latest revision in this build. Continued use after a revised version is posted means you accept the revised terms, to the extent permitted by applicable law.`
   ]],
   ['12. Contact and legal information', [
-    'For help, contact the person or organization that provided you with the 12toons website or account access. This build does not publish a separate support email, legal entity name, postal address or governing jurisdiction; those details should be added by the service operator when available.'
+    'For help, message us through the Chat button on the website. This build does not publish a separate support email, legal entity name, postal address or governing jurisdiction; those details should be added by the service operator when available.'
   ]]
 ];
 
@@ -89,7 +89,7 @@ const LICENCE = [
     'Other software libraries, fonts, media and services may carry separate licences or terms. Those notices continue to apply to the material they cover. Google, Firebase, Cloudflare, OpenRouter and model-provider names and marks belong to their respective owners.'
   ]],
   ['7. Reporting a rights concern', [
-    'If you believe material on the site uses your work without permission, contact the person or organization that provided you with the 12toons website or account access. Include the page or asset, a description of the rights you hold, and a way to respond. Do not send passwords, API keys or unrelated private files.'
+    'If you believe material on the site uses your work without permission, message us through the Chat button on the website. Include the page or asset, a description of the rights you hold, and a way to respond. Do not send passwords, API keys or unrelated private files.'
   ]],
   ['8. Licence summary', [
     'Use 12toons to create projects under the Terms of Use. Keep ownership of the original content you bring. Preserve third-party notices. Treat bundled media as separately restricted unless its own notice grants broader rights. Ask the relevant rights holder before uses that go beyond the permission stated here.'

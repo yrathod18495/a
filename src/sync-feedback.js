@@ -3,9 +3,9 @@ export function syncFailure(error) {
   const signIn = error.status === 401 || /session|unauthorized|token|account.changed/.test(code);
   const conflict = code === 'conflict';
   const denied = error.status === 403;
-  const setup = code === 'storage_unavailable' || /not set up|not configured|storage is not set up/i.test(error.message || '');
+  const setup = code === 'storage_unavailable' || /not set up|not configured|storage is not set up|saving is unavailable/i.test(error.message || '');
   const quota = code === 'quota_exceeded' || error.status === 413;
-  const message = setup ? 'Cloud storage is not turned on on the server. Your changes are safe on this device.'
+  const message = setup ? 'Cloud saving is unavailable right now. Your changes are safe on this device and will sync when it is back.'
     : quota ? 'Cloud storage is full, or a file is over the limit. Reduce the upload size or contact support.'
       : conflict ? 'A newer version exists in the cloud. Open My Projects to resolve the conflict.'
     : signIn ? 'You need to sign in again. Please sign in again before syncing.'

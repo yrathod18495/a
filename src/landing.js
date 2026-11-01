@@ -25,23 +25,22 @@ const USE_CASES = [
 ];
 
 const FAQ = [
-  ['Can I make an animated video without drawing?', 'Yes. You can choose from available characters and animation clips, or bring your own compatible character files.'],
-  ['Can I animate my own voice recordings?', 'Yes. Add individual audio files or a ZIP containing numbered voice lines, and assign each voice to a character.'],
-  ['Do I need audio to use the Animation Studio?', 'No. You can build a silent scene and add character motion, backgrounds and camera moves without uploading audio.'],
-  ['What does AI scene direction do?', 'It can suggest who appears, animation choices and camera framing from the dialogue context you provide. Review and edit every suggestion before using it.'],
-  ['Does AI direction work automatically?', 'No. AI features are optional. You can direct scenes manually, or use the AI tools with your own OpenRouter API key.'],
-  ['What information is sent when I use the AI tools?', 'A direction request sends the dialogue context and selected character and animation information to OpenRouter. Transcription sends the audio line you selected. These requests go directly from your browser to OpenRouter.'],
-  ['Will OpenRouter charge me?', 'OpenRouter may charge your account for model use. Your OpenRouter key and provider account are separate from your 12toons account; check the provider’s pricing and terms before sending a request.'],
-  ['Where is my OpenRouter key stored?', 'The key is stored in this browser’s local storage and sent to OpenRouter when you use an AI feature. Do not save it on a shared or public device.'],
-  ['What formats can I export?', 'The studio supports WebM and MP4 video exports. Available output sizes and aspect ratios depend on the project and the browser.'],
-  ['Where are projects saved?', 'Projects are saved in this browser on your device. If account cloud storage is configured, project data and files can also sync to the service’s Firebase and R2 storage.'],
-  ['Will my project sync to the cloud automatically?', 'Cloud sync depends on the service being configured and your account being signed in. The app shows its cloud status in the studio; keep a separate copy of important exports and source files.'],
-  ['What happens if I clear browser data or change devices?', 'Local drafts may be removed when browser storage is cleared or the device is lost. Cloud-synced projects may be restored after signing in where cloud storage is available. Export important work regularly.'],
-  ['Can I use my own characters, images and audio?', 'Yes, if you have the rights and permissions needed to use those files. You are responsible for the content you upload and for any people or rights represented in it.'],
-  ['Can I use built-in characters and animations in commercial work?', 'The Website Licence page explains the current limits for bundled artwork and media. Rights may differ by asset, so check the relevant notice before distributing a project.'],
-  ['Do I need a 12toons account?', 'Sign-in is required to open the creative studios and save work to an account. The public landing page and these information pages can be viewed without signing in when maintenance mode is off.'],
-  ['Why can’t I open the studios right now?', 'The service may be in maintenance mode, unavailable, or your account may not have access. Staff sign-in is restricted to Google accounts enabled by the service administrator.'],
-  ['How do I report a problem?', 'Use the support channel through which you received access to 12toons, and include the page and browser where the issue occurred. Do not send passwords, API keys, or private project files unless requested through a trusted channel.']
+  ['What is 12toons?', '12toons is a browser-based studio for making 2D animated videos. Pick a character, add your voice recordings or work silently, direct the scenes on a timeline and export a finished video.'],
+  ['Do I need to draw to make an animation?', 'No. Choose a ready-made character and animation clips, or build and customise your own character in Character Studio.'],
+  ['Can I use my own voice recordings?', 'Yes. Add audio files one by one, or upload a ZIP of numbered voice lines, and assign each voice to a character. Lip-sync is added automatically.'],
+  ['Can I make a video without any audio?', 'Yes. You can build a silent scene with character motion, backgrounds and camera moves.'],
+  ['Do I need an account?', 'You can look around this page without one. To open the studios and save your work, sign in with your Google account, which takes a few seconds.'],
+  ['Is my work saved?', 'Yes. Projects save automatically while you edit, to this device and to your account, so you can pick them up again after signing in on another device. You should still keep a copy of your finished videos and source files.'],
+  ['Can I sign in on more than one device?', 'You can sign in on any device, but only one device can be signed in to an account at a time. If you sign in somewhere new, you will be asked to confirm, and the other device is signed out.'],
+  ['What video formats can I export?', 'You can export WebM or MP4. Free accounts can export videos up to 2 minutes long. Buying Coins raises the limit to 10 minutes per export.'],
+  ['What are Coins?', 'Coins are optional one-time purchases that unlock longer exports. You can see your balance and payment history on the Coins page. Payments are processed securely by Razorpay.'],
+  ['Does 12toons use AI?', 'AI is optional. You can direct every scene yourself, or use the AI tools to get suggestions for who appears, which animation plays and how the camera frames the scene. Review and edit every suggestion before you use it.'],
+  ['Who pays for the AI tools?', 'The AI tools run on your own OpenRouter API key, so OpenRouter may charge your account for the model use. The key is stored only in this browser. Do not save it on a shared or public device.'],
+  ['What is sent to the AI provider?', 'When you use an AI tool, the dialogue and the selected character and animation details are sent from your browser to OpenRouter. Transcription sends the audio line you choose. Nothing is sent unless you start an AI request.'],
+  ['Can I use my own characters, images and audio?', 'Yes, as long as you own them or have permission to use them. You are responsible for the files you upload.'],
+  ['Can I use the built-in characters in commercial work?', 'The Website Licence page explains what you can do with the built-in characters and animations. Rights can differ between assets, so please read it before you publish a video.'],
+  ['What if I clear my browser data or switch devices?', 'Projects saved to your account come back when you sign in again. Anything that only exists in this browser, such as a draft that has not synced yet, can be lost when browser data is cleared, so wait for the save indicator before you close the studio.'],
+  ['How do I get help?', 'Use the Chat button at the bottom of the page to message our team. Tell us which page you were on and which browser you use. Never send passwords or API keys.']
 ];
 
 

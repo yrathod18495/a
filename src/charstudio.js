@@ -989,8 +989,8 @@ export async function view({ user, home, toast, tester = false, logout, localPre
         try { await saveTesterSubmission(rec, user); msg = cloudError ? `✓ Settings saved to the database, but the pictures could not be uploaded: ${friendlyError(cloudError)}` : '✓ Saved in the database — the animation studio now uses this character with your face settings.'; }
         catch (er) { msg += ` Not saved to the database: ${friendlyError(er)}`; }
       }
-    } else if (tester) { try { await saveTesterSubmission(rec, user); msg = '✓ Settings saved to the database. The pictures were not uploaded (cloud storage is not set up); they only exist on this device.'; } catch (er) { msg = `✓ Saved on this device. Not saved to the database: ${friendlyError(er)}`; } }
-    else if (user?.uid && user.uid !== 'debug') msg += ' (Cloud saving is not set up yet.)';
+    } else if (tester) { try { await saveTesterSubmission(rec, user); msg = '✓ Settings saved to the database. The pictures could not be uploaded because cloud saving is unavailable right now; they only exist on this device.'; } catch (er) { msg = `✓ Saved on this device. Not saved to the database: ${friendlyError(er)}`; } }
+    else if (user?.uid && user.uid !== 'debug') msg += ' (Cloud saving is unavailable right now.)';
     return msg;
   }
   function panelSave() {
