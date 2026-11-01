@@ -41,10 +41,13 @@ function quickIcon(d) {
 function quickDock() {
   const toggle = h('button', { type: 'button', class: 'lp-dock-item lp-dock-toggle', 'aria-expanded': 'false', 'aria-label': 'Show all shortcuts', onclick: () => { const open = dock.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(open)); toggle.setAttribute('aria-label', open ? 'Hide shortcut names' : 'Show all shortcuts'); label.textContent = open ? 'Hide names' : 'Show all'; } });
   const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); arrow.setAttribute('viewBox', '0 0 24 24'); arrow.setAttribute('aria-hidden', 'true');
-  const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path'); arrowPath.setAttribute('d', 'M15 5l-7 7 7 7'); arrow.append(arrowPath);
+  const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path'); arrowPath.setAttribute('d', 'M4 6h16M4 12h16M4 18h16'); arrow.append(arrowPath);
   const label = h('span', {}, 'Show all');
   toggle.append(arrow, label);
   const dock = h('aside', { class: 'lp-dock', 'aria-label': 'Quick links' }, toggle, ...QUICK.map(([href, name, path]) => h('a', { href, class: 'lp-dock-item', title: name }, quickIcon(path), h('span', {}, name))));
+  const close = () => { dock.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-label', 'Show all shortcuts'); label.textContent = 'Show all'; };
+  document.addEventListener('pointerdown', (e) => { if (!dock.isConnected) return; if (dock.classList.contains('open') && !dock.contains(e.target)) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dock.isConnected) close(); });
   return dock;
 }
 function menuIcon() {
