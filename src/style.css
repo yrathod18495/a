@@ -878,3 +878,22 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .cs-ctx b{font-size:11px;opacity:.7;padding:4px 8px}
 .cs-ctx button{all:unset;cursor:pointer;padding:6px 8px;border-radius:5px;font-size:13px}
 .cs-ctx button:hover,.cs-ctx button.on{background:rgba(37,99,235,.18)}
+
+/* ---- phone app look: glass bottom bar + softer, rounder cards (phones only) ---- */
+.mnav{display:none}
+@media(max-width:860px){
+  .mnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:60;height:calc(64px + env(safe-area-inset-bottom));padding:6px 4px env(safe-area-inset-bottom);background:color-mix(in srgb,var(--bg) 74%,transparent);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);border-top:1px solid color-mix(in srgb,var(--acc) 22%,transparent);box-shadow:0 -8px 30px #0003}
+  .mnav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;color:var(--mute);font:inherit;cursor:pointer;position:relative;-webkit-tap-highlight-color:transparent;transition:color .2s,transform .2s}
+  .mnav button:active{transform:scale(.92)}
+  .mnav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+  .mnav span{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+  .mnav button.on{color:var(--acc)}.mnav button.on svg{transform:translateY(-2px) scale(1.1);stroke-width:2.5}.mnav button.on span{opacity:1}
+  .mnav button.on::after{content:"";position:absolute;bottom:2px;width:5px;height:5px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc)}
+  body.has-mnav #shell{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+  body.has-mnav .support-widget{bottom:calc(76px + env(safe-area-inset-bottom))}
+  .sh-tool,.project-card,.credit-plan{border-radius:22px}
+  .sh-tool{padding:18px;box-shadow:0 10px 30px #0003}
+  .sh-bar{position:sticky;top:0;z-index:40;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+  .sh-hub h1{font-size:26px}
+  .sh-tools{gap:14px}
+}

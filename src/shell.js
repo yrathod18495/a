@@ -63,7 +63,7 @@ window.addEventListener('hashchange', route);
 
 let routing = Promise.resolve();
 function route() {
-  routing = routing.then(renderRoute).catch(e => {
+  routing = routing.then(renderRoute).then(syncPhoneNav).catch(e => {
     if (reloadForNewVersion(e)) return;
     toast(`Could not open the page: ${e.message}`);
   });
@@ -159,6 +159,26 @@ async function renderRoute() {
   }
   if (hash === '#/characters') { const m = await import('./charstudio.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/characters'), toast })); return; }
   $shell.replaceChildren(hash === '#/login' ? loginView() : hash === '#/hub' ? hubView() : landingView());
+}
+
+
+/* ---------------- phone bottom bar (app look; hidden on desktop, in the studios and on public pages) ---------------- */
+const NAV_TABS = [
+  ['#/hub', 'Home', 'M3 11 12 3l9 8M5 10v10h5v-6h4v6h5V10'],
+  ['#/toons', 'Animate', 'M4 5h16v14H4zM10 9l5 3-5 3z'],
+  ['#/characters', 'Characters', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0'],
+  ['#/credits', 'Coins', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.5h-3a1.7 1.7 0 0 0 0 3.5h4'],
+  ['#/affiliate-dashboard', 'Earn', 'M4 17l6-6 4 4 6-10m-6 0h6v6'],
+];
+let phoneNav = null;
+function syncPhoneNav() {
+  const parts = (location.hash || '#/').split('/'), hash = parts.slice(0, 2).join('/'), inProject = (hash === '#/toons' || hash === '#/characters') && parts[2];
+  const show = !!user && role !== 'tester' && role !== 'tester-pending' && !(maintenance && role !== 'admin') && !inProject && NAV_TABS.some(t => t[0] === hash);
+  document.body.classList.toggle('has-mnav', show);
+  if (!show) { phoneNav?.remove(); phoneNav = null; return; }
+  const svg = (d) => { const e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 24 24'); e.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', d); e.append(path); return e; };
+  const next = h('nav', { class: 'mnav', 'aria-label': 'Main' }, NAV_TABS.map(([to, label, d]) => h('button', { type: 'button', class: to === hash ? 'on' : '', 'aria-current': to === hash ? 'page' : null, onclick: () => go(to) }, svg(d), h('span', {}, label))));
+  phoneNav?.replaceWith(next); if (!phoneNav) document.body.append(next); phoneNav = next;
 }
 
 /* ---------------- shared bits ---------------- */
