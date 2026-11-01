@@ -46,7 +46,7 @@ export async function view({ user, home }) {
       const options = {
         key: order.keyId, amount: order.amountPaise, currency: order.currency, name: '12toons',
         description: `${coinText(plan.credits)} · ${plan.name} plan`, order_id: order.orderId,
-        prefill: { name: user.displayName || '', email: user.email || '' }, theme: { color: '#23a3a3' },
+        prefill: { name: user.displayName || '', email: user.email || '' }, theme: { color: '#7c6cf5' },
         handler: async (response) => {
           finished = true; message.textContent = 'Verifying payment…';
           try {
