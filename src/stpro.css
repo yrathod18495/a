@@ -768,3 +768,24 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .tclip .lz::after{left:4px}.tclip .rz::after{right:4px}
 .tclip:hover .lz::after,.tclip:hover .rz::after,.tclip.sel .lz::after,.tclip.sel .rz::after{opacity:1}
 :root[data-theme="day"] .tclip .lz::after,:root[data-theme="day"] .tclip .rz::after{background:#2e3036b3}
+
+/* timeline: one slim toolbar row, a visible drag bar (with a button) to make it taller, and slimmer lanes */
+#app .ws .tlwrap{container-type:inline-size}
+#app .ws .tltools{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:4px;padding:0 2px 2px}
+#app .ws .tltools::-webkit-scrollbar{display:none}
+#app .ws .tltools .edittools{padding:0;gap:4px;overflow:visible;flex:none}
+#app .ws .tltools .timeline-title{margin-right:4px}
+#app .ws .tl-sep{flex:none;width:1px;height:20px;margin:0 4px;background:var(--line,#34363c)}
+#app .ws .tltools .edit-btn{flex-direction:row;gap:5px;min-width:0;padding:0 9px;height:28px;border-radius:9px;font-size:12px;white-space:nowrap}
+#app .ws .tltools .edit-btn svg{width:15px;height:15px}
+@container (max-width:900px){#app .ws .tltools :is(.edit-prev,.edit-next,.edit-paste,.edit-copy) span:not(.ic){display:none}}
+@container (max-width:700px){#app .ws .tltools .edit-btn span:not(.ic){display:none}#app .ws .tltools .edit-btn{padding:0 8px}}
+#app .ws .resize-handle.resize-tl{display:block;position:relative;height:16px;margin:-14px 0 0;z-index:7;cursor:row-resize;touch-action:none}
+#app .ws .resize-handle.resize-tl::after{display:none}
+#app .ws .resize-tl .tl-grip{position:absolute;left:50%;top:6px;width:56px;height:4px;margin-left:-28px;border-radius:3px;background:#6b6e78;opacity:.7;transition:background .15s,opacity .15s}
+#app .ws .resize-tl:hover .tl-grip,#app .ws .resize-tl.dragging .tl-grip{background:var(--acc,#8b7bff);opacity:1}
+#app .ws .resize-tl .tl-toggle{position:absolute;left:calc(50% + 42px);top:0;display:grid;place-items:center;width:34px;height:16px;padding:0;border:1px solid #4a4c55;border-radius:8px;background:#26272c;color:#e6e7ea;cursor:pointer}
+#app .ws .resize-tl .tl-toggle svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.6;fill:none}
+#app .ws .resize-tl .tl-toggle:hover{border-color:#a597ff;background:#2e3036}
+:root[data-theme="day"] #app .ws .resize-tl .tl-toggle{background:#fff;color:#2e3036;border-color:#cfd3ea}
+:root[data-theme="day"] #app .ws .resize-tl .tl-grip{background:#b3b8d6}

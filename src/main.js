@@ -636,7 +636,19 @@ function resizeHandle(cls, label, onDrag, onReset) {
   return el;
 }
 const panelHandle = () => resizeHandle('resize-panel', 'Side panel', (ev, start) => { S.layout.panelW = clampPanel(start.panelW + (start.x - ev.clientX), innerWidth); applyLayout(wsEl(), S.layout); }, () => setLayout({ panelW: DEFAULT_LAYOUT.panelW }));
-const timelineHandle = () => resizeHandle('resize-tl', 'Timeline', (ev, start) => { S.layout.tlH = clampTimeline(start.tlH + (start.y - ev.clientY), innerHeight); applyLayout(wsEl(), S.layout); }, () => setLayout({ tlH: 0 }));
+const TL_TALL = () => Math.round(innerHeight * 0.58);
+const timelineHandle = () => {
+  const handle = resizeHandle('resize-tl', 'Timeline', (ev, start) => { S.layout.tlH = clampTimeline(start.tlH + (start.y - ev.clientY), innerHeight); applyLayout(wsEl(), S.layout); }, () => setLayout({ tlH: 0 }));
+  const tall = () => (S.layout.tlH || 0) >= TL_TALL() - 8;
+  const toggle = h('button', { type: 'button', class: 'tl-toggle' });
+  const sync = () => { const up = !tall(); toggle.replaceChildren(icon(up ? 'chevron-up' : 'chevron-down')); toggle.title = toggle.ariaLabel = up ? 'Make the timeline taller' : 'Back to the normal timeline size'; };
+  toggle.addEventListener('pointerdown', e => e.stopPropagation());
+  toggle.addEventListener('dblclick', e => e.stopPropagation());
+  toggle.addEventListener('click', () => { setLayout({ tlH: tall() ? 0 : clampTimeline(TL_TALL(), innerHeight) }); sync(); });
+  handle.append(h('span', { class: 'tl-grip', 'aria-hidden': 'true' }), toggle);
+  handle.addEventListener('pointerup', () => setTimeout(sync, 0)); handle.addEventListener('dblclick', () => setTimeout(sync, 0));
+  sync(); return handle;
+};
 function showShortcuts() {
   modal('Keyboard shortcuts', h('div', { class: 'shortcut-list' }, SHORTCUT_GROUPS.map(([title, rows]) => h('section', {}, h('h3', {}, title), h('dl', {}, rows.flatMap(([key, what]) => [h('dt', {}, h('kbd', {}, key)), h('dd', {}, what)]))))));
 }
@@ -675,7 +687,7 @@ function viewStudio() {
     tlRedo = h('button', { class: 'btn sm icon-btn tl-hist', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo')),
     h('b', { class: 'timeline-title' }, 'Timeline'),
     h('button', { class: 'btn sm icon-btn', title: 'Zoom out timeline', 'aria-label': 'Zoom out timeline', onclick: () => zoom(1 / 1.5) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Zoom in timeline', 'aria-label': 'Zoom in timeline', onclick: () => zoom(1.5) }, icon('zoom-in')),
-    h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')), h('span', { class: 'sp' }), h('span', { class: 'hint', style: 'margin:0' }, 'Tap a clip to edit it'));
+    h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')), h('span', { class: 'tl-sep', 'aria-hidden': 'true' }), editTools());
   drawTimeline(); drawLineBox(); drawTabs();
   setTimeout(fit, 0);
   return h('div', { class: 'workbench' },
@@ -684,7 +696,7 @@ function viewStudio() {
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
-      h('div', { class: 'tlwrap' }, sceneTabs(), tools, editTools(), tlBox, clipBar = h('div', { class: 'clipbar', hidden: true }), h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
+      h('div', { class: 'tlwrap' }, sceneTabs(), tools, tlBox, clipBar = h('div', { class: 'clipbar', hidden: true }), h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
       h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
@@ -1293,7 +1305,7 @@ function jumpEdge(dir) {
 }
 let editBtns = {};
 function editTools() {
-  const b = (key, label, ic, fn, tip, cls = '') => (editBtns[key] = h('button', { type: 'button', class: `edit-btn ${cls}`, title: tip, 'aria-label': tip, onclick: fn }, icon(ic), h('span', {}, label)));
+  const b = (key, label, ic, fn, tip, cls = '') => (editBtns[key] = h('button', { type: 'button', class: `edit-btn edit-${key} ${cls}`, title: tip, 'aria-label': tip, onclick: fn }, icon(ic), h('span', {}, label)));
   return h('div', { class: 'edittools', role: 'toolbar', 'aria-label': 'Edit the selected clip' },
     b('prev', 'Prev', 'skip-back', () => jumpEdge(-1), 'Jump to the previous clip edge'), b('next', 'Next', 'skip-forward', () => jumpEdge(1), 'Jump to the next clip edge'),
     b('split', 'Split', 'scissors', splitSelected, 'Cut the selected clip at the playhead', 'needs-sel'),
