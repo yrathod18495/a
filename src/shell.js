@@ -38,7 +38,7 @@ function setTheme(theme) {
   document.documentElement.style.colorScheme = activeTheme === 'night' ? 'dark' : 'light';
   try { localStorage.setItem('12toons-theme', activeTheme); } catch { /* theme still applies for this page view */ }
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = activeTheme === 'night' ? '#0b0907' : '#ffffff';
+  if (meta) meta.content = activeTheme === 'night' ? '#141517' : '#f2f3f5';
 }
 setTheme(activeTheme);
 

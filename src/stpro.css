@@ -455,8 +455,6 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 :root[data-theme] body .project-row .btn.danger{border-color:transparent}
 
 /* slimmer header (56 px, 60 px on a computer) and a compact, tidy account menu */
-:root,:root[data-theme="night"],:root[data-theme="day"]{--bar-h:56px}
-@media(min-width:861px){:root,:root[data-theme="night"],:root[data-theme="day"]{--bar-h:60px}}
 :root[data-theme] body .sh-bar:not(.lp-header),:root[data-theme] body .projects-header{padding:0 12px;gap:10px}
 :root[data-theme] body .logo-btn{font-size:20px}
 .hdr-burger{width:38px;height:38px;border-radius:12px;margin-right:0}
@@ -527,3 +525,17 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .support-day{align-self:center;margin:6px 0 2px}.support-day span{padding:4px 11px;border-radius:999px;background:var(--btn);color:var(--mute);font-size:11px;font-weight:650}
 .support-compose{resize:none;overflow-y:auto}
 :root[data-theme] body .legal-page,:root[data-theme] body .legal-main{background:var(--page)!important}
+
+/* thinner header */
+:root,:root[data-theme="night"],:root[data-theme="day"]{--bar-h:48px}
+@media(min-width:861px){:root,:root[data-theme="night"],:root[data-theme="day"]{--bar-h:54px}}
+:root[data-theme] body .sh-bar:not(.lp-header),:root[data-theme] body .projects-header{padding:0 12px;gap:10px}
+:root[data-theme] body .hdr-burger{width:34px;height:34px;border-radius:11px}
+:root[data-theme] body .sh-bar .sh-profile>button,:root[data-theme] body .sh-bar .sh-avatar,:root[data-theme] body .sh-profile .sh-avatar{width:34px!important;height:34px!important}
+:root[data-theme] body .sh-profile .sh-menu{top:calc(100% + 8px)}
+:root[data-theme] body .lp .lp-brand-crest{height:auto!important;margin-block:0!important;padding:0!important}
+:root[data-theme] body .lp .lp-brand-crest .logo{padding:0!important;font-size:24px}
+:root[data-theme] body .lp .lp-header,:root[data-theme] body .lp .lp-header.sh-bar{min-height:var(--bar-h)!important;padding-block:6px!important}
+:root[data-theme] body .lp .lp-header>.lp-button{min-height:34px!important;padding:6px 12px!important}
+:root[data-theme] body .lp .lp-header .lp-nav a{padding:10px 0!important}
+:root[data-theme] body .lp .lp-header .lp-nav a:after{bottom:2px}
