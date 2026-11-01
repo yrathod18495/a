@@ -33,7 +33,7 @@ export function paint(ctx, doc, bitmaps, scale = 1, { checker = false } = {}) {
     ctx.save(); ctx.globalAlpha = clamp(it.opacity ?? 1, 0, 1);
     ctx.translate(it.x * scale, it.y * scale); ctx.rotate(((it.rot || 0) * Math.PI) / 180); ctx.scale(it.flip ? -1 : 1, 1);
     const iw = it.w * scale, ih = it.h * scale;
-    if (it.type === 'image') { const bmp = bitmaps.get(it.id); if (bmp) ctx.drawImage(bmp, -iw / 2, -ih / 2, iw, ih); }
+    if (it.type === 'image' || it.type === 'paint') { const bmp = bitmaps.get(it.id); if (bmp) ctx.drawImage(bmp, -iw / 2, -ih / 2, iw, ih); }
     else if (it.type === 'rect') { ctx.fillStyle = it.fill || '#8b7bff'; const r = Math.min((it.radius || 0) * scale, iw / 2, ih / 2); ctx.beginPath(); ctx.roundRect(-iw / 2, -ih / 2, iw, ih, r); ctx.fill(); }
     else if (it.type === 'ellipse') { ctx.fillStyle = it.fill || '#8b7bff'; ctx.beginPath(); ctx.ellipse(0, 0, iw / 2, ih / 2, 0, 0, Math.PI * 2); ctx.fill(); }
     else if (it.type === 'text') { ctx.fillStyle = it.fill || '#ffffff'; ctx.font = `800 ${Math.round(ih * 0.8)}px system-ui, "Noto Sans Devanagari", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(it.text || 'Text', 0, 0, iw); }
@@ -46,13 +46,17 @@ const toBlob = (canvas, type = 'image/png', q) => new Promise((resolve, reject) 
 export async function view({ user, home, toast }) {
   let doc = newDoc(), id = uid8(), name = 'My background', sel = null, saved = false, busy = false;
   const bitmaps = new Map();                                // item id -> ImageBitmap
-  const history = [], future = [];
+  const history = [], future = [], paintDirty = new Set();
   const snapshot = () => JSON.stringify({ ...doc, items: doc.items.map(({ blob, ...rest }) => rest) });
   let lastSnap = snapshot();
-  const commit = () => { const s = snapshot(); if (s !== lastSnap) { history.push(lastSnap); if (history.length > 60) history.shift(); future.length = 0; lastSnap = s; } saved = false; redraw(); };
+  const commit = () => { const s = snapshot(); if (s !== lastSnap) { history.push({ s: lastSnap }); if (history.length > 60) history.shift(); future.length = 0; lastSnap = s; } saved = false; redraw(); };
   const applySnap = (s) => { const parsed = JSON.parse(s), blobs = new Map(doc.items.map((i) => [i.id, i.blob])); doc = { ...parsed, items: parsed.items.map((i) => ({ ...i, blob: blobs.get(i.id) })) }; lastSnap = s; if (!doc.items.some((i) => i.id === sel)) sel = null; redraw(); };
-  const undo = () => { if (!history.length) return; future.push(lastSnap); applySnap(history.pop()); };
-  const redo = () => { if (!future.length) return; history.push(lastSnap); applySnap(future.pop()); };
+  // an undo step is the item list before the change, plus (for a brush stroke) a copy of the painting before the stroke
+  const cloneCanvas = (c) => { const n = document.createElement('canvas'); n.width = c.width; n.height = c.height; n.getContext('2d').drawImage(c, 0, 0); return n; };
+  const inverse = (e) => ({ s: lastSnap, p: e.p && bitmaps.get(e.p.id) ? { id: e.p.id, canvas: cloneCanvas(bitmaps.get(e.p.id)) } : undefined });
+  const restore = (e) => { applySnap(e.s); const c = e.p && bitmaps.get(e.p.id); if (c) { const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.drawImage(e.p.canvas, 0, 0); paintDirty.add(e.p.id); redraw(); } };
+  const undo = () => { if (!history.length) return; const e = history.pop(); future.push(inverse(e)); restore(e); };
+  const redo = () => { if (!future.length) return; const e = future.pop(); history.push(inverse(e)); restore(e); };
 
   // ---------- canvas ----------
   const canvas = h('canvas', { class: 'bgg-canvas', 'aria-label': 'Background canvas' });
@@ -74,7 +78,7 @@ export async function view({ user, home, toast }) {
   };
   const place = () => {                                       // the selection frame, in CSS pixels of the stage
     const it = doc.items.find((i) => i.id === sel);
-    if (!it || it.hidden) { selBox.hidden = true; return; }
+    if (!it || it.hidden || it.type === 'paint' || tool !== 'select') { selBox.hidden = true; return; }
     const k = stage.clientWidth / doc.size.w;
     selBox.hidden = false;
     Object.assign(selBox.style, { left: `${(it.x - it.w / 2) * k}px`, top: `${(it.y - it.h / 2) * k}px`, width: `${it.w * k}px`, height: `${it.h * k}px`, transform: `rotate(${it.rot || 0}deg)` });
@@ -82,7 +86,9 @@ export async function view({ user, home, toast }) {
   function redraw() { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { fit(); drawCanvas(); place(); drawSide(); }); }
 
   // ---------- items ----------
-  const load = async (item) => { if (item.type === 'image' && item.blob && !bitmaps.has(item.id)) bitmaps.set(item.id, await createImageBitmap(item.blob)); };
+  const load = async (item) => {
+    if (item.type === 'paint') { const c = document.createElement('canvas'); c.width = doc.size.w; c.height = doc.size.h; if (item.blob) { const b = await createImageBitmap(item.blob); c.getContext('2d').drawImage(b, 0, 0, c.width, c.height); b.close?.(); } bitmaps.set(item.id, c); return; }
+    if (item.type === 'image' && item.blob && !bitmaps.has(item.id)) bitmaps.set(item.id, await createImageBitmap(item.blob)); };
   const addItem = async (item) => { await load(item); doc.items.push(item); sel = item.id; commit(); };
   const addImage = async (blob, label, { asBackground = false } = {}) => {
     const bmp = await createImageBitmap(blob), { w: cw, h: ch } = doc.size, k = asBackground ? Math.max(cw / bmp.width, ch / bmp.height) : Math.min(1, (cw * 0.6) / bmp.width, (ch * 0.6) / bmp.height);
@@ -94,7 +100,80 @@ export async function view({ user, home, toast }) {
   const selected = () => doc.items.find((i) => i.id === sel);
   const removeItem = (item) => { doc.items = doc.items.filter((i) => i !== item); bitmaps.delete(item.id); if (sel === item.id) sel = null; commit(); };
   const move = (item, by) => { const i = doc.items.indexOf(item), j = clamp(i + by, 0, doc.items.length - 1); if (i === j) return; doc.items.splice(i, 1); doc.items.splice(j, 0, item); commit(); };
-  const duplicate = (item) => { const copy = { ...item, id: uid8(), x: item.x + doc.size.w * 0.03, y: item.y + doc.size.w * 0.03 }; if (bitmaps.has(item.id)) bitmaps.set(copy.id, bitmaps.get(item.id)); doc.items.push(copy); sel = copy.id; commit(); };
+  const duplicate = (item) => { const copy = { ...item, id: uid8(), x: item.x + doc.size.w * 0.03, y: item.y + doc.size.w * 0.03 }; if (item.type === 'paint') { copy.blob = null; bitmaps.set(copy.id, cloneCanvas(bitmaps.get(item.id))); paintDirty.add(copy.id); } else if (bitmaps.has(item.id)) bitmaps.set(copy.id, bitmaps.get(item.id)); doc.items.push(copy); sel = copy.id; commit(); };
+
+
+  // ---------- brush ----------
+  let tool = 'select';                                        // 'select' | 'brush' | 'eraser'
+  const brush = { type: 'dirt', size: Math.round(doc.size.w * 0.03), flow: 80, hardness: 60, colour: '#8b5a2b', texture: null };
+  const rnd = (a, b) => a + Math.random() * (b - a), pick = (list) => list[Math.floor(Math.random() * list.length)];
+  const BRUSHES = [['colour', 'Colour'], ['dirt', 'Dirt road'], ['grass', 'Grass'], ['stones', 'Stones'], ['sand', 'Sand'], ['texture', 'My texture']];
+  const blob = (g, x, y, r, rgb, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); };
+  const hexRgb = (hex) => { const n = parseInt(hex.slice(1), 16); return `${n >> 16},${(n >> 8) & 255},${n & 255}`; };
+  /** one dab of the brush at (x, y); strokes are many dabs in a row, so a texture brush looks like real grass / mud / gravel */
+  function stamp(g, x, y) {
+    const S = brush.size, r = S / 2, a = brush.flow / 100;
+    g.save();
+    if (tool === 'eraser') { g.globalCompositeOperation = 'destination-out'; blob(g, x, y, r, '0,0,0', Math.min(1, a + 0.1)); g.restore(); return; }
+    if (brush.type === 'colour') { const gr = g.createRadialGradient(x, y, r * (brush.hardness / 100) * 0.95, x, y, r), rgb = hexRgb(brush.colour); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+    else if (brush.type === 'dirt') {
+      blob(g, x, y, r, '176,128,78', a * 0.55);
+      g.globalAlpha = a; for (let i = 0; i < Math.max(8, S / 5); i++) { const t = rnd(0, 6.283), d = Math.sqrt(Math.random()) * r * 0.95; g.fillStyle = pick(['#9a6a3c', '#c99a62', '#8a5a30', '#b98a55', '#d8b283']); g.beginPath(); g.arc(x + Math.cos(t) * d, y + Math.sin(t) * d, rnd(1, S / 38 + 1.5), 0, 6.283); g.fill(); }
+    } else if (brush.type === 'sand') {
+      blob(g, x, y, r, '224,200,146', a * 0.6);
+      g.globalAlpha = a; for (let i = 0; i < Math.max(8, S / 5); i++) { const t = rnd(0, 6.283), d = Math.sqrt(Math.random()) * r * 0.95; g.fillStyle = pick(['#e9d6a4', '#d2b97f', '#f1e2b8', '#c9ad73']); g.beginPath(); g.arc(x + Math.cos(t) * d, y + Math.sin(t) * d, rnd(0.8, S / 50 + 1.2), 0, 6.283); g.fill(); }
+    } else if (brush.type === 'grass') {
+      blob(g, x, y, r, '63,125,42', a * 0.28);
+      g.globalAlpha = a; g.lineCap = 'round';
+      for (let i = 0; i < Math.max(6, S / 5); i++) {
+        const t = rnd(0, 6.283), d = Math.sqrt(Math.random()) * r * 0.9, ox = x + Math.cos(t) * d, oy = y + Math.sin(t) * d, ang = -Math.PI / 2 + rnd(-0.45, 0.45), len = S * rnd(0.12, 0.3);
+        g.strokeStyle = pick(['#3f7d2a', '#5aa13a', '#7bbf4a', '#2f5f22', '#8fcf58']); g.lineWidth = Math.max(1.5, S / 40);
+        g.beginPath(); g.moveTo(ox, oy); g.quadraticCurveTo(ox + Math.cos(ang) * len * 0.4 + rnd(-3, 3), oy + Math.sin(ang) * len * 0.5, ox + Math.cos(ang) * len, oy + Math.sin(ang) * len); g.stroke();
+      }
+    } else if (brush.type === 'stones') {
+      g.globalAlpha = a;
+      for (let i = 0; i < Math.max(2, S / 40); i++) {
+        const t = rnd(0, 6.283), d = Math.sqrt(Math.random()) * r * 0.9, rx = S * rnd(0.025, 0.07);
+        g.fillStyle = pick(['#8d8f93', '#a6a8ac', '#76787c', '#b4a79a']); g.strokeStyle = '#4a4b4e'; g.lineWidth = Math.max(1, S / 200);
+        g.beginPath(); g.ellipse(x + Math.cos(t) * d, y + Math.sin(t) * d, rx, rx * rnd(0.6, 0.9), rnd(0, 3), 0, 6.283); g.fill(); g.stroke();
+      }
+    } else if (brush.type === 'texture' && brush.texture) {
+      g.globalAlpha = a; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.clip(); g.fillStyle = g.createPattern(brush.texture, 'repeat'); g.fillRect(x - r, y - r, S, S);
+    }
+    g.restore();
+  }
+  const spacing = () => Math.max(1.5, brush.size * ({ stones: 0.45, grass: 0.16, texture: 0.08, colour: 0.07 }[brush.type] ?? 0.12));
+  let stroke = null;
+  const paintLayer = () => {
+    let it = selected(); if (it?.type !== 'paint') it = [...doc.items].reverse().find((i) => i.type === 'paint');
+    if (!it) { it = { id: uid8(), type: 'paint', name: 'Painting', x: doc.size.w / 2, y: doc.size.h / 2, w: doc.size.w, h: doc.size.h, rot: 0, opacity: 1 }; const c = document.createElement('canvas'); c.width = doc.size.w; c.height = doc.size.h; bitmaps.set(it.id, c); doc.items.push(it); }
+    return it;
+  };
+  const startStroke = (e) => {
+    const it = paintLayer(), c = bitmaps.get(it.id), p = toCanvas(e);
+    sel = it.id; stroke = { it, c, g: c.getContext('2d'), last: p, undo: { s: lastSnap, p: { id: it.id, canvas: cloneCanvas(c) } }, carry: 0, shift: e.shiftKey, from: p };
+    stamp(stroke.g, p.x, p.y); drawCanvas();
+  };
+  const moveStroke = (e) => {
+    const p = toCanvas(e), st = stroke, gap = spacing();
+    let a = st.last, dx = p.x - a.x, dy = p.y - a.y, len = Math.hypot(dx, dy), t = gap - st.carry;
+    while (t <= len) { stamp(st.g, a.x + (dx / len) * t, a.y + (dy / len) * t); t += gap; }
+    st.carry = len - (t - gap); st.last = p; drawCanvas();
+  };
+  const endStroke = () => {
+    const st = stroke; stroke = null; if (!st) return;
+    history.push(st.undo); future.length = 0; if (history.filter((x) => x.p).length > 8) history.splice(0, history.findIndex((x) => x.p) + 1);
+    lastSnap = snapshot(); paintDirty.add(st.it.id); saved = false; redraw();
+  };
+  const ring = h('div', { class: 'bgg-ring', hidden: true });
+  stage.append(ring);
+  const moveRing = (e) => {
+    if (tool === 'select') { ring.hidden = true; return; }
+    const r = stage.getBoundingClientRect(), k = r.width / doc.size.w, d = brush.size * k;
+    ring.hidden = false; Object.assign(ring.style, { width: `${d}px`, height: `${d}px`, left: `${e.clientX - r.left - d / 2}px`, top: `${e.clientY - r.top - d / 2}px` });
+  };
+  stage.addEventListener('pointermove', moveRing); stage.addEventListener('pointerleave', () => { ring.hidden = true; });
+  const setTool = (t) => { tool = t; stage.classList.toggle('bgg-painting', t !== 'select'); place(); drawSide(); };
 
   // ---------- pointer: select, move, resize (corner / pinch / wheel), rotate ----------
   const pointers = new Map();
@@ -102,7 +181,7 @@ export async function view({ user, home, toast }) {
   const toCanvas = (e) => { const r = canvas.getBoundingClientRect(); return { x: ((e.clientX - r.left) / r.width) * doc.size.w, y: ((e.clientY - r.top) / r.height) * doc.size.h }; };
   const hit = (p) => {
     for (let i = doc.items.length - 1; i >= 0; i--) {
-      const it = doc.items[i]; if (it.hidden) continue;
+      const it = doc.items[i]; if (it.hidden || it.type === 'paint') continue;          // a painting covers the whole canvas: it is chosen from the layer list
       const a = (-(it.rot || 0) * Math.PI) / 180, dx = p.x - it.x, dy = p.y - it.y, lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
       if (Math.abs(lx) <= it.w / 2 && Math.abs(ly) <= it.h / 2) return it;
     }
@@ -113,6 +192,7 @@ export async function view({ user, home, toast }) {
   stage.addEventListener('pointerdown', (e) => {
     if (busy) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (tool !== 'select') { if (pointers.size > 1) return; stage.setPointerCapture(e.pointerId); startStroke(e); return; }
     const it = selected();
     if (it && drag?.kind === 'move' && pointers.size === 2) { drag = { kind: 'pinch', it, d0: dist() || 1, w0: it.w, h0: it.h }; return; }
     stage.setPointerCapture(e.pointerId);
@@ -126,6 +206,7 @@ export async function view({ user, home, toast }) {
   });
   stage.addEventListener('pointermove', (e) => {
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (stroke) { moveStroke(e); return; }
     if (!drag) return;
     const it = drag.it;
     if (drag.kind === 'pinch') resizeTo(it, dist() / drag.d0);
@@ -134,14 +215,16 @@ export async function view({ user, home, toast }) {
     else { const p = toCanvas(e); it.x = Math.round(drag.x0 + p.x - drag.p0.x); it.y = Math.round(drag.y0 + p.y - drag.p0.y); }
     drag.changed = true; drawCanvas(); place();
   });
-  const up = (e) => { pointers.delete(e.pointerId); if (drag && (!pointers.size || drag.kind === 'pinch')) { const changed = drag.changed; drag = null; if (changed) commit(); else drawSide(); } };
+  const up = (e) => { pointers.delete(e.pointerId); if (stroke) { endStroke(); return; } if (drag && (!pointers.size || drag.kind === 'pinch')) { const changed = drag.changed; drag = null; if (changed) commit(); else drawSide(); } };
   stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
-  stage.addEventListener('wheel', (e) => { const it = selected(); if (!it) return; e.preventDefault(); drag = { it, w0: it.w, h0: it.h }; resizeTo(it, Math.exp(-e.deltaY * 0.0015)); drag = null; clearTimeout(stage._t); drawCanvas(); place(); stage._t = setTimeout(commit, 250); }, { passive: false });
+  stage.addEventListener('wheel', (e) => { if (tool !== 'select') { e.preventDefault(); brush.size = clamp(Math.round(brush.size * Math.exp(-e.deltaY * 0.001)), 4, 1200); moveRing(e); drawSide(); return; } const it = selected(); if (!it || it.type === 'paint') return; e.preventDefault(); drag = { it, w0: it.w, h0: it.h }; resizeTo(it, Math.exp(-e.deltaY * 0.0015)); drag = null; clearTimeout(stage._t); drawCanvas(); place(); stage._t = setTimeout(commit, 250); }, { passive: false });
   const onKey = (e) => {
     if (!document.body.contains(root) || e.target.closest?.('input,textarea,select,[contenteditable]')) return;
     const it = selected(), step = e.shiftKey ? 50 : 5;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
+    if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey) { setTool('brush'); return; }
+    if (e.key.toLowerCase() === 'e' && !e.ctrlKey && !e.metaKey) { setTool('eraser'); return; }
     if (!it) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeItem(it); }
     else if (e.key.startsWith('Arrow')) { e.preventDefault(); it.x += e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0; it.y += e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0; commit(); }
@@ -155,11 +238,15 @@ export async function view({ user, home, toast }) {
   };
   const makeThumb = async () => { const t = document.createElement('canvas'), k = 360 / Math.max(doc.size.w, doc.size.h); t.width = Math.round(doc.size.w * k); t.height = Math.round(doc.size.h * k); paint(t.getContext('2d'), doc, bitmaps, k); return toBlob(t, 'image/jpeg', 0.82); };
   const setBusy = (on, text = '') => { busy = on; root.classList.toggle('bgg-busy', on); status.textContent = text; };
+  async function syncPaintBlobs() {          // the painting is kept as a PNG inside the saved background, so it can be opened and painted on again
+    for (const it of doc.items) if (it.type === 'paint' && (paintDirty.has(it.id) || !it.blob)) { it.blob = await toBlob(bitmaps.get(it.id)); paintDirty.delete(it.id); }
+  }
   async function save() {
     if (busy) return;
     if (!doc.items.length && doc.base.kind === 'blank') { toast('Add something to the canvas first, then save.'); return; }
     setBusy(true, 'Rendering the full-size picture…');
     try {
+      await syncPaintBlobs();
       const blob = await render(), thumb = await makeThumb();
       await putBgLibrary(user.uid, { id, name, w: doc.size.w, h: doc.size.h, blob, thumb, doc: { size: doc.size, base: doc.base, items: doc.items } });
       saved = true; toast('Saved. You can pick it from the Background tab in the Animator Studio.'); await drawLibrary();
@@ -176,7 +263,7 @@ export async function view({ user, home, toast }) {
     bitmaps.clear(); await Promise.all(doc.items.map(load));
     id = rec.id; name = rec.name; nameInput.value = name; sel = null; history.length = future.length = 0; lastSnap = snapshot(); saved = true; sizeSel.value = SIZES.find((s) => s.w === doc.size.w && s.h === doc.size.h)?.id || 'custom'; redraw();
   }
-  function newBackground() { doc = newDoc(); bitmaps.clear(); id = uid8(); name = 'My background'; nameInput.value = name; sel = null; history.length = future.length = 0; lastSnap = snapshot(); sizeSel.value = '4k'; saved = false; redraw(); }
+  function newBackground() { paintDirty.clear(); setTool('select'); doc = newDoc(); bitmaps.clear(); id = uid8(); name = 'My background'; nameInput.value = name; sel = null; history.length = future.length = 0; lastSnap = snapshot(); sizeSel.value = '4k'; saved = false; redraw(); }
 
   // ---------- side panels ----------
   const status = h('span', { class: 'bgg-status', role: 'status' });
@@ -198,19 +285,50 @@ export async function view({ user, home, toast }) {
   const swatches = h('div', { class: 'bgg-sw' }, BACKGROUNDS.map((b, i) => h('button', { type: 'button', title: b.name, style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: () => { doc.base = { kind: 'gradient', a: b.a, b: b.b }; commit(); } })),
     h('button', { type: 'button', class: 'bgg-blank', title: 'Blank (transparent)', onclick: () => { doc.base = { kind: 'blank' }; commit(); } }, '▦'));
   const colourA = h('input', { type: 'color', value: '#2a2c3a', 'aria-label': 'Colour', oninput: (e) => { doc.base = { kind: 'solid', a: e.target.value }; saved = false; drawCanvas(); }, onchange: commit });
+  const toolBtns = {};
+  const toolBtn = (t, label, tip) => (toolBtns[t] = h('button', { type: 'button', class: 'btn', title: tip, 'aria-pressed': 'false', onclick: () => setTool(t) }, label));
+  const brushType = h('select', { 'aria-label': 'Brush', onchange: (e) => { brush.type = e.target.value; drawSide(); } }, BRUSHES.map(([k, l]) => h('option', { value: k }, l)));
+  brushType.value = brush.type;
+  const texFile = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async (e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { brush.texture = await createImageBitmap(f); brush.type = 'texture'; brushType.value = 'texture'; setTool('brush'); toast('Texture ready. Paint with it on the canvas.'); } catch { toast('This picture could not be opened. Please choose a PNG, JPG or WebP file.'); } } });
+  const slider = (label, min, max, get, set) => { const out = h('output', {}, String(get())), input = h('input', { type: 'range', min, max, value: get(), oninput: (e) => { set(+e.target.value); out.textContent = e.target.value; moveRingCentre(); } }); return { box: h('label', { class: 'bgg-field' }, h('span', {}, label), input, out), input, out }; };
+  const sizeSlider = slider('Size', 4, 1200, () => brush.size, (v) => { brush.size = v; });
+  const flowSlider = slider('Flow', 5, 100, () => brush.flow, (v) => { brush.flow = v; });
+  const hardSlider = slider('Soft edge', 0, 100, () => brush.hardness, (v) => { brush.hardness = v; });
+  const brushColour = h('input', { type: 'color', value: brush.colour, 'aria-label': 'Brush colour', oninput: (e) => { brush.colour = e.target.value; } });
+  const colourRow = h('label', { class: 'bgg-inline' }, 'Colour', brushColour);
+  const moveRingCentre = () => {};
+  const paintCard = h('div', { class: 'bgg-card' }, h('h2', {}, 'Paint'),
+    h('p', { class: 'bgg-sub' }, 'Paint a road, grass, gravel or sand right on the canvas.'),
+    h('div', { class: 'bgg-row' }, toolBtn('select', '↖ Select', 'Move and resize items'), toolBtn('brush', '🖌 Brush', 'Paint (B)'), toolBtn('eraser', '⌫ Eraser', 'Rub out the painting (E)')),
+    brushType, sizeSlider.box, flowSlider.box, hardSlider.box, colourRow,
+    h('button', { type: 'button', class: 'btn', onclick: () => texFile.click() }, '＋ Paint with my own texture'), texFile,
+    h('p', { class: 'bgg-sub' }, 'Tip: the mouse wheel on the canvas changes the brush size. Painting sits on its own layer, so you can move it Back or Forward behind or in front of props.'));
+  function syncPaintUi() {
+    for (const [t, b] of Object.entries(toolBtns)) b.setAttribute('aria-pressed', String(tool === t));
+    sizeSlider.input.value = brush.size; sizeSlider.out.textContent = String(brush.size);
+    colourRow.hidden = brush.type !== 'colour'; hardSlider.box.hidden = brush.type !== 'colour';
+    for (const el of [brushType, sizeSlider.box, flowSlider.box, hardSlider.box, colourRow]) el.style.display = tool === 'select' ? 'none' : '';
+    if (tool !== 'select') { colourRow.style.display = brush.type === 'colour' ? '' : 'none'; hardSlider.box.style.display = brush.type === 'colour' ? '' : 'none'; }
+  }
   const left = h('aside', { class: 'bgg-left' },
     h('div', { class: 'bgg-card' }, h('h2', {}, 'Add'),
       h('button', { type: 'button', class: 'btn pri', onclick: () => file.click() }, '＋ Picture or prop'), file,
       h('button', { type: 'button', class: 'btn', onclick: toggleShared }, 'Shared props library'), sharedBox,
       h('div', { class: 'bgg-row' }, h('button', { type: 'button', class: 'btn', onclick: () => addShape('rect') }, '▭ Rectangle'), h('button', { type: 'button', class: 'btn', onclick: () => addShape('ellipse') }, '◯ Circle'), h('button', { type: 'button', class: 'btn', onclick: addText }, 'T Text'))),
+    paintCard,
     h('div', { class: 'bgg-card' }, h('h2', {}, 'Canvas'), sizeSel, h('p', { class: 'bgg-sub' }, 'Colour or gradient'), swatches, h('label', { class: 'bgg-inline' }, 'Own colour', colourA)),
     h('div', { class: 'bgg-card' }, h('h2', {}, 'My backgrounds'), h('p', { class: 'bgg-sub' }, 'Saved in your account on this device. Open one to keep editing it.'), (libBox = h('div', { class: 'bgg-lib' }))));
   const props = h('div', { class: 'bgg-props' }), layers = h('div', { class: 'bgg-layers' });
   const right = h('aside', { class: 'bgg-right' }, h('div', { class: 'bgg-card' }, h('h2', {}, 'Selected'), props), h('div', { class: 'bgg-card' }, h('h2', {}, 'Layers'), layers));
   function drawSide() {
+    syncPaintUi();
     emptyHint.hidden = doc.items.length > 0;
     const it = selected(), row = (label, ...c) => h('label', { class: 'bgg-field' }, h('span', {}, label), ...c);
-    props.replaceChildren(...(it ? [
+    props.replaceChildren(...(it?.type === 'paint' ? [
+      row('Opacity', h('input', { type: 'range', min: 5, max: 100, value: Math.round((it.opacity ?? 1) * 100), oninput: (e) => { it.opacity = +e.target.value / 100; drawCanvas(); }, onchange: commit })),
+      h('div', { class: 'bgg-row' }, h('button', { type: 'button', class: 'btn sm', onclick: () => { setTool('brush'); } }, '🖌 Paint more'), h('button', { type: 'button', class: 'btn sm', onclick: () => move(it, 1) }, 'Forward'), h('button', { type: 'button', class: 'btn sm', onclick: () => move(it, -1) }, 'Back'),
+        h('button', { type: 'button', class: 'btn sm danger', onclick: () => removeItem(it) }, 'Delete painting')),
+    ] : it ? [
       row('Opacity', h('input', { type: 'range', min: 5, max: 100, value: Math.round((it.opacity ?? 1) * 100), oninput: (e) => { it.opacity = +e.target.value / 100; drawCanvas(); }, onchange: commit })),
       row('Size', h('input', { type: 'range', min: 5, max: 400, value: Math.round((it.w / doc.size.w) * 100), oninput: (e) => { const w = (+e.target.value / 100) * doc.size.w, s = w / it.w; it.w = Math.round(w); it.h = Math.round(it.h * s); drawCanvas(); place(); }, onchange: commit })),
       row('Rotate', h('input', { type: 'range', min: -180, max: 180, value: Math.round(it.rot || 0), oninput: (e) => { it.rot = +e.target.value; drawCanvas(); place(); }, onchange: commit })),
@@ -222,7 +340,7 @@ export async function view({ user, home, toast }) {
         h('button', { type: 'button', class: 'btn sm danger', onclick: () => removeItem(it) }, 'Delete')),
     ] : [h('p', { class: 'bgg-sub' }, 'Click an item on the canvas to move it. Drag a corner, pinch with two fingers or use the mouse wheel to resize.')]));
     layers.replaceChildren(...(doc.items.length ? [...doc.items].reverse().map((l) => h('div', { class: `bgg-layer ${l.id === sel ? 'on' : ''}` },
-      h('button', { type: 'button', class: 'bgg-layer-main', onclick: () => { sel = l.id; place(); drawSide(); } }, `${{ image: '🖼', rect: '▭', ellipse: '◯', text: 'T' }[l.type] || '•'} ${l.name || l.type}`),
+      h('button', { type: 'button', class: 'bgg-layer-main', onclick: () => { sel = l.id; place(); drawSide(); } }, `${{ image: '🖼', paint: '🖌', rect: '▭', ellipse: '◯', text: 'T' }[l.type] || '•'} ${l.name || l.type}`),
       h('button', { type: 'button', class: 'bgg-eye', title: l.hidden ? 'Show' : 'Hide', onclick: () => { l.hidden = !l.hidden; commit(); } }, l.hidden ? '🚫' : '👁')))
       : [h('p', { class: 'bgg-sub' }, 'No layers yet.')]));
     sizeInfo.textContent = `${doc.size.w} × ${doc.size.h}`;

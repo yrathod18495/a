@@ -45,3 +45,31 @@ test('a background built on the canvas is saved to the database and shows up in 
   await page.locator('.bggrid .bgc', { hasText: 'Test sky' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgId)).toMatch(/^gen-/);
 });
+
+test('a brush paints a road on its own layer, undo takes it back, and the painting is saved and reopened', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await open(page);
+  await page.getByRole('heading', { name: 'Background Generator' }).click();
+  await page.getByRole('button', { name: /Brush/ }).click();
+  await page.locator('select[aria-label="Brush"]').selectOption('dirt');
+  const box = await page.locator('.bgg-canvas').boundingBox(), y = box.y + box.height / 2;
+  await page.mouse.move(box.x + 60, y); await page.mouse.down(); await page.mouse.move(box.x + box.width - 60, y, { steps: 20 }); await page.mouse.up();
+  await expect(page.locator('.bgg-layer')).toHaveCount(1);
+  const colour = () => page.locator('.bgg-canvas').evaluate((c) => { const d = c.getContext('2d').getImageData(Math.round(c.width / 2), Math.round(c.height / 2), 1, 1).data; return { r: d[0], b: d[2] }; });
+  const painted = await colour(); expect(painted.r - painted.b).toBeGreaterThan(30);               // brown, not the grey checkerboard
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.bgg-layer')).toHaveCount(0);
+  await page.keyboard.press('Control+y');
+  await expect(page.locator('.bgg-layer')).toHaveCount(1);
+  await page.locator('select[aria-label="Brush"]').selectOption('grass');
+  await page.mouse.move(box.x + 60, y - 80); await page.mouse.down(); await page.mouse.move(box.x + 300, y - 80, { steps: 10 }); await page.mouse.up();
+  await expect(page.locator('.bgg-layer')).toHaveCount(1);                                          // the same painting layer is reused
+  await page.getByRole('button', { name: 'Save to my backgrounds' }).click();
+  await expect(page.locator('.bgg-lib-item')).toHaveCount(1, { timeout: 25000 });
+  await page.getByRole('button', { name: 'New' }).click();
+  await expect(page.locator('.bgg-layer')).toHaveCount(0);
+  await page.locator('.bgg-lib-open').click();
+  await expect(page.locator('.bgg-layer')).toHaveCount(1);
+  await expect.poll(async () => { const c = await colour(); return c.r - c.b; }).toBeGreaterThan(30);   // the saved painting came back
+  expect(errors).toEqual([]);
+});

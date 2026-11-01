@@ -60,3 +60,8 @@
   .bgg-center{order:-1}
   .bgg-left,.bgg-right{overflow:visible}
 }
+.bgg-stage.bgg-painting{cursor:crosshair}
+.bgg-ring{position:absolute;pointer-events:none;border:1.5px solid #fff;border-radius:50%;box-shadow:0 0 0 1px #000a;z-index:3}
+.bgg-ring[hidden]{display:none}
+.bgg .btn[aria-pressed=true]{background:linear-gradient(135deg,#7c6cf5,#a597ff);border-color:transparent;color:#fff}
+.bgg-card output{min-width:34px;text-align:right}
