@@ -2453,7 +2453,7 @@ function tabCanvas() {
       await pickBg(rec);
     } catch (e) { toast(`Could not add the background: ${e.message}`); }
   };
-  const sharedGrid = (type, choose) => shared(type).length ? h('div', { class: 'studio-shared-grid' }, shared(type).map((asset) => h('button', { class: 'studio-shared-card', type: 'button', onclick: () => choose(asset) }, h('span', {}, type === 'background' ? '🖼' : '🧸'), h('b', {}, asset.name), h('small', {}, 'Shared library · tap to add')))) : h('p', { class: 'sub studio-library-empty' }, 'No shared items have been added by the admin yet.');
+  const sharedGrid = (type, choose) => shared(type).length ? h('div', { class: 'studio-shared-grid' }, shared(type).map((asset) => h('button', { class: 'studio-shared-card', type: 'button', onclick: () => choose(asset) }, asset.thumb ? h('img', { class: 'studio-shared-thumb', src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, type === 'background' ? '🖼' : '🧸'), h('b', {}, asset.name), h('small', {}, 'Shared library · tap to add')))) : h('p', { class: 'sub studio-library-empty' }, 'No shared items have been added by the admin yet.');
   const mine = h('div', { class: 'bggrid' },
     h('button', { class: 'bgc add', onclick: () => file.click() }, h('span', {}, '+'), h('small', {}, 'Add images')),
     S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },

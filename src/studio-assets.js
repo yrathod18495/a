@@ -43,7 +43,7 @@ export async function saveStudioAsset(type, name, file, meta = {}) {
   if (file.size > 40 * 1024 * 1024) throw new Error('The image must be 40 MB or smaller.');
   const hash = await digest(file), key = `assets/${hash}`, id = crypto.randomUUID();
   await uploadAssets(owner, new Map([[hash, file]]));
-  const thumb = type === 'background' ? '' : (meta.thumb ?? await makeThumb(file, meta.sheet).catch(() => ''));
+  const thumb = meta.thumb ?? await makeThumb(file, meta.sheet).catch(() => '');   // every image type gets one (backgrounds too); the original file is untouched
   const asset = (await apiCall('/api/studio-assets', { action: 'save', id, type, name: name.trim().slice(0, 100) || file.name.slice(0, 100), key, size: file.size, mime: file.type, ...meta, thumb }, owner)).asset;
   forgetList();
   return asset;

@@ -756,3 +756,4 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .start-pill{position:absolute;top:10px;left:10px;z-index:6;padding:7px 14px;border:1px solid #4a4c55;border-radius:999px;background:#1d1e22eb;color:#f2f3f5!important;font:inherit;font-size:12px;font-weight:750;cursor:pointer;box-shadow:0 6px 18px #0004}
 .start-pill[hidden]{display:none}.start-pill:hover{border-color:#a597ff}
 :root[data-theme="day"] .start-close{color:#1d1e22!important}
+.studio-shared-card .studio-shared-thumb{display:block;width:100%;aspect-ratio:16/10;object-fit:contain;border-radius:8px;background:repeating-conic-gradient(#2a2c31 0 25%,#1f2024 0 50%) 0 0/14px 14px}
