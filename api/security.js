@@ -5,6 +5,7 @@ import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSess
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
 const hash = value => createHash('sha256').update(value).digest('hex');
+const HEARTBEAT_WRITE_MS = 9 * 60 * 1000;
 const maintenanceEnabled = () => process.env.MAINTENANCE_MODE !== 'false';
 let publishedMaintenance;
 async function publishMaintenance(db, now) {
@@ -60,7 +61,7 @@ export default async function handler(req, res) {
         if (denied) return { denied: { code: denied.code, message: denied.message, status: denied.status } };
         const same = ss.data()?.secretHash === secretHash && !ss.data()?.revoked;
         const sessionId = same ? ss.data().sid : sid;
-        tx.set(s, { sid: sessionId, deviceId: b.deviceId, secretHash, startedAt: same ? ss.data().startedAt : now, expiresAt: NEVER_EXPIRES, revoked: false });
+        tx.set(s, { sid: sessionId, deviceId: b.deviceId, secretHash, startedAt: same ? ss.data().startedAt : now, lastSeen: now, expiresAt: NEVER_EXPIRES, revoked: false });
         tx.set(d, { accounts: [...new Set([...accounts, uid])], lastSeen: now, firstSeen: ds.data()?.firstSeen || now }, { merge: true });
         return { sid: sessionId };
       });
@@ -83,7 +84,11 @@ export default async function handler(req, res) {
     if (b.action === 'tamperAck') return send(res, 200, { ok: true, acknowledged: await acknowledgeAlerts(db, b.id, who.uid) });
     if (b.action === 'heartbeat') {
       // Sessions do not expire; the check above already rejects a revoked or replaced one. A session started before that change is upgraded once so the Firestore rules keep accepting it.
-      if (needsExpiryUpgrade(who.session)) await db.doc('securitySessions/' + who.uid).update({ expiresAt: NEVER_EXPIRES });
+      // The heartbeat also records when the user was last active (at most one write every ~10 minutes), so the admin list can tell an online user from one who left days ago.
+      const update = {};
+      if (needsExpiryUpgrade(who.session)) update.expiresAt = NEVER_EXPIRES;
+      if (!who.session?.lastSeen || now - who.session.lastSeen >= HEARTBEAT_WRITE_MS) update.lastSeen = now;
+      if (Object.keys(update).length) await db.doc('securitySessions/' + who.uid).update(update);
       return send(res, 200, { ok: true });
     }
     if (b.action === 'logout') {

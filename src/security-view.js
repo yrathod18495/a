@@ -3,6 +3,8 @@ import { h } from './dom.js';
 import { apiCall } from './session.js';
 
 const date = value => value ? new Date(value).toLocaleString() : '—';
+const ONLINE_MS = 15 * 60 * 1000;   // the browser reports in every 5 minutes while open
+const isOnline = (s, now = Date.now()) => !!s && !s.revoked && !!s.lastSeen && now - s.lastSeen < ONLINE_MS;
 const short = value => value ? String(value).slice(0, 10) + '…' : '—';
 const statusName = value => ({active:'Active',blocked:'Blocked',restricted:'Restricted',suspended:'Suspended'})[value] || 'Active';
 const el = (tag, cls, ...children) => h(tag, {class:cls}, ...children);
@@ -55,9 +57,9 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   }
   function renderStats(){
     const users=state.users||[],sess=state.sessions||[],ev=state.events||[];
-    const active=sess.filter(s=>!s.revoked).length;
+    const active=sess.filter(s=>isOnline(s)).length;
     const flagged=ev.filter(e=>e.code==='device_review'&&e.review==='pending').length;
-    stats.replaceChildren(block('TOTAL USERS',users.length),block('ACTIVE SESSIONS',active),block('PENDING REVIEWS',flagged),block('LOGIN EVENTS',ev.length));
+    stats.replaceChildren(block('TOTAL USERS',users.length),block('ONLINE NOW',active),block('PENDING REVIEWS',flagged),block('LOGIN EVENTS',ev.length));
   }
   function renderTabs(){
     tabs.replaceChildren(...tabsData.map(([key,name])=>h('button',{
@@ -113,13 +115,13 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     const users=(state.users||[]).filter(u=>(filter==='all'||(u.status||'active')===filter)&&(!term||String(u.email||'').toLowerCase().includes(term)||u.id.toLowerCase().includes(term)));
     if(!users.length){panel.replaceChildren(empty('No matching accounts','Try another search or status filter.'));return;}
     const out=users.map(u=>{
-      const s=state.sessions.find(x=>x.id===u.id),live=s&&!s.revoked;
+      const s=state.sessions.find(x=>x.id===u.id),live=isOnline(s),signedIn=!!s&&!s.revoked;
       const st=u.status||'active',tone=st==='active'?'success':st==='blocked'?'danger':'warning';
-      const main=sectionRow(u.email||u.id,'User ID: '+u.id,[badge(statusName(st),tone),live?badge('● Session online','success'):badge('Offline')]);
+      const main=sectionRow(u.email||u.id,'User ID: '+u.id,[badge(statusName(st),tone),live?badge('● Online now','success'):badge('Offline')]);
       const details=el('div','sa-user-details',
         el('span','', 'Registered: '+(u.registeredAt||'—')),
-        el('span','',live?'Device: '+short(s.deviceId):'No active session'),
-        el('span','',live?'Signed in since: '+date(s.startedAt):''));
+        el('span','',signedIn?'Device: '+short(s.deviceId):'No active session'),
+        el('span','',signedIn?(live?'Signed in since: '+date(s.startedAt):'Last active: '+(s.lastSeen?date(s.lastSeen):'not recorded')):''));
       const actions=el('div','sa-actions',
         btn('Restrict',()=>act({action:'moderate',uid:u.id,status:'restricted'},'Restrict '+(u.email||u.id)+' to read-only access?')),
         btn('Suspend 24h',()=>act({action:'moderate',uid:u.id,status:'suspended',until:Date.now()+86400000},'Suspend this account for 24 hours?')),
