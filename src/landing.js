@@ -37,6 +37,16 @@ function quickIcon(d) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', d); svg.append(path); return svg;
 }
+/** a vertical line of icons on the right side of the hero; the button at the top opens it to show every name */
+function quickDock() {
+  const toggle = h('button', { type: 'button', class: 'lp-dock-item lp-dock-toggle', 'aria-expanded': 'false', 'aria-label': 'Show all shortcuts', onclick: () => { const open = dock.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(open)); toggle.setAttribute('aria-label', open ? 'Hide shortcut names' : 'Show all shortcuts'); label.textContent = open ? 'Hide names' : 'Show all'; } });
+  const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); arrow.setAttribute('viewBox', '0 0 24 24'); arrow.setAttribute('aria-hidden', 'true');
+  const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path'); arrowPath.setAttribute('d', 'M15 5l-7 7 7 7'); arrow.append(arrowPath);
+  const label = h('span', {}, 'Show all');
+  toggle.append(arrow, label);
+  const dock = h('aside', { class: 'lp-dock', 'aria-label': 'Quick links' }, toggle, ...QUICK.map(([href, name, path]) => h('a', { href, class: 'lp-dock-item', title: name }, quickIcon(path), h('span', {}, name))));
+  return dock;
+}
 function menuIcon() {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M4 6h16M4 12h16M4 18h16'); svg.append(path); return svg;
@@ -108,9 +118,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
     h('main', {},
       h('section', { class: 'lp-hero', id: 'top' },
         h('div', { class: 'lp-hero-copy' },
-          h('div', { class: 'lp-hero-top' },
-            h('img', { class: 'lp-hero-logo', src: '/images/12toons-logo.png', alt: '12toons logo', width: '150', height: '150' }),
-            h('nav', { class: 'lp-quick', 'aria-label': 'Quick links' }, QUICK.map(([href, label, path]) => h('a', { href, class: 'lp-quick-link' }, quickIcon(path), h('span', {}, label))))),
+          h('img', { class: 'lp-hero-logo', src: '/images/12toons-logo.png', alt: '12toons logo', width: '150', height: '150' }),
           eyebrow('♛  AI-powered 2D animation studio'),
           h('h1', {}, 'Make your stories ', h('span', { class: 'lp-accent' }, 'move.')),
           h('p', { class: 'lp-hero-lead' }, 'Create 2D animated videos online using characters, voice recordings and an editable timeline. Add lip-sync, direct scenes with AI, and export your animation from your browser.'),
@@ -120,7 +128,8 @@ export function landingView({ user, cta, profileMenu, logo }) {
             h('span', {}, heroIcon('voice'), h('strong', {}, 'Voice & Lip-sync'), h('small', {}, 'Natural dialogue')),
             h('span', {}, heroIcon('timeline'), h('strong', {}, 'Editable Timeline'), h('small', {}, 'Direct every scene')),
             h('span', {}, heroIcon('export'), h('strong', {}, 'Export Anywhere'), h('small', {}, 'Video from browser')))
-        )
+        ),
+        quickDock()
       ),
       h('section', { class: 'lp-coin-section', 'aria-labelledby': 'lp-coins-title' },
         h('div', { class: 'lp-coin-offer' },
