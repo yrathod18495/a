@@ -17,3 +17,21 @@ export async function setMaintenance(db, enabled, by) {
   seen.set(db, { at: Date.now(), enabled: !!enabled });
   return !!enabled;
 }
+
+// Which studio cards the hub shows. The admin can hide or show each one at any time; both are on until the admin hides one.
+export const FEATURES = ['animator', 'character'];
+const featureSeen = new WeakMap();
+export async function getFeatures(db = services().db) {
+  const hit = featureSeen.get(db);
+  if (hit && Date.now() - hit.at < TTL) return hit.value;
+  const data = (await db.doc('config/features').get()).data() || {};
+  const value = Object.fromEntries(FEATURES.map((k) => [k, data[k] !== false]));
+  featureSeen.set(db, { at: Date.now(), value });
+  return value;
+}
+export async function setFeature(db, key, enabled, by) {
+  if (!FEATURES.includes(key)) throw Object.assign(new Error('Unknown feature.'), { status: 400, code: 'invalid_feature' });
+  await db.doc('config/features').set({ [key]: !!enabled, updatedAt: Date.now(), updatedBy: by || null }, { merge: true });
+  featureSeen.delete(db);
+  return getFeatures(db);
+}

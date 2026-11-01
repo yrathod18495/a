@@ -28,6 +28,9 @@ window.addEventListener('project-id-changed', e => {
   if (parts[2] === oldId) { parts[2] = newId; history.replaceState(null, '', location.pathname + location.search + parts.join('/')); }
 });
 const $shell = document.getElementById('shell'), $app = document.getElementById('app');
+let features = { animator: true, character: true };
+const applyFeatures = (r) => { if (r?.features) features = { animator: r.features.animator !== false, character: r.features.character !== false }; };
+const featureOn = (hash) => role === 'admin' || (hash === '#/toons' ? features.animator : hash === '#/characters' ? features.character : true);
 let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true; 
 let loadedAnimationProject=null;
 
@@ -125,6 +128,7 @@ async function renderRoute() {
     $app.hidden = true; $shell.hidden = false;
     $shell.replaceChildren(await affiliateDashboardView({ user, home: () => go('#/hub'), apply: () => go('#/affiliates') })); return;
   }
+  if ((hash === '#/toons' || hash === '#/characters') && user && !featureOn(hash)) { go('#/hub'); return; }
   if (current === '#/toons' && (hash !== '#/toons' || !projectId || projectId !== loadedAnimationProject)) await studio?.closeStudio();
   const oldView = $shell.firstElementChild;
   await oldView?.flushDraft?.(); oldView?.dispose?.();
@@ -186,8 +190,8 @@ function syncPhoneNav() {
       h('button', { type: 'button', class: 'rail-item rail-burger', 'aria-label': 'Menu', 'aria-expanded': String(railOpen), onclick: () => setRail(!railOpen) }, railIcon('menu')),
       item('#/hub', 'home', 'Dashboard'),
       group('Studio apps'),
-      item('#/toons', 'animate', 'Animator Studio'),
-      item('#/characters', 'actor', 'Character Editor'),
+      ...(featureOn('#/toons') ? [item('#/toons', 'animate', 'Animator Studio')] : []),
+      ...(featureOn('#/characters') ? [item('#/characters', 'actor', 'Character Editor')] : []),
       group('Account'),
       item('#/credits', 'coins', 'Coins'),
       item('#/affiliate-dashboard', 'earn', 'Earn with us'),
@@ -351,8 +355,10 @@ function hubView() {
     h('main', { class: 'sh-hub' }, h('h1', {}, 'Welcome to 12toons Studio'), h('p', { class: 'sub' }, `Hi ${name}, create professional animations directly in your browser.`),
       h('div', { class: 'st-label' }, 'Tools'),
       h('div', { class: 'sh-tools' },
-        tool('animator', '12toons Animator Studio', 'Turn your script and your voice into animated scenes, then export a video that is ready to share.', '#/toons', 'Launch Animator Studio'),
-        tool('actor', '12toons Character Editor', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Editor')),
+        ...(featureOn('#/toons') ? [tool('animator', '12toons Animator Studio', 'Turn your script and your voice into animated scenes, then export a video that is ready to share.', '#/toons', 'Launch Animator Studio')] : []),
+        ...(featureOn('#/characters') ? [tool('actor', '12toons Character Editor', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Editor')] : []),
+        ...(!featureOn('#/toons') && !featureOn('#/characters') ? [h('p', { class: 'sub' }, 'The studios are not available right now. Please check back soon.')] : [])),
+      role === 'admin' && (!features.animator || !features.character) ? h('p', { class: 'sub' }, `Hidden for users: ${[!features.animator && 'Animator Studio', !features.character && 'Character Editor'].filter(Boolean).join(', ')} (you can still see them as admin).`) : null,
       recent,
       cloudLine));
 }
@@ -372,9 +378,9 @@ async function start() {
   startRoute('boot', { quiet: true });
   $shell.replaceChildren(h('div', { class: 'sh sh-center boot-splash', role: 'status', 'aria-live': 'polite' }, h('div', { class: 'rf-spin' }), h('p', { class: 'sub' }, 'Getting things ready…')));
   const maintenanceAtStart = maintenanceStatus();   // starts now and runs while the sign-in redirect is finished
-  if (DEBUG) { try { maintenance = (await maintenanceAtStart).maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
+  if (DEBUG) { try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
   await finishRedirect();
-  try { maintenance = (await maintenanceAtStart).maintenance === true; } catch { maintenance = true; }
+  try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; }
   let first = true;
   onUser(async (u) => {
     if (ready && user && u && user.uid !== u.uid) { location.reload(); return; }   // only a real account switch forces a reload; a momentary null (mobile auth hiccup) must not nuke unsaved work
@@ -382,7 +388,7 @@ async function start() {
     if (u) {
       // the two server checks are independent, so they are asked together
       const [maintenanceNow, adminAnswer] = await Promise.all([maintenanceStatus(), isAdmin(u)]);
-      maintenance = maintenanceNow.maintenance === true;
+      applyFeatures(maintenanceNow); maintenance = maintenanceNow.maintenance === true;
       const admin = adminAnswer === true;
       if (adminAnswer === null) {          // the server could not be asked: keep the login, show a retry instead of the maintenance page
         role = 'user'; adminUnknown = true; ready = true; route(); return;

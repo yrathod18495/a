@@ -1,6 +1,6 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
-import { maintenanceOn, setMaintenance } from '../server/maintenance.js';
+import { maintenanceOn, setMaintenance, getFeatures, setFeature } from '../server/maintenance.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
 import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
@@ -19,8 +19,8 @@ export default async function handler(req, res) {
           admin = who.admin;
         } catch { /* anonymous and invalid sessions receive the public maintenance state */ }
       }
-      const maintenance = await maintenanceOn(db);
-      return send(res, 200, { maintenance, admin });
+      const [maintenance, features] = await Promise.all([maintenanceOn(db), getFeatures(db)]);
+      return send(res, 200, { maintenance, admin, features });
     }
     if (b.action === 'acquire') {
       const claims = await identity(req), uid = claims.uid;
@@ -63,7 +63,8 @@ export default async function handler(req, res) {
     }
     const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'tamperAlerts', 'tamperAck'].includes(b.action) });
     if (b.action === 'status') return send(res, 200, { admin: who.admin });
-    if (b.action === 'getMaintenance') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); return send(res, 200, { maintenance: await maintenanceOn(db) }); }
+    if (b.action === 'getMaintenance') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); return send(res, 200, { maintenance: await maintenanceOn(db), features: await getFeatures(db) }); }
+    if (b.action === 'setFeature') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); try { return send(res, 200, { features: await setFeature(db, String(b.feature || ''), b.enabled === true, who.uid) }); } catch (e) { if (e.code === 'invalid_feature') throw new AccessError('invalid_feature', 'This option is not valid.', 400); throw e; } }
     if (b.action === 'setMaintenance') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); return send(res, 200, { maintenance: await setMaintenance(db, b.enabled === true, who.uid) }); }
     // the studio reports that someone opened the developer tools / view-source: stored for the admin dashboard and pushed to admin devices
     if (b.action === 'tamperReport') {

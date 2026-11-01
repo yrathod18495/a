@@ -94,20 +94,31 @@ export function dashboardView({ user, home, toast, openStudio }) {
       try { await apiCall('/api/security', { action: 'tamperAck', id }, user.uid); await refresh(true); }
       catch (e) { toast(`Could not dismiss the alert: ${friendlyError(e)}`); }
     }
-    /** the site-wide maintenance switch: while it is on, only admins and approved testers can use the app */
+    /** site controls: maintenance mode, and showing / hiding each studio card on the users' dashboard */
     function maintenanceCard() {
-      const toggle = h('button', { class: 'admin-switch', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Maintenance mode', disabled: true });
-      const note = h('small', {}, 'Checking…');
-      const paint = (on) => { toggle.setAttribute('aria-checked', String(on)); toggle.classList.toggle('on', on); toggle.disabled = false; note.textContent = on ? 'ON — visitors see the maintenance page. Admins can still work.' : 'OFF — the site is open to everyone.'; };
-      apiCall('/api/security', { action: 'getMaintenance' }, user.uid).then((r) => paint(r.maintenance === true)).catch((e) => { note.textContent = `Could not read the setting: ${friendlyError(e)}`; });
-      toggle.addEventListener('click', async () => {
-        const next = toggle.getAttribute('aria-checked') !== 'true';
-        if (next && !confirm('Turn maintenance mode ON? Everyone except admins will be locked out until you turn it off.')) return;
-        toggle.disabled = true;
-        try { const r = await apiCall('/api/security', { action: 'setMaintenance', enabled: next }, user.uid); paint(r.maintenance === true); toast(r.maintenance ? 'Maintenance mode is ON.' : 'Maintenance mode is OFF. The site is open.'); }
-        catch (e) { toast(`Could not change maintenance mode: ${friendlyError(e)}`); toggle.disabled = false; }
-      });
-      return h('section', { class: 'admin-panel-card admin-maint' }, h('div', { class: 'admin-maint-row' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'SITE ACCESS'), h('h2', {}, 'Maintenance mode'), note), toggle));
+      const rows = [], state = {};
+      const row = (key, title, onNote, offNote, save, confirmOn) => {
+        const toggle = h('button', { class: 'admin-switch', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': title, disabled: true });
+        const note = h('small', {}, 'Checking…');
+        const paint = (on) => { state[key] = on; toggle.setAttribute('aria-checked', String(on)); toggle.classList.toggle('on', on); toggle.classList.toggle('good', key !== 'maintenance'); toggle.disabled = false; note.textContent = on ? onNote : offNote; };
+        toggle.addEventListener('click', async () => {
+          const next = toggle.getAttribute('aria-checked') !== 'true';
+          if (confirmOn && next === confirmOn.when && !confirm(confirmOn.text)) return;
+          toggle.disabled = true;
+          try { const r = await save(next); paint(r); toast(`${title}: ${r ? 'ON' : 'OFF'}.`); }
+          catch (e) { toast(`Could not change “${title}”: ${friendlyError(e)}`); toggle.disabled = false; }
+        });
+        rows.push({ key, paint, note, node: h('div', { class: 'admin-maint-row' }, h('div', {}, h('h2', {}, title), note), toggle) });
+      };
+      row('maintenance', 'Maintenance mode', 'ON — visitors see the maintenance page. Admins can still work.', 'OFF — the site is open to everyone.',
+        async (on) => (await apiCall('/api/security', { action: 'setMaintenance', enabled: on }, user.uid)).maintenance === true,
+        { when: true, text: 'Turn maintenance mode ON? Everyone except admins will be locked out until you turn it off.' });
+      for (const [feature, title] of [['animator', 'Animator Studio card'], ['character', 'Character Editor card']])
+        row(feature, title, 'SHOWN — users see this studio on their dashboard.', 'HIDDEN — users do not see it and cannot open it. Admins still can.',
+          async (on) => (await apiCall('/api/security', { action: 'setFeature', feature, enabled: on }, user.uid)).features[feature] !== false);
+      apiCall('/api/security', { action: 'getMaintenance' }, user.uid).then((r) => { for (const x of rows) x.paint(x.key === 'maintenance' ? r.maintenance === true : r.features?.[x.key] !== false); })
+        .catch((e) => { for (const x of rows) x.note.textContent = `Could not read the setting: ${friendlyError(e)}`; });
+      return h('section', { class: 'admin-panel-card admin-maint' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'SITE CONTROLS'), h('h2', {}, 'Access and visibility'))), ...rows.map((x) => x.node));
     }
     /** creators who opened the developer tools or tried to view the source (reported by src/shield.js) */
     function alertsSection() {
