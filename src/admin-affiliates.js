@@ -5,10 +5,11 @@ import { apiCall } from './session.js';
 const options = ['new', 'contacted', 'approved', 'declined'];
 export async function affiliatesView({ user, back, toast }) {
   const root = h('div', { class: 'sh admin-affiliates' }), list = h('div', { class: 'affiliate-admin-list' }), count = h('span', { class: 'affiliate-admin-count' }), rate = h('input', { type: 'number', min: '1', max: '50', step: '0.5', class: 'affiliate-rate-input', 'aria-label': 'Commission percentage' }), rateMessage = h('span', { class: 'affiliate-rate-message', role: 'status' });
+  const overall = h('section', { class: 'ap-grid3 ap-overall' });
   const saveRate = h('button', { class: 'btn pri', onclick: saveCommissionRate }, 'Save rate');
   const settings = h('section', { class: 'affiliate-rate-card' }, h('div', {}, h('h2', {}, 'Commission rate'), h('p', {}, 'Applied to future captured Coin purchases. Existing commission records keep their original rate.')), h('div', { class: 'affiliate-rate-controls' }, rate, h('span', {}, '%'), saveRate), rateMessage);
   root.append(h('header', { class: 'sh-bar' }, logo(back), h('span', { class: 'sh-crumb' }, 'Admin · Affiliates'), h('span', { class: 'sp' }), h('button', { class: 'btn', onclick: back }, 'Back to Admin')),
-    h('main', { class: 'affiliate-admin-main' }, h('div', { class: 'affiliate-admin-heading' }, h('div', {}, h('span', { class: 'projects-eyebrow' }, 'PARTNERSHIPS'), h('h1', {}, 'Affiliate Partners'), h('p', {}, 'Review applications, referrals, commissions and payout status.')), count), settings, list));
+    h('main', { class: 'affiliate-admin-main' }, h('div', { class: 'affiliate-admin-heading' }, h('div', {}, h('span', { class: 'projects-eyebrow' }, 'PARTNERSHIPS'), h('h1', {}, 'Affiliate Partners'), h('p', {}, 'Review applications, referrals, commissions and payout status.')), count), overall, settings, list));
   async function loadSettings() {
     try { const result = await apiCall('/api/affiliates', { action: 'adminSettings' }, user.uid); rate.value = String(result.commissionPercent); }
     catch (e) { rateMessage.textContent = `Could not load the rate: ${friendlyError(e)}`; }
@@ -31,6 +32,11 @@ export async function affiliatesView({ user, back, toast }) {
     try {
       const result = await apiCall('/api/affiliates', { action: 'adminList' }, user.uid), rows = result.affiliates || [];
       count.textContent = `${rows.length} request${rows.length === 1 ? '' : 's'}`;
+      const sum = (key) => rows.reduce((n, r) => n + Number(r.stats?.[key] || 0), 0), rupees = (p) => `₹${(p / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      overall.replaceChildren(
+        h('article', { class: 'ap-stat good' }, h('small', {}, 'Pending for payout (all partners)'), h('b', {}, rupees(sum('pendingPaise')))),
+        h('article', { class: 'ap-stat' }, h('small', {}, 'Total paid out'), h('b', {}, rupees(sum('paidPaise')))),
+        h('article', { class: 'ap-stat' }, h('small', {}, 'Approved partners'), h('b', {}, String(rows.filter((r) => r.status === 'approved').length))));
       list.replaceChildren(...rows.map(row => {
         const status = h('select', { class: 'affiliate-status', 'aria-label': `Status for ${row.name}` }, ...options.map(x => h('option', { value: x, selected: x === row.status }, x[0].toUpperCase() + x.slice(1))));
         status.addEventListener('change', async () => {

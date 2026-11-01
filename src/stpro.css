@@ -562,3 +562,19 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .admin-switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
 .admin-switch.on{background:#d9485f;border-color:#d9485f}.admin-switch.on::after{transform:translateX(24px)}
 .admin-switch:disabled{opacity:.5;cursor:default}
+
+/* partner dashboard: earnings cards, totals, commission table */
+:root[data-theme] body .affiliate-dash-main{width:min(980px,100%);margin:0 auto;padding:22px 16px 60px;display:flex;flex-direction:column;gap:14px}
+.ap-head{display:flex;align-items:center;gap:14px}.ap-head h1{margin:0;font-size:clamp(24px,5vw,32px)}.ap-head p{margin:2px 0 0;color:var(--mute);font-size:14px}
+.ap-badge{display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:16px;background:var(--brand);color:var(--on-brand);font:800 22px/1 system-ui}
+.ap-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.ap-grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.ap-stat,.ap-big,.ap-link,.ap-table-card,.ap-invite{border:1px solid var(--edge);border-radius:20px;background:linear-gradient(180deg,var(--card1),var(--card2));padding:16px}
+.ap-stat small,.ap-big small{display:block;color:var(--mute);font-size:12px;font-weight:650}.ap-stat b{display:block;margin-top:6px;font-size:22px}.ap-stat.good b{color:#4fd69c}
+.ap-big b{display:block;margin-top:6px;font-size:clamp(26px,5vw,36px)}.ap-big.primary{background:linear-gradient(180deg,#3d3585,#2a2560);border-color:#5b4bd4}.ap-big.primary b,.ap-big.primary small{color:#fff}
+.ap-link h2,.ap-table-card h2{margin:0 0 4px;font-size:17px}.ap-link p,.ap-table-card p{margin:0 0 10px;color:var(--mute);font-size:13px}
+.ap-table-wrap{overflow-x:auto}.ap-table{width:100%;border-collapse:collapse;font-size:14px}.ap-table th{padding:8px 10px;text-align:left;color:var(--mute);font-size:12px;border-bottom:1px solid var(--edge)}.ap-table td{padding:11px 10px;border-bottom:1px solid var(--edge)}
+.ap-num{text-align:right!important;white-space:nowrap}.ap-date{color:var(--mute);white-space:nowrap}.ap-earn{padding:3px 9px;border-radius:999px;background:#12382b;color:#4fd69c;font-weight:700}
+.ap-empty{padding:30px 10px;text-align:center}.ap-empty p{margin:4px 0 0}
+.ap-invite{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.ap-invite p{margin:4px 0 0;color:var(--mute);font-size:13px}
+@media(max-width:640px){.ap-grid3{grid-template-columns:1fr}.ap-grid2{grid-template-columns:1fr}.ap-stat b{font-size:20px}}
+.ap-overall{margin:14px 0}
