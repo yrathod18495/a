@@ -322,7 +322,8 @@ export class Stage {
 
   /** the background (gradient and/or image) is painted once into a texture and drawn as one quad per frame */
   /** background clips of the scene: [{start, dur, preset, blob|null}] — while one is on, it replaces the scene's base background */
-  async setBackgroundClips(clips = []) {
+  async setBackgroundClips(clips = [], blankOutside = false) {
+    this.blankOutside = !!blankOutside;          // true once the whole-scene background was turned into clips: outside the clips the canvas is plain black
     const next = [];
     for (const c of clips) next.push({ start: c.start, end: c.start + c.dur, preset: c.preset ?? 0, image: c.blob ? await loadImage(c.blob) : null });
     this.bgClips = next;
@@ -334,7 +335,7 @@ export class Stage {
     const key = `${preset}|${id}|${this.W}x${this.H}`, hit = this.bgCache.get(key);
     if (hit) { this.bgCache.delete(key); this.bgCache.set(key, hit); return hit; }
     const { W, H } = this, c = makeCanvas(W, H), g = c.getContext('2d');
-    const p = BACKGROUNDS[preset] || BACKGROUNDS[0];
+    const p = preset === 'blank' ? { a: '#000000', b: '#000000' } : BACKGROUNDS[preset] || BACKGROUNDS[0];
     const grad = g.createLinearGradient(0, 0, W * 0.3, H); grad.addColorStop(0, p.a); grad.addColorStop(1, p.b);
     g.fillStyle = grad; g.fillRect(0, 0, W, H);
     if (image) {
@@ -348,7 +349,7 @@ export class Stage {
   }
   ensureBackground(t = 0) {
     const clip = this.bgClips.find((c) => t >= c.start && t < c.end);
-    this.bgTex = this.bgTexture(clip ? clip.preset : this.bg.preset, clip ? clip.image : this.bg.image);
+    this.bgTex = clip ? this.bgTexture(clip.preset, clip.image) : this.blankOutside ? this.bgTexture('blank', null) : this.bgTexture(this.bg.preset, this.bg.image);
   }
 
   /**

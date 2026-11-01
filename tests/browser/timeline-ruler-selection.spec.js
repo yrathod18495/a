@@ -103,3 +103,13 @@ test('the whole-scene background can be selected and split, and both pieces stay
   await expect(page.locator('.lane2.bg .tclip.bg.mine')).toHaveCount(2);
   await expect(page.locator('.lane2.bg .tclip.bg.base')).toHaveCount(0);
 });
+
+test('outside the pieces of a split background the canvas is plain black, not the old background', async ({ page }) => {
+  await studioWithAudio(page);
+  await page.evaluate(() => { const { stage, drawTimeline } = window.__toon; stage.bg.preset = 1; drawTimeline(); });
+  await page.locator('.lane2.bg .tclip.bg.base').click({ position: { x: 100, y: 10 } });
+  await page.evaluate(async () => { const { S, stage } = window.__toon, c = S.bgClips[0]; c.start = 5; c.dur = 5; await stage.setBackgroundClips(S.bgClips.map((x) => ({ start: x.start, dur: x.dur, preset: x.preset ?? 0, blob: null })), true); });
+  const keys = await page.evaluate(() => { const { stage } = window.__toon; stage.ensureBackground(2); const early = stage.bgTex; stage.ensureBackground(7); const inside = stage.bgTex; return { early: [...stage.bgCache].find(([, v]) => v === early)?.[0], inside: [...stage.bgCache].find(([, v]) => v === inside)?.[0] }; });
+  expect(keys.early).toMatch(/^blank\|/);            // before the clip: black
+  expect(keys.inside).toMatch(/^1\|/);               // inside the clip: its own background
+});

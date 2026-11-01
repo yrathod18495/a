@@ -1086,7 +1086,8 @@ const findManual = (id) => { for (const [k, list] of Object.entries(S.manual)) {
 const sceneLen = () => contentLength({ solo: S.solo, speakers: S.speakers, manual: S.manual, bgClips: S.bgClips, props: S.props, camKeys: S.camKeys, charKeys: S.charKeys, gradeKeys: S.gradeKeys });
 /** background clips as the stage wants them: the picture is looked up in the user's own backgrounds */
 const bgClipJobs = () => S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset ?? 0, blob: c.bgId ? S.myBgs.find((r) => r.id === c.bgId)?.blob ?? null : null }));
-const syncBgClips = async () => { await stage.setBackgroundClips(bgClipJobs()); S.dirty = true; };
+const bgBlankOutside = () => S.bgClips.some((c) => c.base);
+const syncBgClips = async () => { await stage.setBackgroundClips(bgClipJobs(), bgBlankOutside()); S.dirty = true; };
 function updateTotal() {
   if (player.clips.length) return;
   const len = sceneLen();
@@ -2683,7 +2684,7 @@ async function doExport() {
           aspect: S.aspect, short: S.quality, fps: S.fps, level: S.level, format: S.format, W: stage.W, H: stage.H, maxTex: S.quality >= 2160 ? 4096 : 2048,
           chars: ids.map((id) => { const d = S.characters.find((c) => c.id === id) || S.libDefs.get(id); return { id, ske: d.ske, tex: d.tex }; }),
           tearSprite: layers.some(layer => layer.tears?.style) ? await loadTearSprite() : null,
-          bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), grade: gradeActive(S.grade) ? { ...S.grade } : null, gradeKeys: S.gradeKeys.map((k) => ({ t: k.t, grade: k.grade })), props: S.props.map((prop) => ({ ...prop })),
+          bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), bgBlank: bgBlankOutside(), grade: gradeActive(S.grade) ? { ...S.grade } : null, gradeKeys: S.gradeKeys.map((k) => ({ t: k.t, grade: k.grade })), props: S.props.map((prop) => ({ ...prop })),
           layers, plan: shotPlan(), camKeys: stage.camKeys, voice: player.clips.map((c) => ({ speaker: c.speaker, start: c.start, end: c.end, visemes: c.visemes })),
         };
         res = await exportParallel({ job, clips: player.clips, total: player.total, onProgress: progress, cancelled: () => stop, workers: workerCount() });
