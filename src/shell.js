@@ -201,9 +201,10 @@ function syncPhoneNav() {
       item('#/credits', 'coins', 'Coins'),
       item('#/affiliate-dashboard', 'earn', 'Earn with us'),
       ...(role === 'admin' ? [item('#/admin', 'admin', 'Admin panel')] : []),
-      item(null, 'logout', 'Log out', async () => { await signOutUser(); go('#/'); }),
       h('div', { class: 'rail-foot' }, item(null, 'help', 'Help and support', () => document.querySelector('.support-launch')?.click()))));
   rail?.replaceWith(next); if (!rail) document.body.append(next); rail = next;
+  const bar = $shell.querySelector(':scope > .sh > header');
+  if (bar && !bar.querySelector('.hdr-burger')) bar.prepend(h('button', { type: 'button', class: 'hdr-burger', 'aria-label': 'Open menu', onclick: () => setRail(!railOpen) }, railIcon('menu')));
 }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && railOpen) setRail(false); });
 function setRail(open) { railOpen = open; rail?.classList.toggle('open', open); rail?.querySelector('.rail-burger')?.setAttribute('aria-expanded', String(open)); }

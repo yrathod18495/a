@@ -52,6 +52,14 @@ const FAQ = [
 ];
 
 
+/** the first questions are shown, the rest open with one tap, so the page stays short */
+function faqList() {
+  const row = ([question, answer]) => h('details', {}, h('summary', {}, question), h('p', {}, answer));
+  const rest = h('div', { class: 'lp-faq-more', hidden: true }, FAQ.slice(6).map(row));
+  const more = h('button', { type: 'button', class: 'lp-button lp-button-outline lp-faq-toggle', onclick: () => { rest.hidden = !rest.hidden; more.textContent = rest.hidden ? `Show ${FAQ.length - 6} more questions` : 'Show fewer questions'; } }, `Show ${FAQ.length - 6} more questions`);
+  return h('div', { class: 'lp-faq' }, FAQ.slice(0, 6).map(row), rest, more);
+}
+
 function button(label, fn, style = 'primary', royal = false) {
   return h('button', { type: 'button', class: `lp-button ${style === 'primary' ? 'lp-button-primary' : 'lp-button-outline'} ${royal ? 'lp-button-royal' : ''}`, onclick: fn }, label);
 }
@@ -115,21 +123,9 @@ export function landingView({ user, cta, profileMenu, logo }) {
           ['03', 'Preview and export', 'Review your animation and export a WebM or MP4 video from the browser.']
         ].map(([number, title, body]) => h('article', { class: 'lp-how-card' }, h('span', {}, number), h('h3', {}, title), h('p', {}, body))))
       ),
-      h('section', { id: 'use-cases', class: 'lp-section' },
-        sectionTitle('Made for creators', 'What can you create with 12toons?', 'Make character-led stories, conversations and videos with creative control from start to finish.'),
-        h('div', { class: 'lp-use-grid' }, USE_CASES.map(u => h('article', { class: 'lp-use-card' }, h('span', { 'aria-hidden': 'true' }, u.icon), h('h3', {}, u.title), h('p', {}, u.body))))
-      ),
-      h('section', { class: 'lp-section lp-tools-section' },
-        h('div', { class: 'lp-tools-copy' }, eyebrow('Two creative workspaces'), h('h2', {}, 'Everything starts with your character'), h('p', {}, 'Make characters in Character Studio, then bring them to life with dialogue, animation clips, scene direction and timeline editing.'),
-          h('div', { class: 'lp-tools-actions' }, button('Explore both tools →', cta))),
-        h('div', { class: 'lp-tools-cards' },
-          h('article', {}, h('span', {}, '🎭'), h('h3', {}, 'Character Studio'), h('p', {}, 'Edit layered characters, outfits, colours, facial features and poses.')),
-          h('article', {}, h('span', {}, '🎬'), h('h3', {}, 'Animation Studio'), h('p', {}, 'Set up scenes, direct animation and cameras, then export your video.'))
-        )
-      ),
       h('section', { id: 'faq', class: 'lp-section lp-section-soft' },
         sectionTitle('Good to know', 'Frequently asked questions', 'A few answers before you start creating.'),
-        h('div', { class: 'lp-faq' }, FAQ.map(([question, answer]) => h('details', {}, h('summary', {}, question), h('p', {}, answer))))
+        faqList()
       ),
       h('section', { class: 'lp-final-cta' }, eyebrow('Ready to create?'), h('h2', {}, 'Your next story starts here.'), h('p', {}, 'Bring characters and dialogue together with 12toons.'), button(user ? 'Open my studio →' : 'Get started with 12toons →', cta))
     ),

@@ -120,3 +120,45 @@ body.has-rail .sh-bar>.btn,body.has-rail .projects-header>.projects-home{display
 .st-recent-ico.character{background:linear-gradient(135deg,#ff8fb1,#ffb86b)}
 .st-recent-text{display:flex;flex-direction:column;min-width:0;flex:1}.st-recent-text b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.st-recent-text small{color:#9aa0cc;font-size:13px}
 .st-recent-go{color:#a597ff;font-size:20px}
+
+/* header menu button: opens the menu on phones; on wide screens the icon dock is always there */
+.hdr-burger{display:none;place-items:center;flex:none;width:44px;height:44px;margin-right:6px;border:1px solid #2f3566;border-radius:14px;background:#1f2342;color:#fff;cursor:pointer}
+.hdr-burger svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+@media(max-width:860px){
+  .hdr-burger{display:grid}
+  body.has-rail #shell>.sh{padding-left:0}
+  body.has-rail #shell>.sh>header{margin-left:0}
+  .rail{left:0;width:0}
+  .rail-panel{position:fixed;left:8px;top:calc(var(--bar-h) + 8px);bottom:8px;width:min(290px,86vw);transform:translateX(-125%);transition:transform .22s ease}
+  .rail.open .rail-panel{transform:none}
+  .rail-burger{display:none}
+  .rail-item span{opacity:1}.rail-group{height:40px;opacity:1}
+}
+/* a shorter landing page */
+:root[data-theme] body .lp .lp-section{padding-block:34px}
+:root[data-theme] body .lp .lp-hero{min-height:0;padding-block:28px 24px}
+:root[data-theme] body .lp .lp-hero h1{font-size:clamp(34px,9vw,64px);line-height:1.02;margin-bottom:12px}
+:root[data-theme] body .lp .lp-hero-lead{font-size:16px;line-height:1.5;margin-bottom:16px}
+:root[data-theme] body .lp .lp-hero-foot{margin-top:18px}
+:root[data-theme] body .lp .lp-feature-card,:root[data-theme] body .lp .lp-how-card,:root[data-theme] body .lp .lp-use-card{padding:16px}
+:root[data-theme] body .lp .lp-feature-card p,:root[data-theme] body .lp .lp-use-card p{font-size:14px}
+:root[data-theme] body .lp .lp-section>h2,:root[data-theme] body .lp .lp-section-title h2{font-size:clamp(24px,6vw,34px)}
+:root[data-theme] body .lp .lp-final-cta{padding-block:30px}
+.lp-faq-toggle{margin:14px auto 0;display:flex}
+.lp-faq-more[hidden]{display:none}
+
+@media(max-width:700px){
+  :root[data-theme] body .lp .lp-feature-grid{grid-template-columns:1fr 1fr;gap:10px}
+  :root[data-theme] body .lp .lp-feature-card small{display:none}
+  :root[data-theme] body .lp .lp-feature-card h3{font-size:15px}
+  :root[data-theme] body .lp .lp-feature-card p{font-size:13px;line-height:1.4}
+  :root[data-theme] body .lp .lp-how-grid{grid-template-columns:1fr;gap:10px}
+  :root[data-theme] body .lp .lp-how-card p{font-size:14px}
+  :root[data-theme] body .lp .lp-coin-section{padding-block:18px}
+}
+@media(max-width:700px){
+  :root[data-theme] body .lp .lp-coin-display svg{width:64px;height:64px}
+  :root[data-theme] body .lp .lp-coin-offer{gap:10px;padding:16px}
+  :root[data-theme] body .lp .lp-coin-copy p{display:none}
+}
+:root[data-theme] body .lp .lp-legal-links{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center}
