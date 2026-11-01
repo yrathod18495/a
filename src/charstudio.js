@@ -357,7 +357,16 @@ export async function view({ user, home, toast, localPreview = false }) {
         h('div', { class: 'cs-card add', onclick: () => file.click() }, h('span', { class: 'cs-th' }, '+'), h('b', {}, 'Add ZIP'), h('small', {}, 'DragonBones ske + tex + png')),
         mine.map((c) => h('div', { class: `cs-card ${st.def?.id === c.id ? 'on' : ''}`, onclick: () => pick(c) }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'), h('b', {}, c.name),
           h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); deleteCharacterCloud(c.id).then(() => { st.cloud = st.cloud.filter((x) => x.id !== c.id); }).catch(() => {}); mine.splice(mine.indexOf(c), 1); draw(); } }, '✕'))),
-        cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('This template is no longer available.'); mine.push(d); await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ from your account')))), file),
+        cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('This template is no longer available.'); mine.push(d); await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ from your account'),
+          h('button', { class: 'ib', title: 'Delete from your account', 'aria-label': `Delete ${c.name} from your account`, onclick: async (e) => {
+            e.stopPropagation(); if (!confirm(`Delete ${c.name} from your account? This cannot be undone.`)) return;
+            try {
+              await deleteCharacterCloud(c.id);
+              st.cloud = await listCharactersCloud();      // ask the account again, so the card only disappears when it is really gone
+              if (st.cloud.some((x) => x.id === c.id)) toast('This character could not be deleted right now. Please try again.'); else toast(`${c.name} was deleted.`);
+            } catch (er) { toast(`Could not delete ${c.name}: ${friendlyError(er)}`); }
+            draw();
+          } }, '✕')))), file),
     ];
   }
 
