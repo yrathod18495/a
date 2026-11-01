@@ -9,7 +9,7 @@ import { icon, watchIcons } from './icons.js';
 import { installTips } from './tips.js';
 import './studio-icons.css';
 import { syncPresentation } from './sync-feedback.js';
-import { brandWordmark } from './dom.js';
+import { brandWordmark, swipeAway } from './dom.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
@@ -65,7 +65,7 @@ const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}.${String(Math.floor((s % 1) * 10))}`;
-const toast = (msg) => { const t = h('div', { class: 'toast' }, msg); document.body.append(t); setTimeout(() => t.remove(), 4500); };
+const toast = (msg) => { const t = h('div', { class: 'toast' }, msg); document.body.append(t); swipeAway(t); };
 const busy = (msg, onCancel) => {
   const bar = h('i'), txt = h('div', {}, msg), el = h('div', { class: 'busy' }, h('div', { class: 'card' }, txt, h('div', { class: 'bar', style: 'margin:12px 0 0' }, bar),
     onCancel && h('button', { class: 'btn sm', style: 'margin-top:14px', onclick: onCancel }, 'Cancel')));
