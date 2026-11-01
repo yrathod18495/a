@@ -17,7 +17,7 @@ import { Player, buildTimeline } from './player.js';
 import { characterPicker } from './charpick.js';
 import { exportOffline, exportParallel, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
 import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext } from './store.js';
-import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud } from './cloud.js';
+import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
 import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS } from './catalog.js';
@@ -239,7 +239,12 @@ function chooseCharacter(s, after) {
     h('div', { class: 'gridc' }, card(null, 'No character', 'Voice only', () => pick(null), !s.charId)),
     h('h2', { style: 'margin:16px 0 8px' }, 'Characters'),
     libraryCharacters().some((e) => e.template) ? characterPicker({ entries: libraryCharacters(), isOn: (e) => s.charId === `lib:${e.id}`, onPick: (e) => pick(`lib:${e.id}`) }) : libraryStatus() ? h('p', { class: 'sub', role: 'alert' }, libraryStatus()) : null,
-    S.characters.length ? [h('h2', { style: 'margin:16px 0 8px' }, 'Your characters'), h('div', { class: 'gridc' }, S.characters.map((c) => card(c.thumb || null, c.name, 'from your device', () => pick(c.id), s.charId === c.id)))] : null,
+    S.characters.length ? [h('h2', { style: 'margin:16px 0 8px' }, 'Your characters'), h('div', { class: 'gridc' }, S.characters.map((c) => { const wrap = h('div', { class: 'cc-wrap' }, card(c.thumb || null, c.name, 'from your device', () => pick(c.id), s.charId === c.id),
+      h('button', { type: 'button', class: 'cc-del', 'aria-label': `Delete ${c.name}`, title: 'Delete this character', onclick: async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete “${c.name}” for good? It is removed from this device and from your account.`)) return;
+        try { await deleteCharacter(c.id); await deleteCharacterCloud(c.id).catch(() => {}); S.characters = S.characters.filter((x) => x.id !== c.id); wrap.remove(); toast('Character deleted.'); } catch (er) { toast(`Could not delete: ${er.message}`); }
+      } }, icon('trash'))); return wrap; }))] : null,
     cloudBox));
   cloudReady().then(async (ok) => {
     if (!ok) return;

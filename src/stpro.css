@@ -549,3 +549,6 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 #app .ws .clipbar .btn.cb-del{background:#3a1d22!important;color:#ff7a8c!important;border:1px solid #7a2e3a!important}
 #app .ws .clipbar .btn.cb-del svg{stroke:#ff7a8c}
 #app .ws .tl-scroll{display:flex;flex-direction:column}#app .ws .tl-inner{flex:1 0 auto;min-height:100%}
+.cc-wrap{position:relative;display:flex}.cc-wrap>.cc{flex:1}
+.cc-del{position:absolute;top:6px;right:6px;display:grid;place-items:center;width:32px;height:32px;border:1px solid #7a2e3a;border-radius:10px;background:#3a1d22;color:#ff7a8c;cursor:pointer}
+.cc-del svg{width:16px;height:16px;stroke:currentColor}
