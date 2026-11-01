@@ -35,13 +35,14 @@ export async function makeThumb(file, sheet = null) {
   } finally { bitmap.close?.(); }
   return '';
 }
-/** Smaller files cost less to store and to download for every creator: props and backgrounds are scaled to at most 2048 px
- * (backgrounds 2560 px) and saved as WebP (transparency kept) when that is smaller. Effects (sprite sheets), GIFs and SVGs stay as they are. */
+/** Smaller files cost less to store and to download for every creator: props and backgrounds are saved as WebP (transparency kept)
+ * when that is smaller. Only images larger than 4096 px are scaled down — 4096 px is the most the studio ever draws (4K export),
+ * so nothing visible is lost even in a 4K video. Effects (sprite sheets), GIFs and SVGs stay as they are. */
 export async function optimizeImage(type, file) {
   if (!['prop', 'background'].includes(type) || !/^image\/(png|jpeg|webp|bmp)$/.test(file.type)) return file;
   let bitmap; try { bitmap = await createImageBitmap(file); } catch { return file; }
   try {
-    const max = type === 'background' ? 2560 : 2048, k = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const max = 4096, k = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * k)); canvas.height = Math.max(1, Math.round(bitmap.height * k));
     canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9));
