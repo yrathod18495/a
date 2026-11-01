@@ -3,7 +3,7 @@ import { h, logo } from './dom.js';
 import { apiCall } from './session.js';
 import { projectDialog } from './project-dialog.js';
 
-// Admin · Live Chat: conversations on the left (unread / premium / all, select, delete, new chat), the thread on the right
+// Admin · Live Chat: conversations on the left (unread / premium / all, select, delete, new chat; a paid account's row is gold), the thread on the right
 // (read ticks, edit / delete your replies, pictures).
 const SVG = 'http://www.w3.org/2000/svg';
 const ICONS = {
@@ -16,8 +16,6 @@ const ICONS = {
   close: 'M6 6l12 12M18 6 6 18',
 };
 const icon = (name, size = 16) => { const svg = document.createElementNS(SVG, 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', size); svg.setAttribute('height', size); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round'); const path = document.createElementNS(SVG, 'path'); path.setAttribute('d', ICONS[name]); svg.append(path); return svg; };
-/** the premium (paid account) badge: a blue diamond */
-const diamond = () => { const svg = document.createElementNS(SVG, 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', 15); svg.setAttribute('height', 15); svg.setAttribute('class', 'ac-diamond'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Premium member'); const title = document.createElementNS(SVG, 'title'); title.textContent = 'Premium member (paid account)'; const path = document.createElementNS(SVG, 'path'); path.setAttribute('d', 'M6 3h12l4 6-10 12L2 9l4-6Zm0 0 6 6 6-6M2 9h20M12 9v12'); path.setAttribute('fill', '#5aa9ff'); path.setAttribute('stroke', '#2f6fd6'); path.setAttribute('stroke-width', '1.4'); path.setAttribute('stroke-linejoin', 'round'); svg.append(title, path); return svg; };
 const PALETTE = ['#fde68a', '#c7d2fe', '#fbcfe8', '#bbf7d0', '#fed7aa', '#bae6fd'];
 const colourOf = (text) => PALETTE[[...String(text)].reduce((n, c) => n + c.charCodeAt(0), 0) % PALETTE.length];
 const nameOf = (c) => c.displayName || c.email || 'User';
@@ -75,10 +73,10 @@ export async function chatView({ user, back, toast }) {
     if (!list.length) { listEl.replaceChildren(h('p', { class: 'ac-muted', role: 'status' }, tab === 'unread' ? 'No unread conversations.' : tab === 'premium' ? 'No premium conversations.' : 'No conversations yet.')); return; }
     listEl.replaceChildren(...list.map((c) => {
       const preview = c.lastMessage ? `${c.lastSender === 'admin' ? 'Admin: ' : ''}${c.lastMessage}` : 'No messages yet';
-      return h('div', { class: `ac-item ${selected === c.id ? 'active' : ''} ${c.unreadAdmin ? 'unread' : ''}`, role: 'button', tabindex: '0', onclick: () => select(c.id), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(c.id); } } },
+      return h('div', { class: `ac-item ${selected === c.id ? 'active' : ''} ${c.unreadAdmin ? 'unread' : ''} ${c.premium ? 'premium' : ''}`, role: 'button', tabindex: '0', onclick: () => select(c.id), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(c.id); } } },
         h('input', { type: 'checkbox', class: 'ac-check', checked: checked.has(c.id), 'aria-label': `Select ${nameOf(c)}`, onclick: (e) => e.stopPropagation(), onchange: (e) => { if (e.target.checked) checked.add(c.id); else checked.delete(c.id); renderTools(); } }),
         h('span', { class: 'ac-avatar', style: `background:${colourOf(c.id)}` }, nameOf(c).trim()[0]?.toUpperCase() || '?'),
-        h('span', { class: 'ac-item-copy' }, h('span', { class: 'ac-item-name' }, h('b', {}, nameOf(c)), c.premium ? diamond() : null), h('small', {}, preview)),
+        h('span', { class: 'ac-item-copy' }, h('span', { class: 'ac-item-name' }, h('b', {}, nameOf(c))), h('small', {}, preview)),
         c.unreadAdmin ? h('i', { class: 'ac-unread', title: 'Unread message' }) : null);
     }));
   }
@@ -99,9 +97,9 @@ export async function chatView({ user, back, toast }) {
   const current = () => rows.find((c) => c.id === selected);
   function renderHead() {
     const c = current(); if (!c) return;
-    head.hidden = false;
+    head.hidden = false; head.classList.toggle('premium', !!c.premium);          // a paid account is shown in gold
     head.replaceChildren(h('span', { class: 'ac-avatar big', style: `background:${colourOf(c.id)}` }, nameOf(c).trim()[0]?.toUpperCase() || '?'),
-      h('div', { class: 'ac-thread-who' }, h('span', { class: 'ac-item-name' }, h('b', {}, nameOf(c)), c.premium ? diamond() : null), h('small', {}, c.email || c.id)),
+      h('div', { class: 'ac-thread-who' }, h('span', { class: 'ac-item-name' }, h('b', {}, nameOf(c))), h('small', {}, c.email || c.id)),
       h('button', { class: 'ac-trash', type: 'button', title: 'Delete this conversation', 'aria-label': 'Delete this conversation', onclick: () => removeChats([c.id]) }, icon('trash', 18)));
   }
   async function select(id) {
