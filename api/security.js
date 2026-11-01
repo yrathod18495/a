@@ -1,22 +1,12 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
+import { maintenanceOn, setMaintenance } from '../server/maintenance.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
 import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
 const hash = value => createHash('sha256').update(value).digest('hex');
 const HEARTBEAT_WRITE_MS = 9 * 60 * 1000;
-const maintenanceEnabled = () => process.env.MAINTENANCE_MODE !== 'false';
-let publishedMaintenance;
-async function publishMaintenance(db, now) {
-  const enabled = maintenanceEnabled();
-  if (publishedMaintenance !== enabled) {
-    const ref = db.doc('config/maintenance'), current = await ref.get();
-    if (current.data()?.enabled !== enabled) await ref.set({ enabled, updatedAt: now }, { merge: true });
-    publishedMaintenance = enabled;
-  }
-  return maintenanceEnabled();
-}
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
@@ -29,7 +19,7 @@ export default async function handler(req, res) {
           admin = who.admin;
         } catch { /* anonymous and invalid sessions receive the public maintenance state */ }
       }
-      const maintenance = await publishMaintenance(db, now);
+      const maintenance = await maintenanceOn(db);
       return send(res, 200, { maintenance, admin });
     }
     if (b.action === 'acquire') {
@@ -73,6 +63,8 @@ export default async function handler(req, res) {
     }
     const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'tamperAlerts', 'tamperAck'].includes(b.action) });
     if (b.action === 'status') return send(res, 200, { admin: who.admin });
+    if (b.action === 'getMaintenance') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); return send(res, 200, { maintenance: await maintenanceOn(db) }); }
+    if (b.action === 'setMaintenance') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); return send(res, 200, { maintenance: await setMaintenance(db, b.enabled === true, who.uid) }); }
     // the studio reports that someone opened the developer tools / view-source: stored for the admin dashboard and pushed to admin devices
     if (b.action === 'tamperReport') {
       if (who.admin) return send(res, 200, { ok: true, stored: false });             // admins may inspect their own site
@@ -100,7 +92,7 @@ export default async function handler(req, res) {
       });
       return send(res, 200, { ok: true });
     }
-    if (maintenanceEnabled() && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     if (b.action === 'overview') {
       const out = { cursors: {} };
       const registered=b.cursors&&'users' in b.cursors&&!b.cursors.users?{users:[],pageToken:null}:await auth.listUsers(100,b.cursors?.users||undefined);

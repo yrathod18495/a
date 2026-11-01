@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
+import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { AccessError } from '../server/security-policy.js';
 
@@ -11,7 +12,7 @@ export default async function handler(req, res) {
     const b = await bodyOf(req, 12000);
     const who = await access(req, { write: true });
     const { db } = services();
-    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
 
     if (b.action === 'register') {
       if (typeof b.token !== 'string' || b.token.length < 20 || b.token.length > 4096) throw new AccessError('invalid_token', 'The notification registration is not valid. Please turn notifications on again.', 400);

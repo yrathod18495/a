@@ -7,6 +7,7 @@ const auth={verifyIdToken:async token=>{if(!tokens.has(token))throw Error('bad t
 mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,auth})}});
 const {default:security}=await import('../api/security.js');
 const {access}=await import('../server/access.js');
+const {setMaintenance}=await import('../server/maintenance.js');
 const request=(token,body)=>({method:'POST',headers:{authorization:'Bearer '+token},body});
 async function call(token,body){const res=response();await security(request(token,body),res);return res;}
 const uid='user_12345678901234567890',other='user_98765432109876543210';
@@ -62,7 +63,7 @@ test('logout revokes backend session immediately',async()=>{
  await assert.rejects(access(request('session',{})),e=>e.code==='session_invalid');
 });
 test('maintenance blocks non-admin sessions and acquisition while verified admins retain API access',async()=>{
- process.env.MAINTENANCE_MODE='true';
+ await setMaintenance(db,true);
  loginToken('maintenance-user',other);
  const denied=await call('maintenance-user',{action:'acquire',deviceId:'device_maintenance_123',secret:'secret_maintenance_123'});
  assert.equal(denied.statusCode,503);assert.equal(denied.body.code,'maintenance');
@@ -73,5 +74,7 @@ test('maintenance blocks non-admin sessions and acquisition while verified admin
  db.data.set('securitySessions/'+uid,{sid:'maintenance-admin',expiresAt:Date.now()+100000,revoked:false});
  tokens.set('maintenance-admin',{uid,email_verified:true,sid:'maintenance-admin'});
  assert.equal((await call('maintenance-admin',{action:'overview'})).statusCode,200);
- process.env.MAINTENANCE_MODE='false';
+ const off=await call('maintenance-admin',{action:'setMaintenance',enabled:false});
+ assert.equal(off.statusCode,200);assert.equal(off.body.maintenance,false);
+ assert.equal((await call('public',{action:'maintenanceStatus'})).body.maintenance,false);
 });

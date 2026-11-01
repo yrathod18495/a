@@ -94,6 +94,21 @@ export function dashboardView({ user, home, toast, openStudio }) {
       try { await apiCall('/api/security', { action: 'tamperAck', id }, user.uid); await refresh(true); }
       catch (e) { toast(`Could not dismiss the alert: ${friendlyError(e)}`); }
     }
+    /** the site-wide maintenance switch: while it is on, only admins and approved testers can use the app */
+    function maintenanceCard() {
+      const toggle = h('button', { class: 'admin-switch', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Maintenance mode', disabled: true });
+      const note = h('small', {}, 'Checking…');
+      const paint = (on) => { toggle.setAttribute('aria-checked', String(on)); toggle.classList.toggle('on', on); toggle.disabled = false; note.textContent = on ? 'ON — visitors see the maintenance page. Admins can still work.' : 'OFF — the site is open to everyone.'; };
+      apiCall('/api/security', { action: 'getMaintenance' }, user.uid).then((r) => paint(r.maintenance === true)).catch((e) => { note.textContent = `Could not read the setting: ${friendlyError(e)}`; });
+      toggle.addEventListener('click', async () => {
+        const next = toggle.getAttribute('aria-checked') !== 'true';
+        if (next && !confirm('Turn maintenance mode ON? Everyone except admins will be locked out until you turn it off.')) return;
+        toggle.disabled = true;
+        try { const r = await apiCall('/api/security', { action: 'setMaintenance', enabled: next }, user.uid); paint(r.maintenance === true); toast(r.maintenance ? 'Maintenance mode is ON.' : 'Maintenance mode is OFF. The site is open.'); }
+        catch (e) { toast(`Could not change maintenance mode: ${friendlyError(e)}`); toggle.disabled = false; }
+      });
+      return h('section', { class: 'admin-panel-card admin-maint' }, h('div', { class: 'admin-maint-row' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'SITE ACCESS'), h('h2', {}, 'Maintenance mode'), note), toggle));
+    }
     /** creators who opened the developer tools or tried to view the source (reported by src/shield.js) */
     function alertsSection() {
       const list = state.alerts?.alerts || [];
@@ -123,6 +138,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
           stat('Active sessions in report', number(sessions.length), 'Sessions not revoked and not expired.', '⌁', 'blue'),
           stat('Captured payments · latest report', number(captured.length), `${money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0))} recorded in this report.`, '₹', 'violet'),
           stat('Unread support conversations', number(unread), `${number(chats.length)} conversations returned by the live chat inbox.`, '✉', 'green')),
+        maintenanceCard(),
         alertsSection() || '',
         h('div', { class: 'admin-dashboard-grid' },
           section('Active sessions', 'LIVE ACCOUNTS', h('div', { class: 'admin-session-list' }, sessions.length ? sessions.slice(0, 6).map(s => {

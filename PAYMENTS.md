@@ -10,7 +10,7 @@ Add these environment variables to the server deployment. Never add the secret v
 
 The checkout can open when the key ID and key secret are configured. Enable automatic payment capture in Razorpay, then configure a webhook URL at `https://<your-domain>/api/razorpay-webhook` with the same webhook secret. Subscribe to `payment.captured`, `payment.authorized`, `payment.failed`, and `order.paid`. The webhook secret is needed for signed webhook updates; the checkout verification endpoint also checks the order signature and fetches the payment from Razorpay before it delivers credits.
 
-The current maintenance setting blocks purchases for non-admin accounts. Set the existing server variable `MAINTENANCE_MODE=false` when the site is open for normal visitors; leave it enabled during maintenance.
+The current maintenance setting blocks purchases for non-admin accounts. Turn maintenance mode off in the admin dashboard (Overview → Maintenance mode) when the site is open for normal visitors; leave it enabled during maintenance.
 
 The Firebase Admin service account used by the existing server APIs must have access to the configured Firestore database. Payment attempts are recorded in `creditPayments`; user scoped receipts are mirrored under `workspaces/{uid}/creditPayments`. The server alone can write either location and change `workspaces/{uid}.credits`.
 

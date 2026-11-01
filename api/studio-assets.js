@@ -1,6 +1,7 @@
 import manifest from '../public/12toons/characters.json' with { type: 'json' };
 import { animationData, animationTarget, ANIMATION_LAYERS, MAX_ANIMATION_BYTES } from '../src/managed-animation.js';
 import { services } from '../server/firebase-admin.js';
+import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { configured, confirmAssets, readAssetText, signDownloads } from '../server/r2-storage.js';
 import { kv } from '../server/rtdb.js';
@@ -10,14 +11,13 @@ import { cleanAssetMeta } from '../shared/studio-effects.js';
 const idOK = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{12,80}$/.test(value);
 const LIBRARY_CACHE_MS = 30_000;
 let libraryCache = null;
-const maintenanceEnabled = () => process.env.MAINTENANCE_MODE !== 'false';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
     const b = await bodyOf(req, 16_000), isAdminAction = ['save', 'delete'].includes(b.action);
     const who = await access(req, { write: isAdminAction, admin: isAdminAction });
-    if (maintenanceEnabled() && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    if (!who.admin && await maintenanceOn()) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     const store = kv(services());
 
     if (b.action === 'list') {

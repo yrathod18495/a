@@ -1,4 +1,5 @@
 import { services } from '../server/firebase-admin.js';
+import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { AccessError } from '../server/security-policy.js';
 // Temporarily disabled until Firebase Web Push VAPID is configured.
@@ -20,7 +21,7 @@ export default async function handler(req, res) {
     const isWrite = ['send', 'adminReply'].includes(b.action);
     const who = await access(req, { admin: isAdminAction, write: isWrite });
     const { db } = services();
-    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
 
     if (b.action === 'send') {
       const message = cleanText(b.message), ref = db.collection('supportChats').doc(who.uid);

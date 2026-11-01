@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
+import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { AccessError } from '../server/security-policy.js';
 
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
       return send(res, 200, { tracked: true });
     }
     if (b.action === 'submit') {
-      if (process.env.MAINTENANCE_MODE !== 'false') throw new AccessError('maintenance', 'The affiliate form is closed for a short while. Please try again later.', 503);
+      if (await maintenanceOn(db)) throw new AccessError('maintenance', 'The affiliate form is closed for a short while. Please try again later.', 503);
       if (text(b.website, 200)) return send(res, 200, { submitted: true }); // honeypot
       const name = text(b.name, 120), email = text(b.email, 254).toLowerCase(), phone = text(b.phone, 32), company = text(b.company, 120), platform = text(b.platform, 80), audience = text(b.audience, 80), profile = text(b.profile, 400), message = text(b.message, 1500);
       if (name.length < 2) throw new AccessError('invalid_name', 'Please enter your name (at least 2 characters).', 400);
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
       return send(res, 201, { submitted: true, id });
     }
     if (b.action === 'attribute') {
-      if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', 'Affiliate referrals are closed for a short while. Please try again later.', 503);
+      if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', 'Affiliate referrals are closed for a short while. Please try again later.', 503);
       const code = text(b.code, 12).toUpperCase();
       if (!/^[A-Z0-9]{8,12}$/.test(code)) return send(res, 200, { attributed: false, reason: 'invalid_code' });
       const [account, existing] = await Promise.all([services().auth.getUser(who.uid), db.doc(`affiliateReferrals/${who.uid}`).get()]);

@@ -1,3 +1,4 @@
+import { maintenanceOn } from './maintenance.js';
 import { services } from './firebase-admin.js';
 import { AccessError, checkAccount, checkSession } from './security-policy.js';
 export async function identity(req) {
@@ -39,7 +40,7 @@ export async function access(req, { write = false, admin = false, fresh = false,
 }
 /** During maintenance only admins may use the cloud APIs. */
 export async function maintenanceBlocks(who) {
-  return process.env.MAINTENANCE_MODE !== 'false' && !who.admin;
+  return !who.admin && await maintenanceOn();
 }
 export const send = (res, code, body) => {
   res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.setHeader('Cache-Control', 'no-store'); res.end(JSON.stringify(body));

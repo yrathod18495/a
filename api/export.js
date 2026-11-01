@@ -1,4 +1,5 @@
 import { services } from '../server/firebase-admin.js';
+import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { AccessError } from '../server/security-policy.js';
 import { effectiveTier, setTier } from '../server/entitlements.js';
@@ -13,7 +14,7 @@ export default async function handler(req, res) {
   try {
     const b = await bodyOf(req), { db } = services();
     const who = await access(req, { write: ['authorize', 'complete'].includes(b.action), admin: b.action === 'adminSetTier' });
-    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     if (b.action === 'status') {
       const tier = await effectiveTier(db, who);
       return send(res, 200, { tier, limitSeconds: limitFor(tier), limits: EXPORT_LIMIT_SECONDS });

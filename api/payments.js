@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
+import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { AccessError } from '../server/security-policy.js';
 import { CREDIT_PLANS, publicPlan } from '../shared/credit-plans.js';
@@ -12,7 +13,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
     const b = await bodyOf(req), who = await access(req, { write: ['createOrder', 'verify'].includes(b.action), admin: b.action === 'adminList' }), { db } = services();
-    if (process.env.MAINTENANCE_MODE !== 'false' && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     if (b.action === 'catalog') return send(res, 200, {
       keyId: process.env.RAZORPAY_KEY_ID || '', configured: paymentConfigReady(),
       plans: CREDIT_PLANS.map(publicPlan), credits: Number((await db.doc(`workspaces/${who.uid}`).get()).data()?.credits || 0),
