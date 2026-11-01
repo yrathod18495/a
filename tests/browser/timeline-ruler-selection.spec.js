@@ -61,3 +61,14 @@ test('selecting a prop un-selects the audio, and the lanes do not move when the 
   await expect(page.locator('.tclip.prop.sel')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('the small ticks between two labels are all the same distance apart, at every zoom', async ({ page }) => {
+  await studioWithAudio(page);
+  for (const pps of [4, 19, 60, 120, 240, 300]) {
+    await page.evaluate((v) => { window.__toon.S.pps = v; window.__toon.drawTimeline(); }, pps);
+    const xs = await page.locator('.ruler:not(.rl) > *').evaluateAll((els) => els.map((e) => parseFloat(e.style.left)).sort((a, b) => a - b));
+    const gaps = xs.slice(1, 40).map((x, i) => +(x - xs[i]).toFixed(3));
+    expect(Math.max(...gaps) - Math.min(...gaps), `zoom ${pps}`).toBeLessThan(0.01);
+    expect(gaps[0]).toBeGreaterThanOrEqual(5);
+  }
+});

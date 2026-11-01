@@ -883,10 +883,11 @@ function drawTabs() {
 /* ---- timeline: ruler + the audio lines (the main track) ---- */
 const RULER = 28;
 /** ruler marks: a label every `major` seconds (never closer than ~56 px), a small tick every second, finer when zoomed in */
-const RULER_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+// [label every N seconds, small ticks per label]: the ticks between two labels are always evenly spaced, like a ruler
+const RULER_STEPS = [[0.1, 5], [0.2, 4], [0.5, 5], [1, 10], [2, 4], [5, 5], [10, 10], [15, 5], [30, 6], [60, 6], [120, 4], [300, 5], [600, 10], [900, 5], [1800, 6], [3600, 6]];
 function rulerSteps(pps) {
-  const major = RULER_STEPS.find((v) => v * pps >= 56) || RULER_STEPS.at(-1);
-  return { major, minor: Math.min(major, pps >= 120 ? 0.25 : pps >= 60 ? 0.5 : 1) };
+  const [major, parts] = RULER_STEPS.find(([v]) => v * pps >= 72) || RULER_STEPS.at(-1);
+  return { major, parts, minor: major / parts };
 }
 function selectLine(id, seek = true) {
   if (!id) return;
@@ -916,12 +917,16 @@ function drawTimeline() {
   const portrait = speaker => { const character = charOf(speaker); return character?.thumb || character?.thumbnail || null; };
   pruneTimelineThumbnails([background?.blob, ...S.order.map(sOf).filter(Boolean).map(portrait)]);
   tlBox.style.setProperty('--timeline-second', `${pps}px`);
-  const { major, minor } = rulerSteps(pps);
+  const { major, parts } = rulerSteps(pps);
   tlBox.style.setProperty('--tl-major', `${major * pps}px`);          // the faint vertical lines in every lane follow the labels of the ruler
-  const ticks = [], clock = (t) => (total >= 60 ? `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}` : `${+t.toFixed(2)}s`);
-  for (let i = 0; i * minor <= total + 1e-6; i++) {
-    const t = +(i * minor).toFixed(3), isMajor = Math.abs(t / major - Math.round(t / major)) < 1e-6;
-    ticks.push(isMajor ? h('span', { class: 'tick', style: `left:${t * pps}px` }, clock(t)) : h('i', { class: `tmin${Math.abs(t - Math.round(t)) < 1e-6 ? '' : ' fine'}`, style: `left:${t * pps}px` }));
+  const ticks = [], clock = (t) => (total >= 60 ? `${Math.floor(t / 60)}:${(t % 60).toFixed(major < 1 ? 1 : 0).padStart(major < 1 ? 4 : 2, '0')}` : `${+t.toFixed(2)}s`);
+  for (let i = 0; i * major <= total + 1e-6; i++) {
+    ticks.push(h('span', { class: 'tick', style: `left:${i * major * pps}px` }, clock(+(i * major).toFixed(3))));
+    for (let j = 1; j < parts; j++) {
+      const t = i * major + j * major / parts;
+      if (t > total + 1e-6) break;
+      ticks.push(h('i', { class: `tmin${parts % 2 === 0 && j === parts / 2 ? '' : ' fine'}`, style: `left:${t * pps}px` }));
+    }
   }
   const ruler = h('div', { class: 'ruler', style: `height:${RULER}px` }, ticks);
   let scrubbing = false;
