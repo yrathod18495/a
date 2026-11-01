@@ -8,12 +8,12 @@ const eyebrow = (text) => h('span', { class: 'lp-eyebrow' }, text);
 const sectionTitle = (ey, title, description) => h('div', { class: 'lp-heading' }, eyebrow(ey), h('h2', {}, title), h('p', {}, description));
 
 const FEATURES = [
-  { path: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM6 11a6 6 0 0 0 12 0M12 17v4', title: 'Audio-driven lip-sync', body: 'Your voice lines move the characters’ mouths.' },
-  { path: 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z', title: 'AI scene direction', body: 'Suggests who appears, gestures and camera.' },
-  { path: 'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM3.5 20a6.5 6.5 0 0 1 10-5.2M14.5 21l.7-3 5.3-5.3 2.3 2.3-5.3 5.3-3 .7Z', title: '2D Character Editor', body: 'Outfits, faces, layers and colours.' },
-  { path: 'M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', title: 'Camera & keyframes', body: 'Close-ups, wide shots and smooth moves.' },
-  { path: 'M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM4 16l5-5 4 4 3-3 4 4M9 9a1 1 0 1 0 0-.01', title: 'Backgrounds and scenes', body: 'Use your own images to build the stage.' },
-  { path: 'M12 4v11m0 0-4-4m4 4 4-4M5 20h14', title: 'WebM & MP4 export', body: 'Export up to 4K, right in the browser.' }
+  { path: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM6 11a6 6 0 0 0 12 0M12 17v4', title: 'Characters that talk', body: 'Add your voice and watch them come alive.' },
+  { path: 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z', title: 'Scenes, directed for you', body: 'Turn your script into a polished scene.' },
+  { path: 'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM3.5 20a6.5 6.5 0 0 1 10-5.2M14.5 21l.7-3 5.3-5.3 2.3 2.3-5.3 5.3-3 .7Z', title: 'Characters that are yours', body: 'Create a look nobody else has.' },
+  { path: 'M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', title: 'Cinematic feel', body: 'Give every moment the energy of a film.' },
+  { path: 'M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM4 16l5-5 4 4 3-3 4 4M9 9a1 1 0 1 0 0-.01', title: 'Any world you imagine', body: 'Set your story anywhere you like.' },
+  { path: 'M12 4v11m0 0-4-4m4 4 4-4M5 20h14', title: 'Ready to share', body: 'Crisp videos for YouTube, Reels and more.' }
 ];
 
 const USE_CASES = [
@@ -48,6 +48,17 @@ function quickDock() {
   document.addEventListener('pointerdown', (e) => { if (!dock.isConnected) return; if (dock.classList.contains('open') && !dock.contains(e.target)) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dock.isConnected) close(); });
   return dock;
+}
+/** sections slide in as they scroll into view; nothing is hidden if the browser cannot observe or the person prefers less motion */
+function setupReveal(root) {
+  if (typeof IntersectionObserver === 'undefined' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  root.classList.add('lp-reveal-ready');
+  const io = new IntersectionObserver((entries) => { for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }, { threshold: 0.12, rootMargin: '0px 0px -5% 0px' });
+  const groups = new Map();
+  for (const el of root.querySelectorAll('.lp-feature-row,.lp-how-card,.lp-heading,.lp-faq details,.lp-final-cta')) {
+    const n = groups.get(el.parentElement) || 0; groups.set(el.parentElement, n + 1);
+    el.style.setProperty('--i', String(Math.min(n, 6))); io.observe(el);
+  }
 }
 function menuIcon() {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
@@ -108,7 +119,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
 
   const burger = h('button', { type: 'button', class: 'hdr-burger', 'aria-label': 'Open menu', 'aria-expanded': 'false', onclick: () => { const open = mobileNav.classList.toggle('open'); burger.setAttribute('aria-expanded', String(open)); } }, menuIcon());
   mobileNav.addEventListener('click', (e) => { if (e.target.closest('a')) { mobileNav.classList.remove('open'); burger.setAttribute('aria-expanded', 'false'); } });
-  return h('div', { class: 'sh lp' },
+  const page = h('div', { class: 'sh lp' },
     h('header', { class: 'sh-bar lp-header' },
       burger,
       leftNav,
@@ -123,7 +134,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
           h('img', { class: 'lp-hero-logo', src: '/images/12toons-logo.png', alt: '12toons logo', width: '150', height: '150' }),
           eyebrow('♛  AI-powered 2D animation studio'),
           h('h1', {}, 'Make your stories ', h('span', { class: 'lp-accent' }, 'move.')),
-          h('p', { class: 'lp-hero-lead' }, 'Create 2D animated videos online using characters, voice recordings and an editable timeline. Add lip-sync, direct scenes with AI, and export your animation from your browser.'),
+          h('p', { class: 'lp-hero-lead' }, 'Turn your script and your voice into a finished animated video. No drawing, no software to install.'),
           h('div', { class: 'lp-actions' }, button(primaryCta('Open my studio  →'), cta, 'primary', true), button('▶  Explore the studio', () => scrollToSection('features'), 'outline')),
           h('div', { class: 'lp-hero-foot' },
             h('span', {}, heroIcon('characters'), h('strong', {}, 'AI Characters'), h('small', {}, 'Create & customise')),
@@ -134,7 +145,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
         quickDock()
       ),
       h('section', { id: 'features', class: 'lp-section lp-section-soft' },
-        sectionTitle('All in one workspace', 'Create, direct and export in one place', 'From dialogue to character motion, 12toons gives you tools to make and fine-tune every scene.'),
+        sectionTitle('All in one workspace', 'Create, direct and export in one place', 'Everything you need to turn an idea into a finished animation.'),
         h('div', { class: 'lp-feature-list' }, FEATURES.map(f => h('article', { class: 'lp-feature-row' },
           h('span', { class: 'lp-feature-icon', 'aria-hidden': 'true' }, quickIcon(f.path)),
           h('div', {}, h('h3', {}, f.title), h('p', {}, f.body))
@@ -144,8 +155,8 @@ export function landingView({ user, cta, profileMenu, logo }) {
         sectionTitle('A simple workflow', 'From idea to animated video', 'Start with a script, audio recording or a blank scene. Make the rest your own.'),
         h('div', { class: 'lp-how-grid' }, [
           ['01', 'Choose your cast', 'Select an available character or create and customise one in Character Editor.'],
-          ['02', 'Build and animate', 'Add voice recordings if you have them, arrange animation clips, and fine-tune scenes and cameras.'],
-          ['03', 'Preview and export', 'Review your animation and export a WebM or MP4 video from the browser.']
+          ['02', 'Build and animate', 'Add your voice, pick the moves, and shape every scene your way.'],
+          ['03', 'Preview and export', 'Watch it come together, then export a video that is ready to share.']
         ].map(([number, title, body]) => h('article', { class: 'lp-how-card' }, h('span', {}, number), h('h3', {}, title), h('p', {}, body))))
       ),
       h('section', { id: 'faq', class: 'lp-section lp-section-soft' },
@@ -159,5 +170,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
         h('a', { href: '/#/terms' }, 'Terms of Use'), h('a', { href: '/#/website-license' }, 'Website Licence'), h('a', { href: '/#/affiliates' }, 'Affiliate Partners'), h('a', { href: '/#/tester' }, 'Tester access')),
       h('small', {}, '© 2026 12toons. All rights reserved.'))
   );
+  setupReveal(page);
+  return page;
 }
 
