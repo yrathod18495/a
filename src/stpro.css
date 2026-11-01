@@ -728,3 +728,12 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .admin-maint .admin-maint-row{padding:12px 0;border-top:1px solid var(--edge)}.admin-maint .admin-maint-row:first-of-type{border-top:0}
 .admin-maint .admin-maint-row h2{font-size:16px;margin:0 0 2px}
 .admin-switch.on.good{background:#2fae7b;border-color:#2fae7b}
+
+/* edit toolbar above the timeline: always visible, icon over label */
+#app .ws .edittools{display:flex;gap:6px;flex:none;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px}
+#app .ws .edittools::-webkit-scrollbar{display:none}
+#app .ws .edit-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;min-width:58px;padding:7px 8px;border:1px solid #3a3c43;border-radius:12px;background:#26272c;color:#e6e7ea;font:650 11px/1.1 system-ui;cursor:pointer}
+#app .ws .edit-btn svg{width:19px;height:19px;stroke:currentColor}
+#app .ws .edit-btn:hover:not(:disabled){background:#2e3036;border-color:#a597ff}
+#app .ws .edit-btn:disabled{opacity:.38;cursor:default}
+#app .ws .edit-btn.del:not(:disabled){background:#3a1d22;border-color:#7a2e3a;color:#ff7a8c}

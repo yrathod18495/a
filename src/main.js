@@ -675,7 +675,7 @@ function viewStudio() {
     tlRedo = h('button', { class: 'btn sm icon-btn tl-hist', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo')),
     h('b', { class: 'timeline-title' }, 'Timeline'),
     h('button', { class: 'btn sm icon-btn', title: 'Zoom out timeline', 'aria-label': 'Zoom out timeline', onclick: () => zoom(1 / 1.5) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Zoom in timeline', 'aria-label': 'Zoom in timeline', onclick: () => zoom(1.5) }, icon('zoom-in')),
-    h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')), h('span', { class: 'sp' }), h('span', { class: 'hint', style: 'margin:0' }, 'Select a clip to edit'));
+    h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')), h('span', { class: 'sp' }), h('span', { class: 'hint', style: 'margin:0' }, 'Tap a clip to edit it'));
   drawTimeline(); drawLineBox(); drawTabs();
   setTimeout(fit, 0);
   return h('div', { class: 'workbench' },
@@ -684,7 +684,7 @@ function viewStudio() {
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
-      h('div', { class: 'tlwrap' }, sceneTabs(), tools, clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
+      h('div', { class: 'tlwrap' }, sceneTabs(), tools, editTools(), clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
       h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
@@ -1161,6 +1161,7 @@ function dragPropRange(e, prop, mode, el) {
   });
 }
 function drawClipBar() {
+  updateEditTools();
   if (!clipBar) return;
   const bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = !bc && S.propSel && S.props.find((x) => x.id === S.propSel);
   if (bc || pr) return rangeBar(bc, pr);
@@ -1192,6 +1193,73 @@ function copySelected() {
   try { if (!localStorage.getItem('toons-hint-copy')) { localStorage.setItem('toons-hint-copy', '1'); toast('Copied. Move the playhead, then Paste.'); } } catch { /* no hint */ }
   drawClipBar(); return true;
 }
+/* ---------- the always-visible edit toolbar: split / copy / paste / duplicate / delete / jump between clips ---------- */
+const selectedItem = () => {
+  const f = S.mclip && findManual(S.mclip), bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = S.propSel && S.props.find((x) => x.id === S.propSel);
+  return f ? { kind: 'clip', f } : bc ? { kind: 'bg', bc } : pr ? { kind: 'prop', pr } : null;
+};
+async function splitSelected() {
+  const it = selectedItem();
+  if (!it) { toast('Choose a clip on the timeline first, then press Split.'); return; }
+  const t = player.time, inside = (a, b) => t > a + 0.1 && t < b - 0.1;
+  if (it.kind === 'clip') {
+    const { m, list } = it.f; if (!inside(m.start, m.start + m.dur)) { toast('Move the playhead inside the clip first.'); return; }
+    const at = snap(t), c = { ...m, id: uid(), ref: { ...m.ref }, start: at, dur: m.start + m.dur - at, off: (m.off || 0) + (at - m.start) };
+    m.dur = at - m.start; list.push(c); S.mclip = c.id; commitClips(); return;
+  }
+  if (it.kind === 'bg') {
+    const bc = it.bc; if (!inside(bc.start, bc.start + bc.dur)) { toast('Move the playhead inside the clip first.'); return; }
+    const at = snapTo(t), c = { ...clone(bc), id: uid(), start: at, dur: +(bc.start + bc.dur - at).toFixed(2) };
+    bc.dur = +(at - bc.start).toFixed(2); S.bgClips.push(c); selectOnly('bg', c.id); await syncBgClips(); commitClips(); return;
+  }
+  const pr = it.pr, start = pr.start || 0, end = pr.end ?? player.total; if (!inside(start, end)) { toast('Move the playhead inside the clip first.'); return; }
+  const at = snapTo(t), c = { ...pr, id: uid(), start: at, end: +end.toFixed(2) };
+  if (pr.attach) c.attach = { ...pr.attach };
+  pr.start = start; pr.end = +at.toFixed(2); S.props.push(c); selectOnly('prop', c.id);
+  await dbPut('props', pr); await dbPut('props', c); await stage.setProps(S.props); S.dirty = true; commitClips();
+}
+async function duplicateSelected() {
+  const it = selectedItem(); if (!it) { toast('Choose a clip on the timeline first.'); return; }
+  if (it.kind === 'clip') { const { m, list } = it.f, c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(m.start + m.dur) }; list.push(c); S.mclip = c.id; commitClips(); return; }
+  if (it.kind === 'bg') { const bc = it.bc, c = { ...clone(bc), id: uid(), start: +(bc.start + bc.dur).toFixed(2) }; S.bgClips.push(c); selectOnly('bg', c.id); await syncBgClips(); commitClips(); return; }
+  const pr = it.pr, len = Math.max(MIN_CLIP, (pr.end ?? player.total) - (pr.start || 0)), at = +((pr.end ?? player.total)).toFixed(2), c = { ...pr, id: uid(), start: at, end: +(at + len).toFixed(2) };
+  if (pr.attach) c.attach = { ...pr.attach };
+  S.props.push(c); selectOnly('prop', c.id); await dbPut('props', c); await stage.setProps(S.props); S.dirty = true; commitClips();
+}
+async function deleteSelected() {
+  const it = selectedItem(); if (!it) { toast('Choose a clip on the timeline first.'); return; }
+  if (it.kind === 'clip') { it.f.list.splice(it.f.list.indexOf(it.f.m), 1); S.mclip = null; commitClips(); return; }
+  if (it.kind === 'bg') { S.bgClips = S.bgClips.filter((x) => x !== it.bc); S.bgSel = null; await syncBgClips(); commitClips(); return; }
+  await dbDel('props', it.pr.id); S.props = S.props.filter((p) => p.id !== it.pr.id); S.propSel = null; await stage.setProps(S.props); S.dirty = true; commitClips();
+}
+/** every start / end of a clip on the timeline, sorted: "previous / next edit" jumps between them */
+function clipEdges() {
+  const edges = new Set([0, +player.total.toFixed(2)]);
+  for (const list of Object.values(S.manual || {})) for (const m of list || []) { edges.add(+m.start.toFixed(2)); edges.add(+(m.start + m.dur).toFixed(2)); }
+  for (const c of S.bgClips) { edges.add(+c.start.toFixed(2)); edges.add(+(c.start + c.dur).toFixed(2)); }
+  for (const pr of S.props) { edges.add(+(pr.start || 0).toFixed(2)); if (pr.end != null) edges.add(+pr.end.toFixed(2)); }
+  return [...edges].sort((a, b) => a - b);
+}
+function jumpEdge(dir) {
+  const t = player.time, edges = clipEdges(), next = dir > 0 ? edges.find((e) => e > t + 0.02) : [...edges].reverse().find((e) => e < t - 0.02);
+  if (next != null) { player.seek(next); S.dirty = true; }
+}
+let editBtns = {};
+function editTools() {
+  const b = (key, label, ic, fn, tip, cls = '') => (editBtns[key] = h('button', { type: 'button', class: `edit-btn ${cls}`, title: tip, 'aria-label': tip, onclick: fn }, icon(ic), h('span', {}, label)));
+  return h('div', { class: 'edittools', role: 'toolbar', 'aria-label': 'Edit the selected clip' },
+    b('prev', 'Prev', 'skip-back', () => jumpEdge(-1), 'Jump to the previous clip edge'), b('next', 'Next', 'skip-forward', () => jumpEdge(1), 'Jump to the next clip edge'),
+    b('split', 'Split', 'scissors', splitSelected, 'Cut the selected clip at the playhead', 'needs-sel'),
+    b('copy', 'Copy', 'copy', copySelected, 'Copy the selected clip (Ctrl+C)', 'needs-sel'), b('paste', 'Paste', 'paste', pasteClip, 'Paste at the playhead (Ctrl+V)'),
+    b('dup', 'Duplicate', 'layers', duplicateSelected, 'Add the same clip again, right after this one', 'needs-sel'),
+    b('del', 'Delete', 'trash', deleteSelected, 'Delete the selected clip', 'needs-sel del'));
+}
+function updateEditTools() {
+  const has = !!selectedItem();
+  for (const el of Object.values(editBtns)) if (el?.classList.contains('needs-sel')) { el.disabled = !has; }
+  if (editBtns.paste) editBtns.paste.disabled = !S.clipboard;
+}
+
 async function pasteClip() {
   const cb = S.clipboard;
   if (!cb) { toast('Please copy a clip first.'); return; }
