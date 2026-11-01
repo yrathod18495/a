@@ -77,7 +77,7 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .ws .save-status,#app .ws .studio-menu{position:relative}
 #app .ws .save-status .saved{display:flex;align-items:center;gap:6px;font-size:11px;max-width:220px;cursor:pointer;color:var(--mute);list-style:none}
 #app .ws .save-status summary::-webkit-details-marker,#app .ws .studio-menu summary::-webkit-details-marker{display:none}
-.save-dot{width:7px;height:7px;border-radius:50%;background:#4f8dff;flex:none}
+.save-dot{width:7px;height:7px;border-radius:50%;background:#8b7bff;flex:none}
 .save-status[data-tone=saved] .save-dot{background:#4baf76}
 .save-status[data-tone=error] .save-dot{background:#e48469}
 .save-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -150,17 +150,17 @@ body:has(#app:not([hidden])){overflow:hidden}
 @media(max-width:860px){#app .ws .preview-quality>span{display:none}#app .ws .preview-quality select{width:120px;font-size:10px;padding:3px}}
 
 /* Scene strip sits directly above the timeline ruler. */
-#app .scene-tabs{display:flex;align-items:stretch;gap:3px;flex:0 0 32px;min-width:0;overflow-x:auto;scrollbar-width:thin;border-bottom:1px solid var(--line,#3d7bf0)}
+#app .scene-tabs{display:flex;align-items:stretch;gap:3px;flex:0 0 32px;min-width:0;overflow-x:auto;scrollbar-width:thin;border-bottom:1px solid var(--line,#6f5fe8)}
 #app .scene-tab{display:flex;flex:none;align-items:stretch;border-bottom:2px solid transparent;border-radius:5px 5px 0 0;background:color-mix(in srgb,currentColor 5%,transparent)}
-#app .scene-tab.active{border-color:#1f5fe0;background:linear-gradient(110deg,#6fb0ff,#1f5fe0);color:#1c2040}
+#app .scene-tab.active{border-color:#5b4bd4;background:linear-gradient(110deg,#a597ff,#5b4bd4);color:#1c2040}
 #app .scene-tab>button,#app .new-scene,#app .scene-menu summary{background:none;border:0;color:inherit;font:inherit;font-size:12px;padding:5px 9px;cursor:pointer;white-space:nowrap}
 #app .scene-tab>button{max-width:160px;overflow:hidden;text-overflow:ellipsis}
 #app .scene-menu summary{list-style:none;padding-left:3px;padding-right:7px}
-#app .scene-menu-items{position:fixed;z-index:80;display:flex;flex-direction:column;min-width:140px;background:var(--card,#1f2342);color:var(--text,#dbe8ff);border:1px solid #3d7bf0;border-radius:8px;box-shadow:0 8px 28px #0005;padding:5px}
+#app .scene-menu-items{position:fixed;z-index:80;display:flex;flex-direction:column;min-width:140px;background:var(--card,#1f2342);color:var(--text,#ddd8ff);border:1px solid #6f5fe8;border-radius:8px;box-shadow:0 8px 28px #0005;padding:5px}
 #app .scene-menu-items button{background:none;color:inherit;border:0;text-align:left;padding:8px 12px;cursor:pointer;border-radius:4px}
-#app .scene-menu-items button:hover{background:#3d7bf033}
-#app .new-scene{color:#1c2f6b;flex:none}
-#app .scene-tabs button:focus-visible,#app .scene-menu summary:focus-visible{outline:2px solid #3d7bf0;outline-offset:-2px}
+#app .scene-menu-items button:hover{background:#6f5fe833}
+#app .new-scene{color:#3d3585;flex:none}
+#app .scene-tabs button:focus-visible,#app .scene-menu summary:focus-visible{outline:2px solid #6f5fe8;outline-offset:-2px}
 #app .scene-tabs [role=tab]{touch-action:manipulation}
 
 .scene-delete-dialog{width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:24px;border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--text);box-shadow:0 24px 80px #0005}
@@ -220,12 +220,12 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .dock-edge{position:absolute;top:0;bottom:var(--dock-bottom);width:20px;z-index:29}
   #app .ws .dock-edge-left{left:-12px}
   #app .ws .dock-edge-right{right:-12px}
-  #app .ws .dock-edge::after{content:'';position:absolute;top:50%;width:4px;height:60px;margin-top:-30px;border-radius:3px;background:var(--acc,#1f5fe0);opacity:0;transition:opacity .25s .15s}
+  #app .ws .dock-edge::after{content:'';position:absolute;top:50%;width:4px;height:60px;margin-top:-30px;border-radius:3px;background:var(--acc,#5b4bd4);opacity:0;transition:opacity .25s .15s}
   #app .ws .dock-edge-left::after{left:14px}
   #app .ws .dock-edge-right::after{right:14px}
   #app .ws[data-dock-rail=out] .dock-edge-left::after,#app .ws[data-dock-panel=out] .dock-edge-right::after{opacity:.55}
   #app .ws .resize-handle{display:block;position:relative;z-index:6;touch-action:none}
-  #app .ws .resize-handle::after{content:'';position:absolute;border-radius:3px;background:var(--acc,#1f5fe0);opacity:0;transition:opacity .15s}
+  #app .ws .resize-handle::after{content:'';position:absolute;border-radius:3px;background:var(--acc,#5b4bd4);opacity:0;transition:opacity .15s}
   #app .ws .resize-handle:hover::after,#app .ws .resize-handle.dragging::after{opacity:.65}
   #app .ws .resize-panel{position:absolute;grid-area:auto;right:calc(var(--panel-w) - 4px);top:0;bottom:var(--dock-bottom);width:8px;height:auto;z-index:31;cursor:col-resize}
   #app .ws .resize-panel::after{inset:0 3px}
@@ -286,7 +286,7 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .tear-eye-handle.active{background:var(--acc);color:#1c2040}
 #app .tear-eye-handle[hidden],#app .tear-handles[hidden]{display:none}
 
-.tclip.bg{background:#171a33;border:2px solid #39406b;color:#9cc6ff;font-size:11px;cursor:pointer}
+.tclip.bg{background:#171a33;border:2px solid #39406b;color:#c4bcff;font-size:11px;cursor:pointer}
 .animation-thumb canvas{width:100%;height:100%;display:block}
 /* props & effects library */
 #app .studio-shared-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}

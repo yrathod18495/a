@@ -583,7 +583,7 @@ function syncPills() {
   }
 }
 function dockPill(name) {
-  const pill = pills[name] = h('button', { type: 'button', class: 'dock-pill', title: name === 'rail' ? 'Tool menu kholein' : 'Side panel kholein', 'aria-label': name === 'rail' ? 'Tool menu kholein' : 'Side panel kholein', onclick: () => dockShow(name) }, name === 'rail' ? '🧰' : '🗂');
+  const pill = pills[name] = h('button', { type: 'button', class: 'dock-pill', title: name === 'rail' ? 'Open the tool menu' : 'Open the side panel', 'aria-label': name === 'rail' ? 'Open the tool menu' : 'Open the side panel', onclick: () => dockShow(name) }, name === 'rail' ? '🧰' : '🗂');
   pill.addEventListener('pointerenter', () => dockShow(name));
   return pill;
 }
@@ -805,13 +805,14 @@ window.addEventListener('resize', () => {
   for (const group of document.querySelectorAll('#app .upload-tools[open]')) group.open = false;
 });
 
+const wideStudio = () => matchMedia('(min-width: 1000px)').matches;
 function drawTabs() {
   updatePathView();
   stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
   const advanced = new Set(['motion', 'camera', 'mask', 'ai']);
   const button = ([key, label, ic], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
-    if (S.tab === key && !openOnly) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
+    if (S.tab === key && !openOnly && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
     drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
   } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'sr' }, label));
   const byKey = Object.fromEntries(TABS.map(t => [t[0], t]));
@@ -841,7 +842,16 @@ function drawTabs() {
     },
   }, h('summary', { title: 'Upload', 'aria-label': 'Upload' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('upload')), h('span', { class: 'sr' }, 'Upload')),
   h('div', { class: 'advanced-tools-list upload-tools-list' }, ...['audio', 'canvas', 'props'].map(key => button(byKey[key], true))));
-  tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), upload,
+  if (wideStudio()) {
+    // On a big screen the tools are a plain labelled list, in the order a person works: voices, characters, animations, then the rest.
+    const done = { audio: S.lines.length > 0, chars: S.speakers.some((x) => x.charId), anim: Object.values(S.manual || {}).some((list) => list?.length) };
+    const railBtn = (key, step) => { const [, text, ic] = byKey[key], active = S.tab === key; return h('button', { type: 'button', class: `rail-btn${active ? ' on' : ''}${step && done[key] ? ' done' : ''}`, 'aria-pressed': String(active), onclick: () => { S.tab = key; S.panelOpen = true; drawTabs(); S.dirty = true; dockShow('panel'); } },
+      h('span', { class: 'rb-ico', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'rb-label' }, text), step ? h('span', { class: 'rb-step', 'aria-hidden': 'true' }, done[key] ? '✓' : String(step)) : null); };
+    tabsEl.replaceChildren(h('div', { class: 'rail-title' }, 'Start here'), railBtn('audio', 1), railBtn('chars', 2), railBtn('anim', 3),
+      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'props', 'tears', 'effects', 'grade'].map((key) => railBtn(key)),
+      h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
+      h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
+  } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), upload,
     ...['chars', 'anim', 'tears', 'effects', 'grade'].map(key => button(byKey[key])), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
@@ -1881,13 +1891,16 @@ function addCharacterTo(s) {
 /* ---- start of a scene: audio is optional, so the workbench is open from the first second ---- */
 const openTab = (k) => { S.tab = k; S.panelOpen = true; drawTabs(); dockShow('panel'); };
 function emptyCard() {
+  const step = (n, title, text, label, action, kind = '') => h('li', { class: 'start-step' }, h('span', { class: 'start-n', 'aria-hidden': 'true' }, String(n)),
+    h('div', { class: 'start-copy' }, h('b', {}, title), h('small', {}, text)), h('button', { class: `btn ${kind}`, onclick: action }, label));
   return h('div', { class: 'empty' }, h('div', { class: 'empty-in' },
-    h('b', {}, 'Start your scene'),
-    h('p', {}, 'Add audio lines, characters and a background — in any order. Audio is optional.'),
-    h('div', { class: 'row', style: 'justify-content:center;gap:8px' },
-      h('button', { class: 'btn pri', onclick: () => openTab('audio') }, '🎙 Add audio'),
-      h('button', { class: 'btn ok', onclick: addManualCharacter }, '🎭 Add character'),
-      h('button', { class: 'btn', onclick: () => openTab('canvas') }, '🖼 Background'))));
+    h('b', { class: 'empty-title' }, 'Start your scene'),
+    h('p', { class: 'empty-sub' }, 'Three quick steps. Audio is optional, and you can do them in any order.'),
+    h('ol', { class: 'start-steps' },
+      step(1, 'Add your voice lines', 'Upload audio and every voice gets its own character.', 'Add audio', () => openTab('audio'), 'pri'),
+      step(2, 'Add a character', 'Choose who appears in your scene.', 'Add character', addManualCharacter, 'ok'),
+      step(3, 'Pick a background', 'Set the place where your story happens.', 'Background', () => openTab('canvas'))),
+    h('p', { class: 'start-note' }, 'Then choose animations in the list on the left, and press Export when you are happy.')));
 }
 /** a character that does not belong to any voice (works without audio) */
 function addManualCharacter() {
@@ -2712,6 +2725,7 @@ function headerTools() {
     h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
     exportBtn, closeBtn);
 }
+matchMedia('(min-width: 1000px)').addEventListener?.('change', () => { if (!$app.hidden && S.ready && tabsEl) { drawTabs(); S.dirty = true; } });
 window.addEventListener('keydown', (e) => {
   if ($app.hidden || !(e.ctrlKey || e.metaKey) || e.target.closest('input,select,textarea,[contenteditable=true],dialog[open],.modal')) return;
   const k = e.key.toLowerCase();

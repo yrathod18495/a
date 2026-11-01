@@ -1,6 +1,6 @@
 /* App design layer. Every colour comes from the tokens below, so night is dark all the way and day is light all the way. Loaded last so it wins over the older surfaces. */
-:root,:root[data-theme="night"]{--on-brand:#ffffff;--logo-orange:#ffa726;--bar-h:72px;--ink:#f4f5ff;--soft:#cfd3f0;--mute:#9aa0cc;--page:#0d1024;--card1:#1a1d3c;--card2:#141731;--edge:#2f3566;--fill:#12152c;--hover:#252a5a;--btn:#2c3162;--bar1:#1c2044;--bar2:#141733;--rail1:#1a1e40;--rail2:#13162f;--glass:#171a36d9;--scrim:#0009;--accent:#6fb0ff;--shadow:#1f5fe055;--danger-bg:#3a1f3f;--danger:#ff9db8;--brand:linear-gradient(135deg,#4f8dff 0%,#3d8bff 55%,#35d0ff 100%)}
-:root[data-theme="day"]{--ink:#14163a;--soft:#3a3f6e;--mute:#5f6591;--page:#f4f5ff;--card1:#ffffff;--card2:#f6f7ff;--edge:#d9dcf2;--fill:#ffffff;--hover:#eceeff;--btn:#e9ebfb;--bar1:#ffffff;--bar2:#f7f8ff;--rail1:#ffffff;--rail2:#f7f8ff;--glass:#ffffffe6;--scrim:#14163a66;--accent:#1f5fe0;--shadow:#1f5fe033;--danger-bg:#ffe7ee;--danger:#c0264f}
+:root,:root[data-theme="night"]{--on-brand:#ffffff;--logo-orange:#ffa726;--bar-h:72px;--ink:#f4f5ff;--soft:#cfd3f0;--mute:#9aa0cc;--page:#0d1024;--card1:#1a1d3c;--card2:#141731;--edge:#2f3566;--fill:#12152c;--hover:#252a5a;--btn:#2c3162;--bar1:#1c2044;--bar2:#141733;--rail1:#1a1e40;--rail2:#13162f;--glass:#171a36d9;--scrim:#0009;--accent:#a597ff;--shadow:#5b4bd455;--danger-bg:#3a1f3f;--danger:#ff9db8;--brand:linear-gradient(135deg,#8b7bff 0%,#7c6cf5 55%,#6d5ce6 100%)}
+:root[data-theme="day"]{--ink:#14163a;--soft:#3a3f6e;--mute:#5f6591;--page:#f4f5ff;--card1:#ffffff;--card2:#f6f7ff;--edge:#d9dcf2;--fill:#ffffff;--hover:#eceeff;--btn:#e9ebfb;--bar1:#ffffff;--bar2:#f7f8ff;--rail1:#ffffff;--rail2:#f7f8ff;--glass:#ffffffe6;--scrim:#14163a66;--accent:#5b4bd4;--shadow:#5b4bd433;--danger-bg:#ffe7ee;--danger:#c0264f}
 
 :root[data-theme] body :is(h1,h2,h3),:root[data-theme] body .lp *{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Devanagari",sans-serif!important;letter-spacing:-.01em}
 :root[data-theme] body .lp .lp-header:before,:root[data-theme] body .lp .lp-header:after,:root[data-theme] body .lp .lp-brand-crest:before,:root[data-theme] body .lp .lp-brand-crest:after,:root[data-theme] body .lp .lp-button-royal:after,:root[data-theme] body .lp .lp-button-content img{display:none!important;content:none!important}
@@ -52,18 +52,18 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 :root[data-theme] body .sh-tools{grid-template-columns:1fr;gap:20px}
 @media(min-width:860px){:root[data-theme] body .sh-tools{grid-template-columns:1fr 1fr}}
 :root[data-theme] body .st-tool{position:relative;display:block;min-height:290px;padding:0;border-radius:30px;overflow:hidden;border:1px solid var(--edge);background:#0d1024;box-shadow:none;cursor:pointer}
-:root[data-theme] body .st-tool:hover{transform:none;border-color:#4f8dff}
+:root[data-theme] body .st-tool:hover{transform:none;border-color:#8b7bff}
 .st-tool-art{position:absolute;inset:0}
-.st-tool.animator .st-tool-art{background:radial-gradient(120% 90% at 85% 20%,#3d8bff 0,#1f4fd1 34%,#0f1d3d 74%),linear-gradient(135deg,#0f1d3d,#0b0d1e)}
+.st-tool.animator .st-tool-art{background:radial-gradient(120% 90% at 85% 20%,#6d5ce6 0,#3b3fb8 34%,#17122e 74%),linear-gradient(135deg,#17122e,#0b0d1e)}
 .st-tool.actor .st-tool-art{background:radial-gradient(120% 90% at 85% 20%,#d9731a 0,#7a3e08 40%,#24130a 78%),linear-gradient(135deg,#2a170a,#120a04)}
 .st-tool-body{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-height:290px;padding:26px}
 :root[data-theme] body .st-tool h3{font-size:24px;font-weight:800;color:#fff!important;margin:0}
-:root[data-theme] body .st-tool p{max-width:430px;color:#e4eeff!important;font-size:16px;line-height:1.5;margin:0}
+:root[data-theme] body .st-tool p{max-width:430px;color:#e1e4fb!important;font-size:16px;line-height:1.5;margin:0}
 .st-launch{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:13px 20px;border-radius:999px;background:var(--brand);color:var(--on-brand)!important;font-weight:800;font-size:16px}
 .st-tool.actor .st-launch{background:linear-gradient(135deg,#ffa726,#ffc857);color:#2a1600!important}
 .st-recent{margin-top:8px}
 .st-recent-row{display:flex;align-items:center;gap:14px;width:100%;margin:0 0 10px;padding:14px 16px;border:1px solid var(--edge);border-radius:20px;background:linear-gradient(180deg,var(--card1),var(--card2));color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:transform .15s,border-color .15s}
-.st-recent-row:hover{border-color:#4f8dff;transform:translateY(-1px)}
+.st-recent-row:hover{border-color:#8b7bff;transform:translateY(-1px)}
 .st-recent-ico{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:14px;font-size:18px;color:var(--on-brand);background:var(--brand)}
 .st-recent-ico.character{background:linear-gradient(135deg,#ffb347,#ffb86b)}
 .st-recent-text{display:flex;flex-direction:column;min-width:0;flex:1}.st-recent-text b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.st-recent-text small{color:var(--mute);font-size:13px}
@@ -98,7 +98,7 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 :root[data-theme] body .lp :is(.lp-hero-lead,p,summary){color:var(--soft)}
 :root[data-theme] body .lp .lp-accent{color:var(--accent)!important;text-shadow:none!important}
 :root[data-theme] body .lp .lp-nav a:hover{color:var(--accent)!important}
-:root[data-theme] body .lp .lp-button-outline{background:transparent!important;border:1.5px solid #4f8dff!important;color:var(--accent)!important;box-shadow:none}
+:root[data-theme] body .lp .lp-button-outline{background:transparent!important;border:1.5px solid #8b7bff!important;color:var(--accent)!important;box-shadow:none}
 :root[data-theme] body .lp .lp-button-primary{background:var(--brand)!important;color:var(--on-brand)!important;border:0!important;box-shadow:0 12px 30px var(--shadow)}
 :root[data-theme] body .lp .lp-eyebrow{border-color:var(--edge);color:var(--accent);background:var(--card1)}
 :root[data-theme] body .lp .lp-mobile-nav{display:none;margin:0 10px;padding:8px;border:1px solid var(--edge);border-radius:20px;background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
@@ -133,10 +133,10 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 }
 
 /* landing hero: the logo, a slow float and one warm accent word, so the page feels alive without heavy motion */
-.lp-hero-logo{display:block;width:150px;height:150px;margin:0 0 14px;border-radius:33px;box-shadow:0 14px 30px #1f6bff40;animation:lp-float 5s ease-in-out infinite;will-change:transform}
+.lp-hero-logo{display:block;width:150px;height:150px;margin:0 0 14px;border-radius:33px;box-shadow:0 14px 30px #7c6cf540;animation:lp-float 5s ease-in-out infinite;will-change:transform}
 @keyframes lp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 :root[data-theme] body .lp .lp-hero h1 .lp-accent{color:var(--logo-orange)!important}
-:root[data-theme] body .lp .lp-hero{background:radial-gradient(60% 50% at 80% 10%,#1f6bff26,transparent 70%),radial-gradient(50% 40% at 10% 90%,#ffa72622,transparent 70%)!important}
+:root[data-theme] body .lp .lp-hero{background:radial-gradient(60% 50% at 80% 10%,#7c6cf526,transparent 70%),radial-gradient(50% 40% at 10% 90%,#ffa72622,transparent 70%)!important}
 :root[data-theme] body .lp .lp-button-primary:hover{transform:translateY(-2px);transition:transform .2s}
 @media(prefers-reduced-motion:reduce){.lp-hero-logo{animation:none}}
 
@@ -144,8 +144,8 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 .brand-mark{display:inline-grid;place-items:center;width:1.9em;height:1.9em;margin-right:.3em;border-radius:.45em;background:var(--brand);color:#fff;font-weight:900;font-size:.82em;letter-spacing:-.02em;line-height:1;box-shadow:0 6px 16px var(--shadow)}
 
 /* header brand: plain text like the reference app, "12" in the logo blue, no badge, no frame around the text */
-:root{--logo-blue:#5b9bff}
-:root[data-theme="day"]{--logo-blue:#1f5fe0}
+:root{--logo-blue:#a597ff}
+:root[data-theme="day"]{--logo-blue:#5b4bd4}
 .brand-mark{display:inline;width:auto;height:auto;margin:0 .02em 0 0;padding:0;border-radius:0;background:none;box-shadow:none;color:var(--logo-blue);font-weight:900;font-size:1.25em;letter-spacing:-.03em;line-height:1}
 .brand-name{font-weight:800;color:var(--ink)}
 :root[data-theme] body .lp .lp-header,:root[data-theme] body .lp .lp-header.sh-bar{margin:0;border:0;border-bottom:1px solid var(--edge);border-radius:0;background:var(--page)!important;background-image:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
@@ -202,7 +202,7 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 .lp-dock.open .lp-dock-toggle::after{animation:none}
 @keyframes dock-in{from{opacity:0;transform:translateX(28px) scale(.94)}to{opacity:1;transform:none}}
 @keyframes dock-item{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@keyframes dock-pulse{0%{box-shadow:0 0 0 0 #4f8dff66}70%,100%{box-shadow:0 0 0 12px #4f8dff00}}
+@keyframes dock-pulse{0%{box-shadow:0 0 0 0 #8b7bff66}70%,100%{box-shadow:0 0 0 12px #8b7bff00}}
 @media(prefers-reduced-motion:reduce){.lp-dock,.lp-dock-item,.lp-dock-toggle::after{animation:none}}
 @media(min-width:861px){.lp-dock{top:22px;right:22px}}
 
@@ -296,14 +296,14 @@ body:has(.admin-bottomnav) .support-widget{bottom:calc(84px + env(safe-area-inse
 :root[data-theme] body .support-launch{background:var(--brand);color:var(--on-brand);box-shadow:0 10px 28px var(--shadow)}
 :root[data-theme] body .support-launch:hover{background:var(--brand)}
 :root[data-theme] body .support-compose{outline:none;box-shadow:none}
-:root[data-theme] body .support-compose:focus{border-color:#4f8dff}
+:root[data-theme] body .support-compose:focus{border-color:#8b7bff}
 :root[data-theme] body .legal-page,:root[data-theme] body .legal-main{border:0;outline:0;box-shadow:none}
 
 /* landing: sections slide in on scroll, feature icons pop in and keep a slow float, rows lift on hover */
 .lp-reveal-ready :is(.lp-feature-row,.lp-how-card,.lp-heading,.lp-faq details,.lp-final-cta){opacity:0;transform:translateY(22px);transition:opacity .6s cubic-bezier(.2,.8,.2,1),transform .6s cubic-bezier(.2,.8,.2,1),border-color .25s,box-shadow .25s;transition-delay:calc(var(--i,0) * 70ms)}
 .lp-reveal-ready :is(.lp-feature-row,.lp-how-card,.lp-heading,.lp-faq details,.lp-final-cta).in{opacity:1;transform:none}
 .lp-feature-row{position:relative;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s}
-.lp-feature-row:hover{transform:translateY(-3px);border-color:#4f8dff;box-shadow:0 14px 30px var(--shadow)}
+.lp-feature-row:hover{transform:translateY(-3px);border-color:#8b7bff;box-shadow:0 14px 30px var(--shadow)}
 .lp-reveal-ready .lp-feature-row.in:hover{transform:translateY(-3px)}
 .lp-feature-row::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,#ffffff2e,transparent);transform:skewX(-18deg);pointer-events:none}
 .lp-reveal-ready .lp-feature-row.in::after{animation:lp-shine 1.1s ease .45s 1 both}
@@ -315,7 +315,7 @@ body:has(.admin-bottomnav) .support-widget{bottom:calc(84px + env(safe-area-inse
 @media(prefers-reduced-motion:reduce){.lp-feature-row::after{display:none}}
 
 /* Animator Studio and Character Editor: the same blue brand, rounded shapes and navy surfaces as the rest of the app */
-:root{--royal-button:linear-gradient(135deg,#1f6bff 0%,#3d8bff 60%,#5fb4ff 100%)}
+:root{--royal-button:linear-gradient(135deg,#8b7bff 0%,#7c6cf5 55%,#6d5ce6 100%)}
 :root[data-theme] body :is(.btn.pri,.btn.ok,.project-dialog-confirm,.theme-toggle,.seg button.on,.tabs button.on,.cs-tabs button.on,.layout-tools .btn[aria-pressed=true]),
 :root[data-theme] body #app .ws :is(.tabs.big button.on,.advanced-tools.has-active>summary,.upload-tools.has-active>summary),
 :root[data-theme] body #app .exp-presets button[aria-pressed=true]{background:var(--brand)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 6px 18px var(--shadow)}
@@ -332,6 +332,124 @@ body.studio-dark #app .ws .topbar{background:linear-gradient(180deg,var(--bar1),
 :root[data-theme] body :is(.cs-stage,.cs-panel,.cs-right>section,.cs-lgroup){border-radius:20px}
 :root[data-theme] body :is(.cs-stage,.cs-lgroup,.cs-ghead,.cs-th){background:var(--card1)}
 :root[data-theme] body .cs-card{border-radius:18px;border-color:var(--edge);background:linear-gradient(180deg,var(--card1),var(--card2))}
-:root[data-theme] body .cs-card.on,:root[data-theme] body .cs-card:hover{border-color:#4f8dff}
-:root[data-theme] body .cs-sl input,:root[data-theme] body #app input[type=range]{accent-color:#4f8dff}
+:root[data-theme] body .cs-card.on,:root[data-theme] body .cs-card:hover{border-color:#8b7bff}
+:root[data-theme] body .cs-sl input,:root[data-theme] body #app input[type=range]{accent-color:#8b7bff}
 :root[data-theme] body :is(.cs-stage,.cs-lgroup,.cs-right>*,.cs-ghead){border-color:var(--edge)}
+
+/* native dialogs: the global reset removed their automatic centring, so it is set explicitly (scene delete) and given the app look */
+dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px)}
+:root[data-theme] body .scene-delete-dialog{padding:26px;border:1px solid var(--edge);border-radius:26px;background:linear-gradient(180deg,#1a1d3c,#141731);color:#f4f5ff;box-shadow:0 30px 80px #0007}
+.scene-delete-dialog::backdrop{background:var(--scrim);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+:root[data-theme] body .scene-delete-icon{width:46px;height:46px;border:0;border-radius:15px;background:var(--brand);color:#fff;font-size:20px;box-shadow:0 8px 20px var(--shadow)}
+:root[data-theme] body .scene-delete-dialog h2{color:#f4f5ff}
+:root[data-theme] body .scene-delete-dialog p{color:#cfd3f0}
+:root[data-theme] body .scene-delete-actions .btn{border-radius:999px;min-height:46px}
+@media(max-width:480px){.scene-delete-actions{flex-direction:column-reverse}.scene-delete-actions .btn{width:100%;flex:none}}
+
+/* project list: the save line is plain small text, not a boxed strip */
+:root[data-theme] body .projects-status{display:block;margin:-6px 0 16px;padding:0 6px;border:0;background:none;box-shadow:none;color:var(--mute);font-size:12px;text-align:left}
+:root[data-theme] body .projects-status:empty{display:none}
+
+/* landing on wide screens: one centred container, text on the left and the logo on the right */
+@media(min-width:900px){
+  :root[data-theme] body .lp .lp-hero{display:block;max-width:1180px;margin:0 auto;padding:44px 100px 40px 28px;min-height:0}
+  :root[data-theme] body .lp .lp-hero-copy{display:grid;grid-template-columns:minmax(0,1fr) 300px;column-gap:48px;align-items:center;max-width:none}
+  :root[data-theme] body .lp .lp-hero-copy>*{grid-column:1}
+  :root[data-theme] body .lp .lp-hero-copy>.lp-hero-logo{grid-column:2;grid-row:1 / span 8;justify-self:center;width:250px;height:250px;margin:0}
+  :root[data-theme] body .lp .lp-hero h1{font-size:clamp(46px,5vw,66px)}
+  .lp-dock{right:24px;top:30px}
+}
+
+/* ===== Animator Studio on a computer: a fixed three-column workspace (labelled steps | stage + timeline | tool panel) with bigger controls ===== */
+@media(min-width:1000px){
+  body #app .ws{--panel-w:380px;--tl-h:clamp(250px,36vh,380px);padding:12px 16px;font-size:14px}
+  body #app .ws .topbar{min-height:64px;margin:0 0 12px;padding:8px 14px}
+  body #app .ws .studio,body #app .ws:has(.panel:not(.open)) .studio{position:relative;display:grid;grid-template-columns:244px minmax(0,1fr) var(--panel-w);grid-template-rows:minmax(0,1fr) var(--tl-h);grid-template-areas:'rail prev side' 'rail tl side';gap:12px}
+  body #app .ws .tabs.big,body #app .ws .panel{position:static!important;transform:none!important;opacity:1!important;pointer-events:auto!important;box-shadow:none!important;top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;width:auto!important;height:100%!important;max-height:none!important;margin:0!important;z-index:1}
+  body #app .ws .tabs.big{grid-area:rail;display:flex!important;flex-direction:column;gap:6px;padding:16px 12px!important;overflow:auto;border-radius:22px}
+  body #app .ws .panel{grid-area:side;padding:18px!important;overflow:auto;border-radius:22px;display:block!important}
+  body #app .ws .panel:not(.open){display:block!important}
+  body #app .ws :is(.dock-edge,.dock-pill,.dock-grip,.resize-panel,.panel-handle){display:none!important}
+  body #app .ws .tabs.big .rail-title,body #app .ws .tabs.big .rail-more>summary{margin:16px 6px 4px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);cursor:default;list-style:none}
+  body #app .ws .tabs.big .rail-title:first-child{margin-top:0}
+  body #app .ws .tabs.big .rail-more>summary{cursor:pointer}
+  body #app .ws .tabs.big .rail-more>summary::-webkit-details-marker{display:none}
+  body #app .ws .tabs.big .rail-more>summary::after{content:" ▾"}
+  body #app .ws .tabs.big .rail-btn{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;width:100%;min-height:46px;height:auto;padding:0 12px;border:1px solid transparent;border-radius:14px;background:transparent;color:var(--text);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
+  body #app .ws .tabs.big .rail-btn:hover{background:var(--card2)}
+  body #app .ws .tabs.big .rail-btn.on{background:var(--royal-button);color:#fff;box-shadow:0 6px 18px var(--shadow)}
+  body #app .ws .tabs.big .rb-ico,body #app .ws .tabs.big .rb-ico .ic{width:22px;height:22px;font-size:22px}
+  body #app .ws .tabs.big .rb-label{flex:1;min-width:0}
+  body #app .ws .tabs.big .rb-step{display:grid;place-items:center;flex:none;width:24px;height:24px;border:1px solid var(--line);border-radius:50%;background:var(--card2);color:var(--mute);font-size:12px;font-weight:800}
+  body #app .ws .tabs.big .rail-btn.on .rb-step{background:#ffffff33;border-color:transparent;color:#fff}
+  body #app .ws .tabs.big .rail-btn.done .rb-step{background:#16a34a;border-color:transparent;color:#fff}
+  body #app .ws .tabs.big .rail-more{margin-top:4px}
+  body #app .ws .tabs.big .rail-more[open]{display:flex;flex-direction:column;gap:6px}
+  /* bigger controls everywhere in the workspace */
+  body #app .ws .btn{min-height:40px;padding:8px 16px;font-size:14px}
+  body #app .ws .btn.icon-btn{min-width:42px;min-height:42px;padding:0 10px}
+  body #app .ws .btn.sm{min-height:36px;font-size:13px}
+  body #app .ws .controls{min-height:50px;gap:10px;margin:10px 0 0}
+  body #app .ws .controls .btn{min-height:42px}
+  body #app .ws .controls .time{font-size:14px}
+  body #app .ws .stagebox{padding:14px;border-radius:20px}
+  body #app .ws .tltools{min-height:46px;gap:8px}
+  body #app .ws .tltools .btn{min-height:36px;font-size:13px;padding:6px 12px}
+  body #app .ws .timeline-title{font-size:16px}
+  body #app .ws .tl-labels{width:156px}
+  body #app .ws .rl{font-size:13px}
+  body #app .ws .tclip{font-size:13px}
+  body #app .ws .scene-tabs button,body #app .ws .new-scene{font-size:13px;padding:8px 14px}
+  body #app .ws .tl2{border-radius:18px}
+  body #app .ws .panel h2{font-size:18px}
+  body #app .ws .panel :is(.sub,.hint,small){font-size:13px}
+  body #app .ws .panel :is(input,select,textarea){min-height:40px;font-size:14px}
+  body #app .ws .panel .card{border-radius:18px;padding:14px}
+  /* the empty stage tells a new person exactly where to begin */
+  .empty-in{max-width:580px;padding:28px 26px}
+}
+.empty-in .empty-title{font-size:24px;margin-bottom:6px}
+.empty-in .empty-sub{margin-bottom:6px}
+.start-steps{list-style:none;margin:16px 0 4px;padding:0;display:flex;flex-direction:column;gap:10px;text-align:left}
+.start-step{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:18px;background:var(--card2)}
+.start-n{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--royal-button);color:#fff;font-weight:900;font-size:17px}
+.empty-in .start-copy b{display:block;margin:0 0 2px;font-size:15px;letter-spacing:0}
+.start-copy small{display:block;color:var(--mute);font-size:13px;line-height:1.35}
+.empty-in .start-note{margin:12px 0 0;font-size:13px;color:var(--mute)}
+@media(max-width:860px){
+  .start-steps{flex-direction:row;gap:6px;margin:8px 0 0}
+  .start-step{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;border-radius:14px;text-align:center}
+  .start-n{width:24px;height:24px;font-size:12px}
+  .start-copy,.empty-in .empty-sub,.empty-in .start-note{display:none}
+  .empty-in .empty-title{font-size:16px;margin-bottom:0}
+  .start-step .btn{width:100%;padding:7px 4px;font-size:12px;min-height:0}
+}
+/* landing shortcut strip: larger on a computer */
+@media(min-width:861px){
+  .lp-dock{width:66px;padding:8px;gap:6px;border-radius:26px}
+  .lp-dock.open{width:250px}
+  .lp-dock-item{height:52px;padding:0 13px;border-radius:16px}
+  .lp-dock-item svg{width:27px;height:27px}
+  .lp-dock-item span{font-size:15px}
+}
+
+/* the start card must always fit inside the stage */
+.empty{align-items:center}
+.empty-in{max-height:100%;overflow:auto}
+@media(min-width:1000px){
+  .empty-in{padding:20px 24px}
+  .empty-in .empty-title{font-size:22px}
+  .start-steps{margin:12px 0 0;gap:8px}
+  .start-step{padding:9px 12px;gap:12px}
+  .start-n{width:36px;height:36px;font-size:15px}
+}
+@media(min-width:1000px) and (max-height:900px){
+  .empty-in .empty-sub,.empty-in .start-note{display:none}
+}
+
+/* small fixes found in the screen-by-screen check */
+:root[data-theme] body .lp .lp-hero-copy>.lp-eyebrow{justify-self:start;width:fit-content}
+:root[data-theme] body .project-row .btn{width:100%;min-width:0;border:1px solid var(--edge)}
+:root[data-theme] body .project-row .btn:not(.project-open):not(.danger){background:var(--btn)!important}
+:root[data-theme] body .project-row .btn.project-open{border-color:transparent}
+:root[data-theme] body .project-row .btn.danger{border-color:transparent}

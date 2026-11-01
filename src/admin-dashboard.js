@@ -108,8 +108,8 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
         h('div', { class: 'admin-alert-list' }, list.slice(0, 8).map((a) => h('article', { class: 'admin-alert-row' },
           h('div', {}, h('b', {}, a.name || a.email || a.uid), h('small', {}, `${KIND_TEXT[a.kind] || a.kind}${a.detail ? ` · ${a.detail}` : ''} · ${a.path || '/'}`), h('small', {}, `${dateTime(a.at)}${a.country ? ` · ${a.country}` : ''} · ${a.email || ''}`)),
           h('div', { class: 'admin-alert-actions' },
-            h('button', { class: 'btn sm', type: 'button', onclick: () => show('Users', () => import('./security-view.js').then((m) => m.securityView({ home: goOverview, toast }))) }, 'Users kholein'),
-            h('button', { class: 'btn sm', type: 'button', onclick: () => acknowledge(a.id) }, 'Dekh liya')))),
+            h('button', { class: 'btn sm', type: 'button', onclick: () => show('Users', () => import('./security-view.js').then((m) => m.securityView({ home: goOverview, toast }))) }, 'Open Users'),
+            h('button', { class: 'btn sm', type: 'button', onclick: () => acknowledge(a.id) }, 'Mark as seen')))),
         h('button', { class: 'btn sm', type: 'button', onclick: () => acknowledge('all') }, 'Sab dekh liye')));
     }
     function renderDashboard() {
@@ -129,7 +129,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
           stat('Active sessions in report', number(sessions.length), 'Sessions not revoked and not expired.', '⌁', 'blue'),
           stat('Captured payments · latest report', number(captured.length), `${money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0))} recorded in this report.`, '₹', 'violet'),
           stat('Unread support conversations', number(unread), `${number(chats.length)} conversations returned by the live chat inbox.`, '✉', 'green')),
-        alertsSection(),
+        alertsSection() || '',
         h('div', { class: 'admin-dashboard-grid' },
           section('Active sessions', 'LIVE ACCOUNTS', h('div', { class: 'admin-session-list' }, sessions.length ? sessions.slice(0, 6).map(s => {
             const u = userMap.get(s.id) || {};

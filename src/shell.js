@@ -61,6 +61,8 @@ try {
 const directHash = DIRECT_ROUTES[location.pathname.replace(/\/$/, '')];
 if (directHash && location.hash !== directHash) location.replace('/' + directHash);
 window.addEventListener('hashchange', route);
+// installable app: the worker only makes the site installable, it never keeps copies
+if ('serviceWorker' in navigator && import.meta.env.PROD) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}), { once: true });
 
 let routing = Promise.resolve();
 let routeSeq = 0;
@@ -272,7 +274,7 @@ function profileMenu() {
     const isDay = activeTheme === 'day';
     themeItem.querySelector('.sh-mi-icon').replaceChildren(menuIcon(isDay ? 'moon' : 'sun'));
     themeItem.querySelector('.sh-mi-label').textContent = isDay ? 'Switch to night mode' : 'Switch to day mode';
-    themeItem.querySelector('small').textContent = isDay ? 'Dark palace with gold accents' : 'White surfaces with gold accents';
+    themeItem.querySelector('small').textContent = isDay ? 'Dark surfaces with purple accents' : 'Light surfaces with purple accents';
   }
   updateThemeItem();
   menu.append(
@@ -355,7 +357,7 @@ function hubView() {
     h('main', { class: 'sh-hub' }, h('h1', {}, 'Welcome to 12toons Studio'), h('p', { class: 'sub' }, `Hi ${name}, create professional animations directly in your browser.`),
       h('div', { class: 'st-label' }, 'Tools'),
       h('div', { class: 'sh-tools' },
-        tool('animator', '12toons Animator Studio', 'Create animations with a timeline, voice lines, AI scene direction and character assets, then export a video.', '#/toons', 'Launch Animator Studio'),
+        tool('animator', '12toons Animator Studio', 'Turn your script and your voice into animated scenes, then export a video that is ready to share.', '#/toons', 'Launch Animator Studio'),
         tool('actor', '12toons Character Editor', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Editor')),
       recent,
       cloudLine));

@@ -108,7 +108,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
 
   const pricingLink = h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing');
   const brand = logo(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
-  const primaryCta = (label) => h('span', { class: 'lp-button-content' }, h('img', { src: '/images/royal-crown-emblem.png', alt: '', width: '38', height: '38', loading: 'lazy' }), h('span', {}, label));
+  const primaryCta = (label) => h('span', { class: 'lp-button-content' }, h('span', {}, label));
   const leftNav = h('nav', { class: 'lp-nav lp-nav-left', 'aria-label': 'Main navigation' },
     navLink('Home', 'top'), navLink('Features', 'features'));
   const rightNav = h('nav', { class: 'lp-nav lp-nav-right', 'aria-label': 'More navigation' },
