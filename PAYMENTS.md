@@ -14,6 +14,14 @@ The current maintenance setting blocks purchases for non-admin accounts. Turn ma
 
 The Firebase Admin service account used by the existing server APIs must have access to the configured Firestore database. Payment attempts are recorded in `creditPayments`; user scoped receipts are mirrored under `workspaces/{uid}/creditPayments`. The server alone can write either location and change `workspaces/{uid}.credits`.
 
+## Admin · Payments page
+
+The admin Payments page (`src/admin-payments.js`, actions in `api/payments.js`) has three parts. Every action is admin-only.
+
+- **Revenue pulse**: lifetime revenue, the last 10 days as a bar chart and an *unpaid cycle balance*. Days follow Indian time (IST). "Mark revenue as paid until date" (`adminSetPaidUntil`, stored in `paymentSettings/revenue`) settles everything up to and including that date; only revenue after it counts as unpaid. The date must be a real day and cannot be in the future; Clear removes it. Each change is written to `securityAudit`.
+- **Transaction log**: every payment attempt as a card. *Approve* (`adminApprove`) asks Razorpay for the payments of that order and credits the Coins only if one is really captured; nothing is credited on the admin's word alone, and approving twice never credits twice. *Purge* (`adminPurge`, up to 100 at a time) deletes unpaid / failed / cancelled records only: a paid purchase is a financial record and is always kept.
+- **Razorpay ground truth**: the latest payments straight from Razorpay, compared with the records here (`adminGroundTruth`). A payment that Razorpay captured but 12toons never credited shows *Recover* (`adminRecover`), which rebuilds the order from its Razorpay notes if needed (user and plan must be valid and the amount must match the plan) and credits it once. It needs the Razorpay keys listed above.
+
 ## Packages
 
 | Plan | Sale price | Displayed regular price | Credits |
