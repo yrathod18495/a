@@ -1,8 +1,8 @@
 import { h } from './dom.js';
 // A small modal used for renaming, creating and deleting projects (same look everywhere).
-export function projectDialog({title,description='',value='',placeholder='',confirmLabel='Continue',danger=false,confirmOnly=false},host=document.body){
+export function projectDialog({title,description='',value='',placeholder='',confirmLabel='Continue',danger=false,confirmOnly=false,maxLength=80},host=document.body){
   return new Promise(resolve=>{
-    const input=confirmOnly?null:h('input',{class:'project-dialog-input',type:'text',value,placeholder,'aria-label':title,maxlength:80});
+    const input=confirmOnly?null:h('input',{class:'project-dialog-input',type:'text',value,placeholder,'aria-label':title,maxlength:maxLength});
     const close=result=>{window.removeEventListener('keydown',onKey);overlay.remove();resolve(result);};
     const onKey=e=>{if(e.key==='Escape')close(null);if(e.key==='Enter'&&!confirmOnly){e.preventDefault();save();}};
     const save=()=>{const text=input?.value.trim();if(!confirmOnly&&!text){input?.focus();return;}close(confirmOnly?true:text);};

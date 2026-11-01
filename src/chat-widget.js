@@ -15,7 +15,7 @@ const icon = (name) => { const svg = document.createElementNS('http://www.w3.org
 
 export function chatWidget(user, onLogin = () => {}) {
   const root = h('div', { class: 'support-widget' });
-  let open = false, loading = false, sending = false, timer = 0, latest = '', cachedMessages = [], pendingMessages = [];
+  let open = false, loading = false, sending = false, timer = 0, latest = '', cachedMessages = [], pendingMessages = [], revision = 0;
   const list = h('div', { class: 'support-messages', 'aria-live': 'polite' });
   const input = h('textarea', { class: 'support-compose', rows: '2', maxlength: '2000', placeholder: 'Write a message…', 'aria-label': 'Message support' });
   const state = h('p', { class: 'support-state', role: 'status' });
@@ -44,9 +44,10 @@ export function chatWidget(user, onLogin = () => {}) {
     loading = true;
     try {
       const since = cachedMessages.reduce((n, m) => Math.max(n, Number(m.createdAt) || 0), 0);
-      const data = await apiCall('/api/chat', { action: 'messages', ...(since ? { since } : {}) }, user.uid);
+      const data = await apiCall('/api/chat', { action: 'messages', ...(since ? { since, revision } : {}) }, user.uid);      // an edited or deleted reply changes the revision, and the whole chat comes again
+      revision = data.revision || 0;
       toggle.classList.toggle('unread', !!data.unreadUser); toggle.setAttribute('aria-label', data.unreadUser ? 'Open live chat, you have a new reply' : 'Open live chat');
-      const fresh = data.messages || [], msgs = data.incremental ? [...cachedMessages, ...fresh.filter(m => !cachedMessages.some(c => c.id === m.id))] : fresh, key = msgs.map(m => m.id || m.createdAt).join('|');
+      const fresh = data.messages || [], msgs = data.incremental ? [...cachedMessages, ...fresh.filter(m => !cachedMessages.some(c => c.id === m.id))] : fresh, key = msgs.map(m => `${m.id || m.createdAt}:${m.editedAt || 0}`).join('|');
       if (key !== latest) quietSince = Date.now();
       cachedMessages = msgs;
       const pendingBefore = pendingMessages.length;
@@ -64,7 +65,7 @@ export function chatWidget(user, onLogin = () => {}) {
     list.scrollTop = list.scrollHeight;
   }
   function bubble(m) {
-    return (h('div', { class: `support-bubble ${m.sender === 'admin' ? 'received' : 'sent'} ${m.pending ? 'pending' : ''} ${m.failed ? 'failed' : ''}` }, h('p', {}, m.message), h('time', {}, m.failed ? 'Not sent' : m.pending ? 'Sending…' : m.sent ? 'Sent' : new Date(m.createdAt).toLocaleTimeString([], { timeStyle: 'short' }))));
+    return (h('div', { class: `support-bubble ${m.sender === 'admin' ? 'received' : 'sent'} ${m.pending ? 'pending' : ''} ${m.failed ? 'failed' : ''}` }, m.image ? h('img', { class: 'support-image', src: m.image, alt: 'Picture from support' }) : null, m.message ? h('p', {}, m.message) : null, h('time', {}, m.failed ? 'Not sent' : m.pending ? 'Sending…' : m.sent ? 'Sent' : `${m.editedAt ? 'edited · ' : ''}${new Date(m.createdAt).toLocaleTimeString([], { timeStyle: 'short' })}`)));
   }
   async function send(e) {
     quietSince = Date.now(); schedule();
