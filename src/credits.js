@@ -20,11 +20,11 @@ function loadCheckout() {
 
 export async function view({ user, home }) {
   const root = h('div', { class: 'sh credits-page' });
-  const content = h('main', { class: 'credit-main' }, h('p', { class: 'hint' }, 'Loading Gold Coin plans…'));
+  const content = h('main', { class: 'credit-main' }, h('p', { class: 'hint' }, 'Loading Coin plans…'));
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, `Buy ${COIN_NAME}`), h('span', { class: 'sp' }), h('button', { class: 'btn', onclick: home }, '⌂ Home')), content);
   let catalog;
   try { catalog = await apiCall('/api/payments', { action: 'catalog' }, user.uid); }
-  catch (e) { content.replaceChildren(h('section', { class: 'card credit-error' }, h('h2', {}, 'Could not load Gold Coin plans'), h('p', {}, friendlyError(e)), h('button', { class: 'btn', onclick: home }, 'Back to Home'))); return root; }
+  catch (e) { content.replaceChildren(h('section', { class: 'card credit-error' }, h('h2', {}, 'Could not load Coin plans'), h('p', {}, friendlyError(e)), h('button', { class: 'btn', onclick: home }, 'Back to Home'))); return root; }
   const balance = h('b', { class: 'credit-balance' }, coinAmount(catalog.credits, { size: 26 }));
   const message = h('p', { class: 'credit-message', role: 'status', 'aria-live': 'polite' }, '');
   const history = h('div', { class: 'credit-history' }, h('p', { class: 'hint' }, 'Loading your payment history…'));
@@ -32,7 +32,7 @@ export async function view({ user, home }) {
     try {
       const { payments } = await apiCall('/api/payments', { action: 'mine' }, user.uid);
       const entries = payments.length ? payments.map((p) => h('div', { class: 'credit-history-row' },
-        h('div', {}, h('b', {}, p.planName || 'Gold Coins purchase'), h('small', {}, `${stamp(p.createdAt)} · ${p.orderId}`)),
+        h('div', {}, h('b', {}, p.planName || 'Coins purchase'), h('small', {}, `${stamp(p.createdAt)} · ${p.orderId}`)),
         h('div', {}, h('b', {}, money(p.amountPaise)), h('small', { class: `credit-status ${p.status}` }, statusLabel(p.status))))) : [h('p', { class: 'hint' }, 'Your purchases will appear here.')];
       history.replaceChildren(...entries);
     } catch (e) { history.replaceChildren(h('p', { class: 'hint' }, e.message)); }
@@ -72,7 +72,7 @@ export async function view({ user, home }) {
     finally { button.disabled = false; }
   };
   content.replaceChildren(
-    h('section', { class: 'credit-hero' }, h('div', {}, h('span', { class: 'credit-kicker' }, 'YOUR GOLD COINS'), h('h1', {}, 'Choose your Gold Coins plan'), h('p', { class: 'sub' }, 'One-time purchases. As soon as Razorpay confirms the payment, the coins are added to your Gold Coins account.')),
+    h('section', { class: 'credit-hero' }, h('div', {}, h('span', { class: 'credit-kicker' }, 'YOUR COINS'), h('h1', {}, 'Choose your Coins plan'), h('p', { class: 'sub' }, 'One-time purchases. As soon as Razorpay confirms the payment, the coins are added to your Coins account.')),
       h('div', { class: 'credit-balance-card' }, h('small', {}, 'Your balance'), balance)),
     h('div', { class: 'credit-grid' }, ...catalog.plans.map((plan) => {
       const button = h('button', { class: 'btn pri big', disabled: !catalog.configured, onclick: null }, catalog.configured ? 'Buy this plan' : 'Payment setup pending');
@@ -84,8 +84,6 @@ export async function view({ user, home }) {
         h('p', { class: 'credit-count' }, coinAmount(plan.credits, { size: 30 })),
         h('ul', {}, ...plan.features.map((feature) => h('li', {}, feature))), button);
     })),
-    ...(!catalog.configured ? [h('p', { class: 'credit-setup' }, 'Checkout is disabled until RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set on the server.')] : []),
-    h('p', { class: 'credit-note' }, 'Gold Coins are not spent on AI tools. AI tools run on your own OpenRouter API key, and the provider may charge separately.'),
     message,
     h('section', { class: 'credit-history-section' }, h('div', { class: 'credit-section-heading' }, h('h2', {}, 'Payment history'), h('button', { class: 'btn sm', onclick: refreshHistory }, '↻ Refresh')), history));
   refreshHistory();

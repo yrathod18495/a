@@ -63,7 +63,7 @@ export async function creditCapturedPayment(db, payment) {
     const affiliateRefDoc = attribution?.affiliateId ? db.doc(`affiliatePartners/${attribution.affiliateId}`) : null;
     const affiliatePartner = affiliateRefDoc ? await tx.get(affiliateRefDoc) : null;
     const currentCredits = Number(userProfile.data()?.credits || 0);
-    if (!Number.isSafeInteger(currentCredits) || currentCredits < 0 || !Number.isSafeInteger(currentCredits + current.credits)) throw new Error('The account\'s Gold Coins balance is not valid. Please contact support.');
+    if (!Number.isSafeInteger(currentCredits) || currentCredits < 0 || !Number.isSafeInteger(currentCredits + current.credits)) throw new Error('The account\'s Coins balance is not valid. Please contact support.');
     const now = Date.now(), update = { status: 'captured', paymentId, capturedAt: now, updatedAt: now };
     tx.set(workspaceRef, { credits: currentCredits + current.credits }, { merge: true });
     tx.set(paymentRef, update, { merge: true });

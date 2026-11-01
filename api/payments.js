@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     });
     if (b.action === 'createOrder') {
       const plan = planById.get(String(b.planId));
-      if (!plan) throw new AccessError('invalid_plan', 'Please choose a valid Gold Coins plan.', 400);
+      if (!plan) throw new AccessError('invalid_plan', 'Please choose a valid Coins plan.', 400);
       if (!paymentConfigReady()) throw new AccessError('payments_unconfigured', 'The payment setup is not complete yet. Please try again shortly.', 503);
       const order = await razorpayRequest('orders', { method: 'POST', body: JSON.stringify({ amount: plan.amountPaise, currency: plan.currency, receipt: `cr_${randomUUID().replace(/-/g, '')}`, notes: { uid: who.uid, planId: plan.id } }) });
       if (!order.id || +order.amount !== plan.amountPaise || order.currency !== plan.currency) throw new AccessError('invalid_gateway_order', 'Received an invalid order from Razorpay. Please try again.', 502);

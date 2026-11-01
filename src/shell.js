@@ -253,7 +253,7 @@ function profileMenu() {
       h('span', { class: 'sh-account-avatar', 'aria-hidden': 'true' }, makeAvatar()),
       h('div', { class: 'sh-account-copy' }, h('span', { class: 'sh-menu-kicker' }, 'YOUR ACCOUNT'), h('b', {}, name), h('small', {}, user.email || ''), h('span', { class: 'sh-plan' }, 'Free plan'))),
     h('div', { class: 'sh-menu-section' }, themeItem,
-      item('coins', 'Buy Gold Coins', 'Explore packs, balance and payment history', () => go('#/credits')),
+      item('coins', 'Buy Coins', 'Explore packs, balance and payment history', () => go('#/credits')),
       item('affiliate', 'Affiliate dashboard', 'Your referrals and earnings', () => go('#/affiliate-dashboard')),
       item('tester', 'Tester access', 'Request or open tester access', () => go('#/tester')),
       ...(role === 'admin' ? [item('admin', 'Admin panel', 'Manage your workspace', () => go('#/admin'))] : [])),

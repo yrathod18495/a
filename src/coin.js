@@ -1,8 +1,8 @@
-// The 12toons Gold Coin: a royal coin drawn in code (no image file), used wherever the site shows what used to be "credits".
+// The 12toons Coin: a royal coin drawn in code (no image file), used wherever the site shows what used to be "credits".
 // One hidden <defs> block holds the gradients; every coin just references it, so a page full of coins stays light.
 import { h } from './dom.js';
 
-export const COIN_NAME = 'Gold Coins';
+export const COIN_NAME = 'Coins';
 const NS = 'http://www.w3.org/2000/svg';
 let defsReady = false;
 
@@ -21,7 +21,7 @@ const EMBLEMS = {
   timeline: 'M3 3h18v18H3ZM3 8h18M3 14h18M8 3v18M13 8v6M17 14v7',
   export: 'M12 16V3M7 8l5-5 5 5M4 15v6h16v-6',
 };
-const coinSvg = (size, emblem) => `<svg xmlns="${NS}" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="12toons Gold Coin">
+const coinSvg = (size, emblem) => `<svg xmlns="${NS}" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="12toons Coin">
   <circle cx="50" cy="50" r="48.5" fill="url(#gc-edge)"/>
   <circle cx="50" cy="50" r="47" fill="none" stroke="#6b4408" stroke-width="2.4" stroke-dasharray="1.6 1.9" opacity=".75"/>
   <circle cx="50" cy="50" r="44" fill="url(#gc-rim)"/>
@@ -39,7 +39,7 @@ const coinSvg = (size, emblem) => `<svg xmlns="${NS}" viewBox="0 0 100 100" widt
   <path d="M 18 40 A 34 34 0 0 1 52 14 A 40 40 0 0 0 22 52 Z" fill="url(#gc-shine)"/>
 </svg>`;
 
-/** a Gold Coin element; `size` is in px */
+/** a Coin element; `size` is in px */
 export function goldCoin(size = 20, { emblem } = {}) {
   if (!defsReady && typeof document !== 'undefined') { document.body.insertAdjacentHTML('beforeend', DEFS); defsReady = true; }
   const el = h('span', { class: 'gcoin', style: `width:${size}px;height:${size}px` });
@@ -47,7 +47,7 @@ export function goldCoin(size = 20, { emblem } = {}) {
   return el;
 }
 
-/** "1,500 [coin] Gold Coins" as one inline element (number first, the coin, then the name unless `short`) */
+/** "1,500 [coin] Coins" as one inline element (number first, the coin, then the name unless `short`) */
 export function coinAmount(n, { short = false, size = 18 } = {}) {
   return h('span', { class: 'gcoin-amount' }, Number(n || 0).toLocaleString('en-IN'), goldCoin(size), short ? null : ` ${COIN_NAME}`);
 }
