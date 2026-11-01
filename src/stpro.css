@@ -313,3 +313,25 @@ body:has(.admin-bottomnav) .support-widget{bottom:calc(84px + env(safe-area-inse
 @keyframes lp-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px) rotate(-3deg)}}
 .lp-feature-row:hover .lp-feature-icon{animation-play-state:paused;transform:scale(1.08) rotate(-4deg)!important}
 @media(prefers-reduced-motion:reduce){.lp-feature-row::after{display:none}}
+
+/* Animator Studio and Character Editor: the same blue brand, rounded shapes and navy surfaces as the rest of the app */
+:root{--royal-button:linear-gradient(135deg,#1f6bff 0%,#3d8bff 60%,#5fb4ff 100%)}
+:root[data-theme] body :is(.btn.pri,.btn.ok,.project-dialog-confirm,.theme-toggle,.seg button.on,.tabs button.on,.cs-tabs button.on,.layout-tools .btn[aria-pressed=true]),
+:root[data-theme] body #app .ws :is(.tabs.big button.on,.advanced-tools.has-active>summary,.upload-tools.has-active>summary),
+:root[data-theme] body #app .exp-presets button[aria-pressed=true]{background:var(--brand)!important;border-color:transparent!important;color:#fff!important;box-shadow:0 6px 18px var(--shadow)}
+:root[data-theme] body :is(.btn.pri,.btn.ok,.project-dialog-confirm):hover{background:var(--brand)!important;color:#fff!important;filter:brightness(1.1)}
+body.studio-dark .rl.ruler,body.studio-dark .tl-labels .ruler{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Devanagari",sans-serif!important}
+/* rounded shapes */
+#app .ws .btn,#app .ws select,#app .ws input:not([type=range]):not([type=checkbox]),#app .ws textarea{border-radius:12px}
+#app .ws .tabs.big button,#app .ws .scene-tabs button{border-radius:12px}
+#app .ws :is(.panel,.stagebox,.tl2,.linebox,.tlwrap,.clipbar){border-radius:16px}
+body.studio-dark #app .ws .topbar{background:linear-gradient(180deg,var(--bar1),var(--bar2));border:1px solid var(--edge);border-radius:18px;padding:6px 10px}
+:root[data-theme] body .cs .btn,:root[data-theme] body .cs-tabs button{border-radius:999px}
+:root[data-theme] body .cs-tabs button{padding:10px 8px;font-weight:700}
+:root[data-theme] body .cs-tabs button:not(.on):not(:disabled){background:var(--btn);border-color:var(--edge);color:var(--soft)}
+:root[data-theme] body :is(.cs-stage,.cs-panel,.cs-right>section,.cs-lgroup){border-radius:20px}
+:root[data-theme] body :is(.cs-stage,.cs-lgroup,.cs-ghead,.cs-th){background:var(--card1)}
+:root[data-theme] body .cs-card{border-radius:18px;border-color:var(--edge);background:linear-gradient(180deg,var(--card1),var(--card2))}
+:root[data-theme] body .cs-card.on,:root[data-theme] body .cs-card:hover{border-color:#4f8dff}
+:root[data-theme] body .cs-sl input,:root[data-theme] body #app input[type=range]{accent-color:#4f8dff}
+:root[data-theme] body :is(.cs-stage,.cs-lgroup,.cs-right>*,.cs-ghead){border-color:var(--edge)}
