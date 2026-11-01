@@ -33,8 +33,54 @@ export function chatWidget(user, onLogin = () => {}) {
       expandBtn, h('button', { class: 'support-close', 'aria-label': 'Minimise chat', title: 'Minimise', onclick: close }, icon('min')), h('button', { class: 'support-close', 'aria-label': 'Close chat', title: 'Close', onclick: close }, icon('close'))),
     guest, list, chips, state, h('form', { class: 'support-form', hidden: !user, onsubmit: send }, input, h('button', { class: 'support-send', type: 'submit', 'aria-label': 'Send message' }, icon('send'))));
   const sendButton = panel.querySelector('.support-send');
-  const toggle = h('button', { class: 'support-launch', 'aria-label': 'Open live chat', 'aria-expanded': 'false', onclick: async () => { open = !open; panel.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); if (open) { if (user) { await load(); clearInterval(timer); quietSince = Date.now(); schedule(); input.focus(); } else panel.querySelector('.support-guest button')?.focus(); } else { clearTimeout(timer); timer = 0; } } }, icon('chat'), h('i', { class: 'support-dot', 'aria-hidden': 'true' }));
-  root.append(panel, toggle);
+  const flip = async () => { open = !open; panel.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); if (open) { if (user) { await load(); clearInterval(timer); quietSince = Date.now(); schedule(); input.focus(); } else panel.querySelector('.support-guest button')?.focus(); } else { clearTimeout(timer); timer = 0; } };
+  // keyboard (Enter / Space) still opens it; a pointer press is handled below so the bubble can be dragged without opening
+  const toggle = h('button', { class: 'support-launch', 'aria-label': 'Open live chat', 'aria-expanded': 'false', onclick: (e) => { if (e.detail === 0) flip(); } }, icon('chat'), h('i', { class: 'support-dot', 'aria-hidden': 'true' }));
+  const hideX = h('button', { class: 'support-hide', type: 'button', 'aria-label': 'Hide the chat button', hidden: true, onclick: (e) => { e.stopPropagation(); try { sessionStorage.setItem('toons-chat-hidden', '1'); } catch { /* this visit only */ } root.hidden = true; } }, icon('close'));
+  hideX.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const fab = h('div', { class: 'support-fab' }, hideX, toggle);
+  root.append(panel, fab);
+  try { if (sessionStorage.getItem('toons-chat-hidden')) root.hidden = true; } catch { /* shown */ }
+  // drag the bubble anywhere (the place is remembered); hold it still for half a second to show a cross that hides it for this visit
+  const POS = 'toons-chat-pos';
+  let pos = (() => { try { return JSON.parse(localStorage.getItem(POS) || 'null') || { x: 0, y: 0 }; } catch { return { x: 0, y: 0 }; } })(), drag = null, hold = 0, moved = false, heldOpen = false;
+  const clamp = () => { pos = { x: Math.min(Math.max(pos.x, -16), innerWidth - 80), y: Math.min(Math.max(pos.y, -10), innerHeight - 140) }; };
+  const paint = (animate) => { fab.style.transition = animate ? 'transform .35s cubic-bezier(.32,.72,0,1)' : 'none'; fab.style.transform = `translate3d(${-pos.x}px, ${-pos.y}px, 0)`; };
+  clamp(); paint(false);
+  addEventListener('resize', () => { clamp(); paint(false); });
+  fab.addEventListener('pointerdown', (e) => {
+    if (open || e.button > 0) return;
+    fab.setPointerCapture?.(e.pointerId); moved = false; heldOpen = false;
+    drag = { x: e.clientX, y: e.clientY, ox: pos.x, oy: pos.y };
+    clearTimeout(hold); hold = setTimeout(() => { if (!moved) { heldOpen = true; hideX.hidden = false; } }, 500);
+  });
+  fab.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!moved && Math.abs(dx) <= 5 && Math.abs(dy) <= 5) return;
+    if (!moved) { moved = true; clearTimeout(hold); fab.classList.add('dragging'); }
+    pos = { x: drag.ox - dx, y: drag.oy - dy }; clamp(); paint(false);
+  });
+  const release = () => {
+    if (!drag) return;
+    drag = null; clearTimeout(hold); fab.classList.remove('dragging');
+    if (moved) { paint(true); try { localStorage.setItem(POS, JSON.stringify(pos)); } catch { /* not remembered */ } return; }
+    if (heldOpen) { heldOpen = false; return; }          // the press that showed the cross does not also open the chat
+    if (!hideX.hidden) { hideX.hidden = true; return; }
+    flip();
+  };
+  fab.addEventListener('pointerup', release); fab.addEventListener('pointercancel', () => { drag = null; clearTimeout(hold); fab.classList.remove('dragging'); });
+  // phone: pull the chat sheet down by its header to close it
+  const head = panel.querySelector('.support-head');
+  let sheet = null;
+  head.addEventListener('pointerdown', (e) => { if (innerWidth > 700 || e.target.closest('button')) return; head.setPointerCapture?.(e.pointerId); sheet = { y: e.clientY, t: performance.now(), dy: 0 }; panel.style.transition = 'none'; });
+  head.addEventListener('pointermove', (e) => { if (!sheet) return; const raw = e.clientY - sheet.y; sheet.dy = raw > 0 ? raw : raw / 6; panel.style.transform = `translate3d(0, ${sheet.dy}px, 0)`; });
+  const sheetEnd = () => {
+    if (!sheet) return; const { dy, t } = sheet; sheet = null; const v = dy / Math.max(1, performance.now() - t);
+    if (dy > 120 || (dy > 30 && v > 0.5)) { panel.style.transition = 'transform .22s cubic-bezier(.32,.72,0,1)'; panel.style.transform = 'translate3d(0, 100%, 0)'; setTimeout(() => { close(); panel.style.transition = ''; panel.style.transform = ''; }, 200); }
+    else { panel.style.transition = 'transform .28s cubic-bezier(.32,.72,0,1)'; panel.style.transform = ''; }
+  };
+  head.addEventListener('pointerup', sheetEnd); head.addEventListener('pointercancel', sheetEnd);
   // a chat nobody writes in is asked about less and less often (5 s, then 15 s, then 30 s): every question costs a few database reads
   let quietSince = Date.now();
   const delay = () => { const quiet = Date.now() - quietSince; return quiet < 60000 ? 5000 : quiet < 300000 ? 15000 : 30000; };

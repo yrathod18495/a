@@ -737,3 +737,14 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 #app .ws .edit-btn:hover:not(:disabled){background:#2e3036;border-color:#a597ff}
 #app .ws .edit-btn:disabled{opacity:.38;cursor:default}
 #app .ws .edit-btn.del:not(:disabled){background:#3a1d22;border-color:#7a2e3a;color:#ff7a8c}
+
+/* chat bubble: draggable, hold to show a cross that hides it for this visit */
+.support-widget[hidden]{display:none!important}
+.support-fab{position:relative;touch-action:none;-webkit-user-select:none;user-select:none;will-change:transform}
+.support-fab .support-launch{transition:transform .2s}
+.support-fab.dragging .support-launch{transform:scale(1.1)!important;cursor:grabbing}
+.support-hide{position:absolute;left:-6px;top:-6px;z-index:2;display:grid;place-items:center;width:26px;height:26px;padding:0;border:2px solid var(--page);border-radius:50%;background:#e5484d;color:#fff;cursor:pointer;animation:support-pop .2s ease-out}
+.support-hide[hidden]{display:none}
+.support-hide svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round}
+@keyframes support-pop{from{transform:scale(0)}to{transform:scale(1)}}
+@media(max-width:700px){.support-head{touch-action:none;cursor:grab}}

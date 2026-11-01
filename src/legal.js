@@ -151,8 +151,7 @@ export function legalView({ kind, home }) {
         h('p', { class: 'legal-intro' }, isTerms
           ? 'Read these terms before creating, uploading, syncing or exporting work with 12toons.'
           : 'What you may do with the 12toons website, your own work, bundled media and third-party software.'),
-        h('p', { class: 'legal-updated' }, 'Last updated ', h('strong', {}, UPDATED)),
-        h('div', { class: 'legal-jump' }, ...sections.map(([t], n) => h('a', { href: `#s${n + 1}`, onclick: (e) => { e.preventDefault(); page.querySelector(`#s${n + 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, t.replace(/^\d+\.\s*/, ''))))),
+        h('p', { class: 'legal-updated' }, 'Last updated ', h('strong', {}, UPDATED))),
       h('div', { class: 'legal-notice' }, 'Plain-language service terms for the current 12toons build. Rights that apply by law continue to apply.'),
       ...sections.map((x, n) => { const el = section(x); el.id = `s${n + 1}`; el.dataset.n = String(n + 1).padStart(2, '0'); return el; }),
       h('div', { class: 'legal-switch' }, 'Related page: ', h('a', { href: isTerms ? '/#/website-license' : '/#/terms' }, isTerms ? 'Website Licence' : 'Terms of Use'))),
