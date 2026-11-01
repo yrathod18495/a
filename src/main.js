@@ -793,6 +793,7 @@ function placeToolbarGroup(group) {
   const verticalRail = innerWidth > 860 || (innerWidth > 600 && innerHeight <= 500);
   const left = verticalRail ? trigger.right + 10 : trigger.left;
   const top = verticalRail ? trigger.top : trigger.top - popup.offsetHeight - 8;
+  popup.style.bottom = 'auto'; popup.style.right = 'auto';   // a phone's stylesheet also pins the bottom edge; with a top as well the box collapsed to a thin strip
   popup.style.left = `${Math.max(8, Math.min(left, innerWidth - popup.offsetWidth - 8))}px`;
   popup.style.top = `${Math.max(8, Math.min(top, innerHeight - popup.offsetHeight - 8))}px`;
 }
