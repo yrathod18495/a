@@ -131,26 +131,35 @@ function section([title, blocks]) {
   }));
 }
 
+const NAV = [['Home', '/#/', 'M4 11l8-7 8 7v9h-5v-6H9v6H4z'], ['Terms', '/#/terms', 'M7 3h8l4 4v14H7zM14 3v5h5M10 13h6M10 17h6'], ['Licence', '/#/website-license', 'M12 4v16M6 20h12M5 8h14M5 8l-3 7a3 3 0 0 0 6 0L5 8ZM19 8l-3 7a3 3 0 0 0 6 0l-3-7Z']];
+const svgIcon = (d) => { const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', d); svg.append(path); return svg; };
+
 export function legalView({ kind, home }) {
   const isTerms = kind === 'terms';
   const title = isTerms ? 'Terms of Use' : 'Website Licence';
   document.title = `12toons | ${title}`;
   const sections = isTerms ? TERMS : LICENCE;
-  return h('div', { class: 'legal-page' },
-    h('header', { class: 'legal-header' }, h('a', { class: 'legal-brand', href: '/#/', style: 'text-decoration:none', 'aria-label': '12toons home' }, ...brandWordmark()), h('nav', {},
-      h('a', { href: '/#/' }, 'Home'), h('a', { href: '/#/terms' }, 'Terms of Use'), h('a', { href: '/#/website-license' }, 'Website Licence'))),
+  const bar = h('nav', { class: 'legal-dock', 'aria-label': 'Legal pages' },
+    ...NAV.map(([label, href, d]) => h('a', { href, class: (isTerms && label === 'Terms') || (!isTerms && label === 'Licence') ? 'on' : '', onclick: label === 'Home' ? (e) => { e.preventDefault(); home(); } : null }, svgIcon(d), h('span', {}, label))),
+    h('button', { type: 'button', 'aria-label': 'Back to top', onclick: () => scrollTo({ top: 0, behavior: 'smooth' }) }, svgIcon('M12 19V5m0 0-6 6m6-6 6 6'), h('span', {}, 'Top')));
+  const page = h('div', { class: 'legal-page' },
     h('main', { class: 'legal-main' },
-      h('a', { class: 'legal-back', href: '/#/', onclick: (e) => { e.preventDefault(); home(); } }, '← Back'),
-      h('article', { class: 'legal-card' },
+      h('section', { class: 'legal-hero' },
+        h('a', { class: 'legal-brand', href: '/#/', style: 'text-decoration:none', 'aria-label': '12toons home', onclick: (e) => { e.preventDefault(); home(); } }, ...brandWordmark()),
+        h('span', { class: 'legal-hero-icon' }, svgIcon(isTerms ? LEGAL_ICONS.doc : LEGAL_ICONS.scale)),
         h('h1', {}, title),
-        h('p', { class: 'legal-updated' }, `Last updated: `, h('strong', {}, UPDATED)),
         h('p', { class: 'legal-intro' }, isTerms
           ? 'Read these terms before creating, uploading, syncing or exporting work with 12toons.'
-          : 'This page describes what you may do with the 12toons website, your own work, bundled media and third-party software.'),
-        h('div', { class: 'legal-notice' }, 'Plain-language service terms for the current 12toons build. Rights that apply by law continue to apply.'),
-        sections.map(section),
-        h('div', { class: 'legal-switch' }, 'Related page: ', h('a', { href: isTerms ? '/#/website-license' : '/#/terms' }, isTerms ? 'Website Licence' : 'Terms of Use')))
-    ),
-    h('footer', { class: 'legal-footer' }, h('a', {href:'/#/',style:'color:inherit;text-decoration:none'}, '© 2026 12toons'), h('span', {}, 'Use of the service is subject to these pages.'), h('button', { onclick: home }, 'Back to 12toons'))
-  );
+          : 'What you may do with the 12toons website, your own work, bundled media and third-party software.'),
+        h('p', { class: 'legal-updated' }, 'Last updated ', h('strong', {}, UPDATED)),
+        h('div', { class: 'legal-jump' }, ...sections.map(([t], n) => h('a', { href: `#s${n + 1}`, onclick: (e) => { e.preventDefault(); page.querySelector(`#s${n + 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, t.replace(/^\d+\.\s*/, ''))))),
+      h('div', { class: 'legal-notice' }, 'Plain-language service terms for the current 12toons build. Rights that apply by law continue to apply.'),
+      ...sections.map((x, n) => { const el = section(x); el.id = `s${n + 1}`; el.dataset.n = String(n + 1).padStart(2, '0'); return el; }),
+      h('div', { class: 'legal-switch' }, 'Related page: ', h('a', { href: isTerms ? '/#/website-license' : '/#/terms' }, isTerms ? 'Website Licence' : 'Terms of Use'))),
+    h('footer', { class: 'legal-footer' }, h('span', {}, '© 2026 12toons'), h('span', {}, 'Use of the service is subject to these pages.')),
+    bar);
+  const sync = () => bar.classList.toggle('show', scrollY > 240);
+  addEventListener('scroll', sync, { passive: true }); sync();
+  page.dispose = () => removeEventListener('scroll', sync);
+  return page;
 }

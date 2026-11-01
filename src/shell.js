@@ -62,7 +62,7 @@ if (directHash && location.hash !== directHash) location.replace('/' + directHas
 window.addEventListener('hashchange', route);
 // the browser / installed-app bars take the page's own background colour (day or night), never the purple brand colour
 const themeMeta = document.querySelector('meta[name="theme-color"]');
-const syncThemeColor = () => themeMeta?.setAttribute('content', document.documentElement.dataset.theme === 'day' ? '#f4f5ff' : '#0d1024');
+const syncThemeColor = () => themeMeta?.setAttribute('content', document.documentElement.dataset.theme === 'day' ? '#f2f3f5' : '#141517');
 new MutationObserver(syncThemeColor).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 syncThemeColor();
 // installable app: the worker only makes the site installable, it never keeps copies

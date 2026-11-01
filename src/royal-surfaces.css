@@ -1,9 +1,9 @@
 /* One cached palace image connects the public pages and creative workspaces. */
 :root{
   --palace-art:none;
-  --palace-page:linear-gradient(110deg,#0f1126f5 12%,#0f1126e8 52%,#0f1126b3);
-  --palace-banner:linear-gradient(100deg,#171a33f5 15%,#171a33df 55%,#171a3392);
-  --palace-header:linear-gradient(90deg,#0f1126f7,#0f1126e6);
+  --palace-page:linear-gradient(110deg,#16171af5 12%,#16171ae8 52%,#16171ab3);
+  --palace-banner:linear-gradient(100deg,#1d1e22f5 15%,#1d1e22df 55%,#1d1e2292);
+  --palace-header:linear-gradient(90deg,#16171af7,#16171ae6);
   --palace-panel:color-mix(in srgb,var(--card) 95%,transparent);
   --palace-shadow:0 18px 50px #0004,inset 0 1px #c4bcff15;
 }
@@ -102,7 +102,7 @@
 /* Compact account popover with a clear identity, actions and sign-out area. */
 :root[data-theme] body .sh-profile .sh-avatar{
   width:42px;height:42px;border:1px solid #7c6cf5;
-  background:var(--royal-button);color:#1c2040;
+  background:var(--royal-button);color:#202125;
   box-shadow:0 3px 12px #0002;
 }
 :root[data-theme] body .sh-profile .sh-avatar[aria-expanded="true"]{outline:2px solid var(--acc);outline-offset:3px}
@@ -120,7 +120,7 @@
   padding:20px 18px;margin:0;border-bottom:1px solid var(--line);
   background:var(--palace-banner),var(--palace-art);background-size:cover;background-position:center;
 }
-.sh-account-avatar{display:grid;place-items:center;flex:none;width:46px;height:46px;border:1px solid #9a8bff;border-radius:15px;background:var(--royal-button);color:#1c2040;font-size:20px;font-weight:800;overflow:hidden}
+.sh-account-avatar{display:grid;place-items:center;flex:none;width:46px;height:46px;border:1px solid #9a8bff;border-radius:15px;background:var(--royal-button);color:#202125;font-size:20px;font-weight:800;overflow:hidden}
 .sh-account-avatar img{width:100%;height:100%;object-fit:cover}
 .sh-account-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
 .sh-account-copy b{font-size:15px;overflow-wrap:anywhere}
