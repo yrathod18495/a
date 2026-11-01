@@ -42,3 +42,49 @@ test('affiliate application collects consented contact data and is admin-only in
  assert.equal((await call({...form,email:'asha+4@example.com'},null,'203.0.113.10')).statusCode,201);
  assert.equal((await call({...form,email:'asha+5@example.com'},null,'203.0.113.10')).statusCode,429);
 });
+test('a partner can withdraw only what they have earned, and the admin approves or rejects the request',async()=>{
+ const uid='wallet_partner_123456',pid='11111111-2222-3333-4444-555555555555';
+ db.data.set(`securitySessions/${uid}`,{sid:'wallet-session',expiresAt:Date.now()+120000,revoked:false});
+ tokens.set('wallet-token',{uid,sid:'wallet-session',email:'wallet@example.com',email_verified:true,auth_time:Math.floor(Date.now()/1000),firebase:{sign_in_provider:'custom'}});
+ db.data.set(`affiliatePartners/${pid}`,{id:pid,name:'Wallet Partner',email:'wallet@example.com',status:'approved',referralCode:'WALLET1234',createdAt:Date.now()});
+ const earn=(order,commissionPaise,payoutStatus='pending')=>db.data.set(`affiliatePartners/${pid}/commissions/${order}`,{orderId:order,planName:'Pack',amountPaise:commissionPaise*10,commissionPercent:10,commissionPaise,payoutStatus,createdAt:Date.now()});
+ earn('order_wallet1',10000);earn('order_wallet2',5000);earn('order_walletold',2000,'paid');            // ₹150 still owed, ₹20 already paid by hand
+ const upi={method:'upi',upiId:'partner@okbank'};
+ const ask=(amountPaise,payout=upi)=>call({action:'withdraw',amountPaise,payout},'wallet-token');
+ let dash=await call({action:'dashboard'},'wallet-token');
+ assert.equal(dash.body.wallet.availablePaise,15000);assert.equal(dash.body.wallet.earnedPaise,17000);
+ // validation: nothing, more than earned, bad payout details, and someone who is not a partner
+ assert.equal((await ask(0)).statusCode,400);
+ const tooMuch=await ask(15001);assert.equal(tooMuch.statusCode,400);assert.equal(tooMuch.body.code,'amount_exceeds_balance');assert.match(tooMuch.body.error,/up to ₹150\.00/);
+ assert.equal((await ask(1000.5)).statusCode,400);
+ assert.equal((await ask(5000,{method:'upi',upiId:'not a upi'})).body.code,'invalid_upi');
+ assert.equal((await ask(5000,{method:'bank',accountName:'A B',accountNumber:'123',ifsc:'HDFC0001234'})).body.code,'invalid_account_number');
+ assert.equal((await ask(5000,{method:'bank',accountName:'A B',accountNumber:'123456789012',ifsc:'BAD'})).body.code,'invalid_ifsc');
+ assert.equal((await call({action:'withdraw',amountPaise:5000,payout:upi},'user-token')).statusCode,403);          // not a partner
+ assert.equal(db.data.get(`affiliatePartners/${pid}/tracking/wallet`),undefined);
+ // a valid request holds the money back at once and only one can wait at a time
+ const first=await ask(6000);assert.equal(first.statusCode,201);
+ dash=await call({action:'dashboard'},'wallet-token');
+ assert.equal(dash.body.wallet.reservedPaise,6000);assert.equal(dash.body.wallet.availablePaise,9000);assert.equal(dash.body.withdrawals[0].status,'pending');
+ assert.equal((await ask(100)).body.code,'withdrawal_pending');
+ assert.equal(JSON.stringify(dash.body).includes('123456789012'),false);
+ // admin only; reject frees the money again
+ assert.equal((await call({action:'adminWithdrawal',id:pid,withdrawalId:first.body.id,decision:'rejected'},'wallet-token')).statusCode,403);
+ assert.equal((await call({action:'adminWithdrawal',id:pid,withdrawalId:first.body.id,decision:'rejected',note:'Details did not match'},'admin-token')).statusCode,200);
+ dash=await call({action:'dashboard'},'wallet-token');
+ assert.equal(dash.body.wallet.availablePaise,15000);assert.equal(dash.body.withdrawals[0].status,'rejected');assert.equal(dash.body.withdrawals[0].reason,'Details did not match');
+ assert.equal((await call({action:'adminWithdrawal',id:pid,withdrawalId:first.body.id,decision:'approved'},'admin-token')).statusCode,409);
+ // approve takes the amount out of the partner's balance for good
+ const bank={method:'bank',accountName:'Wallet Partner',accountNumber:'123456789012',ifsc:'hdfc0001234'};
+ const second=await ask(15000,bank);assert.equal(second.statusCode,201);
+ assert.equal(db.data.get(`affiliatePartners/${pid}/withdrawals/${second.body.id}`).payout.ifsc,'HDFC0001234');
+ const listing=await call({action:'adminList'},'admin-token'),row=listing.body.affiliates.find(a=>a.id===pid);
+ assert.equal(row.withdrawals.find(w=>w.id===second.body.id).payout.accountNumber,'123456789012');assert.equal(row.wallet.reservedPaise,15000);
+ assert.equal((await call({action:'adminWithdrawal',id:pid,withdrawalId:second.body.id,decision:'approved',payoutReference:'UTR123'},'admin-token')).statusCode,200);
+ dash=await call({action:'dashboard'},'wallet-token');
+ assert.equal(dash.body.wallet.withdrawnPaise,15000);assert.equal(dash.body.wallet.reservedPaise,0);assert.equal(dash.body.wallet.availablePaise,0);
+ assert.equal(dash.body.paidPaise,17000);assert.equal(dash.body.pendingPaise,0);assert.equal(dash.body.withdrawals.find(w=>w.id===second.body.id).payoutReference,'UTR123');          // the fake database ignores orderBy
+ const empty=await ask(100);assert.equal(empty.body.code,'amount_exceeds_balance');assert.match(empty.body.error,/no commission available/);
+ // new earnings become withdrawable again
+ earn('order_wallet3',2500);assert.equal((await call({action:'dashboard'},'wallet-token')).body.wallet.availablePaise,2500);
+});

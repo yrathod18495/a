@@ -578,3 +578,32 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .ap-invite{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.ap-invite p{margin:4px 0 0;color:var(--mute);font-size:13px}
 @media(max-width:640px){.ap-grid3{grid-template-columns:1fr}.ap-grid2{grid-template-columns:1fr}.ap-stat b{font-size:20px}}
 .ap-overall{margin:14px 0}
+/* Affiliate withdrawals: the partner's request form and the admin's review list */
+.affiliate-withdraw-card{margin-top:16px}
+.affiliate-wallet-tiles{margin:10px 0 16px}
+.affiliate-withdraw-form{display:flex;flex-direction:column;gap:12px;margin:0 0 18px;padding:16px;border:1px solid var(--edge);border-radius:14px;background:var(--card2)}
+.affiliate-withdraw-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.affiliate-withdraw-fields[hidden]{display:none}
+.affiliate-withdraw-field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--mute);font-weight:650}
+.affiliate-withdraw-input{width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--edge);border-radius:10px;background:var(--fill);color:var(--ink);font:inherit;font-size:14px}
+.affiliate-withdraw-input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.affiliate-withdraw-amount{display:flex;gap:8px;align-items:center}
+.affiliate-withdraw-actions{display:flex;gap:10px;align-items:center}
+.affiliate-withdraw-message{min-height:18px;margin:0;color:var(--mute);font-size:13px}
+.affiliate-withdraw-message.error{color:#ff8a80;font-weight:650}
+.affiliate-withdraw-note{margin:0 0 12px;padding:10px 12px;border:1px solid var(--edge);border-radius:10px;background:var(--card2);color:var(--soft);font-size:13px}
+.affiliate-withdraw-card h3{margin:6px 0 4px;font-size:14px}
+.affiliate-payout-state.rejected{background:#3a1f24;color:#ff9a90}
+.affiliate-withdraw-admin{margin:0 0 18px;padding:18px;border:1px solid var(--edge);border-radius:17px;background:var(--card1)}
+.affiliate-withdraw-admin[hidden]{display:none}
+.affiliate-withdraw-admin-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.affiliate-withdraw-admin-head h2{margin:0;font-size:17px}
+.affiliate-withdraw-request{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--edge)}
+.affiliate-withdraw-request-main{display:flex;flex-direction:column;gap:5px;min-width:0}
+.affiliate-withdraw-request-main>div{display:flex;flex-direction:column;gap:3px}
+.affiliate-withdraw-request small{color:var(--mute);font-size:12px;overflow-wrap:anywhere}
+.affiliate-withdraw-request .affiliate-payout-controls{flex:none;flex-wrap:wrap;justify-content:flex-end}
+:root[data-theme="day"] .affiliate-payout-state.rejected{background:#ffe9e6;color:#9b3027}
+:root[data-theme="day"] .affiliate-withdraw-message.error{color:#b3261e}
+@media(max-width:760px){.affiliate-withdraw-request{flex-direction:column;align-items:stretch}.affiliate-withdraw-request .affiliate-payout-controls{justify-content:stretch}.affiliate-withdraw-request .affiliate-payout-reference{flex:1 1 100%}}
+.affiliate-withdraw-request .affiliate-payout-reference{min-width:240px}
