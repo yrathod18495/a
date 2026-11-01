@@ -27,7 +27,7 @@ import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
-import { propFromAsset, isEffect, isHeld } from '../shared/studio-effects.js';
+import { propFromAsset, isEffect, isHeld, actualPropSize, placeProp } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
 import { thin, pathLength, pathKeys, simplify, insertAt } from '../shared/motion-path.js';
@@ -2396,6 +2396,7 @@ function tabAi() {
 }
 
 /* ---- props & effects: the library admins publish (props, effects) plus the user's own pictures ---- */
+const sizingProps = new Set();                    // props whose picture size is being read
 const sharedBlobs = new Map();                    // library asset id -> its file, so each file is downloaded once per tab
 const libraryFilter = { prop: 'all', effect: 'all' };
 /** pick up what admins published since this tab loaded (the list is cached for a few minutes; the button forces a fresh read) */
@@ -2412,13 +2413,20 @@ async function libraryBlob(asset) {
   if (known) return known;
   const blob = await downloadStudioAsset(asset); sharedBlobs.set(asset.id, blob); return blob;
 }
+/** the pixel size of a picture, so a prop can be placed at its real size */
+async function imageSize(blob) { const bitmap = await createImageBitmap(blob); const size = { w: bitmap.width, h: bitmap.height }; bitmap.close?.(); return size; }
 async function putProp(prop) {
   await dbPut('props', prop); S.props.push(prop); S.selectedPropId = prop.id;
   await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
 }
 async function addLibraryProp(asset) {
   const loading = busy(asset.type === 'effect' ? 'Applying effect…' : 'Applying prop…');
-  try { await putProp(propFromAsset(asset, await libraryBlob(asset), crypto.randomUUID())); }
+  try {
+    const blob = await libraryBlob(asset);
+    let prop = propFromAsset(asset, blob, crypto.randomUUID());
+    if (!isEffect(prop)) { const size = await imageSize(blob); prop = placeProp(prop, size.w, size.h, aspectOf(S.aspect)); }      // a prop keeps the size and shape of its picture
+    await putProp(prop);
+  }
   catch (e) { toast(`Could not add the ${asset.type === 'effect' ? 'effect' : 'prop'}: ${friendlyError(e)}`); }
   finally { loading.done(); }
 }
@@ -2426,7 +2434,8 @@ async function addOwnProps(files) {
   try {
     for (const f of files) {
       if (!f.type.startsWith('image/')) { toast('Please choose an image file only.'); continue; }
-      await putProp({ id: crypto.randomUUID(), kind: 'prop', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My prop', blob: f, x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true });
+      const size = await imageSize(f);
+      await putProp(placeProp({ id: crypto.randomUUID(), kind: 'prop', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My prop', blob: f, x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true }, size.w, size.h, aspectOf(S.aspect)));
     }
   } catch (e) { toast(`Could not add the prop: ${friendlyError(e)}`); }
 }
@@ -2461,12 +2470,26 @@ function libraryTab(kind) {
     held && actors.length > 1 ? h('label', { class: 'prop-time' }, h('span', {}, 'In which character\'s hand'), h('select', { 'aria-label': 'Character', onchange: (e) => change(() => { selected.attach = { ...selected.attach, key: e.target.value }; }) }, actors.map((a) => h('option', { value: a.key, selected: a.key === selected.attach.key }, a.name)))) : null,
     ...(held ? [range('grip.x', 'Pakad point · left / right', 0, 1, 0.01, selected.grip?.x ?? .5, percent, (v) => change(() => { selected.grip = { ...(selected.grip || { x: .5, y: .5 }), x: v }; })), range('grip.y', 'Pakad point · up / down', 0, 1, 0.01, selected.grip?.y ?? .5, percent, (v) => change(() => { selected.grip = { ...(selected.grip || { x: .5, y: .5 }), y: v }; })),
       h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.follow !== false, onchange: (e) => edit('follow', e.target.checked ? undefined : false) }), 'Rotate with the hand')] : []))];
+  // props keep the proportions of their picture: "Size" scales width and height together; "Original size" returns to the real size of the picture
+  if (selected && !effects && selected.blob && !selected.natW && !sizingProps.has(selected.id)) {
+    sizingProps.add(selected.id);                                  // a prop saved before this was known: read its picture size once
+    imageSize(selected.blob).then((size) => { selected.natW = size.w; selected.natH = size.h; dbPut('props', selected); if (S.tab === 'props') redrawPanel(); }).catch(() => {});
+  }
+  const sizeControls = () => {
+    if (!selected.natW) return h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Reading the picture size…');
+    const aspect = aspectOf(S.aspect), real = actualPropSize(selected.natW, selected.natH, aspect, { fit: false }), now = selected.w / real.w;
+    const out = h('b', {}, percent(now));
+    const apply = (scale) => change(() => { selected.w = +Math.min(1.5, Math.max(0.02, real.w * scale)).toFixed(4); selected.h = +Math.min(1.5, Math.max(0.02, real.h * scale)).toFixed(4); });
+    return h('div', { class: 'prop-size' },
+      h('label', { class: 'studio-prop-range' }, h('span', {}, 'Size (keeps the shape)', out), h('input', { type: 'range', min: 0.1, max: 3, step: 0.01, value: Math.min(3, Math.max(0.1, now)), 'aria-label': 'Size of the prop, 100% is the real size of the picture', oninput: (e) => { apply(Number(e.target.value)); out.textContent = percent(Number(e.target.value)); }, onchange: () => redrawPanel() })),
+      h('button', { class: 'btn sm', type: 'button', title: 'Show the picture at its real size', onclick: () => { change(() => Object.assign(selected, actualPropSize(selected.natW, selected.natH, aspect))); redrawPanel(); } }, '↺ Original size'));
+  };
   const editor = !selected ? null : h('div', { class: 'card flat studio-prop-editor' }, h('h3', {}, selected.name),
     range('opacity', 'Opacity', 0.05, 1, 0.01, 1),
     ...(effects ? [h('div', { class: 'seg', role: 'group', 'aria-label': 'Blend mode' }, [['normal', 'Normal'], ['add', 'Glow'], ['screen', 'Screen']].map(([value, text]) => h('button', { type: 'button', class: (selected.blend || 'normal') === value ? 'on' : '', onclick: () => { edit('blend', value); redrawPanel(); } }, text))),
       freeform ? h('button', { class: 'btn sm', type: 'button', onclick: () => { change(() => Object.assign(selected, { x: .5, y: .5, w: 1, h: 1, rotation: 0 })); redrawPanel(); } }, 'Stretch to fill the frame') : null] : []),
     ...holdBlock,
-    ...(freeform ? [...(held ? [] : [range('x', 'Position · left / right', 0, 1, 0.01, .5), range('y', 'Position · top / bottom', 0, 1, 0.01, .66)]), range('w', 'Width', 0.04, effects ? 1 : 0.8, 0.01, .18), range('h', 'Height', 0.04, effects ? 1 : 0.8, 0.01, .18), range('rotation', 'Rotation', -180, 180, 1, 0, (v) => `${Math.round(v)}°`)] : []),
+    ...(freeform ? [...(held ? [] : [range('x', 'Position · left / right', 0, 1, 0.01, .5), range('y', 'Position · top / bottom', 0, 1, 0.01, .66)]), ...(effects ? [] : [sizeControls()]), range('w', 'Width', 0.04, effects ? 1 : 1.5, 0.01, .18), range('h', 'Height', 0.04, effects ? 1 : 1.5, 0.01, .18), range('rotation', 'Rotation', -180, 180, 1, 0, (v) => `${Math.round(v)}°`)] : []),
     ...(selected.sheet ? [range('sheet', 'Animation speed', 1, 60, 1, selected.sheet.fps, (v) => `${Math.round(v)} fps`, (v) => change(() => { selected.sheet = { ...selected.sheet, fps: v }; }))] : []),
     ...(effects ? [] : [h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.behind === true, onchange: (e) => edit('behind', e.target.checked ? true : undefined) }), 'Place behind the character')]),
     h('div', { class: 'prop-times' }, seconds('start', 'Dikhe: shuru (s)'), seconds('end', 'Dikhe: khatam (s)')),

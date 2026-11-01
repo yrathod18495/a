@@ -46,6 +46,26 @@ export const isEffect = (prop) => prop?.kind === 'effect';
 /** is the prop on screen at time t (props and effects may be limited to a time range) */
 export const propActive = (prop, t) => prop && prop.visible !== false && (prop.start == null || t >= prop.start) && (prop.end == null || t < prop.end);
 
+/**
+ * A prop is first placed at its real size: one picture pixel is one pixel of a 4K canvas (2160 on the short side), so the picture looks as big
+ * as it was drawn and keeps its own proportions. `fit` keeps a picture that is larger than the canvas inside the frame. Sizes are fractions of
+ * the canvas width / height, like every prop, so they stay the same at any preview or export quality.
+ */
+export const PROP_REFERENCE_SHORT = 2160;
+export function actualPropSize(natW, natH, aspect = { w: 16, h: 9 }, { fit = true } = {}) {
+  const k = PROP_REFERENCE_SHORT / Math.min(aspect.w, aspect.h);
+  let w = natW / (aspect.w * k), h = natH / (aspect.h * k);
+  if (fit) { const f = Math.min(1, 1 / w, 1 / h); w *= f; h *= f; }
+  return { w: +Math.max(0.02, w).toFixed(4), h: +Math.max(0.02, h).toFixed(4) };
+}
+/** the prop at its real size; a tall picture is also moved up just enough to stay inside the frame */
+export function placeProp(prop, natW, natH, aspect) {
+  if (!(natW > 0 && natH > 0)) return prop;
+  const { w, h } = actualPropSize(natW, natH, aspect);
+  const lowest = Math.ceil((h / 2) * 1e4) / 1e4, highest = Math.floor((1 - h / 2) * 1e4) / 1e4;          // rounded inwards, so the edges never slip outside the frame
+  return { ...prop, natW, natH, w, h, y: Math.min(Math.max(prop.y ?? 0.66, lowest), highest) };
+}
+
 /** a new scene prop from a shared library asset */
 export function propFromAsset(asset, blob, id) {
   const base = { id, assetId: asset.id, name: asset.name, blob, rotation: 0, visible: true };

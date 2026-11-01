@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanAssetMeta, sheetUv, propFromAsset, propActive, isEffect, EFFECT_BLENDS } from '../shared/studio-effects.js';
+import { cleanAssetMeta, sheetUv, propFromAsset, propActive, isEffect, EFFECT_BLENDS, actualPropSize, placeProp } from '../shared/studio-effects.js';
 
 test('effect metadata is cleaned and validated', () => {
   assert.deepEqual(cleanAssetMeta('prop', { category: '  Furniture  ' }), { category: 'Furniture' });
@@ -63,4 +63,25 @@ test('a mirrored character mirrors the held prop; an absent or hidden character 
   assert.equal(heldAt(layer([1, 0, 0, 1, 0, 0], {}), 'L'), null);                    // a rig without that hand
   assert.equal(heldAt(null, 'L'), 'hidden');
   assert.equal(heldAt(layer([1, 0, 0, 1, 0, 0], { L_Palm: { a: 1, b: 0, tx: 0, ty: 0 } }, { shown: false }), 'L'), 'hidden');
+});
+
+test('a prop is placed at the real size and shape of its picture, on a 4K reference canvas', () => {
+  const wide = { w: 16, h: 9 }, tall = { w: 9, h: 16 };
+  assert.deepEqual(actualPropSize(700, 2000, wide), { w: 0.1823, h: 0.9259 });          // a tall lamp keeps its proportions (not squeezed into a box)
+  assert.deepEqual(actualPropSize(3840, 2160, wide), { w: 1, h: 1 });                   // a full 4K picture fills the canvas
+  assert.deepEqual(actualPropSize(1920, 1080, wide), { w: 0.5, h: 0.5 });
+  assert.deepEqual(actualPropSize(5000, 3000, wide), { w: 0.9375, h: 1 });               // bigger than the canvas: shrunk to fit, same shape
+  const unfitted = actualPropSize(700, 4000, wide, { fit: false }); assert.equal(unfitted.h > 1, true);
+  assert.deepEqual(actualPropSize(1080, 1920, tall), { w: 0.5, h: 0.5 });              // the reference follows the canvas shape
+  const ratio = (size, canvas) => (size.w * canvas.w) / (size.h * canvas.h);
+  assert.ok(Math.abs(ratio(actualPropSize(700, 2000, wide), wide) - 0.35) < 0.001);     // 700 / 2000 = the shape of the picture
+  assert.deepEqual(actualPropSize(1, 1, wide), { w: 0.02, h: 0.02 });                   // never vanishing
+});
+test('placing a prop also keeps it inside the frame', () => {
+  const lamp = placeProp({ id: 'p', kind: 'prop', x: 0.5, y: 0.66, w: 0.18, h: 0.18 }, 700, 2000, { w: 16, h: 9 });
+  assert.equal(lamp.natW, 700); assert.equal(lamp.natH, 2000); assert.equal(lamp.h, 0.9259);
+  assert.ok(lamp.y + lamp.h / 2 <= 1 + 1e-9 && lamp.y - lamp.h / 2 >= -1e-9);           // the tall lamp is moved up so its bottom is not cut off
+  const small = placeProp({ id: 's', kind: 'prop', x: 0.5, y: 0.66, w: 0.18, h: 0.18 }, 384, 216, { w: 16, h: 9 });
+  assert.equal(small.y, 0.66); assert.deepEqual([small.w, small.h], [0.1, 0.1]);          // a small one stays where it was put
+  assert.equal(placeProp({ id: 'x', w: 0.18 }, 0, 0, { w: 16, h: 9 }).w, 0.18);          // an unreadable picture keeps the old default
 });
