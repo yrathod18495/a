@@ -93,7 +93,12 @@ export async function saveCharacter(value) {
 }
 export async function deleteCharacter(id) {
  const c=scope();await del('characters',id);
- await tx(['library'],'readwrite',t=>t.objectStore('library').delete([c.uid,id]));
+ // a character is gone for good: also from every other project of this account on this device (the Character Editor and the Animator Studio keep their own copies)
+ await tx(['library','records'],'readwrite',t=>{
+  t.objectStore('library').delete([c.uid,id]);
+  const rs=t.objectStore('records'),all=rs.getAll();
+  all.onsuccess=()=>{for(const r of all.result)if(r.uid===c.uid&&r.store==='characters'&&r.id===id)rs.delete([r.uid,r.project,r.store,r.id]);};
+ });
 }
 export const snapshot=(uid,id)=>tx(['records','projects'],'readonly',t=>{
  const r=t.objectStore('records').getAll(),p=t.objectStore('projects').get([uid,id]);
