@@ -9,9 +9,10 @@ import { h, toast, logo } from './dom.js';
 import { startRoute, doneRoute } from './route-feedback.js';
 import { onUser, signInGoogle, signOutUser, finishRedirect } from './firebase.js';
 import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
-import { selectProject, projectMeta, listProjects } from './store.js';
+import { selectProject, projectMeta, listProjects, renameProject, deleteProject } from './store.js';
+import { projectDialog } from './project-dialog.js';
 import { projectsView } from './projects-view.js';
-import { syncAll } from './project-sync.js';
+import { syncAll, syncProject } from './project-sync.js';
 import { apiCall } from './session.js';
 import { createShield } from './shield.js';
 
@@ -320,16 +321,29 @@ function hubView() {
   }).catch(() => { cloudLine.textContent = ''; });
   // quick way back into the latest work
   const recent = h('section', { class: 'st-recent', hidden: true });
-  listProjects(user.uid).then((all) => {
+  const drawRecent = () => listProjects(user.uid).then((all) => {
     const latest = all.filter((p) => !p.deleted).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3);
-    if (!latest.length) return;
+    if (!latest.length) { recent.hidden = true; recent.replaceChildren(); return; }
+    const afterChange = async (change) => { try { await change(); } catch (e) { toast(friendlyError(e)); } await drawRecent(); };
     recent.replaceChildren(h('div', { class: 'st-label' }, 'Continue where you left off'),
-      ...latest.map((p) => h('button', { type: 'button', class: 'st-recent-row', onclick: () => { location.hash = `#/${p.kind === 'animation' ? 'toons' : 'characters'}/${p.id}`; location.reload(); } },
-        h('span', { class: `st-recent-ico ${p.kind}` }, p.kind === 'animation' ? '▶' : '☻'),
-        h('span', { class: 'st-recent-text' }, h('b', {}, p.name), h('small', {}, `${p.kind === 'animation' ? 'Animation' : 'Character'} · ${new Date(p.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`)),
-        h('span', { class: 'st-recent-go', 'aria-hidden': 'true' }, '→'))));
+      ...latest.map((p) => h('div', { class: 'st-recent-item' },
+        h('button', { type: 'button', class: 'st-recent-row', onclick: () => { location.hash = `#/${p.kind === 'animation' ? 'toons' : 'characters'}/${p.id}`; location.reload(); } },
+          h('span', { class: `st-recent-ico ${p.kind}` }, p.kind === 'animation' ? '▶' : '☻'),
+          h('span', { class: 'st-recent-text' }, h('b', {}, p.name), h('small', {}, `${p.kind === 'animation' ? 'Animation' : 'Character'} · ${new Date(p.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`)),
+          h('span', { class: 'st-recent-go', 'aria-hidden': 'true' }, '→')),
+        h('div', { class: 'st-recent-actions' },
+          h('button', { type: 'button', class: 'btn project-action', 'aria-label': `Rename ${p.name}`, onclick: () => afterChange(async () => {
+            const name = await projectDialog({ title: 'Rename project', description: 'Choose a clear name for this project.', value: p.name, confirmLabel: 'Save name' });
+            if (name) await renameProject(user.uid, p.id, name);
+          }) }, 'Rename'),
+          h('button', { type: 'button', class: 'btn project-action danger', 'aria-label': `Delete ${p.name}`, onclick: () => afterChange(async () => {
+            if (!await projectDialog({ title: 'Delete this project?', description: `“${p.name}” will be removed from your project list.`, confirmLabel: 'Delete project', danger: true, confirmOnly: true })) return;
+            await deleteProject(user.uid, p.id);
+            syncProject(user.uid, p.id).catch(() => {});   // the project is already gone locally; the cloud copy follows when it can
+          }) }, 'Delete')))));
     recent.hidden = false;
   }).catch(() => {});
+  drawRecent();
   const tool = (cls, title, text, hash, btn) => h('article', { class: `sh-tool st-tool ${cls}`, role: 'link', tabindex: '0', onclick: () => go(hash), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(hash); } } },
     h('div', { class: 'st-tool-art', 'aria-hidden': 'true' }), h('div', { class: 'st-tool-body' }, h('h3', {}, title), h('p', {}, text), h('span', { class: 'st-launch' }, btn, ' →')));
   return h('div', { class: 'sh' },

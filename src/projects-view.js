@@ -1,5 +1,6 @@
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, brandWordmark } from './dom.js';
+import { projectDialog } from './project-dialog.js';
 import { listProjects, createProject, renameProject, deleteProject, copyProject } from './store.js';
 import { refreshProjects, syncProject, onSyncStatus, resolveConflict, registerProject } from './project-sync.js';
 export async function projectsView({user,kind,home,toast}) {
@@ -7,24 +8,7 @@ export async function projectsView({user,kind,home,toast}) {
   const root=h('div',{class:`sh projects-page ${kind==='animation'?'projects-animation':'projects-character'}`}), list=h('div',{class:'projects-grid'}), status=h('p',{class:'projects-status'});
   const open=p=>{location.hash='#/'+(kind==='animation'?'toons':'characters')+'/'+p.id;location.reload();};
   const run=fn=>async()=>{try{await fn();await draw();}catch(e){toast(e.message);}};
-  function dialog({title,description='',value='',placeholder='',confirmLabel='Continue',danger=false,confirmOnly=false}){
-    return new Promise(resolve=>{
-      const input=confirmOnly?null:h('input',{class:'project-dialog-input',type:'text',value,placeholder,'aria-label':title,maxlength:80});
-      const close=result=>{window.removeEventListener('keydown',onKey);overlay.remove();resolve(result);};
-      const onKey=e=>{if(e.key==='Escape')close(null);if(e.key==='Enter'&&!confirmOnly){e.preventDefault();save();}};
-      const save=()=>{const text=input?.value.trim();if(!confirmOnly&&!text){input?.focus();return;}close(confirmOnly?true:text);};
-      const overlay=h('div',{class:'project-dialog-backdrop',onclick:e=>{if(e.target===overlay)close(null);}},
-        h('section',{class:'project-dialog','role':'dialog','aria-modal':'true','aria-labelledby':'project-dialog-title'},
-          h('span',{class:'project-dialog-icon','aria-hidden':'true'},danger?'!':'✦'),
-          h('h2',{id:'project-dialog-title'},title),
-          description?h('p',{class:'project-dialog-description'},description):null,
-          input,
-          h('div',{class:'project-dialog-actions'},
-            h('button',{class:'btn project-dialog-cancel',onclick:()=>close(null)},'Cancel'),
-            h('button',{class:`btn ${danger?'project-dialog-danger':'pri'} project-dialog-confirm`,onclick:save},confirmLabel))));
-      window.addEventListener('keydown',onKey);root.append(overlay);input?.focus();input?.select();
-    });
-  }
+  const dialog=options=>projectDialog(options,root);
   async function draw(){
     const projects=(await listProjects(user.uid)).filter(p=>p.kind===kind&&!p.deleted).sort((a,b)=>b.updatedAt-a.updatedAt);
     list.replaceChildren(...projects.map(p=>{
