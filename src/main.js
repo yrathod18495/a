@@ -954,7 +954,7 @@ function drawTimeline() {
     labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, timelineIcon(background?.blob, 'background'), h('span', { class: 'lt' }, 'Background'),
       h('button', { type: 'button', class: 'rx delete-layer', title: 'Delete background layer', 'aria-label': 'Delete background layer', disabled: S.exporting, onclick: event => { event.stopPropagation(); return removeBackgroundLayer(); } }, '🗑')));
     const bgLane = h('div', { class: 'lane2 bg', style: 'height:38px' },
-      S.bgId || stage.bg.preset !== 0 ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (whole scene)`, onclick: () => openTab('canvas'), style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
+      (S.bgId || stage.bg.preset !== 0) && !S.bgClips.some((c) => c.base) ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (whole scene) — click to select, then split, trim or move it`, onpointerdown: (e) => { if (e.button || S.exporting) return; e.preventDefault(); takeBaseBackground(); }, style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
     for (const c of S.bgClips) {
       const nm = (c.bgId ? (S.myBgs.find((r) => r.id === c.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[c.preset] || BACKGROUNDS[0]).name), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
       const el = h('div', { class: `tclip bg mine ${c.id === S.bgSel ? 'sel' : ''}`, title: `${nm} — drag to move, drag an edge to resize`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `🖼 ${nm}`), rz);
@@ -1174,6 +1174,15 @@ function takeAutoClip(s, kind, c, ref) {
   const m = { id: uid(), kind, ref: { ...ref }, start: +c.start.toFixed(2), dur: +c.dur.toFixed(2), off: +(c.off || 0).toFixed(2) };
   (S.manual[s.key] ||= []).push(m);
   return m;
+}
+/** the whole-scene background becomes a normal background clip on the same row (the first time it is clicked), so it can be split, trimmed and moved like a prop */
+function takeBaseBackground() {
+  let c = S.bgClips.find((x) => x.base);
+  if (!c) {
+    c = { id: uid(), base: true, start: 0, dur: Math.max(1, +player.total.toFixed(2)), preset: stage.bg.preset, bgId: S.bgId || null };
+    S.bgClips.push(c);
+  }
+  selectOnly('bg', c.id); syncBgClips(); commitClips();
 }
 function dragBgClip(e, c, mode, el) {
   dragItem(e, mode, el, {

@@ -89,3 +89,17 @@ test('splitting audio leaves no gap at the cut, and a split prop stays on its ow
   await expect(page.locator('.lane2.prop')).toHaveCount(1);                      // still one row
   await expect(page.locator('.lane2.prop .tclip.prop')).toHaveCount(2);          // with two pieces on it
 });
+
+test('the whole-scene background can be selected and split, and both pieces stay on the Background row', async ({ page }) => {
+  await studioWithAudio(page);
+  await page.evaluate(() => { const { stage, drawTimeline } = window.__toon; stage.bg.preset = 1; drawTimeline(); });
+  await expect(page.locator('.lane2.bg .tclip.bg.base')).toHaveCount(1);
+  await page.locator('.lane2.bg .tclip.bg.base').click({ position: { x: 100, y: 10 } });
+  await expect(page.locator('.lane2.bg .tclip.bg.mine.sel')).toHaveCount(1);       // it is now an ordinary clip on the same row
+  const pps = await page.evaluate(() => window.__toon.S.pps), box = await page.locator('.ruler:not(.rl)').boundingBox();
+  await page.mouse.click(box.x + 10 * pps, box.y + 14);
+  await page.locator('.edittools button', { hasText: 'Split' }).click();
+  await expect(page.locator('.lane2.bg')).toHaveCount(1);
+  await expect(page.locator('.lane2.bg .tclip.bg.mine')).toHaveCount(2);
+  await expect(page.locator('.lane2.bg .tclip.bg.base')).toHaveCount(0);
+});
