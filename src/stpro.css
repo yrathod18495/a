@@ -721,3 +721,7 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 :root[data-theme="day"] .ac-item.premium:hover,:root[data-theme="day"] .ac-item.premium.active{background:linear-gradient(90deg,#ffe9a8,#fff6dc)}
 :root[data-theme="day"] .ac-item.premium .ac-item-name b,:root[data-theme="day"] .ac-thread-head.premium .ac-thread-who b{color:#8a5a00}
 :root[data-theme="day"] .ac-thread-head.premium{background:linear-gradient(90deg,#fff3cf,#ffffff);border-bottom-color:#ecd48b}
+.credit-promo{max-width:520px;margin:6px auto 18px;padding:12px;border:1px solid var(--edge);border-radius:18px;background:linear-gradient(180deg,var(--card1),var(--card2))}
+.credit-promo-row{display:flex;gap:8px}.credit-promo-input{flex:1;min-width:0;height:42px;padding:0 14px;border:1px solid var(--edge);border-radius:12px;background:var(--fill);color:var(--ink);font:600 14px system-ui;text-transform:uppercase;letter-spacing:.06em}
+.credit-promo-input::placeholder{text-transform:none;letter-spacing:0;font-weight:500;color:var(--mute)}
+.credit-promo-state{display:block;margin-top:6px;min-height:0;font-size:12.5px;color:var(--mute)}.credit-promo-state.ok{color:#4fd69c}.credit-promo-state.bad{color:var(--danger)}

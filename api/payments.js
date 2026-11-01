@@ -24,16 +24,31 @@ export default async function handler(req, res) {
       keyId: process.env.RAZORPAY_KEY_ID || '', configured: paymentConfigReady(),
       plans: CREDIT_PLANS.map(publicPlan), credits: Number((await db.doc(`workspaces/${who.uid}`).get()).data()?.credits || 0),
     });
+    // a partner's promo code (their referral code): any buyer may use it at checkout, and the partner earns the commission on that purchase
+    const partnerFor = async (raw) => {
+      const code = String(raw || '').trim().toUpperCase();
+      if (!code) return null;
+      if (!/^[A-Z0-9]{8,12}$/.test(code)) throw new AccessError('invalid_promo', 'This promo code is not valid.', 400);
+      const match = await db.collection('affiliatePartners').where('referralCode', '==', code).limit(10).get();
+      const doc = match.docs.find(d => d.data()?.status === 'approved');
+      if (!doc) throw new AccessError('invalid_promo', 'This promo code is not valid.', 400);
+      const partner = doc.data();
+      if (partner.affiliateUid === who.uid || String(partner.email || '').toLowerCase() === String(who.claims.email || '').toLowerCase()) throw new AccessError('invalid_promo', 'You cannot use your own partner code.', 400);
+      return { id: doc.id, code };
+    };
+    if (b.action === 'checkPromo') { const hit = await partnerFor(b.promoCode); return send(res, 200, { valid: !!hit }); }
     if (b.action === 'createOrder') {
       const plan = planById.get(String(b.planId));
       if (!plan) throw new AccessError('invalid_plan', 'Please choose a valid Coins plan.', 400);
       if (!paymentConfigReady()) throw new AccessError('payments_unconfigured', 'The payment setup is not complete yet. Please try again shortly.', 503);
+      const promo = await partnerFor(b.promoCode);
       const order = await razorpayRequest('orders', { method: 'POST', body: JSON.stringify({ amount: plan.amountPaise, currency: plan.currency, receipt: `cr_${randomUUID().replace(/-/g, '')}`, notes: { uid: who.uid, planId: plan.id } }) });
       if (!order.id || +order.amount !== plan.amountPaise || order.currency !== plan.currency) throw new AccessError('invalid_gateway_order', 'Received an invalid order from Razorpay. Please try again.', 502);
       const now = Date.now(), record = {
         orderId: order.id, uid: who.uid, email: who.claims.email || '', name: who.claims.name || '',
         planId: plan.id, planName: plan.name, amountPaise: plan.amountPaise, currency: plan.currency,
         credits: plan.credits, status: 'created', createdAt: now, updatedAt: now,
+        ...(promo ? { promoAffiliateId: promo.id, promoCode: promo.code } : {}),
       };
       const ref = db.doc(`creditPayments/${order.id}`), userRef = db.doc(`workspaces/${who.uid}/creditPayments/${order.id}`);
       await db.runTransaction(async (tx) => { tx.create(ref, record); tx.create(userRef, record); });

@@ -60,7 +60,9 @@ export async function creditCapturedPayment(db, payment) {
     if (+current.amountPaise !== +payment.amount || current.currency !== payment.currency) throw Object.assign(new Error('The payment amount does not match the order.'), { status: 409, code: 'payment_amount_mismatch' });
     if (paid(current)) return;
     const attribution = affiliateReferral.exists ? affiliateReferral.data() : null;
-    const affiliateRefDoc = attribution?.affiliateId ? db.doc(`affiliatePartners/${attribution.affiliateId}`) : null;
+    // a promo code typed at checkout belongs to this purchase; otherwise the partner whose link brought the account in
+    const promoId = typeof current.promoAffiliateId === 'string' && current.promoAffiliateId ? current.promoAffiliateId : null, partnerId = promoId || attribution?.affiliateId;
+    const affiliateRefDoc = partnerId ? db.doc(`affiliatePartners/${partnerId}`) : null;
     const affiliatePartner = affiliateRefDoc ? await tx.get(affiliateRefDoc) : null;
     const currentCredits = Number(userProfile.data()?.credits || 0);
     if (!Number.isSafeInteger(currentCredits) || currentCredits < 0 || !Number.isSafeInteger(currentCredits + current.credits)) throw new Error('The account\'s Coins balance is not valid. Please contact support.');
@@ -72,8 +74,8 @@ export async function creditCapturedPayment(db, payment) {
     if (affiliateRefDoc && affiliatePartner?.data()?.status === 'approved') {
       const commissionPercent = Number(affiliateSettings.data()?.commissionPercent || 10), commissionPaise = Math.round(Number(current.amountPaise) * commissionPercent / 100);
       const commissionRef = affiliateRefDoc.collection('commissions').doc(orderId);
-      tx.create(commissionRef, { orderId, paymentId, uid: order.uid, planId: current.planId, planName: current.planName, amountPaise: current.amountPaise, currency: current.currency, commissionPercent, commissionPaise, payoutStatus: 'pending', createdAt: now });
-      tx.set(affiliateRef, { conversions: Number(attribution.conversions || 0) + 1, commissionPaise: Number(attribution.commissionPaise || 0) + commissionPaise, lastConversionAt: now }, { merge: true });
+      tx.create(commissionRef, { orderId, paymentId, uid: order.uid, planId: current.planId, planName: current.planName, amountPaise: current.amountPaise, currency: current.currency, commissionPercent, commissionPaise, payoutStatus: 'pending', source: promoId ? 'promo' : 'link', createdAt: now });
+      if (!promoId && attribution) tx.set(affiliateRef, { conversions: Number(attribution.conversions || 0) + 1, commissionPaise: Number(attribution.commissionPaise || 0) + commissionPaise, lastConversionAt: now }, { merge: true });
     }
     credited = true;
   });

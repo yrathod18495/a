@@ -28,7 +28,7 @@ export async function affiliateDashboardView({ user, home, apply }) {
       h('section', { class: 'ap-grid3' }, card("Today's earnings", money(earnedOn(today))), card("Yesterday's earnings", money(earnedOn(yesterday))), card('Withdrawable balance', money(report.wallet ? report.wallet.availablePaise : report.pendingPaise), 'good')),
       h('section', { class: 'ap-grid2' }, h('article', { class: 'ap-big primary' }, h('small', {}, 'Total earnings'), h('b', {}, money(report.commissionPaise))), h('article', { class: 'ap-big' }, h('small', {}, 'Total withdrawn'), h('b', {}, money(report.paidPaise)))),
       withdrawalSection(report, load),
-      h('section', { class: 'ap-link' }, h('div', {}, h('h2', {}, 'Your referral link and code'), h('p', {}, `${report.clicks} clicks · ${report.referrals} signups · ${report.conversions} purchases`)),
+      h('section', { class: 'ap-link' }, h('div', {}, h('h2', {}, 'Your referral link and code'), h('p', {}, `${report.clicks} clicks · ${report.referrals} signups · ${report.conversions} purchases`), h('p', {}, 'Two ways to earn: share the link, or give your code to anyone — when they enter it as a promo code while buying Coins, you earn the commission.')),
         h('div', { class: 'affiliate-link-row' }, linkInput, h('button', { class: 'btn pri', onclick: copy(linkInput, link, 'Link') }, 'Copy link')),
         h('div', { class: 'affiliate-link-row' }, codeInput, h('button', { class: 'btn pri', onclick: copy(codeInput, report.partner.referralCode, 'Code') }, 'Copy code')), copyMessage),
       h('section', { class: 'ap-table-card' }, h('h2', {}, 'Commission history'), h('p', {}, 'Every commission from a purchase made with your link. Buyers’ details are never shown.'),

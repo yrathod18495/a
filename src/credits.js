@@ -29,6 +29,20 @@ export async function view({ user, home }) {
   const catalog = { plans: CREDIT_PLANS.map(publicPlan), configured: cached?.configured === true, credits: cached?.credits ?? null, known: !!cached };
   const balance = h('b', { class: 'credit-balance' }, catalog.credits == null ? '…' : coinAmount(catalog.credits, { size: 26 }));
   const buyButtons = [];
+  // a partner's promo code: the partner earns a commission on this purchase (the price stays the same)
+  let promo = '';
+  const promoInput = h('input', { class: 'credit-promo-input', placeholder: 'Partner promo code (optional)', maxlength: '12', autocapitalize: 'characters', spellcheck: 'false', 'aria-label': 'Partner promo code' });
+  const promoState = h('small', { class: 'credit-promo-state', role: 'status' }, '');
+  const promoApply = h('button', { class: 'btn sm', type: 'button', onclick: async () => {
+    const code = promoInput.value.trim().toUpperCase();
+    if (!code) { promo = ''; promoState.textContent = ''; promoState.className = 'credit-promo-state'; return; }
+    promoApply.disabled = true; promoState.textContent = 'Checking…'; promoState.className = 'credit-promo-state';
+    try { await apiCall('/api/payments', { action: 'checkPromo', promoCode: code }, user.uid); promo = code; promoInput.value = code; promoState.textContent = '✓ Code applied. Thank you for supporting a 12toons partner.'; promoState.className = 'credit-promo-state ok'; }
+    catch (e) { promo = ''; promoState.textContent = friendlyError(e); promoState.className = 'credit-promo-state bad'; }
+    finally { promoApply.disabled = false; }
+  } }, 'Apply');
+  promoInput.addEventListener('input', () => { if (promo && promoInput.value.trim().toUpperCase() !== promo) { promo = ''; promoState.textContent = ''; promoState.className = 'credit-promo-state'; } });
+  const promoBox = h('section', { class: 'credit-promo' }, h('div', { class: 'credit-promo-row' }, promoInput, promoApply), promoState);
   const buttonLabel = () => (catalog.known ? (catalog.configured ? 'Buy this plan' : 'Payment setup pending') : 'Checking…');
   const message = h('p', { class: 'credit-message', role: 'status', 'aria-live': 'polite' }, '');
   const history = h('div', { class: 'credit-history' }, h('p', { class: 'hint' }, 'Loading your payment history…'));
@@ -45,7 +59,7 @@ export async function view({ user, home }) {
     button.disabled = true; message.textContent = 'Creating secure payment order…'; message.className = 'credit-message';
     try {
       await loadCheckout();
-      const order = await apiCall('/api/payments', { action: 'createOrder', planId: plan.id }, user.uid);
+      const order = await apiCall('/api/payments', { action: 'createOrder', planId: plan.id, ...(promo ? { promoCode: promo } : {}) }, user.uid);
       let finished = false;
       const options = {
         key: order.keyId, amount: order.amountPaise, currency: order.currency, name: '12toons',
@@ -78,6 +92,7 @@ export async function view({ user, home }) {
   content.replaceChildren(
     h('section', { class: 'credit-hero' }, h('div', {}, h('span', { class: 'credit-kicker' }, 'YOUR COINS'), h('h1', {}, 'Choose your Coins plan'), h('p', { class: 'sub' }, 'One-time purchases. As soon as Razorpay confirms the payment, the coins are added to your Coins account.')),
       h('div', { class: 'credit-balance-card' }, h('small', {}, 'Your balance'), balance)),
+    promoBox,
     h('div', { class: 'credit-grid' }, ...catalog.plans.map((plan) => {
       const button = h('button', { class: 'btn pri big', disabled: !catalog.configured, onclick: null }, buttonLabel());
       buyButtons.push(button);
