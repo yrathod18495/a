@@ -3,6 +3,7 @@ import './style.css';
 import { landingView as marketingLandingView } from './landing.js';
 import './day-theme.css';
 import './royal-surfaces.css';
+import './stpro.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
 import { h, toast, logo } from './dom.js';
 import { startRoute, doneRoute } from './route-feedback.js';
@@ -166,24 +167,45 @@ async function renderRoute() {
 }
 
 
-/* ---------------- phone bottom bar (app look; hidden on desktop, in the studios and on public pages) ---------------- */
-const NAV_TABS = [
-  ['#/hub', 'Home', 'M3 11 12 3l9 8M5 10v10h5v-6h4v6h5V10'],
-  ['#/toons', 'Animate', 'M4 5h16v14H4zM10 9l5 3-5 3z'],
-  ['#/characters', 'Characters', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0'],
-  ['#/credits', 'Coins', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.5h-3a1.7 1.7 0 0 0 0 3.5h4'],
-  ['#/affiliate-dashboard', 'Earn', 'M4 17l6-6 4 4 6-10m-6 0h6v6'],
-];
-let phoneNav = null;
+/* ---------------- app rail: icon column on the left, opens into a labelled menu (hidden in the studios and on public pages) ---------------- */
+const RAIL_ICONS = {
+  menu: 'M4 6h16M4 12h16M4 18h16',
+  home: 'M3 11 12 3l9 8M5 10v10h5v-6h4v6h5V10',
+  animate: 'm12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5',
+  actor: 'M12 6a2 2 0 1 0 0-.01M9 22v-7H7l1.6-6.4A2 2 0 0 1 10.5 7h3a2 2 0 0 1 1.9 1.6L17 15h-2v7',
+  coins: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.5h-3a1.7 1.7 0 0 0 0 3.5h4',
+  earn: 'M4 17l6-6 4 4 6-10m-6 0h6v6',
+  admin: 'M4 7h16M4 17h16M8 4v6m8 4v6',
+  logout: 'M10 4H4v16h6m4-12 4 4-4 4M8 12h10',
+  help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.1',
+};
+const railIcon = (name) => { const e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 24 24'); e.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', RAIL_ICONS[name]); e.append(path); return e; };
+const RAIL_PAGES = ['#/hub', '#/toons', '#/characters', '#/credits', '#/affiliate-dashboard'];
+let rail = null, railOpen = false;
 function syncPhoneNav() {
   const parts = (location.hash || '#/').split('/'), hash = parts.slice(0, 2).join('/'), inProject = (hash === '#/toons' || hash === '#/characters') && parts[2];
-  const show = !!user && role !== 'tester' && role !== 'tester-pending' && !(maintenance && role !== 'admin') && !inProject && NAV_TABS.some(t => t[0] === hash);
-  document.body.classList.toggle('has-mnav', show);
-  if (!show) { phoneNav?.remove(); phoneNav = null; return; }
-  const svg = (d) => { const e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 24 24'); e.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', d); e.append(path); return e; };
-  const next = h('nav', { class: 'mnav', 'aria-label': 'Main' }, NAV_TABS.map(([to, label, d]) => h('button', { type: 'button', class: to === hash ? 'on' : '', 'aria-current': to === hash ? 'page' : null, onclick: (e) => { if (to !== hash) e.currentTarget.classList.add('wait'); go(to); } }, svg(d), h('span', {}, label))));
-  phoneNav?.replaceWith(next); if (!phoneNav) document.body.append(next); phoneNav = next;
+  const show = !!user && role !== 'tester' && role !== 'tester-pending' && !(maintenance && role !== 'admin') && !inProject && RAIL_PAGES.includes(hash);
+  document.body.classList.toggle('has-rail', show);
+  if (!show) { rail?.remove(); rail = null; railOpen = false; return; }
+  const item = (to, icon, label, action) => h('button', { type: 'button', class: `rail-item ${to === hash ? 'on' : ''}`, title: label, 'aria-label': label, 'aria-current': to === hash ? 'page' : null, onclick: (e) => { setRail(false); if (action) action(); else if (to !== hash) { e.currentTarget.classList.add('wait'); go(to); } } }, railIcon(icon), h('span', {}, label));
+  const group = (label) => h('div', { class: 'rail-group' }, label);
+  const next = h('aside', { class: `rail ${railOpen ? 'open' : ''}`, 'aria-label': 'Main menu' },
+    h('div', { class: 'rail-scrim', onclick: () => setRail(false) }),
+    h('nav', { class: 'rail-panel' },
+      h('button', { type: 'button', class: 'rail-item rail-burger', 'aria-label': 'Menu', 'aria-expanded': String(railOpen), onclick: () => setRail(!railOpen) }, railIcon('menu')),
+      item('#/hub', 'home', 'Dashboard'),
+      group('Studio apps'),
+      item('#/toons', 'animate', 'Animator'),
+      item('#/characters', 'actor', 'Character Studio'),
+      group('Account'),
+      item('#/credits', 'coins', 'Coins'),
+      item('#/affiliate-dashboard', 'earn', 'Earn with us'),
+      ...(role === 'admin' ? [item('#/admin', 'admin', 'Admin panel')] : []),
+      item(null, 'logout', 'Log out', async () => { await signOutUser(); go('#/'); }),
+      h('div', { class: 'rail-foot' }, item(null, 'help', 'Help and support', () => document.querySelector('.support-launch')?.click()))));
+  rail?.replaceWith(next); if (!rail) document.body.append(next); rail = next;
 }
+function setRail(open) { railOpen = open; rail?.classList.toggle('open', open); rail?.querySelector('.rail-burger')?.setAttribute('aria-expanded', String(open)); }
 
 /* ---------------- shared bits ---------------- */
 async function login() {
@@ -313,13 +335,15 @@ function hubView() {
     const info = await cloudInfo();
     cloudLine.textContent = info ? `☁ Last cloud save: ${new Date(info.updatedAt).toLocaleString()}` : '☁ Projects save automatically while you edit.';
   }).catch(() => { cloudLine.textContent = ''; });
-  const card = (icon, title, text, hash, btn) => h('button', { class: 'sh-tool', onclick: () => go(hash) }, h('span', { class: 'sh-tool-ico' }, icon), h('b', {}, title), h('p', {}, text), h('span', { class: 'btn pri' }, btn));
+  const tool = (cls, title, text, hash, btn) => h('article', { class: `sh-tool st-tool ${cls}`, role: 'link', tabindex: '0', onclick: () => go(hash), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(hash); } } },
+    h('div', { class: 'st-tool-art', 'aria-hidden': 'true' }), h('div', { class: 'st-tool-body' }, h('h3', {}, title), h('p', {}, text), h('span', { class: 'st-launch' }, btn, ' →')));
   return h('div', { class: 'sh' },
     h('header', { class: 'sh-bar' }, logo(() => go('#/')), h('span', { class: 'sp' }), profileMenu()),
-    h('main', { class: 'sh-hub' }, h('h1', {}, `Hi ${name} 👋`), h('p', { class: 'sub' }, 'What would you like to work on?'),
+    h('main', { class: 'sh-hub' }, h('h1', {}, 'Welcome to 12toons Studio'), h('p', { class: 'sub' }, `Hi ${name}, create professional animations directly in your browser.`),
+      h('div', { class: 'st-label' }, 'Tools'),
       h('div', { class: 'sh-tools' },
-        card('🎬', '12toons', 'Animation studio. Place characters and backgrounds, add your audio lines (optional), direct the scenes with AI and export a video.', '#/toons', 'Open 12toons →'),
-        card('🎭', '12toons Character Studio', 'Build characters. Recolour parts, upload artwork, choose outfits and save them for your animations.', '#/characters', 'Open Character Studio →')),
+        tool('animator', '12toons Animator', 'Create animations with a timeline, voice lines, AI scene direction and character assets, then export a video.', '#/toons', 'Launch Animator'),
+        tool('actor', '12toons Character Studio', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Studio')),
       cloudLine));
 }
 

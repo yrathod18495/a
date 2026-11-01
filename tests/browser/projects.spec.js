@@ -6,7 +6,7 @@ async function setup(page){
  // These UI tests exercise local storage only; missing bundled catalogs use empty fixtures.
  await page.route('**/12toons/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
  await page.goto('/?debug#/toons');
- await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
+ await expect(page.getByRole("heading",{name:"Animator Projects"})).toBeVisible();
 }
 test('maintenance never blocks signing in: anonymous visitors reach the login page for private routes and direct admin URLs',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:true}}));
@@ -34,7 +34,7 @@ test('expanded FAQ and complete legal pages are linked and render by direct URL'
  await expect(page).toHaveURL(/#\/website-license$/);
  await expect(page.getByRole('heading',{name:'Website Licence'})).toBeVisible();
 });
-test('royal palette and brightness preference persist across landing, legal and studios',async({page})=>{
+test('brightness preference persist across landing, legal and studios',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  await page.addInitScript(()=>{if(!localStorage.getItem('12toons-theme'))localStorage.setItem('12toons-theme','day');});
@@ -43,15 +43,11 @@ test('royal palette and brightness preference persist across landing, legal and 
  await page.locator('.sh-avatar').click();
  await page.getByRole('button',{name:/Switch to night mode/}).click();
  await expect(page.locator('html')).toHaveAttribute('data-theme','night');
- expect(await page.locator('.lp-section-soft').first().evaluate(e=>getComputedStyle(e).backgroundImage)).toContain('landing-palace.webp');
  await page.getByRole('link',{name:'Terms of Use'}).first().click();
  await expect(page.getByRole('heading',{name:'Terms of Use'})).toBeVisible();
- expect(await page.locator('.legal-page').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(11, 9, 7)');
  await page.goto('/?debug#/toons');
- await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
- expect(await page.locator('.projects-header').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(21, 18, 13)');
+ await expect(page.getByRole("heading",{name:"Animator Projects"})).toBeVisible();
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();
- expect(await page.locator('.project-dialog').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(21, 18, 13)');
  await page.getByRole('button',{name:'Cancel'}).click();
  await page.goto('/?debug#/characters');
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();
@@ -61,14 +57,11 @@ test('royal palette and brightness preference persist across landing, legal and 
  await page.reload();
  await expect(page.locator('html')).toHaveAttribute('data-theme','night');
  await expect(page.locator('.cs-stage')).toBeVisible();
- expect(await page.locator('.cs-stage').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(16, 14, 11)');
  await page.goto('/?debug#/');
  await page.locator('.sh-avatar').click();
  await page.getByRole('button',{name:/Switch to day mode/}).click();
  await expect(page.locator('html')).toHaveAttribute('data-theme','day');
  expect(await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(255, 255, 255)');
- expect(await page.locator('.lp-hero h1').evaluate(e=>getComputedStyle(e).color)).toBe('rgb(24, 20, 14)');
- expect(await page.locator('.lp-button-primary').first().evaluate(e=>getComputedStyle(e).backgroundImage)).toContain('rgb(244, 215, 142)');
  await page.locator('.sh-avatar').click();
  await expect(page.getByRole('button',{name:/Switch to night mode/})).toBeVisible();
 });
@@ -143,7 +136,7 @@ test('tester opens the fixed rig from Create my own character and its live previ
 // the studio logo now leaves for the home page, so the picker is opened by its address
 async function openProjects(page){
  await page.evaluate(()=>{location.hash='#/toons';});
- await expect(page.getByRole('heading',{name:'My Projects'})).toBeVisible();
+ await expect(page.getByRole("heading",{name:"Animator Projects"})).toBeVisible();
 }
 async function create(page,name){
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();

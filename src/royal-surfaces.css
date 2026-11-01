@@ -1,11 +1,11 @@
 /* One cached palace image connects the public pages and creative workspaces. */
 :root{
-  --palace-art:url('/images/landing-palace.webp');
-  --palace-page:linear-gradient(110deg,#100e0bf5 12%,#100e0be8 52%,#100e0bb3);
-  --palace-banner:linear-gradient(100deg,#191610f5 15%,#191610df 55%,#19161092);
-  --palace-header:linear-gradient(90deg,#100e0bf7,#100e0be6);
+  --palace-art:none;
+  --palace-page:linear-gradient(110deg,#0e1318f5 12%,#0e1318e8 52%,#0e1318b3);
+  --palace-banner:linear-gradient(100deg,#161d24f5 15%,#161d24df 55%,#161d2492);
+  --palace-header:linear-gradient(90deg,#0e1318f7,#0e1318e6);
   --palace-panel:color-mix(in srgb,var(--card) 95%,transparent);
-  --palace-shadow:0 18px 50px #0004,inset 0 1px #efd08a15;
+  --palace-shadow:0 18px 50px #0004,inset 0 1px #8fe3df15;
 }
 :root[data-theme="day"]{
   --palace-page:linear-gradient(110deg,#fffffff5 12%,#ffffffed 52%,#ffffffb8);
@@ -102,7 +102,7 @@
 /* Compact account popover with a clear identity, actions and sign-out area. */
 :root[data-theme] body .sh-profile .sh-avatar{
   width:42px;height:42px;border:1px solid #c7a45c;
-  background:var(--royal-button);color:#241907;
+  background:var(--royal-button);color:#1a232a;
   box-shadow:0 3px 12px #0002;
 }
 :root[data-theme] body .sh-profile .sh-avatar[aria-expanded="true"]{outline:2px solid var(--acc);outline-offset:3px}
@@ -120,7 +120,7 @@
   padding:20px 18px;margin:0;border-bottom:1px solid var(--line);
   background:var(--palace-banner),var(--palace-art);background-size:cover;background-position:center;
 }
-.sh-account-avatar{display:grid;place-items:center;flex:none;width:46px;height:46px;border:1px solid #bf9b53;border-radius:15px;background:var(--royal-button);color:#241907;font-size:20px;font-weight:800;overflow:hidden}
+.sh-account-avatar{display:grid;place-items:center;flex:none;width:46px;height:46px;border:1px solid #4ccbc6;border-radius:15px;background:var(--royal-button);color:#1a232a;font-size:20px;font-weight:800;overflow:hidden}
 .sh-account-avatar img{width:100%;height:100%;object-fit:cover}
 .sh-account-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
 .sh-account-copy b{font-size:15px;overflow-wrap:anywhere}

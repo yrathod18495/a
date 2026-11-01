@@ -3,6 +3,7 @@ import { h, brandWordmark } from './dom.js';
 import { listProjects, createProject, renameProject, deleteProject, copyProject } from './store.js';
 import { refreshProjects, syncProject, onSyncStatus, resolveConflict, registerProject } from './project-sync.js';
 export async function projectsView({user,kind,home,toast}) {
+  const search=h('input',{class:'projects-search',type:'search',placeholder:'Search projects…','aria-label':'Search projects',oninput:()=>draw()});
   const root=h('div',{class:`sh projects-page ${kind==='animation'?'projects-animation':'projects-character'}`}), list=h('div',{class:'projects-grid'}), status=h('p',{class:'projects-status'});
   const open=p=>{location.hash='#/'+(kind==='animation'?'toons':'characters')+'/'+p.id;location.reload();};
   const run=fn=>async()=>{try{await fn();await draw();}catch(e){toast(e.message);}};
@@ -41,20 +42,25 @@ export async function projectsView({user,kind,home,toast}) {
         // the project is gone locally the moment deleteProject resolves; the list must reflect that even if the cloud push below fails or is still catching up
         syncProject(user.uid,p.id).catch(()=>{});
       })},'Delete'));
+      const when=t=>new Date(t).toLocaleString([],{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      const rest=actions.filter(a=>!/^(Rename|Delete)$/.test(a.textContent));
       return h('article',{class:'project-card'},
-        h('div',{class:'project-card-head'},h('span',{class:'project-card-icon','aria-hidden':'true'},kind==='animation'?'▶':'✦'),h('span',{class:`project-badge ${p.dirty?'pending':'saved'}`},p.dirty?'Cloud pending':'Saved to Cloud')),
-        h('h2',{class:'project-name'},p.name),h('p',{class:'project-state'},p.dirty?'Your latest changes are saved on this device and waiting to sync.':'This project is synced and ready to open.'),
-        h('button',{class:'btn pri project-open',onclick:()=>open(p)},'Open Project'),
-        h('div',{class:'project-actions'},...actions));
+        h('h2',{class:'project-name'},p.name),
+        h('p',{class:'project-created'},'Last saved'),h('p',{class:'project-updated'},when(p.updatedAt)),
+        h('p',{class:`project-state ${p.dirty?'pending':'saved'}`},p.dirty?'Waiting to sync to your account':'Synced to your account'),
+        h('div',{class:'project-row'},h('button',{class:'btn pri project-open',onclick:()=>open(p)},'Open'),...actions.filter(a=>/^(Rename|Delete)$/.test(a.textContent))),
+        rest.length?h('div',{class:'project-actions'},...rest):null);
     }));
-    if(!projects.length)list.append(h('div',{class:'projects-empty'},h('span',{'aria-hidden':'true'},'✦'),h('h2',{},'No projects yet'),h('p',{},'Create your first project to get started.')));
+    const q=search.value.trim().toLowerCase();
+    if(q)for(const card of [...list.children])if(!card.querySelector('.project-name')?.textContent.toLowerCase().includes(q))card.remove();
+    if(!list.children.length)list.append(h('div',{class:'projects-empty'},h('h2',{},q?'No projects match your search':'No projects yet'),h('p',{},q?'Try a different name.':'Create your first project to get started.')));
   }
   const title=kind==='animation'?'Animation Studio':'Character Studio';
   const toolbar=h('div',{class:'projects-toolbar'},
-    h('button',{class:'btn pri',onclick:run(async()=>{const name=await dialog({title:'Create a project',description:`Give your new ${kind==='animation'?'animation':'character'} project a name.`,value:'Untitled project',confirmLabel:'Create project'});if(name){const p=await createProject(user.uid,kind,name);const id=await registerProject(user.uid,p.id,kind,name);open(id===p.id?p:{...p,id});}})},'Create New Project'),
-    kind!=='animation'?h('button',{class:'btn',onclick:run(async()=>{await refreshProjects(user.uid);})},'Refresh from Cloud'):null);
-  root.append(h('header',{class:'projects-header'},h('a',{class:'projects-brand',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},...brandWordmark()),h('span',{class:'projects-divider'}),h('div',{class:'projects-heading'},h('h1',{},'My Projects'),h('p',{},title)),h('span',{class:'sp'}),h('button',{class:'btn projects-home',onclick:home},'Home')),
-    h('main',{class:'projects-main'},h('div',{class:'projects-intro'},h('div',{},h('span',{class:'projects-eyebrow'},'YOUR WORKSPACE'),h('h2',{},`Your ${kind==='animation'?'animations':'characters'}`),h('p',{},`Open and manage your ${kind==='animation'?'animation':'character'} projects.`)),status),toolbar,list));
+    h('button',{class:'btn pri project-new','aria-label':'Create New Project',onclick:run(async()=>{const name=await dialog({title:'Create a project',description:`Give your new ${kind==='animation'?'animation':'character'} project a name.`,value:'Untitled project',confirmLabel:'Create project'});if(name){const p=await createProject(user.uid,kind,name);const id=await registerProject(user.uid,p.id,kind,name);open(id===p.id?p:{...p,id});}})},'+ New Project'),
+    search);
+  root.append(h('header',{class:'projects-header'},h('a',{class:'projects-brand',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},...brandWordmark())),
+    h('main',{class:'projects-main'},h('div',{class:'projects-panel-head'},h('h1',{},kind==='animation'?'Animator Projects':'Character Projects'),h('span',{class:'sp'}),h('button',{class:'projects-close','aria-label':'Close',title:'Back to dashboard',onclick:home},'✕')),toolbar,status,list));
   const off=onSyncStatus(s=>{status.textContent=s.text+(s.error?' — '+s.error:'');});
   root.dispose=off;
   await draw();

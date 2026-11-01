@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 test('latest workspace controls coexist with undo, export presets and themed scene deletion',async({page},info)=>{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));await page.setViewportSize({width:1366,height:768});
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
- await page.goto('/?debug&workers=0#/toons');await expect(page.locator('.projects-toolbar button')).toHaveText(['Create New Project']);
+ await page.goto('/?debug&workers=0#/toons');await expect(page.locator('.projects-toolbar button')).toHaveText(['+ New Project']);
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Workspace integration');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  const clipped=await page.locator('.prev').evaluate(host=>{const bounds=host.getBoundingClientRect();return [...host.querySelectorAll('.layout-tools button')].filter(button=>{const box=button.getBoundingClientRect();return box.left<bounds.left || box.right>bounds.right+1;}).map(button=>button.title);});expect(clipped).toEqual([]);
