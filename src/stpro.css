@@ -607,3 +607,5 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 :root[data-theme="day"] .affiliate-withdraw-message.error{color:#b3261e}
 @media(max-width:760px){.affiliate-withdraw-request{flex-direction:column;align-items:stretch}.affiliate-withdraw-request .affiliate-payout-controls{justify-content:stretch}.affiliate-withdraw-request .affiliate-payout-reference{flex:1 1 100%}}
 .affiliate-withdraw-request .affiliate-payout-reference{min-width:240px}
+.ap-link .affiliate-link-row+.affiliate-link-row{margin-top:10px}.affiliate-referral-code{letter-spacing:.08em;font-weight:700}
+.ap-link .affiliate-link-row .btn{min-width:120px}

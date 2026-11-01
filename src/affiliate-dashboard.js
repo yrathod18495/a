@@ -13,6 +13,9 @@ export async function affiliateDashboardView({ user, home, apply }) {
   try {
     const report = await apiCall('/api/affiliates', { action: 'dashboard' }, user.uid), link = `${location.origin}/?ref=${encodeURIComponent(report.partner.referralCode)}`;
     const linkInput = h('input', { class: 'affiliate-referral-link', value: link, readonly: true, 'aria-label': 'Your referral link' }), copyMessage = h('span', { class: 'affiliate-copy-status', role: 'status' });
+    const codeInput = h('input', { class: 'affiliate-referral-link affiliate-referral-code', value: report.partner.referralCode, readonly: true, 'aria-label': 'Your referral code' });
+    // copies the text of one field; if the browser blocks the clipboard the field is selected so the user can press Ctrl+C
+    const copy = (input, text, what) => async () => { try { await navigator.clipboard.writeText(text); copyMessage.textContent = `${what} copied.`; } catch { input.select(); copyMessage.textContent = `Press Ctrl+C to copy the ${what.toLowerCase()}.`; } };
     const day = (t) => new Date(t).toDateString(), now = Date.now(), today = day(now), yesterday = day(now - 864e5);
     const earnedOn = (d) => report.commissions.filter((c) => day(c.createdAt) === d).reduce((n, c) => n + Number(c.commissionPaise || 0), 0);
     const rows = report.commissions.length ? report.commissions.map((row) => h('tr', {},
@@ -25,8 +28,9 @@ export async function affiliateDashboardView({ user, home, apply }) {
       h('section', { class: 'ap-grid3' }, card("Today's earnings", money(earnedOn(today))), card("Yesterday's earnings", money(earnedOn(yesterday))), card('Withdrawable balance', money(report.wallet ? report.wallet.availablePaise : report.pendingPaise), 'good')),
       h('section', { class: 'ap-grid2' }, h('article', { class: 'ap-big primary' }, h('small', {}, 'Total earnings'), h('b', {}, money(report.commissionPaise))), h('article', { class: 'ap-big' }, h('small', {}, 'Total withdrawn'), h('b', {}, money(report.paidPaise)))),
       withdrawalSection(report, load),
-      h('section', { class: 'ap-link' }, h('div', {}, h('h2', {}, 'Your referral link'), h('p', {}, `Code: ${report.partner.referralCode} · ${report.clicks} clicks · ${report.referrals} signups · ${report.conversions} purchases`)),
-        h('div', { class: 'affiliate-link-row' }, linkInput, h('button', { class: 'btn pri', onclick: async () => { try { await navigator.clipboard.writeText(link); copyMessage.textContent = 'Link copied.'; } catch { linkInput.select(); copyMessage.textContent = 'Press Ctrl+C to copy the link.'; } } }, 'Copy link')), copyMessage),
+      h('section', { class: 'ap-link' }, h('div', {}, h('h2', {}, 'Your referral link and code'), h('p', {}, `${report.clicks} clicks · ${report.referrals} signups · ${report.conversions} purchases`)),
+        h('div', { class: 'affiliate-link-row' }, linkInput, h('button', { class: 'btn pri', onclick: copy(linkInput, link, 'Link') }, 'Copy link')),
+        h('div', { class: 'affiliate-link-row' }, codeInput, h('button', { class: 'btn pri', onclick: copy(codeInput, report.partner.referralCode, 'Code') }, 'Copy code')), copyMessage),
       h('section', { class: 'ap-table-card' }, h('h2', {}, 'Commission history'), h('p', {}, 'Every commission from a purchase made with your link. Buyers’ details are never shown.'),
         rows.length ? h('div', { class: 'ap-table-wrap' }, h('table', { class: 'ap-table' }, h('thead', {}, h('tr', {}, h('th', {}, 'Date'), h('th', { class: 'ap-num' }, 'Purchase'), h('th', { class: 'ap-num' }, 'Your commission'), h('th', { class: 'ap-num' }, 'Status'))), h('tbody', {}, ...rows)))
           : h('div', { class: 'ap-empty' }, h('b', {}, 'No commissions yet'), h('p', {}, 'Share your link to start earning.'))),
