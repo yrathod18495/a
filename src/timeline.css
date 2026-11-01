@@ -25,9 +25,9 @@
 #app .ws .timeline-icon img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 18%;background:#282035}
 #app .ws .timeline-icon-background img{object-position:center}
 #app .ws .timeline-icon-camera{background:radial-gradient(circle at 40% 36%,#d5fff9 0 3%,transparent 7%),radial-gradient(circle,#173d45 0 13%,#070c12 16% 27%,#385d61 29% 35%,#111923 38% 47%,#596465 50% 54%,#0c1117 57% 66%,#6f5fe8 69% 72%,#161719 75%)}
-:root[data-theme] body #app .ws .tl2 .ruler:not(.rl){background:repeating-linear-gradient(90deg,transparent 0 calc(var(--timeline-second)/5 - 1px),#8b7bff38 calc(var(--timeline-second)/5 - 1px) calc(var(--timeline-second)/5)) bottom/100% 6px no-repeat,var(--track-ruler);border-color:var(--track-line)}
+:root[data-theme] body #app .ws .tl2 .ruler:not(.rl){background:var(--track-ruler);border-color:var(--track-line)}
 :root[data-theme] body #app .ws .tl2 .tick{border-color:#8b7bff55;color:var(--track-ink);font-size:10px;padding-left:6px}
-:root[data-theme] body #app .ws .tl2 .lane2{border-color:var(--track-line);background:repeating-linear-gradient(90deg,transparent 0 calc(var(--timeline-second) - 1px),#8b7bff10 calc(var(--timeline-second) - 1px) var(--timeline-second))}
+:root[data-theme] body #app .ws .tl2 .lane2{border-color:var(--track-line);background:none}   /* the faint second lines come from .lane2::before, drawn to match the ruler labels */
 :root[data-theme] body #app .ws .tl2 .tclip{
   --clip-tint:#7c6cf5;--clip-base:#3d3585;--clip-end:#302719;
   background:linear-gradient(115deg,var(--clip-base),var(--clip-end));border:1px solid var(--clip-tint);
