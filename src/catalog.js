@@ -9,7 +9,7 @@ import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
 import { assetAddress } from '../shared/library-url.js';
 
-const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: optional address of a CDN in front of the library; without it /12toons/... is answered by api/library.js (docs/LIBRARY.md)
+const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: optional address of a CDN that serves the library files
 let library = [], adAnims = null, managedAnimations = [], libraryProblem = '';
 /** why the character list is empty, in simple Hinglish ('' when it loaded) */
 export const libraryStatus = () => libraryProblem;

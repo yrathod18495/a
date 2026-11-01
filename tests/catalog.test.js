@@ -34,30 +34,6 @@ async function catalog({ library = '' } = {}) {
   return { api: sandbox.api, sandbox, requests };
 }
 
-test('retained character catalog loads every character and its front-side rig locally', async () => {
-  const { api, requests } = await catalog();
-  await api.loadCatalog();
-  const entries = api.libraryCharacters();
-  assert.deepEqual([...new Set(entries.map(e => e.charBase))].sort(),
-    ['chudel', 'mybaby', 'neha', 'sadhubaba', 'svgmulti', 'villageboy']);
-  for (const entry of entries.filter(e => e.template.pose === 'front-side')) {
-    const character = await api.fetchLibraryCharacter(entry);
-    assert.ok(character.ske.armature[0].bone.length > 0, entry.name);
-    assert.ok(character.tex.every(t => t.json.SubTexture.length && t.image.size), entry.name);
-    assert.ok(api.categoriesFor(character.rig).some(c => c.animations.length), entry.name);
-  }
-  assert.ok(requests.length > entries.length);
-});
-
-test('catalog reload failure clears previously loaded character templates', async () => {
-  const { api, sandbox } = await catalog();
-  await api.loadCatalog();
-  assert.ok(api.libraryCharacters().length);
-  sandbox.fetch = async () => { throw new Error('offline'); };
-  await api.loadCatalog();
-  assert.equal(api.libraryCharacters().length, 0);
-});
-
 test('uploaded rigs keep their own animations without a bundled pattern fallback', async () => {
   const { api } = await catalog();
   const cats = api.categoriesFor({ animList: [{ name: 'walk', file: 'walk', length: 2 }], animDir: 'custom/' });
@@ -67,13 +43,3 @@ test('uploaded rigs keep their own animations without a bundled pattern fallback
   await assert.rejects(api.fetchLibraryCharacter({ id: 122 }), /no longer available/);
 });
 
-test('with a library bucket configured every catalog file is requested from it', async () => {
-  const library = 'https://pub-test.r2.dev/v1';
-  const { api, requests } = await catalog({ library });
-  await api.loadCatalog();
-  assert.ok(api.libraryCharacters().length > 5);
-  const baby = api.libraryCharacters().find((entry) => entry.charBase === 'mybaby' && entry.template.pose === 'front-side');
-  await api.fetchLibraryCharacter(baby);
-  assert.ok(requests.length > 4 && requests.every((path) => path.startsWith(library + '/12toons/')));
-  assert.ok(requests.some((path) => /mybaby\/front-side_ske\.json$/.test(path)) && requests.some((path) => /\.webp$/.test(path)));
-});

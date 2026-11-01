@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/12toons/:path*",
-      "destination": "/api/library?path=:path*"
-    },
-    {
       "source": "/admin",
       "destination": "/"
     },
