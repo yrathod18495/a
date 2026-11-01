@@ -7,7 +7,7 @@ const money = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString('en-IN'
 const dateTime = (value) => value ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const localDayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
-export function dashboardView({ user, home, toast, openStudio, openTesters }) {
+export function dashboardView({ user, home, toast, openStudio }) {
   // The console (top bar + section tabs) stays on screen; every section opens inside `host`, so the tabs and the back buttons always work.
   const shell = h('div', { class: 'sh admin-console' });
   const nav = h('nav', { class: 'admin-console-nav', 'aria-label': 'Admin sections' });
@@ -29,15 +29,12 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     }
   }
   const goOverview = () => show('Overview', overview);
-  const openRequests = () => import('./security-view.js').then(m => m.securityView({ initialTab: 'testers', home: goOverview, toast }));
   const navItems = [
     ['Overview', overview],
     ['Users', () => import('./security-view.js').then(m => m.securityView({ home: goOverview, toast }))],
     ['Live Chat', () => import('./admin-chat.js').then(m => m.chatView({ user, toast, back: goOverview }))],
     ['Payments', () => import('./admin-payments.js').then(m => m.view({ user, home, toast, back: goOverview }))],
     ['Studio Controls', openStudio],
-    ['Tester Requests', openRequests],
-    ['Tester Permissions', openTesters],
     ['Find Project', () => import('./admin-find-project.js').then(m => m.findProjectView({ user, back: goOverview, toast }))],
     ['Props & Effects', () => import('./admin-props-effects.js').then(m => m.propsEffectsView({ home, toast, back: goOverview }))],
     ['Add Assets', () => import('./admin-assets.js').then(m => m.assetsView({ user, home, toast, back: goOverview }))],
@@ -61,9 +58,8 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     const state = { security: null, payments: null, chats: null, affiliates: null, alerts: null, failures: {} };
     let knownAlerts = null;
     let busy = false;
-    const requestNotice = h('button', { class: 'btn sm', type: 'button', hidden: true, 'aria-live': 'polite', onclick: () => show('Tester Requests', openRequests) });
     root.append(
-      h('div', { class: 'admin-console-statusbar' }, status, requestNotice, h('span', { class: 'sp' }), h('button', { class: 'btn sm', type: 'button', onclick: () => refresh(true) }, '↻ Refresh')),
+      h('div', { class: 'admin-console-statusbar' }, status, h('span', { class: 'sp' }), h('button', { class: 'btn sm', type: 'button', onclick: () => refresh(true) }, '↻ Refresh')),
       content,
     );
 
@@ -162,26 +158,9 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
       busy = false;
     }
 
-    let knownRequests = null, requestBusy = false;
-    async function refreshRequests() {
-      if (requestBusy || !root.isConnected || document.hidden) return;
-      requestBusy = true;
-      try {
-        const { requests = [] } = await apiCall('/api/security', {action:'testerRequests'}, user.uid);
-        if (!root.isConnected) return;
-        const added = knownRequests ? requests.filter(r=>!knownRequests.has(r.uid)) : [];
-        knownRequests = new Set(requests.map(r=>r.uid));
-        requestNotice.hidden = !requests.length;
-        requestNotice.textContent = `${requests.length} tester request${requests.length===1?'':'s'} pending · Review`;
-        if (added.length) toast(`${added.length} new tester access request${added.length===1?'':'s'} awaiting approval.`);
-      } catch { requestNotice.hidden = false; requestNotice.textContent = 'Tester requests are not available right now · Please try again'; }
-      finally { requestBusy = false; }
-    }
     renderDashboard();
     refresh();
-    setTimeout(refreshRequests, 50);       // the page is attached to the document by then
-    const requestTimer = window.setInterval(() => { if (!root.isConnected) { clearInterval(requestTimer); return; } refreshRequests(); }, 15000);
-    root.dispose = () => { clearInterval(timer); clearInterval(requestTimer); };
+    root.dispose = () => { clearInterval(timer); };
     const timer = window.setInterval(() => { if (!root.isConnected) { clearInterval(timer); return; } refresh(); }, 30000);
     return root;
 

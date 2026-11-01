@@ -252,12 +252,6 @@
 :root[data-theme="day"] body .ad-lrow.off{background: #ffffff}
 :root[data-theme="day"] body .ad-lorig small{color: #625642}
 :root[data-theme="day"] body .lane2.move{background: #ecf6ee}
-:root[data-theme="day"] body .tst-a{background: #ffffff}
-:root[data-theme="day"] body .tst-a.on{background: #ffffff}
-:root[data-theme="day"] body .ad-tmail{background: #ffffff;border: 1px solid #d9c8a5}
-:root[data-theme="day"] body .ad-tmail button{background: #ffffff}
-:root[data-theme="day"] body .ad-num{border: 1px solid #d9c8a5}
-:root[data-theme="day"] body .ad-sthumb{background: #ffffff}
 :root[data-theme="day"] body .affiliate-rate-card{background:#ffffff;box-shadow:0 5px 20px #3b2a1208}
 :root[data-theme="day"] body .affiliate-rate-input{background:#ffffff}
 :root[data-theme="day"] body .affiliate-admin-code{background:#ffffff;color:#18140e}
@@ -383,7 +377,6 @@
 :root[data-theme="day"] body .support-bubble.failed{border-color:#d9c8a5}
 :root[data-theme="day"] body .admin-chat-layout{box-shadow:0 5px 20px #3b2a120a}
 :root[data-theme="day"] body ::selection{background:#bd913e33}
-:root[data-theme="day"] body .tester-access-icon{background:#ffffff;color:#18140e}
 :root[data-theme="day"] body .admin-request-count{background:#ffffff;color:#18140e}
 :root[data-theme="day"] body ::selection{background:#e3b957;color:#18140e}
 :root[data-theme="day"] body input::placeholder,
@@ -406,11 +399,9 @@
 :root[data-theme="day"] body .legal-header{box-shadow:0 5px 24px #3b2a121c}
 :root[data-theme="day"] body .sh-login,
 :root[data-theme="day"] body .maintenance-card,
-:root[data-theme="day"] body .tester-access-card,
 :root[data-theme="day"] body .project-dialog{border:1px solid #876b37;box-shadow:0 24px 70px #3b2a121c,inset 0 1px #3b2a1212}
 :root[data-theme="day"] body .sh-login h1,
-:root[data-theme="day"] body .maintenance-card h1,
-:root[data-theme="day"] body .tester-access-card h1{color:#18140e}
+:root[data-theme="day"] body .maintenance-card h1{color:#18140e}
 :root[data-theme="day"] body .project-card:hover,
 :root[data-theme="day"] body .credit-plan:hover{border-color:#bc9650;box-shadow:0 12px 30px #3b2a121c}
 :root[data-theme="day"] body .sh-google{background:#fbf8f1;border-color:#876b37}
@@ -576,7 +567,6 @@
 :root[data-theme="day"] body .btn-link,
 :root[data-theme="day"] body .staff-tag,
 :root[data-theme="day"] body .sh-login h1,
-:root[data-theme="day"] body .tester-access-card h1,
 :root[data-theme="day"] body .maintenance-card h1{color:#18140e}
 :root[data-theme="day"] body .btn.pri:hover,
 :root[data-theme="day"] body .btn.ok:hover,

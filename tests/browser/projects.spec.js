@@ -1,5 +1,4 @@
 import {test,expect} from '@playwright/test';
-import JSZip from 'jszip';
 async function setup(page){
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
@@ -88,57 +87,6 @@ test('affiliate partner form explains data use and confirms successful submissio
  await page.getByLabel(/I agree that 12toons/).check();
  await page.getByRole('button',{name:'Submit partnership request'}).click();
  await expect(page.getByRole('status')).toContainText('your partnership request has been sent');
-});
-test('tester starts blank with only the custom character action and no visible brand',async({page})=>{
- await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
- await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
- await page.route('**/12toons/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
- await page.goto('/?debug&tester#/tester');
- await expect(page).toHaveTitle('Character Tester');
- await expect(page.locator('link[rel~="icon"]')).not.toHaveAttribute('href',/12%3C/);
- await expect(page.getByRole('heading',{name:'Create my own character'})).toBeVisible();
- await expect(page.locator('.tester-create button')).toHaveCount(1);
- await expect(page.locator('.tester-create')).not.toContainText(/12toons?/i);
- await expect(page.locator('.sh-bar')).not.toContainText(/12toons?/i);
- await expect(page.locator('.tester-create .cs-card')).toHaveCount(0);
-});
-test('tester opens the fixed rig from Create my own character and its live preview appears',async({page})=>{
- await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
- await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
- await page.goto('about:blank');
- const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d');g.fillStyle='#ff0000';g.fillRect(0,0,32,32);return c.toDataURL('image/png').split(',')[1];});
- const ske={version:'5.5',compatibleVersion:'5.5',name:'Rig',frameRate:24,armature:[{name:'Rig',type:'Armature',frameRate:24,bone:[{name:'root',transform:{}}],slot:[{name:'body',parent:'root',displayIndex:0}],skin:[{name:'default',slot:[{name:'body',display:[{name:'body',path:'body',type:'image',transform:{}}]}]}],animation:[]}]};
- const tex={name:'Rig',imagePath:'texture.png',width:32,height:32,SubTexture:[{name:'body',x:0,y:0,width:32,height:32}]};
- const rigPng=Buffer.from(png,'base64');
- await page.route('**/12toons/*.json',r=>r.fulfill({json:r.request().url().endsWith('/groups.json')?[]:{characters:[]}}));
- await page.route('**/12toons/characters.json',r=>r.fulfill({json:{characters:[{id:'sadhubaba',name:'Sadhu Baba',poses:[{pose:'front-side',label:'Fixture',ske:'12toons/fixture_ske.json',tex:['12toons/fixture_tex.json'],own:true}]}]}}));
- await page.route('**/12toons/fixture_ske.json',r=>r.fulfill({json:ske}));
- await page.route('**/12toons/fixture_tex.json',r=>r.fulfill({json:tex}));
- await page.route('**/12toons/texture.png',r=>r.fulfill({status:200,contentType:'image/png',body:rigPng}));
- await page.goto('/?debug&tester#/tester');
- const z=new JSZip();
- z.file('Fixture_ske.json',JSON.stringify({version:'5.5',compatibleVersion:'5.5',name:'Fixture',frameRate:24,armature:[{name:'Fixture',type:'Armature',frameRate:24,bone:[{name:'root',transform:{}}],slot:[{name:'body',parent:'root',displayIndex:0}],skin:[{name:'default',slot:[{name:'body',display:[{name:'body',path:'body',type:'image',transform:{}}]}]}],animation:[]}]}));
- z.file('Fixture_tex.json',JSON.stringify({name:'Fixture',imagePath:'texture.png',width:32,height:32,SubTexture:[{name:'body',x:0,y:0,width:32,height:32}]}));
- z.file('texture.png',Buffer.from(png,'base64'));
- const buffer=await z.generateAsync({type:'nodebuffer'});
- // testers only get the fixed Sadhu Baba rig: "Create my own character" opens it, then they upload their own parts onto it
- const start=page.getByRole('button',{name:/Create my own character/});
- if(await start.isVisible({timeout:3000}).catch(()=>false))await start.click();   // with one rig available the studio may already be open on it
- await expect(page.locator('.cs-tabs button.on')).toHaveText('Create');
- await expect(page.locator('.cs-panel input[type=file]').first()).toBeAttached();
- await expect(page.locator('.cs-stage canvas')).toBeVisible();
- // the tester page keeps every editing tab
- await expect(page.locator('.cs-tabs button')).toContainText(['Start','Create','Layers','Face','Animations','Body','Outfit']);
- for(const tab of ['Create','Layers','Face','Animations','Body','Outfit']){await page.locator('.cs-tabs button',{hasText:tab}).click();await expect(page.locator('.cs-tabs button.on')).toHaveText(tab);expect(await page.locator('.cs-panel').evaluate(p=>[...p.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).filter(Boolean)),'stray text in the '+tab+' panel').toEqual([]);}
- await page.locator('.cs-tabs button',{hasText:'Layers'}).click();
- await expect(page.locator('.cs-tabs button.on')).toHaveText('Layers');
- await page.locator('.cs-tabs button',{hasText:'Face'}).click();
- await expect(page.locator('.cs-tabs button.on')).toHaveText('Face');
- await page.locator('.cs-tabs button',{hasText:'Body'}).click();
- await expect(page.locator('.cs-tabs button.on')).toHaveText('Body');
- await page.locator('.cs-tabs button',{hasText:'Outfit'}).click();
- await expect(page.locator('.cs-tabs button.on')).toHaveText('Outfit');
- expect(buffer.length).toBeGreaterThan(0);
 });
 // the studio logo now leaves for the home page, so the picker is opened by its address
 async function openProjects(page){

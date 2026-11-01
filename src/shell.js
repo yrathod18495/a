@@ -5,9 +5,9 @@ import './day-theme.css';
 import './royal-surfaces.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
 import { h, toast, logo } from './dom.js';
-import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser } from './firebase.js';
+import { onUser, signInGoogle, signOutUser, finishRedirect } from './firebase.js';
 import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
-import { selectProject, projectMeta, listProjects, createProject } from './store.js';
+import { selectProject, projectMeta } from './store.js';
 import { projectsView } from './projects-view.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
@@ -17,7 +17,6 @@ import { goldCoin } from './coin.js';
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
 const brandFavicon = favicon?.getAttribute('href') || '';
-const testerFavicon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="8" fill="%23d4a443"/%3E%3Ccircle cx="16" cy="16" r="6" fill="%231b1308"/%3E%3C/svg%3E';
 window.addEventListener('session-error', e => toast(e.detail));
 window.addEventListener('session-revoked', e => toast(e.detail));
 // a background save discovered this project's short ID collided with another account's and gave it a fresh one (see project-sync.js); keep the
@@ -27,8 +26,8 @@ window.addEventListener('project-id-changed', e => {
   if (parts[2] === oldId) { parts[2] = newId; history.replaceState(null, '', location.pathname + location.search + parts.join('/')); }
 });
 const $shell = document.getElementById('shell'), $app = document.getElementById('app');
-let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true, testerAccessOnly = false, testerApplicationStatus = 'none';
-let loadedAnimationProject=null, testerAuthError='';
+let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true; 
+let loadedAnimationProject=null;
 
 function readTheme() { try { return localStorage.getItem('12toons-theme') === 'day' ? 'day' : 'night'; } catch { return 'night'; } }
 let activeTheme = readTheme();
@@ -85,11 +84,10 @@ window.addEventListener('vite:preloadError', e => { if (reloadForNewVersion(new 
 async function renderRoute() {
   if (!ready) return;
   const parts = (location.hash || '#/').split('/'), hash = parts.slice(0,2).join('/'), projectId = parts[2];
-  document.title = hash === '#/tester' ? 'Character Tester' : hash === '#/affiliates' ? 'Affiliate Partners | 12toons' : '12toons';
-  if (favicon) favicon.href = hash === '#/tester' ? testerFavicon : brandFavicon;
-  if (user && (role === 'tester' || role === 'tester-pending') && hash !== '#/tester') { go('#/tester'); return; }
+  document.title = hash === '#/affiliates' ? 'Affiliate Partners | 12toons' : '12toons';
+  if (favicon) favicon.href = brandFavicon;
   // Maintenance never blocks signing in — only a signed-in, non-admin user sees the maintenance page; admins always get through.
-  if (maintenance && user && role !== 'admin' && hash !== '#/tester') {
+  if (maintenance && user && role !== 'admin') {
     if (adminUnknown) { $app.hidden = true; $shell.hidden = false; $shell.replaceChildren(adminRetryView()); return; }
     const oldView = $shell.firstElementChild; oldView?.dispose?.();
     current = '#/maintenance'; $app.hidden = true; $shell.hidden = false;
@@ -139,20 +137,6 @@ async function renderRoute() {
     return;
   }
   $app.hidden = true; $shell.hidden = false; window.scrollTo(0, 0);
-  if (hash === '#/tester') {
-    if (!user || (role !== 'tester' && role !== 'admin')) {
-      const { testerAccessView } = await import('./tester-access.js');
-      $shell.replaceChildren(testerAccessView({ user, status: testerApplicationStatus, error: testerAuthError, accessOnly: testerAccessOnly, home: () => go('#/'), toast, login: loginTester,
-        continueApproved: loginTester,
-        signOut: async () => { await signOutUser({ release: !testerAccessOnly }); testerAccessOnly = false; role = 'user'; go('#/'); },
-        onApproved: () => refreshUser() })); return;
-    }
-    let p=(await listProjects(user.uid)).find(p=>p.kind==='character'&&!p.deleted);
-    if(!p){p=await createProject(user.uid,'character','Tester draft');import('./project-sync.js').then(m=>m.registerProject(user.uid,p.id,'character','Tester draft')).catch(()=>{});}
-    selectProject(user.uid,p.id);
-    const m = await import('./charstudio.js');
-    $shell.replaceChildren(await m.view({ user, tester: true, toast, home: () => {}, logout: async () => { await signOutUser(); role = 'user'; go('#/'); } })); return;
-  }
   if (hash === '#/admin') {
     if (!(await isAdmin(user))) { toast('The admin panel is for admins only.'); go('#/hub'); return; }
     const m = await import('./admin.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/hub'), toast })); return;
@@ -164,14 +148,6 @@ async function renderRoute() {
 /* ---------------- shared bits ---------------- */
 async function login() {
   try { const u = await signInGoogle(); if (u) go('#/hub'); } catch (e) { if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Sign-in isn’t allowed from this website address yet. Add it under Firebase → Authentication → Settings → Authorized domains.' : `Sign-in failed: ${friendlyError(e)}`); }
-}
-async function loginTester() {
-  sessionStorage.setItem('12toons-tester-login', '1');
-  try { const signedIn = await signInGoogle(); if (signedIn) await refreshUser(); }
-  catch (e) {
-    sessionStorage.removeItem('12toons-tester-login');
-    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Signing in from this website address is not allowed yet. This domain needs to be added to the authorized domains in Firebase Authentication.' : `Could not sign in with Google: ${friendlyError(e)}`);
-  }
 }
 const initial = (u) => (u.displayName || u.email || '?').trim()[0].toUpperCase();
 let profileMenuCount = 0;
@@ -203,7 +179,6 @@ function profileMenu() {
       moon: 'M21 12.8A9 9 0 0 1 11.2 3 9 9 0 1 0 21 12.8Z',
       sun: 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5',
       affiliate: 'M4 17l6-6 4 4 6-10m-6 0h6v6',
-      tester: 'M12 3l8 9-8 9-8-9 8-9Zm0 5v5m0 3v.1',
       admin: 'M4 7h16M4 17h16M8 4v6m8 4v6',
       logout: 'M10 4H4v16h6m4-12 4 4-4 4M8 12h10',
     };
@@ -235,7 +210,6 @@ function profileMenu() {
     h('div', { class: 'sh-menu-section' }, themeItem,
       item('coins', 'Buy Gold Coins', 'Explore packs, balance and payment history', () => go('#/credits')),
       item('affiliate', 'Affiliate dashboard', 'Your referrals and earnings', () => go('#/affiliate-dashboard')),
-      item('tester', 'Tester access', 'Request or open tester access', () => go('#/tester')),
       ...(role === 'admin' ? [item('admin', 'Admin panel', 'Manage your workspace', () => go('#/admin'))] : [])),
     h('div', { class: 'sh-menu-footer' }, item('logout', 'Log out', 'Sign out of this account', async () => { await signOutUser(); go('#/'); }, 'sh-mi-logout')));
   const root = h('div', { class: 'sh-profile' }, btn, menu);
@@ -313,21 +287,12 @@ function guardSession(u) {
 async function start() {
   $shell.replaceChildren(h('div', { class: 'sh sh-center' }, h('p', { class: 'sub' }, 'Loading…')));
   try { maintenance = (await maintenanceStatus()).maintenance === true; } catch { maintenance = true; }
-  if (DEBUG) { user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = location.search.includes('tester') ? 'tester' : 'user'; ready = true; route(); return; }
+  if (DEBUG) { user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
   await finishRedirect();
   let first = true;
-  onUser(async (u, authState = {}) => {
+  onUser(async (u) => {
     if (ready && user && u && user.uid !== u.uid) { location.reload(); return; }   // only a real account switch forces a reload; a momentary null (mobile auth hiccup) must not nuke unsaved work
     user = u;
-    testerAccessOnly = !!authState.testerAccessOnly;
-    testerAuthError = authState.testerError || '';
-    testerApplicationStatus = authState.testerStatus || (u ? testerApplicationStatus : 'none');
-    if (u && testerAccessOnly) {
-      role = 'tester-pending'; ready = true;
-      document.querySelector('.support-widget')?.remove();
-      if (first) first = false;
-      route(); return;
-    }
     if (u) {
       maintenance = (await maintenanceStatus()).maintenance === true;
       const adminAnswer = await isAdmin(u), admin = adminAnswer === true;
@@ -335,12 +300,8 @@ async function start() {
         role = 'user'; adminUnknown = true; ready = true; route(); return;
       }
       adminUnknown = false;
-      testerAccessOnly = false; sessionStorage.removeItem('12toons-tester-login');
-      const testerStatus = admin ? 'none' : (await apiCall('/api/security', { action: 'testerStatus' }, u.uid).catch(() => ({ status: 'none' }))).status;
-      const tester = testerStatus === 'approved';
-      role = admin ? 'admin' : tester ? 'tester' : 'user';
-      testerApplicationStatus = testerStatus || 'none';
-      // Signed-in users stay signed in during maintenance — a non-admin, non-tester just sees the maintenance page instead of being logged out.
+      role = admin ? 'admin' : 'user';
+      // Signed-in users stay signed in during maintenance — a non-admin just sees the maintenance page instead of being logged out.
     } else {
       role = 'user';
     }
@@ -362,7 +323,7 @@ async function start() {
       catch (e) { console.warn('Live chat unavailable:', e.message); }
     }
     guardSession(u);
-    if (u && role !== 'tester') { ensureProfile(u); syncAll().catch(e=>console.warn('Pending cloud sync:',e.message)); }
+    if (u) { ensureProfile(u); syncAll().catch(e=>console.warn('Pending cloud sync:',e.message)); }
     if (first) { first = false; route(); } else if (!u && PRIVATE.includes(location.hash)) go('#/login'); else if (u && location.hash === '#/login') go('#/hub'); else route();
   });
 }

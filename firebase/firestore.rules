@@ -39,14 +39,8 @@ service cloud.firestore {
   match /workspaces/{uid}/characters/{id} { allow read: if owner(uid); allow write: if owner(uid) && writable(); }
   match /workspaces/{uid}/sync/{id} { allow read: if owner(uid); allow write: if false; }
   match /config/{id} {
-   allow read: if allowed() && id in ['animations','layers','testers'];
-   allow write: if admin() && id in ['animations','layers','testers'];
-  }
-  match /testerCharacters/{id} {
-   allow read: if allowed() && (resource.data.ownerUid == request.auth.uid || admin());
-   allow create: if writable() && request.resource.data.ownerUid == request.auth.uid;
-   allow update: if writable() && resource.data.ownerUid == request.auth.uid && request.resource.data.ownerUid == resource.data.ownerUid;
-   allow delete: if writable() && (resource.data.ownerUid == request.auth.uid || admin());
+   allow read: if allowed() && id in ['animations','layers'];
+   allow write: if admin() && id in ['animations','layers'];
   }
  }
 }

@@ -52,7 +52,6 @@ config/*                     (rules file allows signed-in read; server writes)
 | Session heartbeat every **60 s**: 3 reads + 1 transaction + 1 write | every **5 min**, **1 read**, a write only when less than half of the 15-minute lease is left |
 | Reloading the page wrote 4 Firestore documents (a "login") | a reload on the same browser writes **nothing** |
 | 3 Firestore reads on every API call | remembered for 60 s on the server (Vercel) |
-| Tester config polled **every second** | every 30 s (and at once when the tab comes back) |
 | Live chat polled every 3 s and read **200 messages each time** | asks only for newer messages, every 5 s → 15 s → 30 s while quiet |
 | Admin pages polled every 3 s | 10–30 s |
 | Shared config, profile and character list read at every start | kept on the device for 10 min / 12 h / 5 min |
@@ -94,7 +93,7 @@ Without step 1 the project list and cloud saving answer "Server par Realtime Dat
 - **Firestore reads**: raise `ACCESS_CACHE_MS` (default 60 s) in `server/access.js`.
 - **Storage**: lower `MAX_USER` in `server/r2-storage.js` (300 MB now), or add a clean-up job for files no project uses any more (files are never deleted automatically; a deleted project keeps its pictures).
 
-## Saved characters (Character Studio / tester)
+## Saved characters (Character Studio)
 
 A saved character is stored like an animation project, but with `kind: 'character'`:
 
@@ -102,4 +101,4 @@ A saved character is stored like an animation project, but with `kind: 'characte
 - settings, hand-placed parts (`xf`, `order`), face / outfit / proportions, thumbnail -> one manifest JSON in R2 `u/<uid>/p/char_<id>/state-<op>.json`;
 - Realtime Database `projects/<uid>/char_<id>` holds only the index row (name, revision). Listing is one read; the manifest is fetched when a character is opened.
 
-Firestore is no longer used for the character files (the tester settings row `testerCharacters/<id>` that the animation studio reads is unchanged).
+Firestore is no longer used for the character files.

@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { AssetCache } from '../src/asset-cache.js';
-import { testerAnimationAllowed } from '../src/tester-animation-policy.js';
 
 async function catalog({ library = '' } = {}) {
   let source = await readFile(new URL('../src/catalog.js', import.meta.url), 'utf8');
@@ -15,7 +14,7 @@ async function catalog({ library = '' } = {}) {
   source += '\nglobalThis.api = { loadCatalog, libraryCharacters, fetchLibraryCharacter, categoriesFor };';
   const requests = [];
   const sandbox = {
-    testerAnimationAllowed, AssetCache, assetAddress, LIBRARY_ENV: library,
+    AssetCache, assetAddress, LIBRARY_ENV: library,
     listStudioAssets: async () => [],
     cachedRules: () => null,
     loadAnimRules: async () => null,

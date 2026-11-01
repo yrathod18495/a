@@ -18,7 +18,7 @@ test('every admin section opens inside the console: the top bar and tabs never d
   await console_(page);
   const tabs = page.locator('.admin-console-tab');
   const names = await tabs.allInnerTexts();
-  expect(names).toEqual(['Overview', 'Users', 'Live Chat', 'Payments', 'Studio Controls', 'Tester Requests', 'Tester Permissions', 'Find Project', 'Props & Effects', 'Add Assets', 'Affiliates']);
+  expect(names).toEqual(['Overview', 'Users', 'Live Chat', 'Payments', 'Studio Controls', 'Find Project', 'Props & Effects', 'Add Assets', 'Affiliates']);
   for (const [index, name] of names.entries()) {
     await tabs.nth(index).click();
     await expect(page.locator('.admin-console-tab.active')).toHaveText(name);
@@ -33,7 +33,7 @@ test('every admin section opens inside the console: the top bar and tabs never d
 test('the back buttons inside admin sections return to the Overview', async ({ page }) => {
   await console_(page);
   const tabs = page.locator('.admin-console-tab');
-  for (const name of ['Users', 'Tester Requests', 'Props & Effects', 'Add Assets']) {
+  for (const name of ['Users', 'Props & Effects', 'Add Assets']) {
     await tabs.filter({ hasText: new RegExp(`^${name.replace('&', '&')}$`) }).click();
     await expect(page.locator('.admin-console-tab.active')).toHaveText(name);
     await page.getByRole('button', { name: /Back to [Aa]dmin/ }).first().click();
@@ -41,7 +41,7 @@ test('the back buttons inside admin sections return to the Overview', async ({ p
     await expect(page.locator('.admin-overview')).toBeVisible();
   }
   // switching quickly never leaves a half-loaded page behind
-  await tabs.nth(3).click(); await tabs.nth(8).click(); await tabs.nth(2).click();
+  await tabs.nth(3).click(); await tabs.nth(6).click(); await tabs.nth(2).click();
   await expect(page.locator('.admin-console-tab.active')).toHaveText('Live Chat');
   await expect(page.locator('.admin-console-host > *')).toHaveCount(1);
 });

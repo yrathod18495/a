@@ -31,8 +31,8 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   const title=el('div','sa-section-title',h('h2',{},'Accounts'),el('p','sa-sub','Actions take effect on the server. All changes are recorded.'));
   const note=el('p','sa-footnote','Device IDs identify a browser installation—not a physical device. Private browsing or clearing storage can bypass detection.');
   root.append(header,toolbar,stats,el('div','sa-card',controls,tabs,panel),note);
-  let state=null,filter='all',term='',tab=initialTab,loading=false,requestTimer=0;
-  const tabsData=[['users','Users'],['testers','Tester requests'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
+  let state=null,filter='all',term='',tab=initialTab,loading=false;
+  const tabsData=[['users','Users'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
   const badge=(text,tone='neutral')=>el('span','sa-badge sa-'+tone,text);
   const empty=(headline,description)=>el('div','sa-empty',el('div','sa-empty-icon','◎'),h('b',{},headline),el('p','sa-sub',description));
   const block=(name,value)=>el('div','sa-metric',el('span','sa-metric-label',name),el('strong','sa-metric-value',String(value)));
@@ -48,31 +48,26 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   }
   async function assignRole(uid,select,button){
     const role=select.value;
-    if(!['user','admin','tester'].includes(role))return;
+    if(!['user','admin'].includes(role))return;
     button.disabled=true;
     try{await apiCall('/api/security',{action:'assignRole',uid,role});toast(`User access updated to ${role}.`);await load(false);}
     catch(e){toast(e.message);button.disabled=false;}
-  }
-  async function reviewTester(uid,decision,buttons){
-    buttons.forEach(button=>button.disabled=true);
-    try{await apiCall('/api/security',{action:'reviewTester',uid,status:decision});toast(decision==='approved'?'Tester request approved.':'Tester request rejected.');await load(false);}
-    catch(e){toast(e.message);buttons.forEach(button=>button.disabled=false);}
   }
   function renderStats(){
     const users=state.users||[],sess=state.sessions||[],ev=state.events||[];
     const active=sess.filter(s=>!s.revoked).length;
     const flagged=ev.filter(e=>e.code==='device_review'&&e.review==='pending').length;
-    stats.replaceChildren(block('TOTAL USERS',users.length),block('ACTIVE SESSIONS',active),block('PENDING REVIEWS',flagged+(state.testerRequests||[]).length),block('LOGIN EVENTS',ev.length));
+    stats.replaceChildren(block('TOTAL USERS',users.length),block('ACTIVE SESSIONS',active),block('PENDING REVIEWS',flagged),block('LOGIN EVENTS',ev.length));
   }
   function renderTabs(){
     tabs.replaceChildren(...tabsData.map(([key,name])=>h('button',{
       class:'sa-tab '+(tab===key?'on':''),type:'button','aria-pressed':tab===key,
       onclick:()=>{tab=key;renderTabs();renderContent();}
-    },name, key==='testers'&&(state?.testerRequests||[]).length?el('span','sa-tab-count',String(state.testerRequests.length)):key==='events'&&state?.events?.some(e=>e.code==='device_review'&&e.review==='pending')?el('span','sa-tab-count',String(state.events.filter(e=>e.code==='device_review'&&e.review==='pending').length)):null)));
+    },name, key==='events'&&state?.events?.some(e=>e.code==='device_review'&&e.review==='pending')?el('span','sa-tab-count',String(state.events.filter(e=>e.code==='device_review'&&e.review==='pending').length)):null)));
   }
   function renderControls(){
-    controls.replaceChildren(el('div','sa-filter-title',h('b',{},tab==='users'?'Account directory':tab==='testers'?'Tester access requests':'Security records'),
-      el('p','sa-sub',tab==='users'?'Review accounts and manage permissions.':tab==='testers'?'Approve or reject tester access requests.':'Review activity and account security history.')),
+    controls.replaceChildren(el('div','sa-filter-title',h('b',{},tab==='users'?'Account directory':'Security records'),
+      el('p','sa-sub',tab==='users'?'Review accounts and manage permissions.':'Review activity and account security history.')),
       el('div','sa-filters',search,h('select',{class:'sa-select','aria-label':'Filter accounts',onchange:e=>{filter=e.target.value;renderContent();}},
        ...[['all','All statuses'],['active','Active'],['blocked','Blocked'],['restricted','Restricted'],['suspended','Suspended']].map(([v,t])=>h('option',{value:v,selected:filter===v},t)))));
     search.value=term;search.oninput=e=>{term=e.target.value.trim().toLowerCase();renderContent();};
@@ -131,7 +126,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
         btn('Block',()=>act({action:'moderate',uid:u.id,status:'blocked'},'Block '+(u.email||u.id)+'?'),'sa-danger'),
         btn('Restore',()=>act({action:'moderate',uid:u.id,status:'active'},'Restore this account?'),'sa-positive'),
         btn('Revoke session',()=>act({action:'moderate',uid:u.id,status:'revoke'},'Revoke the current session?'),'sa-quiet'));
-      const roleSelect=h('select',{class:'admin-role-select','aria-label':`Access role for ${u.email||u.id}`},...['user','admin','tester'].map(value=>h('option',{value,selected:(u.role||'user')===value},value==='admin'?'Admin':value==='tester'?'Tester':'User')));
+      const roleSelect=h('select',{class:'admin-role-select','aria-label':`Access role for ${u.email||u.id}`},...['user','admin'].map(value=>h('option',{value,selected:(u.role||'user')===value},value==='admin'?'Admin':'User')));
       const roleButton=btn('Update access',()=>assignRole(u.id,roleSelect,roleButton),'sa-positive');
       const roleControls=el('div','admin-role-controls',h('label',{},h('span',{},'Account access'),roleSelect),roleButton);
       const projects=el('div','sa-project-list');
@@ -140,15 +135,6 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
       return el('article','sa-user',main,details,actions,roleControls,projectsButton,projects);
     });
     panel.replaceChildren(el('div','sa-results-count',users.length+' account'+(users.length===1?'':'s')), ...out);
-  }
-  function renderTesterRequests(){
-    const requests=state.testerRequests||[];
-    if(!requests.length){panel.replaceChildren(empty('No tester requests','New Google sign-ups requesting tester access will appear here.'));return;}
-    panel.replaceChildren(...requests.map(request=>{
-      const approve=btn('Approve',()=>reviewTester(request.uid,'approved',[approve,reject]),'sa-positive');
-      const reject=btn('Reject',()=>reviewTester(request.uid,'rejected',[approve,reject]),'sa-danger');
-      return el('article','sa-user',sectionRow(request.name||'Google user',`${request.email||request.uid} · UID: ${request.uid}`,[badge('Pending','warning')]),el('p','sa-row-detail','Requested '+date(request.submittedAt)),el('div','sa-actions',approve,reject));
-    }));
   }
   function renderEvents(){
     const rows=[...(state.events||[])].sort((a,b)=>(b.at||0)-(a.at||0));
@@ -183,7 +169,6 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   function renderContent(){
     renderControls();
     if(tab==='users')renderUsers();
-    else if(tab==='testers')renderTesterRequests();
     else if(tab==='events')renderEvents();
     else if(tab==='devices')renderDevices();
     else renderAudit();
@@ -202,20 +187,5 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     finally{loading=false;refresh.disabled=false;}
   }
   await load();
-  requestTimer=window.setInterval(async()=>{
-    if(!root.isConnected){window.clearInterval(requestTimer);return;}
-    if(document.hidden)return;
-    try{
-      const data=await apiCall('/api/security',{action:'testerRequests'});
-      if (!state) { await load(false); return; }
-      const previous = new Set((state.testerRequests||[]).map(request=>request.uid));
-      state.testerRequests=data.requests||[];
-      const added=state.testerRequests.filter(request=>!previous.has(request.uid));
-      if(added.length)toast(`${added.length} new tester access request${added.length===1?'':'s'} awaiting approval.`);
-      renderStats();renderTabs();
-      if(tab==='testers')renderTesterRequests();
-    }catch(error){console.warn('Could not refresh tester requests:',error.message);}
-  },15000);
-  root.dispose=()=>window.clearInterval(requestTimer);
   return root;
 }

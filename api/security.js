@@ -2,7 +2,6 @@ import { randomUUID, createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
 import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
-import { testerAnimations } from '../server/tester-animations.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -31,29 +30,6 @@ export default async function handler(req, res) {
       }
       const maintenance = await publishMaintenance(db, now);
       return send(res, 200, { maintenance, admin });
-    }
-    if (b.action === 'testerStatus') {
-      const claims = await identity(req);
-      const [admin, tester, account] = await db.getAll(db.doc('securityAdmins/' + claims.uid), db.doc('securityTesters/' + claims.uid), db.doc('securityUsers/' + claims.uid));
-      checkAccount(account.data(), now);
-      const state = admin.data()?.enabled === true ? 'approved' : (tester.data()?.status || 'none');
-      return send(res, 200, { uid: claims.uid, status: state, reviewedAt: tester.data()?.reviewedAt || null });
-    }
-    if (b.action === 'testerApply') {
-      const claims = await identity(req);
-      if (claims.firebase?.sign_in_provider !== 'google.com') throw new AccessError('google_required', 'Please sign in with Google to request tester access.', 403);
-      const testerRef = db.doc('securityTesters/' + claims.uid), adminRef = db.doc('securityAdmins/' + claims.uid);
-      const result = await db.runTransaction(async tx => {
-        const [admin, tester, account] = await tx.getAll(adminRef, testerRef, db.doc('securityUsers/' + claims.uid));
-        checkAccount(account.data(), now, true);
-        if (admin.data()?.enabled === true) return 'approved';
-        const current = tester.data()?.status || 'none';
-        if (current === 'approved' || current === 'pending') return current;
-        tx.set(testerRef, { uid: claims.uid, email: String(claims.email || '').toLowerCase(), name: claims.name || '', status: 'pending', submittedAt: now, updatedAt: now, reviewedAt: null, reviewedBy: null }, { merge: true });
-        tx.create(db.collection('securityAudit').doc(), { target: claims.uid, action: 'tester_request', at: now });
-        return 'pending';
-      });
-      return send(res, 200, { status: result });
     }
     if (b.action === 'acquire') {
       const claims = await identity(req), uid = claims.uid;
@@ -94,39 +70,7 @@ export default async function handler(req, res) {
       const token = await auth.createCustomToken(uid, { sid: result.sid });
       return send(res, 200, { token });
     }
-    const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', write: b.action === 'saveTesterAnimations' || b.action === 'saveTesterCharacter', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'reviewTester', 'testerRequests', 'saveTesterAnimations', 'tamperAlerts', 'tamperAck', 'testerSubmissions'].includes(b.action) });
-    // The tester's saved character row is written here (not from the browser) so it never depends on the Firestore rules, the session record or maintenance mode.
-    if (b.action === 'saveTesterCharacter') {
-      if (!who.admin) {
-        const tester = await db.doc('securityTesters/' + who.uid).get();
-        if (tester.data()?.status !== 'approved') throw new AccessError('tester_required', 'This requires approved tester access.');
-      }
-      const text = (value, max) => (typeof value === 'string' ? value : '').slice(0, max);
-      if (!/^[A-Za-z0-9_-]{4,64}$/.test(String(b.id || ''))) throw new AccessError('invalid_character', 'The character information is not valid.', 400);
-      if (typeof b.profile === 'string' && b.profile.length > 200000) throw new AccessError('too_large', 'The character settings are too large to save.', 413);
-      const ref = db.doc('testerCharacters/' + b.id), prev = (await ref.get()).data();
-      if (prev && prev.ownerUid !== who.uid && !who.admin) throw new AccessError('character_taken', 'This character belongs to another tester.', 409);
-      await ref.set({ id: b.id, name: text(b.name, 120), pose: text(b.pose, 60), ownerUid: prev?.ownerUid || who.uid, ownerEmail: prev?.ownerEmail || String(who.claims.email || '').toLowerCase(), ownerName: prev?.ownerName || text(who.claims.name, 120), profile: text(b.profile, 200000), thumb: (typeof b.thumb === 'string' && b.thumb.length <= 150000) ? b.thumb : '', updatedAt: new Date(now).toISOString() });
-      return send(res, 200, { ok: true });
-    }
-    if (b.action === 'testerSubmissions') {
-      const snap = await db.collection('testerCharacters').get();
-      return send(res, 200, { submissions: snap.docs.map((d) => d.data()).sort((a, c) => String(c.updatedAt).localeCompare(String(a.updatedAt))) });
-    }
-    if (b.action === 'testerAnimations') {
-      if (!who.admin) {
-        const tester = await db.doc('securityTesters/' + who.uid).get();
-        if (tester.data()?.status !== 'approved') throw new AccessError('tester_required', 'This requires approved tester access.');
-      }
-      const settings = await db.doc('config/testers').get();
-      return send(res, 200, { ...testerAnimations(settings.data()), admin: who.admin });
-    }
-    if (b.action === 'saveTesterAnimations') {
-      const current = await db.doc('config/testers').get();
-      const config = testerAnimations({ ...current.data(), ...b }), updatedAt = new Date(now).toISOString();
-      await db.doc('config/testers').set({ anims: JSON.stringify(config.anims), limit: config.limit, blockedAnims: config.blockedAnims, hiddenGroups: config.hiddenGroups, blockedDownloads: config.blockedDownloads, updatedAt, by: who.claims.email || '' }, { merge: true });
-      return send(res, 200, { ...config, at: updatedAt, admin: who.admin });
-    }
+    const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'tamperAlerts', 'tamperAck'].includes(b.action) });
     if (b.action === 'status') return send(res, 200, { admin: who.admin });
     // the studio reports that someone opened the developer tools / view-source: stored for the admin dashboard and pushed to admin devices
     if (b.action === 'tamperReport') {
@@ -152,22 +96,14 @@ export default async function handler(req, res) {
       return send(res, 200, { ok: true });
     }
     if (maintenanceEnabled() && !who.admin) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
-    if (b.action === 'testerRequests') {
-      const snap = await db.collection('securityTesters').where('status', '==', 'pending').limit(100).get();
-      const requests = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })).sort((a,b) => (b.submittedAt || 0) - (a.submittedAt || 0));
-      return send(res, 200, { requests });
-    }
     if (b.action === 'overview') {
       const out = { cursors: {} };
       const registered=b.cursors&&'users' in b.cursors&&!b.cursors.users?{users:[],pageToken:null}:await auth.listUsers(100,b.cursors?.users||undefined);
-      const [userStates, adminStates, testerStates, pendingTesterRequests] = await Promise.all([
+      const [userStates, adminStates] = await Promise.all([
         registered.users.length ? db.getAll(...registered.users.map(u=>db.doc('securityUsers/'+u.uid))) : [],
-        registered.users.length ? db.getAll(...registered.users.map(u=>db.doc('securityAdmins/'+u.uid))) : [],
-        registered.users.length ? db.getAll(...registered.users.map(u=>db.doc('securityTesters/'+u.uid))) : [],
-        db.collection('securityTesters').where('status', '==', 'pending').limit(100).get()
+        registered.users.length ? db.getAll(...registered.users.map(u=>db.doc('securityAdmins/'+u.uid))) : []
       ]);
-      out.users=registered.users.map((u,i)=>({id:u.uid,email:u.email||'',name:u.displayName||'',registeredAt:u.metadata.creationTime,...userStates[i].data(),role:adminStates[i].data()?.enabled===true?'admin':testerStates[i].data()?.status==='approved'?'tester':'user'}));
-      out.testerRequests=pendingTesterRequests.docs.map(doc=>({uid:doc.id,...doc.data()})).sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+      out.users=registered.users.map((u,i)=>({id:u.uid,email:u.email||'',name:u.displayName||'',registeredAt:u.metadata.creationTime,...userStates[i].data(),role:adminStates[i].data()?.enabled===true?'admin':'user'}));
       out.cursors.users=registered.pageToken||null;
       for (const [key, name] of Object.entries({ sessions: 'securitySessions', devices: 'securityDevices', events: 'securityEvents', audit: 'securityAudit' })) {
         if(b.cursors&&key in b.cursors&&!b.cursors[key]){out[key]=[];out.cursors[key]=null;continue;}
@@ -195,49 +131,26 @@ export default async function handler(req, res) {
       return send(res, 200, { ok: true });
     }
     if (b.action === 'assignRole') {
-      if (!validId(b.uid) || !['user', 'admin', 'tester'].includes(b.role)) throw new AccessError('invalid_action', 'Please choose a valid user role.', 400);
+      if (!validId(b.uid) || !['user', 'admin'].includes(b.role)) throw new AccessError('invalid_action', 'Please choose a valid user role.', 400);
       if (b.uid === who.uid) throw new AccessError('self_role_change', 'Ask another admin to change your own role.');
       let target;
       try { target = await auth.getUser(b.uid); }
       catch (error) { if (error.code === 'auth/user-not-found') throw new AccessError('user_not_found', 'This account no longer exists.', 404); throw error; }
-      const email = String(target.email || '').trim().toLowerCase();
-      if (b.role === 'tester' && !email) throw new AccessError('tester_email_required', 'An email address is required on the account to become a tester.', 400);
       const targetAdminRef = db.doc('securityAdmins/' + b.uid), targetSessionRef = db.doc('securitySessions/' + b.uid);
-      const testerRef = db.doc('config/testers'), auditRef = db.collection('securityAudit').doc();
+      const auditRef = db.collection('securityAudit').doc();
       await db.runTransaction(async tx => {
-        const [actorRole, actorAccount, actorSession, targetAdmin, targetSession, testerDoc, targetTester] = await tx.getAll(
+        const [actorRole, actorAccount, actorSession, targetAdmin, targetSession] = await tx.getAll(
           db.doc('securityAdmins/' + who.uid), db.doc('securityUsers/' + who.uid), db.doc('securitySessions/' + who.uid),
-          targetAdminRef, targetSessionRef, testerRef, db.doc('securityTesters/' + b.uid)
+          targetAdminRef, targetSessionRef
         );
         if (actorRole.data()?.enabled !== true) throw new AccessError('admin_required', 'Your admin permission has been removed.');
         checkAccount(actorAccount.data(), Date.now(), true); checkSession(actorSession.data(), who.claims.sid);
-        const config = testerDoc.data() || {}, currentEmails = (config.emails || []).map(value => String(value).toLowerCase());
-        const emails = currentEmails.filter(value => value !== email);
-        if (b.role === 'tester') emails.push(email);
         tx.set(targetAdminRef, { enabled: b.role === 'admin', updatedAt: now, updatedBy: who.uid }, { merge: true });
-        tx.set(testerRef, { emails: [...new Set(emails)], anims: config.anims || '{}', limit: config.limit || 0, updatedAt: new Date(now).toISOString(), by: who.claims.email || '' }, { merge: true });
-        tx.set(db.doc('securityTesters/' + b.uid), { uid: b.uid, email, name: target.displayName || '', status: b.role === 'tester' ? 'approved' : 'revoked', updatedAt: now, reviewedAt: now, reviewedBy: who.uid, ...(b.role === 'tester' ? { approvedAt: now, approvedBy: who.uid } : {}) }, { merge: true });
-        const wasAdmin = targetAdmin.data()?.enabled === true, wasTester = targetTester.data()?.status === 'approved';
-        if (((wasAdmin && b.role !== 'admin') || (wasTester && b.role !== 'tester')) && targetSession.exists) tx.set(targetSessionRef, { revoked: true }, { merge: true });
+        const wasAdmin = targetAdmin.data()?.enabled === true;
+        if (wasAdmin && b.role !== 'admin' && targetSession.exists) tx.set(targetSessionRef, { revoked: true }, { merge: true });
         tx.create(auditRef, { admin: who.uid, target: b.uid, action: 'set_role', role: b.role, at: now });
       });
       return send(res, 200, { ok: true, uid: b.uid, role: b.role });
-    }
-    if (b.action === 'reviewTester') {
-      if (!validId(b.uid) || !['approved', 'rejected'].includes(b.status)) throw new AccessError('invalid_action', 'Please choose approve or reject for this request.', 400);
-      if (b.uid === who.uid) throw new AccessError('self_tester_review', 'You cannot approve your own tester request.');
-      const targetRef = db.doc('securityTesters/' + b.uid), auditRef = db.collection('securityAudit').doc();
-      await db.runTransaction(async tx => {
-        const [actorRole, actorAccount, actorSession, request] = await tx.getAll(
-          db.doc('securityAdmins/' + who.uid), db.doc('securityUsers/' + who.uid), db.doc('securitySessions/' + who.uid), targetRef
-        );
-        if (actorRole.data()?.enabled !== true) throw new AccessError('admin_required', 'Your admin permission has been removed.');
-        checkAccount(actorAccount.data(), Date.now(), true); checkSession(actorSession.data(), who.claims.sid);
-        if (request.data()?.status !== 'pending') throw new AccessError('request_not_pending', 'This tester request is no longer pending.', 409);
-        tx.set(targetRef, { status: b.status, reviewedAt: now, reviewedBy: who.uid, updatedAt: now, ...(b.status === 'approved' ? { approvedAt: now, approvedBy: who.uid } : {}) }, { merge: true });
-        tx.create(auditRef, { admin: who.uid, target: b.uid, action: 'tester_' + b.status, at: now });
-      });
-      return send(res, 200, { ok: true, uid: b.uid, status: b.status });
     }
     if (b.action === 'deviceDecision') {
       if (!validId(b.deviceId) || !validId(b.uid) || typeof b.approve !== 'boolean') throw new AccessError('invalid_action', 'The device decision is not valid.', 400);

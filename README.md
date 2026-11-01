@@ -42,11 +42,6 @@ Character Studio preview (animations already placed in an existing project keep 
 
 - **Layers page** (🧩 in the admin panel): rename any Character Studio layer or group and switch layers on / off for users (for one character or all). Off = the layer is not in the users' list (the picture stays on the character). Stored in Firestore `config/layers`; the layer size line (`174×405`) is no longer shown in the Character Studio.
 
-## Tester page
-For people who test characters. In the admin panel → **🧪 Testers**: add their e-mails, choose how many animations they get and tick which ones (Walk · run · idle · talk is a quick preset). A tester who logs in with a listed e-mail sees **only** the tester page (`#/tester`): no home, studio or Character Studio. Admins can open it from the hub (🧪 Tester page).
-On the tester page: pick a template (or add a character ZIP), upload the layers (⬆ Upload layers, or one by one), tune the **face** (eyes, brows, nose, lips, ears: up / down, left / right, distance, size, tilt), play the allowed animations to check it, then **Save**. The character, its layers and all face settings are saved in the database (Firestore `testerCharacters` + the tester's cloud folder) and every animation then plays on exactly that data.
-Admins see what testers saved at the bottom of 🧪 Testers (the picture files stay in the tester's own cloud folder).
-
 ## Video without voice
 Export works with no audio at all: the video is 8 seconds and silent (no audio track). With audio, the length follows the voice as before.
 

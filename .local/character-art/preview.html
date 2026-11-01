@@ -6,7 +6,7 @@ import {toast} from '/src/dom.js';
 if(!import.meta.env.DEV) throw Error('This review is available only on the local development server.');
 selectProject('local-artwork-review','replacement-preview');
 try{
- const root=await view({user:{uid:'local-artwork-review'},home:()=>{},logout:()=>location.reload(),toast,tester:true,localPreview:true});
+ const root=await view({user:{uid:'local-artwork-review'},home:()=>{},toast,localPreview:true});
  document.querySelector('#preview').append(root);
  const report=await root.loadArtworkPack('/local-character-art/manifest.json');
  window.artworkReport=report;
