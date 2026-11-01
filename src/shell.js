@@ -332,9 +332,10 @@ function guardSession(u) {
 /* ---------------- start ---------------- */
 async function start() {
   $shell.replaceChildren(h('div', { class: 'sh sh-center' }, h('p', { class: 'sub' }, 'Loading…')));
-  try { maintenance = (await maintenanceStatus()).maintenance === true; } catch { maintenance = true; }
-  if (DEBUG) { user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = location.search.includes('tester') ? 'tester' : 'user'; ready = true; route(); return; }
+  const maintenanceAtStart = maintenanceStatus();   // starts now and runs while the sign-in redirect is finished
+  if (DEBUG) { try { maintenance = (await maintenanceAtStart).maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = location.search.includes('tester') ? 'tester' : 'user'; ready = true; route(); return; }
   await finishRedirect();
+  try { maintenance = (await maintenanceAtStart).maintenance === true; } catch { maintenance = true; }
   let first = true;
   onUser(async (u, authState = {}) => {
     if (ready && user && u && user.uid !== u.uid) { location.reload(); return; }   // only a real account switch forces a reload; a momentary null (mobile auth hiccup) must not nuke unsaved work
@@ -349,14 +350,16 @@ async function start() {
       route(); return;
     }
     if (u) {
-      maintenance = (await maintenanceStatus()).maintenance === true;
-      const adminAnswer = await isAdmin(u), admin = adminAnswer === true;
+      // the three server checks are independent, so they are asked together
+      const [maintenanceNow, adminAnswer, testerAnswer] = await Promise.all([maintenanceStatus(), isAdmin(u), apiCall('/api/security', { action: 'testerStatus' }, u.uid).catch(() => ({ status: 'none' }))]);
+      maintenance = maintenanceNow.maintenance === true;
+      const admin = adminAnswer === true;
       if (adminAnswer === null) {          // the server could not be asked: keep the login, show a retry instead of the maintenance page
         role = 'user'; adminUnknown = true; ready = true; route(); return;
       }
       adminUnknown = false;
       testerAccessOnly = false; sessionStorage.removeItem('12toons-tester-login');
-      const testerStatus = admin ? 'none' : (await apiCall('/api/security', { action: 'testerStatus' }, u.uid).catch(() => ({ status: 'none' }))).status;
+      const testerStatus = admin ? 'none' : testerAnswer.status;
       const tester = testerStatus === 'approved';
       role = admin ? 'admin' : tester ? 'tester' : 'user';
       testerApplicationStatus = testerStatus || 'none';

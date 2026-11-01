@@ -30,20 +30,20 @@ const isHiddenAnim = (rig, id) => { const k = String(id), all = hiddenRules['*']
 
 export async function loadCatalog() {
   setAnimRules(cachedRules());   // last published rules kept on this device, then the fresh ones (waits at most 2.5 s)
-  try { const r = await Promise.race([loadAnimRules(), new Promise((res) => setTimeout(() => res(null), 2500))]); if (r) setAnimRules(r); } catch { /* keep the cached rules */ }
   library = []; libraryProblem = '';
   adAnims = null; managedAnimations = [];
-  try { managedAnimations = (await listStudioAssets()).filter(asset => asset.type === 'animation'); } catch { /* Bundled catalog stays available without account storage. */ }
+  // the three network reads do not depend on each other, so they run together instead of one after the other
+  const rulesTask = Promise.race([loadAnimRules(), new Promise((res) => setTimeout(() => res(null), 2500))]).then((r) => { if (r) setAnimRules(r); }).catch(() => { /* keep the cached rules */ });
+  const managedTask = listStudioAssets().then((list) => { managedAnimations = list.filter(asset => asset.type === 'animation'); }).catch(() => { /* Bundled catalog stays available without account storage. */ });
   // 12toons template characters (layered SVG characters, five poses each) + their animation library
-  try {
-    const [chars, anims] = await Promise.all([fetch(url('12toons/characters.json')).then((r) => r.json()), fetch(url('12toons/animations.json')).then((r) => r.json())]);
+  const libraryTask = Promise.all([fetch(url('12toons/characters.json')).then((r) => r.json()), fetch(url('12toons/animations.json')).then((r) => r.json())]).then(([chars, anims]) => {
     adAnims = anims;
-    const mine = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `12toons/pose/${c.id}-${p.pose}.webp`, template: p, paid: false })));
-    library = mine;
-  } catch (e) {
+    library = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `12toons/pose/${c.id}-${p.pose}.webp`, template: p, paid: false })));
+  }).catch((e) => {
     console.warn('12toons data failed to load', e);
     libraryProblem = 'The character library could not be loaded. Check your internet and reload the page; if it still fails, tell the admin.';
-  }
+  });
+  await Promise.all([rulesTask, managedTask, libraryTask]);
 }
 export const libraryCharacters = () => library;
 export const cdn = (p) => url(p);
