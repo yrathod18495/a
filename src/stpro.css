@@ -205,3 +205,7 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 @keyframes dock-pulse{0%{box-shadow:0 0 0 0 #4f8dff66}70%,100%{box-shadow:0 0 0 12px #4f8dff00}}
 @media(prefers-reduced-motion:reduce){.lp-dock,.lp-dock-item,.lp-dock-toggle::after{animation:none}}
 @media(min-width:861px){.lp-dock{top:22px;right:22px}}
+
+/* placeholder while a page's data is on its way (affiliate dashboard) */
+.dash-skeleton{display:flex;flex-direction:column;gap:14px;padding-top:6px}
+.dash-sk-head{height:120px;border-radius:24px}.dash-sk-card{height:92px;border-radius:22px}.dash-sk-card.short{height:60px}

@@ -6,8 +6,10 @@ const money = value => `₹${(Number(value || 0) / 100).toLocaleString('en-IN', 
 const date = value => value ? new Date(value).toLocaleDateString([], { dateStyle: 'medium' }) : '—';
 
 export async function affiliateDashboardView({ user, home, apply }) {
-  const root = h('div', { class: 'sh affiliate-dashboard' }), content = h('main', { class: 'affiliate-dash-main' }, h('p', { class: 'sub' }, 'Loading your partner report…'));
+  const root = h('div', { class: 'sh affiliate-dashboard' }), content = h('main', { class: 'affiliate-dash-main' }, h('div', { class: 'dash-skeleton', role: 'status', 'aria-label': 'Loading your partner report' }, h('i', { class: 'rf-sk dash-sk-head' }), h('i', { class: 'rf-sk dash-sk-card' }), h('i', { class: 'rf-sk dash-sk-card' }), h('i', { class: 'rf-sk dash-sk-card short' })));
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Affiliate Dashboard'), h('span', { class: 'sp' }), h('button', { class: 'btn', onclick: home }, 'Home')), content);
+  // the page is shown at once; the report fills in when the server answers
+  (async () => {
   try {
     const report = await apiCall('/api/affiliates', { action: 'dashboard' }, user.uid), link = `${location.origin}/?ref=${encodeURIComponent(report.partner.referralCode)}`;
     const linkInput = h('input', { class: 'affiliate-referral-link', value: link, readonly: true, 'aria-label': 'Your referral link' }), copyMessage = h('span', { class: 'affiliate-copy-status', role: 'status' });
@@ -24,6 +26,7 @@ export async function affiliateDashboardView({ user, home, apply }) {
   } catch (e) {
     content.replaceChildren(h('section', { class: 'affiliate-dash-unavailable' }, h('span', { class: 'projects-eyebrow' }, 'AFFILIATE PROGRAM'), h('h1', {}, 'The partner dashboard could not be opened'), h('p', {}, friendlyError(e, 'The affiliate application for this Google account has not been approved yet.')), h('button', { class: 'btn pri', onclick: apply }, 'Apply to become a partner')));
   }
+  })();
   return root;
 }
 

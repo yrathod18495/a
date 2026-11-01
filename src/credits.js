@@ -2,6 +2,7 @@ import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, logo, toast } from './dom.js';
 import { apiCall } from './session.js';
 import { goldCoin, coinAmount, coinText, COIN_NAME } from './coin.js';
+import { CREDIT_PLANS, publicPlan } from '../shared/credit-plans.js';
 
 const money = (paise) => `₹${Math.round(Number(paise || 0) / 100).toLocaleString('en-IN')}`;
 const stamp = (ms) => ms ? new Date(ms).toLocaleString() : '—';
@@ -22,10 +23,13 @@ export async function view({ user, home }) {
   const root = h('div', { class: 'sh credits-page' });
   const content = h('main', { class: 'credit-main' }, h('p', { class: 'hint' }, 'Loading Coin plans…'));
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, `Buy ${COIN_NAME}`), h('span', { class: 'sp' }), h('button', { class: 'btn', onclick: home }, '⌂ Home')), content);
-  let catalog;
-  try { catalog = await apiCall('/api/payments', { action: 'catalog' }, user.uid); }
-  catch (e) { content.replaceChildren(h('section', { class: 'card credit-error' }, h('h2', {}, 'Could not load Coin plans'), h('p', {}, friendlyError(e)), h('button', { class: 'btn', onclick: home }, 'Back to Home'))); return root; }
-  const balance = h('b', { class: 'credit-balance' }, coinAmount(catalog.credits, { size: 26 }));
+  // The plans never change per user, so the page shows them at once; only the balance and "payments are switched on" come from the server (kept from the last visit and refreshed in the background).
+  const CACHE = `toons-credits-${user.uid}`;
+  const cached = (() => { try { return JSON.parse(localStorage.getItem(CACHE) || 'null'); } catch { return null; } })();
+  const catalog = { plans: CREDIT_PLANS.map(publicPlan), configured: cached?.configured === true, credits: cached?.credits ?? null, known: !!cached };
+  const balance = h('b', { class: 'credit-balance' }, catalog.credits == null ? '…' : coinAmount(catalog.credits, { size: 26 }));
+  const buyButtons = [];
+  const buttonLabel = () => (catalog.known ? (catalog.configured ? 'Buy this plan' : 'Payment setup pending') : 'Checking…');
   const message = h('p', { class: 'credit-message', role: 'status', 'aria-live': 'polite' }, '');
   const history = h('div', { class: 'credit-history' }, h('p', { class: 'hint' }, 'Loading your payment history…'));
   const refreshHistory = async () => {
@@ -75,7 +79,8 @@ export async function view({ user, home }) {
     h('section', { class: 'credit-hero' }, h('div', {}, h('span', { class: 'credit-kicker' }, 'YOUR COINS'), h('h1', {}, 'Choose your Coins plan'), h('p', { class: 'sub' }, 'One-time purchases. As soon as Razorpay confirms the payment, the coins are added to your Coins account.')),
       h('div', { class: 'credit-balance-card' }, h('small', {}, 'Your balance'), balance)),
     h('div', { class: 'credit-grid' }, ...catalog.plans.map((plan) => {
-      const button = h('button', { class: 'btn pri big', disabled: !catalog.configured, onclick: null }, catalog.configured ? 'Buy this plan' : 'Payment setup pending');
+      const button = h('button', { class: 'btn pri big', disabled: !catalog.configured, onclick: null }, buttonLabel());
+      buyButtons.push(button);
       button.addEventListener('click', buy(plan, button));
       return h('article', { class: `credit-plan ${plan.popular ? 'popular' : ''}` },
         plan.popular ? h('span', { class: 'credit-popular' }, 'POPULAR') : null,
@@ -87,5 +92,14 @@ export async function view({ user, home }) {
     message,
     h('section', { class: 'credit-history-section' }, h('div', { class: 'credit-section-heading' }, h('h2', {}, 'Payment history'), h('button', { class: 'btn sm', onclick: refreshHistory }, '↻ Refresh')), history));
   refreshHistory();
+  apiCall('/api/payments', { action: 'catalog' }, user.uid).then((fresh) => {
+    catalog.configured = fresh.configured === true; catalog.credits = fresh.credits; catalog.known = true;
+    balance.replaceChildren(coinAmount(fresh.credits, { size: 26 }));
+    for (const b of buyButtons) { b.disabled = !catalog.configured; b.textContent = buttonLabel(); }
+    try { localStorage.setItem(CACHE, JSON.stringify({ configured: catalog.configured, credits: catalog.credits })); } catch { /* optional */ }
+  }).catch((e) => {
+    message.textContent = `Could not check your balance: ${friendlyError(e)}`; message.className = 'credit-message error';
+    for (const b of buyButtons) b.textContent = 'Try again later';
+  });
   return root;
 }
