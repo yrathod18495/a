@@ -70,3 +70,11 @@
 .bgg-sample:hover{border-color:#a597ff}
 .bgg-sample img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:5px;image-rendering:auto}
 .bgg-sample small{font-size:10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bgg-sample-wrap{position:relative}
+.bgg-sample-wrap .bgg-sample{width:100%}
+.bgg-sample-x{position:absolute;right:2px;top:2px;width:20px;height:20px;border:0;border-radius:6px;background:#000a;color:#ff9aa8;font-size:10px;cursor:pointer}
+.bgg-details summary{cursor:pointer;font-weight:650;font-size:13px}
+.bgg-prompts{display:flex;flex-direction:column;gap:8px;margin-top:8px;max-height:340px;overflow:auto}
+.bgg-prompt{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--line,#34363c);border-radius:10px;background:var(--card2,#26272c)}
+.bgg-prompt b{font-size:12px}
+.bgg-prompt p{margin:0;font-size:11px;color:var(--mute,#9a9ea8);user-select:text}

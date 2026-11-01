@@ -1,7 +1,7 @@
 // Background Generator: a blank canvas (4K by default) where the user composes a background from pictures, props, shapes and text,
 // saves it to the account's local database, and picks it again from the Background tab of the Animator Studio.
 import { h } from './dom.js';
-import { listBgLibrary, putBgLibrary, deleteBgLibrary } from './store.js';
+import { listBgLibrary, putBgLibrary, deleteBgLibrary, listTextures } from './store.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 import { BACKGROUNDS } from './db/stage.js';
 import { projectDialog } from './project-dialog.js';
@@ -65,6 +65,24 @@ export function makeSampleTexture(kind) {
   else { g.fillStyle = '#d9bf86'; g.fillRect(0, 0, TILE, TILE); dots(20, ['#e6d29faa', '#c9ad73aa'], 14, 30); dots(600, ['#e9d6a4', '#d2b97f', '#f1e2b8', '#c9ad73', '#b99a5f'], 0.8, 2.2); }
   return c;
 }
+
+/** prompts for any AI image generator (Midjourney, DALL·E, Gemini, Firefly, Leonardo…): they ask for a square, flat, top-down, tileable picture, which is what the brush needs */
+const PROMPT_TAIL = 'seamless tileable texture, perfectly flat top-down view, even lighting, no shadows, no perspective, no objects, no text, 2D cartoon game art style, high detail, square 1:1, 2048x2048';
+export const TEXTURE_PROMPTS = [
+  ['Kachi mitti road (dirt road)', `Dry packed earth dirt road surface with small pebbles, tiny cracks and a few wheel-track marks, warm brown tones, ${PROMPT_TAIL}`],
+  ['Green grass', `Lush green grass field with varied blades in light and dark green, ${PROMPT_TAIL}`],
+  ['Dry grass / hay', `Dry yellow-green grass with scattered straw, village field look, ${PROMPT_TAIL}`],
+  ['Gravel / kankar', `Small grey and beige gravel stones tightly packed, ${PROMPT_TAIL}`],
+  ['Cobblestone road', `Old rounded cobblestone road, grey stones with dark gaps, ${PROMPT_TAIL}`],
+  ['Wooden planks', `Warm brown wooden floor planks with visible grain and nails, ${PROMPT_TAIL}`],
+  ['River water', `Calm blue river water with soft light ripples, ${PROMPT_TAIL}`],
+  ['Brick wall', `Red clay brick wall with light cement lines, ${PROMPT_TAIL}`],
+  ['Sand / desert', `Fine golden desert sand with gentle ripples, ${PROMPT_TAIL}`],
+  ['Snow', `Fresh white snow with faint blue shadows and tiny sparkles, ${PROMPT_TAIL}`],
+  ['Farm soil (kheti)', `Dark brown ploughed farm soil with furrows, ${PROMPT_TAIL}`],
+  ['Stone floor / tiles', `Large beige stone floor tiles with thin dark joints, ${PROMPT_TAIL}`],
+];
+export const PROMPT_HELP = 'Tips: ask for "seamless" and "tileable"; keep it top-down and flat (no horizon, no sun shadows); save as a square PNG or JPG. If your tool has a "negative prompt", add: perspective, shadows, text, watermark, border, objects.';
 
 export async function view({ user, home, toast }) {
   let doc = newDoc(), id = uid8(), name = 'My background', sel = null, saved = false, busy = false;
@@ -137,7 +155,7 @@ export async function view({ user, home, toast }) {
   function stamp(g, x, y) {
     const S = brush.size, r = S / 2, a = brush.flow / 100;
     g.save();
-    if (tool === 'eraser') { g.globalCompositeOperation = 'destination-out'; blob(g, x, y, r, '0,0,0', Math.min(1, a + 0.1)); g.restore(); return; }
+    if (tool === 'eraser') { g.globalCompositeOperation = 'destination-out'; const gr = g.createRadialGradient(x, y, r * (brush.hardness / 100) * 0.95, x, y, r); gr.addColorStop(0, `rgba(0,0,0,${Math.min(1, a + 0.1)})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.restore(); return; }
     if (brush.type === 'colour') { const gr = g.createRadialGradient(x, y, r * (brush.hardness / 100) * 0.95, x, y, r), rgb = hexRgb(brush.colour); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
     else if (brush.type === 'dirt') {
       blob(g, x, y, r, '176,128,78', a * 0.55);
@@ -314,39 +332,73 @@ export async function view({ user, home, toast }) {
   const toolBtn = (t, label, tip) => (toolBtns[t] = h('button', { type: 'button', class: 'btn', title: tip, 'aria-pressed': 'false', onclick: () => setTool(t) }, label));
   const brushType = h('select', { 'aria-label': 'Brush', onchange: (e) => { brush.type = e.target.value; drawSide(); } }, BRUSHES.map(([k, l]) => h('option', { value: k }, l)));
   brushType.value = brush.type;
-  const texFile = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async (e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { brush.texture = await createImageBitmap(f); brush.type = 'texture'; brushType.value = 'texture'; setTool('brush'); toast('Texture ready. Paint with it on the canvas.'); } catch { toast('This picture could not be opened. Please choose a PNG, JPG or WebP file.'); } } });
+  const texFile = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onchange: async (e) => {
+    const files = [...e.target.files]; e.target.value = ''; let first = null;
+    for (const f of files) { try { const bmp = await createImageBitmap(f), rec = { id: `tex-${uid8()}`, name: f.name.replace(/\.[^.]+$/, '').slice(0, 60), blob: f }; await putBgLibrary(user.uid, rec); first ||= { bmp, name: rec.name }; } catch { toast('This picture could not be opened. Please choose a PNG, JPG or WebP file.'); } }
+    await drawTextures(); if (first) pickTexture(first.bmp, first.name);
+  } });
   const slider = (label, min, max, get, set) => { const out = h('output', {}, String(get())), input = h('input', { type: 'range', min, max, value: get(), oninput: (e) => { set(+e.target.value); out.textContent = e.target.value; moveRingCentre(); } }); return { box: h('label', { class: 'bgg-field' }, h('span', {}, label), input, out), input, out }; };
   const sizeSlider = slider('Size', 4, 1200, () => brush.size, (v) => { brush.size = v; });
   const flowSlider = slider('Flow', 5, 100, () => brush.flow, (v) => { brush.flow = v; });
   const hardSlider = slider('Soft edge', 0, 100, () => brush.hardness, (v) => { brush.hardness = v; });
   const scaleSlider = slider('Texture size', 1, 12, () => brush.scale, (v) => { brush.scale = v; });
   const pickTexture = (canvas, label) => { brush.texture = canvas; brush.type = 'texture'; brushType.value = 'texture'; setTool('brush'); toast(`${label} texture ready. Paint with it on the canvas.`); };
-  const sampleGrid = h('div', { class: 'bgg-samples' }, SAMPLE_TEXTURES.map(([k, label]) => { const tex = makeSampleTexture(k); return h('button', { type: 'button', class: 'bgg-sample', title: `${label} — paint with it`, onclick: () => pickTexture(tex, label) }, h('img', { src: tex.toDataURL('image/png'), alt: '' }), h('small', {}, label)); }));
+  const sampleTextures = new Map(SAMPLE_TEXTURES.map(([k]) => [k, makeSampleTexture(k)]));
+  const sampleGrid = h('div', { class: 'bgg-samples' }, SAMPLE_TEXTURES.map(([k, label]) => { const tex = sampleTextures.get(k); return h('button', { type: 'button', class: 'bgg-sample', title: `${label} — paint with it`, onclick: () => pickTexture(tex, label) }, h('img', { src: tex.toDataURL('image/png'), alt: '' }), h('small', {}, label)); }));
   const brushColour = h('input', { type: 'color', value: brush.colour, 'aria-label': 'Brush colour', oninput: (e) => { brush.colour = e.target.value; } });
   const colourRow = h('label', { class: 'bgg-inline' }, 'Colour', brushColour);
   const moveRingCentre = () => {};
   const paintCard = h('div', { class: 'bgg-card' }, h('h2', {}, 'Paint'),
     h('p', { class: 'bgg-sub' }, 'Paint a road, grass, gravel or sand right on the canvas.'),
-    h('div', { class: 'bgg-row' }, toolBtn('select', '↖ Select', 'Move and resize items'), toolBtn('brush', '🖌 Brush', 'Paint (B)'), toolBtn('eraser', '⌫ Eraser', 'Rub out the painting (E)')),
+    h('div', { class: 'bgg-row' }, toolBtn('select', '↖ Select', 'Move and resize items'), toolBtn('brush', '🖌 Brush', 'Paint (B)'), toolBtn('eraser', '⌫ Eraser', 'Rub out the painting (E). Use Size and Soft edge to change it.')),
     brushType, sizeSlider.box, flowSlider.box, hardSlider.box, colourRow,
-    h('p', { class: 'bgg-sub' }, 'Sample textures'), sampleGrid, scaleSlider.box,
-    h('button', { type: 'button', class: 'btn', onclick: () => texFile.click() }, '＋ Paint with my own texture'), texFile,
-    h('p', { class: 'bgg-sub' }, 'Your own texture: choose any picture (best: a square, seamless PNG or JPG of mud, grass, stone, water…). It repeats as you paint.'),
+    scaleSlider.box,
+    h('button', { type: 'button', class: 'btn sm danger', title: 'Remove everything painted on the selected painting layer', onclick: () => clearPainting() }, 'Clear the whole painting'),
     h('p', { class: 'bgg-sub' }, 'Tip: the mouse wheel on the canvas changes the brush size. Painting sits on its own layer, so you can move it Back or Forward behind or in front of props.'));
   function syncPaintUi() {
     for (const [t, b] of Object.entries(toolBtns)) b.setAttribute('aria-pressed', String(tool === t));
     sizeSlider.input.value = brush.size; sizeSlider.out.textContent = String(brush.size);
-    scaleSlider.box.style.display = tool !== 'select' && brush.type === 'texture' ? '' : 'none'; scaleSlider.input.value = brush.scale; scaleSlider.out.textContent = String(brush.scale);
-    colourRow.hidden = brush.type !== 'colour'; hardSlider.box.hidden = brush.type !== 'colour';
-    for (const el of [brushType, sizeSlider.box, flowSlider.box, hardSlider.box, colourRow]) el.style.display = tool === 'select' ? 'none' : '';
-    if (tool !== 'select') { colourRow.style.display = brush.type === 'colour' ? '' : 'none'; hardSlider.box.style.display = brush.type === 'colour' ? '' : 'none'; }
+    scaleSlider.input.value = brush.scale; scaleSlider.out.textContent = String(brush.scale);
+    const painting = tool !== 'select', brushing = tool === 'brush', show = (el, on) => { el.style.display = on ? '' : 'none'; };
+    show(brushType, brushing); show(sizeSlider.box, painting); show(flowSlider.box, painting);
+    show(hardSlider.box, tool === 'eraser' || (brushing && brush.type === 'colour'));
+    show(colourRow, brushing && brush.type === 'colour'); show(scaleSlider.box, brushing && brush.type === 'texture');
   }
+  // ---------- textures: my textures (kept in the database), samples, downloads, AI prompts ----------
+  const clearPainting = () => {
+    const it = selected()?.type === 'paint' ? selected() : [...doc.items].reverse().find((i) => i.type === 'paint'); if (!it) { toast('There is no painting to clear yet.'); return; }
+    history.push({ s: lastSnap, p: { id: it.id, canvas: cloneCanvas(bitmaps.get(it.id)) } }); future.length = 0;
+    const c = bitmaps.get(it.id); c.getContext('2d').clearRect(0, 0, c.width, c.height); paintDirty.add(it.id); saved = false; redraw();
+  };
+  const savePng = (canvas, fileName) => canvas.toBlob((b) => { const a = h('a', { href: URL.createObjectURL(b), download: fileName }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }, 'image/png');
+  const tiled = (tex, n = 4) => { const c = document.createElement('canvas'); c.width = tex.width * n; c.height = tex.height * n; const g = c.getContext('2d'); for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) g.drawImage(tex, x * tex.width, y * tex.height); return c; };
+  const myTextures = h('div', { class: 'bgg-samples' });
+  async function drawTextures() {
+    const all = await listTextures(user.uid).catch(() => []);
+    myTextures.replaceChildren(...(all.length ? all.map((rec) => {
+      const url = URL.createObjectURL(rec.blob);
+      return h('div', { class: 'bgg-sample-wrap' },
+        h('button', { type: 'button', class: 'bgg-sample', title: `${rec.name} — paint with it`, onclick: async () => { try { pickTexture(await createImageBitmap(rec.blob), rec.name); } catch { toast('This texture could not be opened.'); } } }, h('img', { src: url, alt: '', onload: () => setTimeout(() => URL.revokeObjectURL(url), 2000) }), h('small', {}, rec.name)),
+        h('button', { type: 'button', class: 'bgg-sample-x', 'aria-label': `Remove ${rec.name}`, title: 'Remove', onclick: async () => { await deleteBgLibrary(user.uid, rec.id); await drawTextures(); } }, '✕'));
+    }) : [h('p', { class: 'bgg-sub', style: 'grid-column:1/-1' }, 'No textures yet. Import your own picture below.')]));
+  }
+  const promptList = h('div', { class: 'bgg-prompts' }, h('p', { class: 'bgg-sub' }, PROMPT_HELP), TEXTURE_PROMPTS.map(([title, text]) => h('div', { class: 'bgg-prompt' }, h('b', {}, title), h('p', {}, text),
+    h('button', { type: 'button', class: 'btn sm', onclick: async () => { try { await navigator.clipboard.writeText(text); toast('Prompt copied. Paste it into your AI image tool.'); } catch { toast('Copy did not work here. Please select the text and copy it.'); } } }, 'Copy prompt'))));
+  const textureCard = h('div', { class: 'bgg-card' }, h('h2', {}, 'Textures'),
+    h('p', { class: 'bgg-sub' }, 'My textures'), myTextures,
+    h('button', { type: 'button', class: 'btn pri', onclick: () => texFile.click() }, '＋ Import my texture'), texFile,
+    h('p', { class: 'bgg-sub' }, 'Choose any picture (best: a square, seamless PNG or JPG). It is saved here and repeats as you paint.'),
+    h('p', { class: 'bgg-sub' }, 'Sample textures'), sampleGrid,
+    h('div', { class: 'bgg-row' },
+      h('button', { type: 'button', class: 'btn sm', title: 'Save the selected texture as a 1024 px picture', onclick: () => { if (!brush.texture) { toast('Choose a texture first.'); return; } const t = brush.texture, c = document.createElement('canvas'); c.width = t.width; c.height = t.height; c.getContext('2d').drawImage(t, 0, 0); savePng(c.width <= 300 ? tiled(c) : c, 'texture.png'); } }, '⬇ Download selected'),
+      h('button', { type: 'button', class: 'btn sm', title: 'Save all nine sample textures as pictures', onclick: () => { let i = 0; for (const [k, label] of SAMPLE_TEXTURES) setTimeout(() => savePng(tiled(sampleTextures.get(k)), `texture-${label.toLowerCase().replace(/\s+/g, '-')}.png`), 350 * i++); } }, '⬇ Download all samples')),
+    h('details', { class: 'bgg-details' }, h('summary', {}, '✨ AI prompts to generate your own textures'), promptList));
   const left = h('aside', { class: 'bgg-left' },
     h('div', { class: 'bgg-card' }, h('h2', {}, 'Add'),
       h('button', { type: 'button', class: 'btn pri', onclick: () => file.click() }, '＋ Picture or prop'), file,
       h('button', { type: 'button', class: 'btn', onclick: toggleShared }, 'Shared props library'), sharedBox,
       h('div', { class: 'bgg-row' }, h('button', { type: 'button', class: 'btn', onclick: () => addShape('rect') }, '▭ Rectangle'), h('button', { type: 'button', class: 'btn', onclick: () => addShape('ellipse') }, '◯ Circle'), h('button', { type: 'button', class: 'btn', onclick: addText }, 'T Text'))),
-    paintCard,
+    paintCard, textureCard,
     h('div', { class: 'bgg-card' }, h('h2', {}, 'Canvas'), sizeSel, h('p', { class: 'bgg-sub' }, 'Colour or gradient'), swatches, h('label', { class: 'bgg-inline' }, 'Own colour', colourA)),
     h('div', { class: 'bgg-card' }, h('h2', {}, 'My backgrounds'), h('p', { class: 'bgg-sub' }, 'Saved in your account on this device. Open one to keep editing it.'), (libBox = h('div', { class: 'bgg-lib' }))));
   const props = h('div', { class: 'bgg-props' }), layers = h('div', { class: 'bgg-layers' });
@@ -398,6 +450,6 @@ export async function view({ user, home, toast }) {
       h('button', { type: 'button', class: 'btn', onclick: newBackground }, 'New'), h('button', { type: 'button', class: 'btn', onclick: download }, 'Download PNG'), h('button', { type: 'button', class: 'btn pri', onclick: save }, 'Save to my backgrounds')),
     h('div', { class: 'bgg-body' }, left, h('main', { class: 'bgg-center' }, stage), right));
   const observer = new ResizeObserver(() => { if (document.body.contains(root)) redraw(); else { observer.disconnect(); document.removeEventListener('keydown', onKey); } });
-  queueMicrotask(() => { observer.observe(stage.parentElement); drawLibrary(); redraw(); });
+  queueMicrotask(() => { observer.observe(stage.parentElement); drawLibrary(); drawTextures(); redraw(); });
   return root;
 }

@@ -209,8 +209,12 @@ export async function importLegacyCloud(uid, records) {
 }
 
 // ---- Background Generator library: finished backgrounds (PNG blob + the editable layers) kept per account on this device ----
+const isTexture=v=>String(v.id).startsWith('tex-');          // textures imported for the brush live in the same store, with an id that starts with tex-
 export const listBgLibrary=uid=>tx(['bgLibrary'],'readonly',t=>{
- const r=t.objectStore('bgLibrary').getAll();return ()=>r.result.filter(v=>v.uid===uid).map(v=>v.value).sort((a,b)=>b.updatedAt-a.updatedAt);
+ const r=t.objectStore('bgLibrary').getAll();return ()=>r.result.filter(v=>v.uid===uid&&!isTexture(v)).map(v=>v.value).sort((a,b)=>b.updatedAt-a.updatedAt);
+});
+export const listTextures=uid=>tx(['bgLibrary'],'readonly',t=>{
+ const r=t.objectStore('bgLibrary').getAll();return ()=>r.result.filter(v=>v.uid===uid&&isTexture(v)).map(v=>v.value).sort((a,b)=>b.updatedAt-a.updatedAt);
 });
 export const putBgLibrary=(uid,value)=>{
  if(!uid||!value?.id)throw Error('The background is not valid');

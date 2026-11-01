@@ -87,3 +87,33 @@ test('a sample texture can be picked and painted with', async ({ page }) => {
   expect(px.r).toBeGreaterThan(px.b + 25);                       // the red-brown of the brick, not the grey checkerboard
   expect(errors).toEqual([]);
 });
+
+test('an imported texture is kept in the database, can be painted with and removed; prompts can be copied; the eraser rubs out paint', async ({ page, context }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
+  await open(page);
+  await page.getByRole('heading', { name: 'Background Generator' }).click();
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.locator('.bgg-left input[type=file]').nth(1).setInputFiles({ name: 'my-road.png', mimeType: 'image/png', buffer: png });
+  await expect(page.locator('.bgg-sample-wrap')).toHaveCount(1);
+  await page.getByRole('button', { name: '← Hub' }).click();
+  await page.getByRole('heading', { name: 'Background Generator' }).click();
+  await expect(page.locator('.bgg-sample-wrap')).toHaveCount(1);                       // still there when the page is opened again (read from the database)
+  await page.getByText('AI prompts to generate your own textures').click();
+  await expect(page.locator('.bgg-prompt')).toHaveCount(12);
+  await page.locator('.bgg-prompt').first().getByRole('button', { name: 'Copy prompt' }).click();
+  // paint, then rub out
+  await page.getByRole('button', { name: /Brush/ }).click();
+  await page.locator('.bgg-sample', { hasText: 'Mud' }).click();
+  const box = await page.locator('.bgg-canvas').boundingBox(), y = box.y + box.height / 2;
+  const alpha = () => page.locator('.bgg-canvas').evaluate((c) => { const d = c.getContext('2d').getImageData(Math.round(c.width / 2), Math.round(c.height / 2), 1, 1).data; return d[0] - d[2]; });
+  await page.mouse.move(box.x + 60, y); await page.mouse.down(); await page.mouse.move(box.x + box.width - 60, y, { steps: 15 }); await page.mouse.up();
+  expect(await alpha()).toBeGreaterThan(30);
+  await page.getByRole('button', { name: /Eraser/ }).click();
+  await page.locator('.bgg-left input[type=range]').first().fill('400');
+  for (let i = 0; i < 3; i++) { await page.mouse.move(box.x + 60, y); await page.mouse.down(); await page.mouse.move(box.x + box.width - 60, y, { steps: 15 }); await page.mouse.up(); }
+  expect(await alpha()).toBeLessThan(10);                                                 // rubbed out: the grey checkerboard shows again
+  await page.locator('.bgg-sample-wrap').getByRole('button', { name: /Remove/ }).click();
+  await expect(page.locator('.bgg-sample-wrap')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
