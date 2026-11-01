@@ -133,9 +133,12 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 }
 
 /* landing hero: the logo, a slow float and one warm accent word, so the page feels alive without heavy motion */
-.lp-hero-logo{display:block;width:118px;height:118px;margin:0 0 14px;border-radius:28px;filter:drop-shadow(0 14px 28px #1f6bff55);animation:lp-float 5s ease-in-out infinite}
+.lp-hero-logo{display:block;width:150px;height:150px;margin:0 0 14px;animation:lp-float 5s ease-in-out infinite;filter:drop-shadow(0 14px 26px #1f6bff40)}
 @keyframes lp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 :root[data-theme] body .lp .lp-hero h1 .lp-accent{color:var(--logo-orange)!important}
 :root[data-theme] body .lp .lp-hero{background:radial-gradient(60% 50% at 80% 10%,#1f6bff26,transparent 70%),radial-gradient(50% 40% at 10% 90%,#ffa72622,transparent 70%)!important}
 :root[data-theme] body .lp .lp-button-primary:hover{transform:translateY(-2px);transition:transform .2s}
 @media(prefers-reduced-motion:reduce){.lp-hero-logo{animation:none}}
+
+/* header badge: text "12" in the brand colour, next to the name */
+.brand-mark{display:inline-grid;place-items:center;width:1.9em;height:1.9em;margin-right:.3em;border-radius:.45em;background:var(--brand);color:#fff;font-weight:900;font-size:.82em;letter-spacing:-.02em;line-height:1;box-shadow:0 6px 16px var(--shadow)}

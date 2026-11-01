@@ -12,8 +12,8 @@ export const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 export const toast = (msg) => { const t = h('div', { class: 'toast' }, typeof msg === 'string' ? hinglishify(msg) : msg); document.body.append(t); setTimeout(() => t.remove(), 4500); };
-/** the 12toons brand mark: the logo's "12" badge picture (public/images/12toons-badge.png), sized with the surrounding font */
-export const brandMark = (size) => h('img', { class: 'brand-mark', src: '/images/12toons-badge.png', alt: '', width: size || undefined, height: size || undefined, style: size ? '' : '', decoding: 'async' });
+/** the 12toons header mark: a small "12" badge in text, the same in every header (the full logo picture is only on the landing page) */
+export const brandMark = () => h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, '12');
 export const brandWordmark = () => [
   brandMark(),
   h('span', { class: 'brand-name' }, 'toons'),
