@@ -36,7 +36,7 @@ export async function assetsView({ user, home, back, toast }) {
     const records = state.assets.filter((a) => a.type === kind);
     content.replaceChildren(
       h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, `Add ${label}`), h('p', {}, kind === 'background' ? 'Upload scene images once. Creators can preview and apply them from Animator Studio → Background.' : 'Upload transparent PNG or WebP objects. Creators can add them to the stage, drag them into place, resize and rotate them.')),
-      h('section', { class: 'admin-assets-upload' }, h('div', {}, h('b', {}, `Upload a ${kind}`), h('small', {}, 'Image files · up to 40 MB · available to signed-in creators')), h('button', { class: 'btn pri', type: 'button', disabled: state.loading, onclick: openUpload }, '＋ Choose image'), fileInput),
+      h('section', { class: 'admin-assets-upload' }, h('div', {}, h('b', {}, `Upload ${kind}s`), h('small', {}, state.progress || 'Image files · up to 40 MB each · pick one or many at once')), h('button', { class: 'btn pri', type: 'button', disabled: state.loading, onclick: openUpload }, state.progress ? 'Uploading…' : '＋ Choose images'), fileInput),
       state.loading && !records.length ? h('p', { class: 'admin-assets-empty' }, 'Loading assets…') : records.length ? h('div', { class: 'admin-assets-grid' }, records.map((asset) => {
         const preview = state.previews.get(asset.id);
         if (!preview) previewAsset(asset).catch((e) => console.warn('Asset preview failed:', e.message));
@@ -77,17 +77,30 @@ export async function assetsView({ user, home, back, toast }) {
     try { await deleteStudioAsset(asset.id); const preview = state.previews.get(asset.id); if (preview) URL.revokeObjectURL(preview); state.previews.delete(asset.id); state.assets = state.assets.filter((a) => a.id !== asset.id); draw(); toast('Asset removed from the library.'); }
     catch (e) { toast(`Could not remove the asset: ${e.message}`); }
   }
-  fileInput = h('input', { class: 'admin-assets-file', type: 'file', accept: 'image/*', onchange: async (e) => {
-    const file = e.target.files?.[0]; e.target.value = '';
-    if (!file) return;
-    const name = file.name.replace(/\.[^.]+$/, '').slice(0, 100);
+  // pick one image or many at once (40–50 is fine): each is uploaded and saved as its own library record, a few at a time
+  fileInput = h('input', { class: 'admin-assets-file', type: 'file', accept: 'image/*', multiple: true, onchange: async (e) => {
+    const files = [...(e.target.files || [])].filter((f) => f.type.startsWith('image/')); e.target.value = '';
+    if (!files.length) return;
+    const type = assetType(), failed = [];
+    let done = 0;
+    state.loading = true; state.progress = `Uploading 0 / ${files.length}…`; draw();
+    const queue = [...files];
+    const worker = async () => {
+      for (let file = queue.shift(); file; file = queue.shift()) {
+        const name = file.name.replace(/\.[^.]+$/, '').slice(0, 100);
+        try { await saveStudioAsset(type, name, file); }
+        catch (error) { failed.push(`${name}: ${error.message}`); }
+        done++; state.progress = `Uploading ${done} / ${files.length}…`; draw();
+      }
+    };
     try {
-      state.loading = true; draw();
-      await saveStudioAsset(assetType(), name, file);
+      await Promise.all(Array.from({ length: Math.min(3, files.length) }, worker));
       state.assets = await listStudioAssets();
-      toast(`${name} added to the Animator Studio library.`);
-    } catch (error) { toast(`Could not add the image: ${error.message}`); }
-    finally { state.loading = false; draw(); }
+      const ok = files.length - failed.length;
+      if (!failed.length) toast(files.length === 1 ? `${files[0].name.replace(/\.[^.]+$/, '')} added to the Animator Studio library.` : `${ok} images added to the Animator Studio library.`);
+      else toast(`${ok} of ${files.length} added. Not added — ${failed.slice(0, 3).join(' · ')}${failed.length > 3 ? ` and ${failed.length - 3} more` : ''}`);
+    } catch (error) { toast(`Could not refresh the library: ${error.message}`); }
+    finally { state.loading = false; state.progress = ''; draw(); }
   } });
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin · Studio Assets'), h('span', { class: 'sp' }), h('button', { class: 'btn', type: 'button', onclick: back }, 'Back to Admin')), tabs, content);
   try {
