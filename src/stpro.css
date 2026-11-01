@@ -548,3 +548,4 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 #app .ws .clipbar .btn svg{width:20px;height:20px}
 #app .ws .clipbar .btn.cb-del{background:#3a1d22!important;color:#ff7a8c!important;border:1px solid #7a2e3a!important}
 #app .ws .clipbar .btn.cb-del svg{stroke:#ff7a8c}
+#app .ws .tl-scroll{display:flex;flex-direction:column}#app .ws .tl-inner{flex:1 0 auto;min-height:100%}
