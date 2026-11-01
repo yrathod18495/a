@@ -61,6 +61,11 @@ try {
 const directHash = DIRECT_ROUTES[location.pathname.replace(/\/$/, '')];
 if (directHash && location.hash !== directHash) location.replace('/' + directHash);
 window.addEventListener('hashchange', route);
+// the browser / installed-app bars take the page's own background colour (day or night), never the purple brand colour
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+const syncThemeColor = () => themeMeta?.setAttribute('content', document.documentElement.dataset.theme === 'day' ? '#f4f5ff' : '#0d1024');
+new MutationObserver(syncThemeColor).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+syncThemeColor();
 // installable app: the worker only makes the site installable, it never keeps copies
 if ('serviceWorker' in navigator && import.meta.env.PROD) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}), { once: true });
 
