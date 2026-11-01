@@ -824,3 +824,5 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .stagewrap .bg-tl{left:-9px;top:-9px}.stagewrap .bg-tr{right:-9px;top:-9px;cursor:nesw-resize}
 .stagewrap .bg-bl{left:-9px;bottom:-9px;cursor:nesw-resize}.stagewrap .bg-br{right:-9px;bottom:-9px}
 .stagewrap{touch-action:none}
+.st-tool.bggen .st-tool-art{background:radial-gradient(120% 90% at 85% 20%,#1fae8e 0,#116a62 40%,#08262a 78%),linear-gradient(135deg,#0a2a2c,#04100f)}
+.st-tool.bggen .st-launch{background:linear-gradient(135deg,#2fd1ad,#7ff0c9);color:#04261f!important}

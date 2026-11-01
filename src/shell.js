@@ -47,7 +47,7 @@ function setTheme(theme) {
 setTheme(activeTheme);
 
 /* ---------------- routing ---------------- */
-const PRIVATE = ['#/hub', '#/toons', '#/characters', '#/admin', '#/credits', '#/affiliate-dashboard'];
+const PRIVATE = ['#/hub', '#/toons', '#/characters', '#/background-generator', '#/admin', '#/credits', '#/affiliate-dashboard'];
 const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
 const DIRECT_ROUTES = { '/admin': '#/admin', '/buy-credits': '#/credits', '/credits': '#/credits', '/terms-of-use': '#/terms', '/website-license': '#/website-license', '/license': '#/website-license', '/affiliate-partners': '#/affiliates' };
 try {
@@ -153,6 +153,9 @@ async function renderRoute() {
     return;
   }
   $app.hidden = true; $shell.hidden = false; window.scrollTo(0, 0);
+  if (hash === '#/background-generator') {
+    const m = await import('./bg-generator.js'); $app.hidden = true; $shell.hidden = false; $shell.replaceChildren(await m.view({ user, home: () => go('#/hub'), toast })); return;
+  }
   if (hash === '#/admin') {
     if (!(await isAdmin(user))) { toast('The admin panel is for admins only.'); go('#/hub'); return; }
     const m = await import('./admin.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/hub'), toast })); return;
@@ -357,6 +360,7 @@ function hubView() {
       h('div', { class: 'sh-tools' },
         ...(featureOn('#/toons') ? [tool('animator', '12toons Animator Studio', 'Turn your script and your voice into animated scenes, then export a video that is ready to share.', '#/toons', 'Launch Animator Studio')] : []),
         ...(featureOn('#/characters') ? [tool('actor', '12toons Character Editor', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Editor')] : []),
+        tool('bggen', 'Background Generator', 'Start from a blank 4K canvas, add props, pictures and text, and save backgrounds you can use in the Animator Studio.', '#/background-generator', 'Open Background Generator'),
         ...(!featureOn('#/toons') && !featureOn('#/characters') ? [h('p', { class: 'sub' }, 'The studios are not available right now. Please check back soon.')] : [])),
       role === 'admin' && (!features.animator || !features.character) ? h('p', { class: 'sub' }, `Hidden for users: ${[!features.animator && 'Animator Studio', !features.character && 'Character Editor'].filter(Boolean).join(', ')} (you can still see them as admin).`) : null,
       recent,

@@ -9,12 +9,13 @@ export const onStoreChange = fn => {listeners.add(fn); return ()=>listeners.dele
 const scope = () => {if(!active) throw Error('Please open a project first'); return {...active};};
 function open() {
  return conn ||= new Promise((resolve,reject)=>{
-  const r=indexedDB.open('12toons-projects-v1',2);
+  const r=indexedDB.open('12toons-projects-v1',3);
   r.onupgradeneeded=()=>{
    if(!r.result.objectStoreNames.contains('records'))r.result.createObjectStore('records',{keyPath:['uid','project','store','id']});
    if(!r.result.objectStoreNames.contains('projects'))r.result.createObjectStore('projects',{keyPath:['uid','id']});
    if(!r.result.objectStoreNames.contains('meta'))r.result.createObjectStore('meta',{keyPath:'id'});
    if(!r.result.objectStoreNames.contains('library'))r.result.createObjectStore('library',{keyPath:['uid','id']});
+   if(!r.result.objectStoreNames.contains('bgLibrary'))r.result.createObjectStore('bgLibrary',{keyPath:['uid','id']});          // backgrounds made in the Background Generator: per account, not per project
   };
   r.onsuccess=()=>{r.result.onversionchange=()=>{r.result.close();conn=null;};resolve(r.result);};
   r.onerror=()=>{conn=null;reject(r.error);};
@@ -207,3 +208,12 @@ export async function importLegacyCloud(uid, records) {
  });return meta;
 }
 
+// ---- Background Generator library: finished backgrounds (PNG blob + the editable layers) kept per account on this device ----
+export const listBgLibrary=uid=>tx(['bgLibrary'],'readonly',t=>{
+ const r=t.objectStore('bgLibrary').getAll();return ()=>r.result.filter(v=>v.uid===uid).map(v=>v.value).sort((a,b)=>b.updatedAt-a.updatedAt);
+});
+export const putBgLibrary=(uid,value)=>{
+ if(!uid||!value?.id)throw Error('The background is not valid');
+ return tx(['bgLibrary'],'readwrite',t=>t.objectStore('bgLibrary').put({uid,id:value.id,value:{...value,updatedAt:Date.now()}}));
+};
+export const deleteBgLibrary=(uid,id)=>tx(['bgLibrary'],'readwrite',t=>t.objectStore('bgLibrary').delete([uid,id]));

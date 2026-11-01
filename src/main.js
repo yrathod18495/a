@@ -16,7 +16,7 @@ import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
 import { Player, buildTimeline } from './player.js';
 import { characterPicker } from './charpick.js';
 import { exportOffline, exportParallel, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
-import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext } from './store.js';
+import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext, listBgLibrary } from './store.js';
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
@@ -2602,6 +2602,25 @@ function libraryTab(kind) {
     editor);
 }
 
+/** backgrounds made in the Background Generator (kept in the account's database): one click copies the picture into this project and uses it */
+function generatedCard(pick) {
+  const box = h('div', { class: 'bggrid' });
+  const owner = projectContext()?.uid;
+  if (!owner) return null;
+  listBgLibrary(owner).then((all) => {
+    box.replaceChildren(...(all.length ? all.map((g) => {
+      const url = URL.createObjectURL(g.thumb || g.blob);
+      return h('button', { type: 'button', class: `bgc ${S.bgId === `gen-${g.id}` ? 'on' : ''}`, title: `${g.name} · ${g.w} × ${g.h}`, onclick: async () => {
+        try {
+          let rec = S.myBgs.find((r) => r.id === `gen-${g.id}`);
+          if (!rec) { rec = { id: `gen-${g.id}`, name: g.name, blob: g.blob }; await dbPut('backgrounds', rec); S.myBgs.push(rec); }
+          await pick(rec);
+        } catch (e) { toast(`Could not add the background: ${e.message}`); }
+      } }, h('img', { src: url, alt: g.name, loading: 'lazy', onload: () => URL.revokeObjectURL(url) }), h('small', {}, g.name));
+    }) : [h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Nothing here yet. Create one in the Background Generator on the hub.')]));
+  }).catch(() => box.replaceChildren(h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Your generated backgrounds could not be loaded.')));
+  return h('div', { class: 'card flat' }, h('h2', {}, 'My generated backgrounds'), box);
+}
 function tabCanvas() {
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: String(cur()) === String(k) ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', String(items[i][0]) === String(k))); } }, l)));
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => {
@@ -2642,7 +2661,7 @@ function tabCanvas() {
       h('button', { class: 'btn sm', type: 'button', style: 'margin-top:8px', onclick: () => { selBg.xf = null; stage.setBgXf(S.bgClips.indexOf(selBg), null); S.dirty = true; updateBgSel(); drawTabs(); } }, '↺ Original size and position'));
   })();
   return h('div', { class: 'list' },
-    bgCard,
+    bgCard, generatedCard(pickBg),
     h('div', { class: 'card flat' }, h('h2', {}, 'Where should the background be applied?'), seg([[0, 'Whole scene'], [1, 'On the timeline (from the playhead)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
       h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `The background you choose will be added to the timeline at the playhead (${fmt(player.time)}). Add as many as you like, and drag the edges to resize.` : 'The background you choose will stay behind for the whole scene.')),
     h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), sharedGrid('background', addSharedBackground), mine, file),
