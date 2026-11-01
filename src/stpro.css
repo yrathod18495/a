@@ -97,7 +97,7 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 /* landing page: same language as the app, with its own menu button */
 :root[data-theme] body .lp .lp-header{margin:10px;border:1px solid var(--edge);border-radius:22px;background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:none;clip-path:none}
 :root[data-theme] body .lp .lp-brand-crest{border:0!important;background:none!important;box-shadow:none!important;clip-path:none!important;filter:none!important}
-:root[data-theme] body .lp :is(h1,h2,h3,.lp-header .logo,.lp-header .logo b,.lp-nav a,.lp-mobile-nav a){color:var(--ink)!important;text-shadow:none!important}
+:root[data-theme] body .lp :is(h1,h2,h3,.lp-header .logo,.lp-header .logo b,.lp-nav a,.lp-mobile-nav a){color:var(--text)!important;text-shadow:none!important}
 :root[data-theme] body .lp :is(.lp-hero-lead,p,summary){color:var(--soft)}
 :root[data-theme] body .lp .lp-accent{color:var(--accent)!important;text-shadow:none!important}
 :root[data-theme] body .lp .lp-nav a:hover{color:var(--accent)!important}
@@ -192,7 +192,7 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 .lp-dock.open{width:206px;box-shadow:0 14px 34px #0004}
 .lp-dock-item{display:flex;align-items:center;gap:12px;flex:none;height:40px;padding:0 8px;border:0;border-radius:13px;background:none;font:inherit;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .2s,transform .2s;animation:dock-item .45s cubic-bezier(.2,.8,.2,1) both}
 .lp-dock-item:nth-child(1){animation-delay:.12s}.lp-dock-item:nth-child(2){animation-delay:.2s}.lp-dock-item:nth-child(3){animation-delay:.28s}.lp-dock-item:nth-child(4){animation-delay:.36s}.lp-dock-item:nth-child(5){animation-delay:.44s}
-:root[data-theme] body .lp .lp-dock-item{color:var(--ink)!important}
+:root[data-theme] body .lp .lp-dock-item{color:var(--text)!important}
 .lp-dock-item:hover{background:var(--hover);transform:translateX(-2px)}
 .lp-dock-item:active{transform:scale(.96)}
 .lp-dock-item svg{flex:none;width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
@@ -748,3 +748,11 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .support-hide svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round}
 @keyframes support-pop{from{transform:scale(0)}to{transform:scale(1)}}
 @media(max-width:700px){.support-head{touch-action:none;cursor:grab}}
+
+/* the "Start your scene" card can be closed; the pill brings it back */
+.empty-in{position:relative}.empty[hidden]{display:none}
+.start-close{position:absolute;top:10px;right:10px;display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--edge);border-radius:12px;background:var(--btn);color:var(--text)!important;font:inherit;font-size:15px;line-height:1;cursor:pointer}
+.start-close:hover{border-color:var(--accent);background:var(--hover)}
+.start-pill{position:absolute;top:10px;left:10px;z-index:6;padding:7px 14px;border:1px solid #4a4c55;border-radius:999px;background:#1d1e22eb;color:#f2f3f5!important;font:inherit;font-size:12px;font-weight:750;cursor:pointer;box-shadow:0 6px 18px #0004}
+.start-pill[hidden]{display:none}.start-pill:hover{border-color:#a597ff}
+:root[data-theme="day"] .start-close{color:#1d1e22!important}

@@ -355,7 +355,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, handleEls = {};
+let tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -680,7 +680,7 @@ function viewStudio() {
   setTimeout(fit, 0);
   return h('div', { class: 'workbench' },
     h('div', { class: 'studio' },
-      h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard()),
+      h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard(), startPill = h('button', { class: 'start-pill', type: 'button', hidden: true, title: 'Show the quick start guide', 'aria-label': 'Show the quick start guide', onclick: () => setStartHidden(false) }, '☰ Quick start')),
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
@@ -1848,7 +1848,7 @@ function saveXf(l) {
   const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf };
 }
 function updateSel() {
-  if (emptyEl) emptyEl.hidden = S.lines.length > 0 || S.speakers.some((x) => x.charId);
+  syncStart();
   if (!selEl) return;
   const fullView = syncFullView();
   const prop = S.props.find((item) => item.id === S.selectedPropId);
@@ -1966,10 +1966,24 @@ function addCharacterTo(s) {
 }
 /* ---- start of a scene: audio is optional, so the workbench is open from the first second ---- */
 const openTab = (k) => { S.tab = k; S.panelOpen = true; drawTabs(); dockShow('panel'); };
+/** the "Start your scene" card can be closed; a small "Quick start" button then brings it back (the choice is remembered on this device) */
+let startHidden = false;
+try { startHidden = localStorage.getItem('12toons-start-hidden') === '1'; } catch { /* the card simply stays open */ }
+function syncStart() {
+  const needed = !(S.lines.length > 0 || S.speakers.some((x) => x.charId));
+  if (emptyEl) emptyEl.hidden = !needed || startHidden;
+  if (startPill) startPill.hidden = !needed || !startHidden;
+}
+function setStartHidden(hidden) {
+  startHidden = hidden;
+  try { localStorage.setItem('12toons-start-hidden', hidden ? '1' : '0'); } catch { /* optional */ }
+  syncStart();
+}
 function emptyCard() {
   const step = (n, title, text, label, action, kind = '') => h('li', { class: 'start-step' }, h('span', { class: 'start-n', 'aria-hidden': 'true' }, String(n)),
     h('div', { class: 'start-copy' }, h('b', {}, title), h('small', {}, text)), h('button', { class: `btn ${kind}`, onclick: action }, label));
   return h('div', { class: 'empty' }, h('div', { class: 'empty-in' },
+    h('button', { class: 'start-close', type: 'button', title: 'Close this guide', 'aria-label': 'Close the quick start guide', onclick: () => setStartHidden(true) }, '✕'),
     h('b', { class: 'empty-title' }, 'Start your scene'),
     h('p', { class: 'empty-sub' }, 'Three quick steps. Audio is optional, and you can do them in any order.'),
     h('ol', { class: 'start-steps' },
