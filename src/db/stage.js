@@ -325,7 +325,7 @@ export class Stage {
   async setBackgroundClips(clips = [], blankOutside = false) {
     this.blankOutside = !!blankOutside;          // true once the whole-scene background was turned into clips: outside the clips the canvas is plain black
     const next = [];
-    for (const c of clips) next.push({ start: c.start, end: c.start + c.dur, preset: c.preset ?? 0, image: c.blob ? await loadImage(c.blob) : null });
+    for (const c of clips) next.push({ start: c.start, end: c.start + c.dur, preset: c.preset ?? 0, image: c.blob ? await loadImage(c.blob) : null, xf: c.xf || null });
     this.bgClips = next;
     for (const c of next) this.bgTexture(c.preset, c.image);          // build the pictures now, not in the middle of playback
   }
@@ -347,8 +347,11 @@ export class Stage {
     while (this.bgCache.size > 10) { const [oldKey, old] = this.bgCache.entries().next().value; if (old === this.bgTex) break; old.dispose(); this.bgCache.delete(oldKey); }
     return tex;
   }
+  /** live move / resize of one background clip while the user drags it on the canvas: xf = { x, y, s } (offset in canvas widths / heights, scale) */
+  setBgXf(index, xf) { if (this.bgClips[index]) this.bgClips[index].xf = xf ? { ...xf } : null; }
   ensureBackground(t = 0) {
     const clip = this.bgClips.find((c) => t >= c.start && t < c.end);
+    this.bgXf = clip?.xf || null;
     this.bgTex = clip ? this.bgTexture(clip.preset, clip.image) : this.blankOutside ? this.bgTexture('blank', null) : this.bgTexture(this.bg.preset, this.bg.image);
   }
 
@@ -482,7 +485,9 @@ export class Stage {
     this.view = { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh };      // the part of the canvas on screen (the editor maps pen lines through it)
     r.begin(W, H, { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
     r.setMask(null, W, H);
-    r.quad(this.bgTex, 0, 0, W, H);
+    const bx = this.bgXf;
+    if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh); }
+    else r.quad(this.bgTex, 0, 0, W, H);
     this.drawProps(t, true);                               // props placed behind the characters
     const list = [];
     for (const layer of this.layers) layer.tearAnchors = {};

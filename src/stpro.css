@@ -816,3 +816,11 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 #app .ws .tltools{gap:3px}
 /* the timeline is as tall as its rows need (up to about half the screen), so no row is cut off or hidden behind a scroll; dragging the bar still sets a fixed height */
 @media(min-width:1000px){#app .ws .tlwrap{min-height:250px}}
+
+/* the selected background on the canvas: a frame with four corner handles (drag inside to move, drag a corner / pinch / mouse wheel to resize) */
+.stagewrap .bg-sel{position:absolute;z-index:2;border:2px dashed #a597ff;box-shadow:0 0 0 1px #0006;pointer-events:none;box-sizing:border-box}
+.stagewrap .bg-hd{position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #7c6cf5;pointer-events:auto;touch-action:none;cursor:nwse-resize;box-shadow:0 1px 5px #0008}
+@media(pointer:coarse){.stagewrap .bg-hd{width:26px;height:26px}}
+.stagewrap .bg-tl{left:-9px;top:-9px}.stagewrap .bg-tr{right:-9px;top:-9px;cursor:nesw-resize}
+.stagewrap .bg-bl{left:-9px;bottom:-9px;cursor:nesw-resize}.stagewrap .bg-br{right:-9px;bottom:-9px}
+.stagewrap{touch-action:none}

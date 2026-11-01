@@ -355,7 +355,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
+let bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -1085,7 +1085,7 @@ const findManual = (id) => { for (const [k, list] of Object.entries(S.manual)) {
 /** an empty scene is 8 s; otherwise the end of the last clip (animation, background clip, effect with an end) decides. Trimming clips shortens the scene. With audio the voice decides the length. */
 const sceneLen = () => contentLength({ solo: S.solo, speakers: S.speakers, manual: S.manual, bgClips: S.bgClips, props: S.props, camKeys: S.camKeys, charKeys: S.charKeys, gradeKeys: S.gradeKeys });
 /** background clips as the stage wants them: the picture is looked up in the user's own backgrounds */
-const bgClipJobs = () => S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset ?? 0, blob: c.bgId ? S.myBgs.find((r) => r.id === c.bgId)?.blob ?? null : null }));
+const bgClipJobs = () => S.bgClips.map((c) => ({ start: c.start, dur: c.dur, xf: c.xf || null, preset: c.preset ?? 0, blob: c.bgId ? S.myBgs.find((r) => r.id === c.bgId)?.blob ?? null : null }));
 const bgBlankOutside = () => S.bgClips.some((c) => c.base);
 const syncBgClips = async () => { await stage.setBackgroundClips(bgClipJobs(), bgBlankOutside()); S.dirty = true; };
 function updateTotal() {
@@ -1224,7 +1224,7 @@ function dragPropRange(e, prop, mode, el) {
   });
 }
 function drawClipBar() {
-  updateEditTools();
+  updateEditTools(); updateBgSel();
   if (!clipBar) return;
   const bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = !bc && S.propSel && S.props.find((x) => x.id === S.propSel);
   if (bc || pr) return rangeBar(bc, pr);
@@ -1868,16 +1868,22 @@ function updateSaveStatus(state = syncStatus) {
 
 function mountStage() {
   selEl = h('div', { class: 'selbox', hidden: true });
+  bgSelEl = h('div', { class: 'bg-sel', hidden: true, 'aria-label': 'Selected background; drag to move, drag a corner or pinch to resize' }, ...['tl', 'tr', 'bl', 'br'].map((c) => h('i', { class: `bg-hd bg-${c}`, 'data-bg': c })));
   propSelEl = h('div', { class: 'prop-sel', hidden: true, 'aria-label': 'Selected prop; drag to move' });
   handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true })]));
   tearHandlesEl = h('div', { class: 'tear-handles', hidden: true }, tearHandle('left'), tearHandle('right'));
   selToolsEl = h('div', { class: 'sel-tools', hidden: true });
-  wrapEl = h('div', { class: 'stagewrap' }, stage.out, selEl, propSelEl, ...Object.values(handleEls), tearHandlesEl, selToolsEl);
+  wrapEl = h('div', { class: 'stagewrap' }, stage.out, bgSelEl, selEl, propSelEl, ...Object.values(handleEls), tearHandlesEl, selToolsEl);
   stageObserver?.disconnect();
   const box = document.getElementById('stagebox'); box.replaceChildren(wrapEl);
   stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor();
   mountCamBox();
   let drag = null;
+  const pointers = new Map(), pinchDist = () => { const [a, b] = [...pointers.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
+  wrapEl.addEventListener('wheel', (e) => {            // mouse wheel over the canvas resizes the selected background (when nothing else is selected)
+    const c = bgOf(); if (!c || S.exporting || S.sel || S.selectedPropId || stage.camZoom > 1.02) return;
+    e.preventDefault(); bgXf(c).s = clampBgScale(bgXf(c).s * Math.exp(-e.deltaY * 0.0015)); pushBg(c);
+  }, { passive: false });
   const pt = (e) => { const r = stage.out.getBoundingClientRect(), k = stage.W / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
   const layer = () => stage.layers.find((l) => l.key === S.sel);
   wrapEl.addEventListener('pointerdown', (e) => {
@@ -1885,6 +1891,15 @@ function mountStage() {
     if (e.target.closest('.sel-tools')) return;   // the floating character-tools toolbar sits over the canvas; its own buttons handle their clicks
     if (camPointerDown(e)) return;
     if (syncFullView()) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const bgc = bgOf();
+    if (bgc && stage.camZoom <= 1.02) {
+      if (drag?.mode === 'bg' && pointers.size === 2) { drag.pinch = { d0: pinchDist() || 1, s0: bgXf(bgc).s }; return; }          // a second finger: pinch to resize
+      if (e.target.dataset?.bg) {
+        const r = stage.out.getBoundingClientRect(), xf = bgXf(bgc), cx = r.left + r.width / 2 + xf.x * r.width, cy = r.top + r.height / 2 + xf.y * r.height;
+        drag = { mode: 'bg', kind: 'scale', c: bgc, cx, cy, r0: Math.hypot(e.clientX - cx, e.clientY - cy) || 1, s0: xf.s }; wrapEl.setPointerCapture(e.pointerId); return;
+      }
+    }
     const p = pt(e), hd = e.target.dataset?.c;
     if (stage.camZoom <= 1.02 && !hd) {
       const prop = [...S.props].reverse().find((x) => x.visible !== false && !coversFrame(x) && !isHeld(x) && Math.abs(p.x - x.x * stage.W) <= (x.w || .18) * stage.W / 2 && Math.abs(p.y - x.y * stage.H) <= (x.h || .18) * stage.H / 2);
@@ -1905,6 +1920,7 @@ function mountStage() {
       l = stage.camZoom <= 1.02 ? stage.hitLayers(p)[0] : null;      // the character really under the mouse (its drawn shape), not just the biggest box
       S.sel = l?.key ?? null;
       if (l) drag = { mode: 'move', p0: p, a0: { ...l.anchor } };
+      else if (bgc && stage.camZoom <= 1.02) { const xf = bgXf(bgc); drag = { mode: 'bg', kind: 'move', c: bgc, p0: { x: e.clientX, y: e.clientY }, x0: xf.x, y0: xf.y }; }          // nothing else under the finger: it moves the selected background
       updateSel(); S.dirty = true;
     }
     if (drag) wrapEl.setPointerCapture(e.pointerId);
@@ -1925,6 +1941,14 @@ function mountStage() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtx(); });
   wrapEl.addEventListener('pointermove', (e) => {
     if (camPointerMove(e)) return;
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (drag?.mode === 'bg') {
+      const c = drag.c, xf = bgXf(c), r = stage.out.getBoundingClientRect();
+      if (drag.pinch) xf.s = clampBgScale(drag.pinch.s0 * pinchDist() / drag.pinch.d0);
+      else if (drag.kind === 'scale') xf.s = clampBgScale(drag.s0 * Math.hypot(e.clientX - drag.cx, e.clientY - drag.cy) / drag.r0);
+      else { xf.x = clampBgPos(drag.x0 + (e.clientX - drag.p0.x) / r.width); xf.y = clampBgPos(drag.y0 + (e.clientY - drag.p0.y) / r.height); }
+      pushBg(c); return;
+    }
     if (drag?.mode === 'prop') {
       const p = pt(e), prop = drag.prop;
       prop.x = Math.max(0, Math.min(1, drag.x0 + (p.x - drag.p0.x) / stage.W));
@@ -1945,16 +1969,32 @@ function mountStage() {
     l.axf = a.x / W; l.ayf = (H - a.y) / H;
     saveXf(l); stage.layout(); updateSel(); S.dirty = true;
   });
-  const end = async () => { if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag && S.tab === 'motion') drawTabs(); drag = null; };
+  const end = async (e) => { pointers.delete(e?.pointerId); if (drag?.mode === 'bg') { if (!pointers.size || drag.pinch) { drag = null; S.dirty = true; } return; } if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag && S.tab === 'motion') drawTabs(); drag = null; };
   wrapEl.addEventListener('pointerup', end); wrapEl.addEventListener('pointercancel', end);
   S.dirty = true; updateSel();
+}
+/** the background clip that is selected: it can be moved and resized right on the canvas (xf = offset in canvas widths / heights + scale) */
+const bgOf = () => S.bgSel && S.bgClips.find((x) => x.id === S.bgSel) || null;
+const bgXf = (c) => (c.xf ||= { x: 0, y: 0, s: 1 });
+const clampBgScale = (v) => Math.min(6, Math.max(0.2, +v.toFixed(3))), clampBgPos = (v) => Math.min(3, Math.max(-3, +v.toFixed(4)));
+function pushBg(c) { stage.setBgXf(S.bgClips.indexOf(c), c.xf); S.dirty = true; updateBgSel(); if (S.tab === 'canvas' && S.panelOpen) syncBgSize?.(); }
+let syncBgSize = null;
+/** dashed frame + corner handles around the selected background on the canvas */
+function updateBgSel() {
+  if (!bgSelEl) return;
+  const c = bgOf();
+  if (!c || S.step !== 3 || S.exporting || player.playing || stage.camZoom > 1.02 || syncFullView()) { bgSelEl.hidden = true; return; }
+  const xf = bgXf(c), cw = stage.out.clientWidth, ch = stage.out.clientHeight, w = cw * xf.s, hh = ch * xf.s;
+  const x0 = Math.max(0, cw / 2 + xf.x * cw - w / 2), y0 = Math.max(0, ch / 2 + xf.y * ch - hh / 2), x1 = Math.min(cw, cw / 2 + xf.x * cw + w / 2), y1 = Math.min(ch, ch / 2 + xf.y * ch + hh / 2);
+  bgSelEl.hidden = x1 <= x0 || y1 <= y0;
+  Object.assign(bgSelEl.style, { left: `${x0}px`, top: `${y0}px`, width: `${Math.max(0, x1 - x0)}px`, height: `${Math.max(0, y1 - y0)}px` });
 }
 function saveXf(l) {
   if (S.charKeys[l.key]?.length) { writeCharKey(l); return; }          // with keyframes, moving / resizing edits the keyframe at the playhead
   const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf };
 }
 function updateSel() {
-  syncStart();
+  syncStart(); updateBgSel();
   if (!selEl) return;
   const fullView = syncFullView();
   const prop = S.props.find((item) => item.id === S.selectedPropId);
@@ -2590,7 +2630,19 @@ function tabCanvas() {
       h('img', { src: URL.createObjectURL(r.blob), alt: r.name, loading: 'lazy' }),
       h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('This background is being used in another scene.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
   const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })));
+  const selBg = bgOf(), bgCard = (() => {
+    if (!selBg) return h('div', { class: 'card flat' }, h('h2', {}, 'Move and resize'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Select the background on the timeline (or press the button) to move and resize it right on the canvas.'),
+      S.bgId || stage.bg.preset !== 0 ? h('button', { class: 'btn sm', type: 'button', onclick: () => { takeBaseBackground(); drawTabs(); } }, 'Edit the background on the canvas') : null);
+    const xf = bgXf(selBg), out = h('output', {}, `${Math.round(xf.s * 100)}%`);
+    const range = h('input', { type: 'range', min: 20, max: 400, step: 1, value: Math.round(xf.s * 100), 'aria-label': 'Background size', oninput: (e) => { xf.s = clampBgScale(+e.target.value / 100); out.textContent = `${Math.round(xf.s * 100)}%`; pushBg(selBg); } });
+    syncBgSize = () => { range.value = Math.round(xf.s * 100); out.textContent = `${Math.round(xf.s * 100)}%`; };
+    return h('div', { class: 'card flat' }, h('h2', {}, 'Move and resize'),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'On the canvas: drag the picture to move it. Drag a corner, pinch with two fingers, or use the mouse wheel to resize.'),
+      h('label', { class: 'cb-n', style: 'display:flex;align-items:center;gap:8px' }, 'Size', range, out),
+      h('button', { class: 'btn sm', type: 'button', style: 'margin-top:8px', onclick: () => { selBg.xf = null; stage.setBgXf(S.bgClips.indexOf(selBg), null); S.dirty = true; updateBgSel(); drawTabs(); } }, '↺ Original size and position'));
+  })();
   return h('div', { class: 'list' },
+    bgCard,
     h('div', { class: 'card flat' }, h('h2', {}, 'Where should the background be applied?'), seg([[0, 'Whole scene'], [1, 'On the timeline (from the playhead)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
       h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `The background you choose will be added to the timeline at the playhead (${fmt(player.time)}). Add as many as you like, and drag the edges to resize.` : 'The background you choose will stay behind for the whole scene.')),
     h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), sharedGrid('background', addSharedBackground), mine, file),

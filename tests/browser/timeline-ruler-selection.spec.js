@@ -125,3 +125,22 @@ test('an audio line can be grabbed in the middle and moved along the timeline', 
   await page.mouse.move(moved.x + moved.width / 2, y); await page.mouse.down(); await page.mouse.move(moved.x - 400, y, { steps: 8 }); await page.mouse.up();
   await expect.poll(start).toBeLessThan(0.05);                       // it cannot go before the start of the scene
 });
+
+test('a selected background can be moved and resized on the canvas (mouse drag, corner, wheel)', async ({ page }) => {
+  await studioWithAudio(page);
+  await page.evaluate(() => { const { stage, drawTimeline } = window.__toon; stage.bg.preset = 1; drawTimeline(); });
+  await page.locator('.lane2.bg .tclip.bg.base').click({ position: { x: 100, y: 10 } });
+  await expect(page.locator('.bg-sel')).toBeVisible();
+  const xf = () => page.evaluate(() => ({ ...window.__toon.S.bgClips[0].xf }));
+  const canvas = await page.locator('.stagewrap canvas').boundingBox();
+  const cx = canvas.x + canvas.width / 2, cy = canvas.y + canvas.height / 2;
+  await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + 60, cy + 30, { steps: 5 }); await page.mouse.up();
+  const moved = await xf(); expect(moved.x).toBeGreaterThan(0.05); expect(moved.y).toBeGreaterThan(0.02);
+  await page.mouse.move(cx, cy); await page.mouse.wheel(0, -300);
+  await expect.poll(async () => (await xf()).s).toBeGreaterThan(1.2);
+  await page.mouse.wheel(0, 900);
+  await expect.poll(async () => (await xf()).s).toBeLessThan(1);
+  const before = (await xf()).s, hd = await page.locator('.bg-hd.bg-br').boundingBox();
+  await page.mouse.move(hd.x + 8, hd.y + 8); await page.mouse.down(); await page.mouse.move(hd.x + 108, hd.y + 108, { steps: 6 }); await page.mouse.up();
+  expect((await xf()).s).toBeGreaterThan(before);
+});
