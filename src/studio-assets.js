@@ -35,10 +35,25 @@ export async function makeThumb(file, sheet = null) {
   } finally { bitmap.close?.(); }
   return '';
 }
+/** Smaller files cost less to store and to download for every creator: props and backgrounds are scaled to at most 2048 px
+ * (backgrounds 2560 px) and saved as WebP (transparency kept) when that is smaller. Effects (sprite sheets), GIFs and SVGs stay as they are. */
+export async function optimizeImage(type, file) {
+  if (!['prop', 'background'].includes(type) || !/^image\/(png|jpeg|webp|bmp)$/.test(file.type)) return file;
+  let bitmap; try { bitmap = await createImageBitmap(file); } catch { return file; }
+  try {
+    const max = type === 'background' ? 2560 : 2048, k = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * k)); canvas.height = Math.max(1, Math.round(bitmap.height * k));
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9));
+    if (!out || out.type !== 'image/webp' || out.size >= file.size) return file;
+    return new File([out], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' });
+  } finally { bitmap.close?.(); }
+}
 export async function saveStudioAsset(type, name, file, meta = {}) {
   const owner = uid();
   if (!owner) throw new Error('Please sign in to add studio assets.');
   if (!['background', 'prop', 'effect'].includes(type) || !file?.type?.startsWith('image/')) throw new Error('Please choose an image file.');
+  file = await optimizeImage(type, file);
   if (file.size > 40 * 1024 * 1024) throw new Error('The image must be 40 MB or smaller.');
   const hash = await digest(file), key = `assets/${hash}`, id = crypto.randomUUID();
   await uploadAssets(owner, new Map([[hash, file]]));
@@ -52,12 +67,16 @@ export async function deleteStudioAsset(id) {
   forgetList();
   return result;
 }
+// A library file never changes (its name is its SHA-256), so each browser downloads it once and keeps it: no server call, no R2 read next time.
+const ASSET_CACHE = '12toons-studio-assets-v1', cacheUrl = (asset) => `https://studio-assets.12toons.local/${asset.key}`;
 export async function downloadStudioAsset(asset) {
   const owner = uid();
   if (!owner) throw new Error('Please sign in to download studio assets.');
+  try { const hit = await (await caches.open(ASSET_CACHE)).match(cacheUrl(asset)); if (hit) { const b = await hit.blob(); if (b.size === asset.size) return new Blob([b], { type: asset.mime || 'image/png' }); } } catch { /* the cache is only a shortcut */ }
   const out = await apiCall('/api/studio-assets', { action: 'get', id: asset.id }, owner);     // a short-lived R2 link; the file itself does not pass through the server
   const blob = await fetchBlob(out.url);
   if (blob.size !== asset.size) throw new Error('The downloaded image\'s size does not match the library record.');
+  try { await (await caches.open(ASSET_CACHE)).put(cacheUrl(asset), new Response(blob)); } catch { /* not kept */ }
   return new Blob([blob], { type: asset.mime || 'image/png' });
 }
 
