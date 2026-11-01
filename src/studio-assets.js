@@ -35,26 +35,11 @@ export async function makeThumb(file, sheet = null) {
   } finally { bitmap.close?.(); }
   return '';
 }
-/** Smaller files cost less to store and to download for every creator: props and backgrounds are saved as WebP (transparency kept)
- * when that is smaller. Only images larger than 4096 px are scaled down — 4096 px is the most the studio ever draws (4K export),
- * so nothing visible is lost even in a 4K video. Effects (sprite sheets), GIFs and SVGs stay as they are. */
-export async function optimizeImage(type, file) {
-  if (!['prop', 'background'].includes(type) || !/^image\/(png|jpeg|webp|bmp)$/.test(file.type)) return file;
-  let bitmap; try { bitmap = await createImageBitmap(file); } catch { return file; }
-  try {
-    const max = 4096, k = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * k)); canvas.height = Math.max(1, Math.round(bitmap.height * k));
-    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9));
-    if (!out || out.type !== 'image/webp' || out.size >= file.size) return file;
-    return new File([out], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' });
-  } finally { bitmap.close?.(); }
-}
+// The uploaded file goes to R2 exactly as chosen (same resolution, same background, same bytes); only a tiny thumbnail is made for the library grid.
 export async function saveStudioAsset(type, name, file, meta = {}) {
   const owner = uid();
   if (!owner) throw new Error('Please sign in to add studio assets.');
   if (!['background', 'prop', 'effect'].includes(type) || !file?.type?.startsWith('image/')) throw new Error('Please choose an image file.');
-  file = await optimizeImage(type, file);
   if (file.size > 40 * 1024 * 1024) throw new Error('The image must be 40 MB or smaller.');
   const hash = await digest(file), key = `assets/${hash}`, id = crypto.randomUUID();
   await uploadAssets(owner, new Map([[hash, file]]));
