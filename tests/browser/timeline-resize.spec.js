@@ -57,3 +57,10 @@ test('the studio bar shows the project ID next to the save status', async ({ pag
   const a = await chip.boundingBox(), s = await page.locator('.save-status').boundingBox();
   expect(Math.abs(a.y + a.height / 2 - (s.y + s.height / 2))).toBeLessThan(14);            // on the same row as the save status
 });
+
+test('when the project ID is replaced (it was already taken), the chip shows the new number', async ({ page }) => {
+  await studio(page);
+  const old = (await page.locator('.project-id b').textContent()).trim();
+  await page.evaluate((oldId) => window.dispatchEvent(new CustomEvent('project-id-changed', { detail: { uid: 'debug', oldId, newId: '123456789' } })), old);
+  await expect(page.locator('.project-id b')).toHaveText('123456789');
+});

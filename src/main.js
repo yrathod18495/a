@@ -3012,9 +3012,13 @@ function previewControl() {
 /** the project's ID (the short number support asks for), shown next to the save status; a click copies it */
 function projectIdChip() {
   const id = projectContext()?.id; if (!id) return null;
-  return h('button', { type: 'button', class: 'project-id', title: 'Your project ID. Click to copy it.', 'aria-label': `Project ID ${id}. Click to copy.`, onclick: async (e) => {
-    try { await navigator.clipboard.writeText(String(id)); toast('Project ID copied.'); e.currentTarget.classList.add('copied'); setTimeout(() => e.currentTarget.classList.remove('copied'), 1200); } catch { toast(`Your project ID is ${id}.`); }
+  const chip = h('button', { type: 'button', class: 'project-id', title: 'Your project ID. Click to copy it.', 'aria-label': `Project ID ${id}. Click to copy.`, onclick: async (e) => {
+    const now = e.currentTarget.dataset.id || String(id); try { await navigator.clipboard.writeText(now); toast('Project ID copied.'); e.currentTarget.classList.add('copied'); setTimeout(() => e.currentTarget.classList.remove('copied'), 1200); } catch { toast(`Your project ID is ${now}.`); }
   } }, h('span', { class: 'project-id-label' }, 'PROJECT ID: '), h('b', {}, String(id)));
+  // if the ID was already taken by another account, the app gives this project a fresh one: show the new number straight away
+  const changed = (e) => { if (!chip.isConnected) { removeEventListener('project-id-changed', changed); return; } if (String(e.detail?.oldId) !== chip.dataset.id) return; chip.dataset.id = String(e.detail.newId); chip.querySelector('b').textContent = String(e.detail.newId); chip.setAttribute('aria-label', `Project ID ${e.detail.newId}. Click to copy.`); };
+  chip.dataset.id = String(id); addEventListener('project-id-changed', changed);
+  return chip;
 }
 function headerTools() {
   hdrUndo = h('button', { class: 'btn sm icon-btn history-button', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, icon('undo'));
