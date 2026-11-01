@@ -9,12 +9,12 @@ const eyebrow = (text) => h('span', { class: 'lp-eyebrow' }, text);
 const sectionTitle = (ey, title, description) => h('div', { class: 'lp-heading' }, eyebrow(ey), h('h2', {}, title), h('p', {}, description));
 
 const FEATURES = [
-  { icon: '🎙', title: 'Audio-driven lip-sync', body: 'Upload recorded dialogue, match each speaker to a character, and make conversations move with your voice.', detail: 'Built for talking characters, not just silent motion clips.' },
-  { icon: '✨', title: 'AI scene direction', body: 'Let AI propose who appears, which gestures to use, and how to frame the camera for each line.', detail: 'Adjust every suggestion on your timeline.' },
-  { icon: '🎭', title: '2D Character Editor', body: 'Edit character outfits, facial features, layers and colours or import your own DragonBones characters.', detail: 'Design once, use your character in your scenes.' },
-  { icon: '🎥', title: 'Camera & motion keyframes', body: 'Plan close-ups, wide shots, character positions and camera moves on editable keyframes.', detail: 'Keep control of pacing and composition.' },
-  { icon: '🖼', title: 'Backgrounds and scenes', body: 'Add your own images, place characters on the stage, and build a scene around your script.', detail: 'Works for dialogue and visual storytelling.' },
-  { icon: '🎞', title: 'WebM & MP4 export', body: 'Preview your work and export videos in multiple sizes and aspect ratios, including up to 4K.', detail: 'Finish your work in the same browser studio.' }
+  { path: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM6 11a6 6 0 0 0 12 0M12 17v4', title: 'Audio-driven lip-sync', body: 'Your voice lines move the characters’ mouths.' },
+  { path: 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z', title: 'AI scene direction', body: 'Suggests who appears, gestures and camera.' },
+  { path: 'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM3.5 20a6.5 6.5 0 0 1 10-5.2M14.5 21l.7-3 5.3-5.3 2.3 2.3-5.3 5.3-3 .7Z', title: '2D Character Editor', body: 'Outfits, faces, layers and colours.' },
+  { path: 'M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', title: 'Camera & keyframes', body: 'Close-ups, wide shots and smooth moves.' },
+  { path: 'M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM4 16l5-5 4 4 3-3 4 4M9 9a1 1 0 1 0 0-.01', title: 'Backgrounds and scenes', body: 'Use your own images to build the stage.' },
+  { path: 'M12 4v11m0 0-4-4m4 4 4-4M5 20h14', title: 'WebM & MP4 export', body: 'Export up to 4K, right in the browser.' }
 ];
 
 const USE_CASES = [
@@ -134,18 +134,11 @@ export function landingView({ user, cta, profileMenu, logo }) {
         ),
         quickDock()
       ),
-      h('section', { class: 'lp-coin-section', 'aria-labelledby': 'lp-coins-title' },
-        h('div', { class: 'lp-coin-offer' },
-          h('div', { class: 'lp-coin-display', 'aria-hidden': 'true' }, goldCoin(112)),
-          h('div', { class: 'lp-coin-copy' }, eyebrow('THE ROYAL TREASURY'),
-            h('h2', { id: 'lp-coins-title' }, 'More Coins. More possibilities.'),
-            h('p', {}, 'Find your Coin pack and keep creating. One-time purchases, with your balance and payment history in one place.')),
-          h('a', { class: 'lp-button lp-button-primary', href: '#/credits' }, 'Buy Coins  →'))),
       h('section', { id: 'features', class: 'lp-section lp-section-soft' },
         sectionTitle('All in one workspace', 'Create, direct and export in one place', 'From dialogue to character motion, 12toons gives you tools to make and fine-tune every scene.'),
-        h('div', { class: 'lp-feature-grid' }, FEATURES.map(f => h('article', { class: 'lp-feature-card' },
-          h('span', { class: 'lp-feature-icon', 'aria-hidden': 'true' }, f.icon),
-          h('h3', {}, f.title), h('p', {}, f.body), h('small', {}, f.detail)
+        h('div', { class: 'lp-feature-list' }, FEATURES.map(f => h('article', { class: 'lp-feature-row' },
+          h('span', { class: 'lp-feature-icon', 'aria-hidden': 'true' }, quickIcon(f.path)),
+          h('div', {}, h('h3', {}, f.title), h('p', {}, f.body))
         )))
       ),
       h('section', { id: 'how', class: 'lp-section lp-section-soft' },
@@ -160,6 +153,13 @@ export function landingView({ user, cta, profileMenu, logo }) {
         sectionTitle('Good to know', 'Frequently asked questions', 'A few answers before you start creating.'),
         faqList()
       ),
+      h('section', { class: 'lp-coin-section', 'aria-labelledby': 'lp-coins-title' },
+        h('div', { class: 'lp-coin-offer' },
+          h('div', { class: 'lp-coin-display', 'aria-hidden': 'true' }, goldCoin(112)),
+          h('div', { class: 'lp-coin-copy' }, eyebrow('COINS'),
+            h('h2', { id: 'lp-coins-title' }, 'More Coins. More possibilities.'),
+            h('p', {}, 'Find your Coin pack and keep creating. One-time purchases, with your balance and payment history in one place.')),
+          h('a', { class: 'lp-button lp-button-primary', href: '#/credits' }, 'Buy Coins  →'))),
       h('section', { class: 'lp-final-cta' }, eyebrow('Ready to create?'), h('h2', {}, 'Your next story starts here.'), h('p', {}, 'Bring characters and dialogue together with 12toons.'), button(user ? 'Open my studio →' : 'Get started with 12toons →', cta))
     ),
     h('footer', { class: 'lp-footer' }, h('a', { href: '/#/', style: 'color:inherit;text-decoration:none', 'aria-label': '12toons home' }, h('strong', {}, '12toons')), h('span', {}, 'Browser-based 2D animation & character creation'),

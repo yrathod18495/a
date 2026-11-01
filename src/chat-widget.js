@@ -1,19 +1,27 @@
 import { h } from './dom.js';
 import { apiCall } from './session.js';
 
+const ICONS = {
+  chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z',
+  close: 'M6 6l12 12M18 6 6 18',
+  send: 'M12 19V5m0 0-6 6m6-6 6 6',
+};
+const icon = (name) => { const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', ICONS[name]); svg.append(path); return svg; };
+
 export function chatWidget(user, onLogin = () => {}) {
   const root = h('div', { class: 'support-widget' });
   let open = false, loading = false, sending = false, timer = 0, latest = '', cachedMessages = [], pendingMessages = [];
   const list = h('div', { class: 'support-messages', 'aria-live': 'polite' });
   const input = h('textarea', { class: 'support-compose', rows: '2', maxlength: '2000', placeholder: 'Write a message…', 'aria-label': 'Message support' });
   const state = h('p', { class: 'support-state', role: 'status' });
-  const guest = h('div', { class: 'support-guest', hidden: !!user }, h('span', { class: 'support-guest-icon', 'aria-hidden': 'true' }, '✉'), h('b', {}, 'Talk to our team'), h('p', {}, 'Sign in to send a message and keep your conversation available when you return.'), h('button', { class: 'btn pri', type: 'button', onclick: () => { close(); onLogin(); } }, 'Sign in to chat'));
+  const guest = h('div', { class: 'support-guest', hidden: !!user }, h('span', { class: 'support-guest-icon', 'aria-hidden': 'true' }, icon('chat')), h('b', {}, 'Talk to our team'), h('p', {}, 'Sign in to send a message and keep your conversation available when you return.'), h('button', { class: 'btn pri', type: 'button', onclick: () => { close(); onLogin(); } }, 'Sign in to chat'));
   list.hidden = !user; input.disabled = !user;
+  if (user) render([]);
   const panel = h('section', { class: 'support-panel', 'aria-label': 'Support chat', hidden: true },
-    h('header', { class: 'support-head' }, h('span', { class: 'support-mark' }, '12'), h('div', {}, h('b', {}, 'Live support'), h('small', {}, 'Message the 12toons team')), h('button', { class: 'support-close', 'aria-label': 'Close chat', onclick: close }, '×')),
-    guest, list, state, h('form', { class: 'support-form', hidden: !user, onsubmit: send }, input, h('button', { class: 'btn pri support-send', type: 'submit' }, 'Send')));
+    h('header', { class: 'support-head' }, h('span', { class: 'support-mark' }, '12'), h('div', {}, h('b', {}, 'Live support'), h('small', {}, 'Message the 12toons team')), h('button', { class: 'support-close', 'aria-label': 'Close chat', onclick: close }, icon('close'))),
+    guest, list, state, h('form', { class: 'support-form', hidden: !user, onsubmit: send }, input, h('button', { class: 'support-send', type: 'submit', 'aria-label': 'Send message' }, icon('send'))));
   const sendButton = panel.querySelector('.support-send');
-  const toggle = h('button', { class: 'support-launch', 'aria-label': 'Open live chat', 'aria-expanded': 'false', onclick: async () => { open = !open; panel.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); if (open) { if (user) { await load(); clearInterval(timer); quietSince = Date.now(); schedule(); input.focus(); } else panel.querySelector('.support-guest button')?.focus(); } else { clearTimeout(timer); timer = 0; } } }, 'Chat');
+  const toggle = h('button', { class: 'support-launch', 'aria-label': 'Open live chat', 'aria-expanded': 'false', onclick: async () => { open = !open; panel.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); if (open) { if (user) { await load(); clearInterval(timer); quietSince = Date.now(); schedule(); input.focus(); } else panel.querySelector('.support-guest button')?.focus(); } else { clearTimeout(timer); timer = 0; } } }, icon('chat'), h('i', { class: 'support-dot', 'aria-hidden': 'true' }));
   root.append(panel, toggle);
   // a chat nobody writes in is asked about less and less often (5 s, then 15 s, then 30 s): every question costs a few database reads
   let quietSince = Date.now();
@@ -25,7 +33,7 @@ export function chatWidget(user, onLogin = () => {}) {
     try {
       const since = cachedMessages.reduce((n, m) => Math.max(n, Number(m.createdAt) || 0), 0);
       const data = await apiCall('/api/chat', { action: 'messages', ...(since ? { since } : {}) }, user.uid);
-      toggle.textContent = data.unreadUser ? 'New reply · Chat' : 'Chat';
+      toggle.classList.toggle('unread', !!data.unreadUser); toggle.setAttribute('aria-label', data.unreadUser ? 'Open live chat, you have a new reply' : 'Open live chat');
       const fresh = data.messages || [], msgs = data.incremental ? [...cachedMessages, ...fresh.filter(m => !cachedMessages.some(c => c.id === m.id))] : fresh, key = msgs.map(m => m.id || m.createdAt).join('|');
       if (key !== latest) quietSince = Date.now();
       cachedMessages = msgs;
@@ -37,6 +45,7 @@ export function chatWidget(user, onLogin = () => {}) {
     finally { loading = false; }
   }
   function render(messages) {
+    if (!messages.length) { list.replaceChildren(h('div', { class: 'support-empty' }, h('span', { class: 'support-empty-icon' }, icon('chat')), h('b', {}, 'How can we help?'), h('p', {}, 'Send us a message and the team will reply here.'))); return; }
     list.replaceChildren(...messages.map(m => h('div', { class: `support-bubble ${m.sender === 'admin' ? 'received' : 'sent'} ${m.pending ? 'pending' : ''} ${m.failed ? 'failed' : ''}` }, h('p', {}, m.message), h('time', {}, m.failed ? 'Not sent' : m.pending ? 'Sending…' : m.sent ? 'Sent' : new Date(m.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })))));
     list.scrollTop = list.scrollHeight;
   }

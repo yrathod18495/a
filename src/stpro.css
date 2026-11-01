@@ -209,3 +209,92 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 /* placeholder while a page's data is on its way (affiliate dashboard) */
 .dash-skeleton{display:flex;flex-direction:column;gap:14px;padding-top:6px}
 .dash-sk-head{height:120px;border-radius:24px}.dash-sk-card{height:92px;border-radius:22px}.dash-sk-card.short{height:60px}
+
+/* landing features: one compact row each (SVG icon, name, one short line) */
+.lp-feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.lp-feature-row{display:flex;align-items:center;gap:14px;min-width:0;padding:12px 14px;border:1px solid var(--edge);border-radius:18px;background:linear-gradient(180deg,var(--card1),var(--card2))}
+.lp-feature-row>div{min-width:0}
+:root[data-theme] body .lp .lp-feature-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;margin:0;border-radius:14px;background:var(--brand);box-shadow:0 8px 18px var(--shadow);font-size:0}
+.lp-feature-icon svg{width:22px;height:22px;fill:none;stroke:var(--on-brand);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:root[data-theme] body .lp .lp-feature-row h3{margin:0 0 2px;font-size:15px;line-height:1.25}
+:root[data-theme] body .lp .lp-feature-row p{margin:0;font-size:13px;line-height:1.35;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:700px){.lp-feature-list{grid-template-columns:1fr;gap:8px}}
+
+/* live chat: round icon button, bottom sheet on phones, bubbles like a messaging app */
+.support-widget{right:16px;bottom:max(18px,env(safe-area-inset-bottom));z-index:100}
+.support-launch{position:relative;z-index:1;display:grid!important;place-items:center;width:56px;height:56px;min-height:0!important;padding:0!important;border:0;border-radius:50%!important;background:var(--brand)!important;color:var(--on-brand)!important;box-shadow:0 10px 28px var(--shadow);transition:transform .2s}
+.support-launch::before{content:none!important}
+.support-launch:hover{transform:translateY(-2px)}.support-launch:active{transform:scale(.9)}
+.support-launch svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.support-dot{display:none;position:absolute;top:1px;right:1px;width:15px;height:15px;border:2px solid var(--page);border-radius:50%;background:#ef4444}
+.support-launch.unread .support-dot{display:block;animation:support-ping 1.6s ease-out infinite}
+@keyframes support-ping{0%{box-shadow:0 0 0 0 #ef444488}100%{box-shadow:0 0 0 10px #ef444400}}
+.support-panel{position:fixed;z-index:3;right:16px;bottom:88px;display:flex;flex-direction:column;width:min(390px,calc(100vw - 32px));height:min(560px,calc(100dvh - 130px));overflow:hidden;border:1px solid var(--edge);border-radius:26px;background:var(--page);box-shadow:0 24px 60px #0006}
+.support-panel[hidden]{display:none!important}
+.support-head{display:flex;align-items:center;gap:12px;flex:none;padding:14px 16px;background:linear-gradient(180deg,var(--bar1),var(--bar2));border-bottom:1px solid var(--edge)}
+.support-mark{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:50%;background:var(--brand);color:var(--on-brand);font-weight:900}
+.support-head b{color:var(--ink);font-size:15px}.support-head small{color:var(--mute)}
+.support-close{display:grid;place-items:center;flex:none;width:34px;height:34px;border:0;border-radius:50%;background:var(--btn);color:var(--ink);cursor:pointer}
+.support-close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.support-messages{flex:1;display:flex;flex-direction:column;gap:8px;overflow:auto;padding:16px;background:var(--page)}
+.support-bubble{max-width:82%;padding:10px 14px;border:1px solid var(--edge);border-radius:20px;background:var(--card1);color:var(--ink)}
+.support-bubble p{margin:0;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.support-bubble time{display:block;margin-top:4px;font-size:10px;opacity:.7}
+.support-bubble.sent{align-self:flex-end;border:0;border-bottom-right-radius:6px;background:var(--brand);color:var(--on-brand)}
+.support-bubble.received{align-self:flex-start;border-bottom-left-radius:6px}
+.support-empty,.support-guest{margin:auto;display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px;text-align:center;color:var(--mute)}
+.support-guest[hidden]{display:none}
+.support-empty b,.support-guest b{color:var(--ink);font-size:16px}.support-empty p,.support-guest p{margin:0;font-size:13px}
+.support-empty-icon,.support-guest-icon{display:grid;place-items:center;width:58px;height:58px;margin-bottom:6px;border-radius:50%;background:var(--hover);color:var(--accent);font-size:0}
+.support-empty-icon svg,.support-guest-icon svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.support-state{padding:0 16px 6px;color:#ef4444;font-size:12px}
+.support-form{display:flex;align-items:flex-end;gap:8px;flex:none;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--bar2);border-top:1px solid var(--edge)}
+.support-form[hidden]{display:none}
+.support-compose{flex:1;min-height:42px;max-height:120px;padding:10px 16px;border:1px solid var(--edge);border-radius:22px;background:var(--fill);color:var(--ink);font:inherit;font-size:14px;resize:none}
+.support-send{display:grid;place-items:center;flex:none;width:42px;height:42px;border:0;border-radius:50%;background:var(--brand);color:var(--on-brand);cursor:pointer;transition:transform .15s}
+.support-send:active{transform:scale(.9)}.support-send:disabled{opacity:.5}
+.support-send svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+body:has(.admin-bottomnav) .support-widget{bottom:calc(84px + env(safe-area-inset-bottom))}
+@media(max-width:700px){
+  .support-panel{left:0;right:0;bottom:0;width:auto;height:min(80dvh,640px);border-bottom:0;border-radius:26px 26px 0 0}
+  .support-panel::before{content:"";display:block;flex:none;width:40px;height:5px;margin:8px auto 0;border-radius:99px;background:var(--edge)}
+  .support-widget:has(.support-panel:not([hidden])) .support-launch{opacity:0;pointer-events:none}
+}
+
+/* terms and licence pages: a back button, one rounded card, a coloured icon on every heading */
+:root[data-theme] body .legal-page{background:var(--page);color:var(--ink)}
+:root[data-theme] body .legal-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px max(16px,calc((100vw - 900px)/2));background:linear-gradient(180deg,var(--bar1),var(--bar2));border-bottom:1px solid var(--edge)}
+:root[data-theme] body .legal-brand{color:var(--ink)}
+:root[data-theme] body .legal-header nav{display:flex;gap:8px;flex-wrap:wrap}
+:root[data-theme] body .legal-header nav a{padding:7px 14px;border-radius:999px;background:var(--btn);color:var(--ink);font-size:13px;font-weight:700;text-decoration:none}
+:root[data-theme] body .legal-header nav a:hover{background:var(--hover);color:var(--accent)}
+:root[data-theme] body .legal-main{width:min(820px,100%);margin:0 auto;padding:22px 16px 56px}
+.legal-back{display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;padding:9px 16px;border:1px solid var(--edge);border-radius:12px;background:var(--btn);color:var(--ink);font-size:14px;font-weight:700;text-decoration:none}
+.legal-back:hover{background:var(--hover);color:var(--accent)}
+:root[data-theme] body .legal-card{padding:26px 22px 20px;border:1px solid var(--edge);border-radius:26px;background:linear-gradient(180deg,var(--card1),var(--card2))}
+:root[data-theme] body .legal-main h1{margin:0;font-size:clamp(28px,6vw,36px);line-height:1.15;color:var(--ink)}
+:root[data-theme] body .legal-updated{margin:8px 0 14px;color:var(--mute);font-size:14px}.legal-updated strong{color:var(--ink)}
+:root[data-theme] body .legal-intro{color:var(--soft);font-size:16px}
+:root[data-theme] body .legal-notice{margin:14px 0 6px;padding:14px 16px;border:1px solid var(--edge);border-radius:16px;background:var(--hover);color:var(--soft);font-size:14px}
+:root[data-theme] body .legal-section{padding:22px 0 2px;margin-top:20px;border-top:1px solid var(--edge)}
+:root[data-theme] body .legal-section h2{display:flex;align-items:center;gap:11px;margin:0 0 12px;font-size:19px;line-height:1.3;color:var(--ink)}
+.legal-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:12px;background:var(--hover);color:var(--accent)}
+.legal-icon svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:root[data-theme] body .legal-section p,:root[data-theme] body .legal-section li{color:var(--soft)}
+:root[data-theme] body .legal-section a,:root[data-theme] body .legal-switch a{color:var(--accent)}
+:root[data-theme] body .legal-switch{margin-top:22px;padding-top:16px;border-top:1px solid var(--edge);color:var(--mute)}
+:root[data-theme] body .legal-footer{background:var(--bar2);border-top:1px solid var(--edge);color:var(--mute)}
+:root[data-theme] body .legal-footer button{color:var(--accent)}
+/* the older day-mode chat colours must not win over the app tokens */
+:root[data-theme] body .support-panel{background:var(--page);box-shadow:0 24px 60px #0004}
+:root[data-theme] body .support-head{background:linear-gradient(180deg,var(--bar1),var(--bar2))}
+:root[data-theme] body .support-mark{background:var(--brand);color:var(--on-brand)}
+:root[data-theme] body .support-close{background:var(--btn);color:var(--ink)}
+:root[data-theme] body .support-messages{background:var(--page)}
+:root[data-theme] body .support-bubble{background:var(--card1);color:var(--ink);box-shadow:none}
+:root[data-theme] body .support-bubble.sent{background:var(--brand);color:var(--on-brand);border-color:transparent}
+:root[data-theme] body .support-launch{background:var(--brand);color:var(--on-brand);box-shadow:0 10px 28px var(--shadow)}
+:root[data-theme] body .support-launch:hover{background:var(--brand)}
+:root[data-theme] body .support-compose{outline:none;box-shadow:none}
+:root[data-theme] body .support-compose:focus{border-color:#4f8dff}
+:root[data-theme] body .legal-page,:root[data-theme] body .legal-main{border:0;outline:0;box-shadow:none}
