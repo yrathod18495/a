@@ -13,7 +13,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
   const nav = h('nav', { class: 'admin-console-nav', 'aria-label': 'Admin sections' });
   const host = h('div', { class: 'admin-console-host' });
   let showing = 0, current = null;
-  const setActive = (label) => nav.querySelectorAll('.admin-console-tab').forEach((b) => { const on = b.dataset.tab === label; b.classList.toggle('active', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  const setActive = (label) => shell.querySelectorAll('[data-tab]').forEach((b) => { const on = b.dataset.tab === label; b.classList.toggle('active', on); if (on) { b.setAttribute('aria-current', 'page'); b.scrollIntoView?.({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } else b.removeAttribute('aria-current'); });
   async function show(label, factory) {
     const mine = ++showing;
     setActive(label);
@@ -43,11 +43,30 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     ['Add Assets', () => import('./admin-assets.js').then(m => m.assetsView({ user, home, toast, back: goOverview }))],
     ['Affiliates', () => import('./admin-affiliates.js').then(m => m.affiliatesView({ user, toast, back: goOverview }))],
   ];
-  for (const [label, factory] of navItems) nav.append(h('button', { class: 'admin-console-tab', type: 'button', 'data-tab': label, onclick: () => show(label, factory) }, label));
+  const ICONS = {
+    'Overview': 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+    'Users': 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM2 21a7 7 0 0 1 14 0M17 3.5a4 4 0 0 1 0 7M22 21a7 7 0 0 0-5-6.7',
+    'Live Chat': 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z',
+    'Payments': 'M6 4h12M6 9h12M9 4c4 0 6 2 6 5s-2 5-6 5l7 6',
+    'Studio Controls': 'M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M8 14v6',
+    'Tester Requests': 'M9 4h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h2V5a1 1 0 0 1 1-1ZM9 14l2 2 4-4',
+    'Tester Permissions': 'M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6l-8-3ZM9 12l2 2 4-4',
+    'Find Project': 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7ZM15 15l3 3M13.5 14a2.5 2.5 0 1 0 0-.01',
+    'Props & Effects': 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z',
+    'Add Assets': 'M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM12 8v8M8 12h8',
+    'Affiliates': 'M3 10 12 4l9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18',
+  };
+  const icon = (label) => { const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', ICONS[label] || ICONS.Overview); svg.append(path); return svg; };
+  const bottom = h('nav', { class: 'admin-bottomnav', 'aria-label': 'Admin sections (phone)' });
+  for (const [label, factory] of navItems) {
+    nav.append(h('button', { class: 'admin-console-tab', type: 'button', 'data-tab': label, onclick: () => show(label, factory) }, icon(label), h('span', {}, label)));
+    bottom.append(h('button', { class: 'admin-bottom-tab', type: 'button', 'data-tab': label, onclick: () => { show(label, factory); }, }, icon(label), h('span', {}, label)));
+  }
   shell.append(
     h('header', { class: 'admin-console-topbar' }, logo(home), h('span', { class: 'admin-console-brand' }, 'Admin Dashboard'), h('span', { class: 'sp' }), h('span', { class: 'admin-console-user', title: user.email || user.uid }, user.displayName || user.email || 'Administrator'), h('button', { class: 'btn', type: 'button', onclick: home }, 'Home')),
     nav,
     host,
+    bottom,
   );
   shell.dispose = () => { current?.dispose?.(); showing++; };
   goOverview();

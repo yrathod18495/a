@@ -133,7 +133,7 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 }
 
 /* landing hero: the logo, a slow float and one warm accent word, so the page feels alive without heavy motion */
-.lp-hero-logo{display:block;width:150px;height:150px;margin:0 0 14px;animation:lp-float 5s ease-in-out infinite;filter:drop-shadow(0 14px 26px #1f6bff40)}
+.lp-hero-logo{display:block;width:150px;height:150px;margin:0 0 14px;border-radius:33px;box-shadow:0 14px 30px #1f6bff40;animation:lp-float 5s ease-in-out infinite;will-change:transform}
 @keyframes lp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 :root[data-theme] body .lp .lp-hero h1 .lp-accent{color:var(--logo-orange)!important}
 :root[data-theme] body .lp .lp-hero{background:radial-gradient(60% 50% at 80% 10%,#1f6bff26,transparent 70%),radial-gradient(50% 40% at 10% 90%,#ffa72622,transparent 70%)!important}
@@ -151,3 +151,34 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 :root[data-theme] body .lp .lp-header,:root[data-theme] body .lp .lp-header.sh-bar{margin:0;border:0;border-bottom:1px solid var(--edge);border-radius:0;background:var(--page)!important;background-image:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
 :root[data-theme] body .lp .lp-brand-crest,:root[data-theme] body .lp .lp-brand-crest .logo-btn{border:0!important;background:none!important;box-shadow:none!important}
 :root[data-theme] body .lp .lp-header,:root[data-theme] body .lp .lp-header.sh-bar{outline:none!important;outline-offset:0;box-shadow:none!important;margin:0!important;border-radius:0!important;padding-block:12px;min-height:64px}
+
+/* admin dashboard: the reference app's layout. Pill tabs on top (icon + small caps label), a labelled icon bar at the bottom on phones, rounded cards */
+:root[data-theme] body .admin-console{background:var(--page)!important;color:var(--ink)}
+:root[data-theme] body .admin-console-topbar{position:sticky;top:0;z-index:45;display:flex;align-items:center;gap:14px;min-height:64px;padding:8px max(16px,calc((100vw - 1260px)/2));background:linear-gradient(180deg,var(--bar1),var(--bar2))!important;border-bottom:1px solid var(--edge);box-shadow:none}
+:root[data-theme] body .admin-console-brand{display:inline-block;padding:5px 11px;border-radius:999px;background:var(--btn);color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+:root[data-theme] body .admin-console-user{color:var(--mute)}
+:root[data-theme] body .admin-console-nav{position:sticky;top:64px;z-index:44;display:flex;gap:8px;overflow-x:auto;padding:12px max(16px,calc((100vw - 1260px)/2));background:var(--glass)!important;border-bottom:1px solid var(--edge);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);scrollbar-width:none}
+:root[data-theme] body .admin-console-nav::-webkit-scrollbar{display:none}
+:root[data-theme] body .admin-console-tab{display:inline-flex;align-items:center;gap:8px;flex:none;height:38px;padding:0 16px;border:0;border-radius:12px;background:var(--btn)!important;color:var(--mute)!important;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;box-shadow:none;transition:transform .2s,background .2s,color .2s}
+:root[data-theme] body .admin-console-tab svg,.admin-bottom-tab svg{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:root[data-theme] body .admin-console-tab:hover:not(.active){background:var(--hover)!important;color:var(--accent)!important}
+:root[data-theme] body .admin-console-tab.active{background:var(--brand)!important;color:var(--on-brand)!important;box-shadow:0 8px 20px var(--shadow);transform:scale(1.04)}
+.admin-bottomnav{display:none}
+:root[data-theme] body .admin-console-statusbar{color:var(--mute)}
+:root[data-theme] body .admin-panel-card,:root[data-theme] body .admin-kpi{border:1px solid var(--edge);border-radius:22px;background:linear-gradient(180deg,var(--card1),var(--card2));box-shadow:none;color:var(--ink)}
+:root[data-theme] body .admin-panel-card h2,:root[data-theme] body .admin-kpi b,:root[data-theme] body .admin-dashboard-heading h1{color:var(--ink)}
+:root[data-theme] body .admin-kpi small,:root[data-theme] body .admin-kpi p,:root[data-theme] body .admin-eyebrow{color:var(--mute)}
+:root[data-theme] body .admin-kpi-icon{border-radius:14px;background:var(--brand);color:var(--on-brand)}
+@media(max-width:860px){
+  :root[data-theme] body .admin-console-nav{display:none}
+  :root[data-theme] body .admin-console-brand{display:none}
+  .admin-bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:80;display:flex;gap:2px;overflow-x:auto;height:calc(66px + env(safe-area-inset-bottom));padding:6px 6px env(safe-area-inset-bottom);background:var(--glass);border-top:1px solid var(--edge);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 -8px 24px #0003;scrollbar-width:none;scroll-snap-type:x proximity}
+  .admin-bottomnav::-webkit-scrollbar{display:none}
+  .admin-bottom-tab{position:relative;display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:78px;height:54px;border:0;border-radius:14px;background:none;color:var(--mute);font:inherit;cursor:pointer;scroll-snap-align:center;opacity:.75;transition:color .2s,background .2s,opacity .2s}
+  .admin-bottom-tab svg{width:22px;height:22px}
+  .admin-bottom-tab span{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+  .admin-bottom-tab.active{color:var(--accent);background:var(--hover);opacity:1}
+  .admin-bottom-tab.active::after{content:"";position:absolute;bottom:2px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+  :root[data-theme] body .admin-console-host{padding-bottom:90px}
+}
+:root[data-theme] body .admin-kpi .admin-kpi-icon{background:var(--brand)!important;color:var(--on-brand)!important}
