@@ -561,7 +561,7 @@ function dockWire(el, name) {
    Where they were left is remembered; double-click the grip / title bar to dock them back. A floating menu that has slid
    away leaves a small round button in its place; touching it brings the menu back. */
 const dockKey = { rail: 'railPos', panel: 'panelPos' }, pills = {};
-const floatingOk = () => innerWidth > 860;
+const floatingOk = () => innerWidth > 860 && innerWidth < 1000;          // from 1000 px the three-column workspace is fixed (panel and menu cannot float)
 const clampTo = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
 function railCount() { return [...tabsEl.children].filter((c) => !c.classList.contains('dock-grip') && !c.classList.contains('rail-label')).length; }
 function placeDock(name) {

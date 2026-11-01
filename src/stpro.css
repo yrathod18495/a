@@ -365,7 +365,7 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 
 /* ===== Animator Studio on a computer: a fixed three-column workspace (labelled steps | stage + timeline | tool panel) with bigger controls ===== */
 @media(min-width:1000px){
-  body #app .ws{--panel-w:380px;--tl-h:clamp(250px,36vh,380px);padding:12px 16px;font-size:14px}
+  body #app .ws{--panel-w:380px;--tl-h:fit-content(48vh);padding:12px 16px;font-size:14px}
   body #app .ws .topbar{min-height:64px;margin:0 0 12px;padding:8px 14px}
   body #app .ws .studio,body #app .ws:has(.panel:not(.open)) .studio{position:relative;display:grid;grid-template-columns:244px minmax(0,1fr) var(--panel-w);grid-template-rows:minmax(0,1fr) var(--tl-h);grid-template-areas:'rail prev side' 'rail tl side';gap:12px}
   body #app .ws .tabs.big,body #app .ws .panel{position:static!important;transform:none!important;opacity:1!important;pointer-events:auto!important;box-shadow:none!important;top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;width:auto!important;height:100%!important;max-height:none!important;margin:0!important;z-index:1}
@@ -814,3 +814,5 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 #app .ws .tltools .clipbar .cb-n{gap:3px}
 #app .ws .tltools .clipbar .btn{padding:0 7px!important}
 #app .ws .tltools{gap:3px}
+/* the timeline is as tall as its rows need (up to about half the screen), so no row is cut off or hidden behind a scroll; dragging the bar still sets a fixed height */
+@media(min-width:1000px){#app .ws .tlwrap{min-height:250px}}

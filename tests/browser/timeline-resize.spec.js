@@ -35,3 +35,14 @@ test('the edit buttons sit in the same row as the zoom buttons', async ({ page }
   expect(Math.abs(zoom.y - split.y)).toBeLessThan(8);
   await expect(page.locator('.edit-split')).toBeVisible();
 });
+
+test('a floating side panel saved on a small screen does not shrink the docked panel, and every timeline row is visible', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('12toons.studio.layout', JSON.stringify({ panelPos: { x: 20, y: 20, w: 300, h: 300 } })));
+  await studio(page);
+  await page.setViewportSize({ width: 1366, height: 640 });
+  await page.evaluate(async () => { const T = window.__toon, c = document.createElement('canvas'); c.width = c.height = 8; c.getContext('2d').fillRect(0, 0, 8, 8); const blob = await new Promise((r) => c.toBlob(r)); T.stage.bg.preset = 1; T.S.props.push({ id: 'p1', name: 'Lamp', visible: true, blob }); T.drawTimeline(); });
+  const panel = await page.locator('.panel').boundingBox(), wrap = await page.locator('.tlwrap').boundingBox();
+  expect(Math.abs(panel.y + panel.height - (wrap.y + wrap.height))).toBeLessThan(4);          // the panel reaches the bottom, next to the timeline
+  const tl = await page.locator('.tl2').evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }));
+  expect(tl.scroll).toBeLessThanOrEqual(tl.client + 2);                                        // nothing hidden below
+});
