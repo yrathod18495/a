@@ -2,7 +2,6 @@
 // what protects the data are the Firestore rules (firebase/firestore.rules) and the server check in api/r2.js.
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { initializeFirestore, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 
 const env = import.meta.env;
 const config = {
@@ -17,7 +16,9 @@ const DATABASE_ID = env.VITE_FIRESTORE_DATABASE_ID || '(default)';
 
 const app = initializeApp(config);
 export const auth = getAuth(app);
-export const db = initializeFirestore(app, { experimentalForceLongPolling: true }, DATABASE_ID);
+// Firestore is a large library and only a few settings reads use it, so it is loaded the first time one of them runs, not at start-up
+let firestoreReady;
+export const firestore = () => firestoreReady ||= import('firebase/firestore').then((m) => ({ ...m, db: m.initializeFirestore(app, { experimentalForceLongPolling: true }, DATABASE_ID) }));
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
@@ -95,6 +96,4 @@ window.addEventListener('session-revoked', () => { signOut(auth); });
 export const idToken = () => auth.currentUser?.getIdToken();
 
 /** every user's own space: workspaces/{uid}  (+ sub-collections) */
-export const wsDoc = (uid, ...path) => doc(db, 'workspaces', uid, ...path);
-export { doc, getDoc, setDoc, collection, getDocs, deleteDoc };
 

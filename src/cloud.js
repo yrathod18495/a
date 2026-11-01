@@ -1,6 +1,6 @@
 // Cloud side of 12toons: profile in Firestore, files in Cloudflare R2 (through /api/r2), and a "sync" that mirrors
 // everything saved on this device (project, audio, characters, backgrounds and animation data).
-import { auth, db, wsDoc, doc, getDoc, setDoc, deleteDoc } from './firebase.js';
+import { auth, firestore } from './firebase.js';
 import { syncAll } from './project-sync.js';
 import { apiCall } from './session.js';
 import { uploadAssets, confirmAssets, downloadAssets, hashBlob, fetchBlob } from './binary-cloud.js';
@@ -17,7 +17,7 @@ const CONFIG_TTL = 10 * 60 * 1000, PROFILE_TTL = 12 * 60 * 60 * 1000;
 export async function ensureProfile(user) {
   if (!user || user.uid === 'debug' || recent('profile-' + user.uid, PROFILE_TTL)) return;      // the profile is refreshed at most twice a day
   try {
-    const ref = wsDoc(user.uid), snap = await getDoc(ref), now = new Date().toISOString();
+    const { db, doc, getDoc, setDoc } = await firestore(), ref = doc(db, 'workspaces', user.uid), snap = await getDoc(ref), now = new Date().toISOString();
     await setDoc(ref, { name: user.displayName || 'Creator', email: user.email || '', photoURL: user.photoURL || '', joinedAt: snap.data()?.joinedAt || now, lastSeen: now, plan: 'Free' }, { merge: true });
     touched('profile-' + user.uid);
   } catch (e) { console.warn('profile sync failed', e.message); }
@@ -115,7 +115,7 @@ export async function loadAnimRules() {
   if (!debug) {
     if (cachedRules() && recent('animrules', CONFIG_TTL)) return cachedRules();
     try {
-      const snap = await withTimeout(getDoc(doc(db, 'config', 'animations')), 5000);
+      const { db, doc, getDoc } = await firestore(), snap = await withTimeout(getDoc(doc(db, 'config', 'animations')), 5000);
       if (snap.exists()) { const d = snap.data(), r = { hidden: JSON.parse(d.hidden || '{}'), at: d.updatedAt || '' }; try { localStorage.setItem(RULES_KEY, JSON.stringify(r)); } catch { /* optional */ } touched('animrules'); return r; }
       try { localStorage.setItem(RULES_KEY, JSON.stringify({ hidden: {}, at: '' })); } catch { /* optional */ }
       touched('animrules');
@@ -127,6 +127,7 @@ export async function loadAnimRules() {
 export async function saveAnimRules(hidden, user) {
   const at = new Date().toISOString(), clean = Object.fromEntries(Object.entries(hidden).filter(([, v]) => v.length));
   if (!user || user.uid === 'debug') { localStorage.setItem(RULES_KEY, JSON.stringify({ hidden: clean, at })); return { at, local: true }; }
+  const { db, doc, setDoc } = await firestore();
   await setDoc(doc(db, 'config', 'animations'), { hidden: JSON.stringify(clean), updatedAt: at, by: user.email || '' });
   try { localStorage.setItem(RULES_KEY, JSON.stringify({ hidden: clean, at })); } catch { /* optional */ }
   touched('animrules');
@@ -164,7 +165,7 @@ export async function loadLayerRules() {
   if (!debug) {
     if (cachedLayerRules() && recent('layers', CONFIG_TTL)) return cachedLayerRules();
     try {
-      const snap = await withTimeout(getDoc(doc(db, 'config', 'layers')), 5000);
+      const { db, doc, getDoc } = await firestore(), snap = await withTimeout(getDoc(doc(db, 'config', 'layers')), 5000);
       const r = snap.exists() ? { names: JSON.parse(snap.data().names || '{}'), hidden: JSON.parse(snap.data().hidden || '{}'), at: snap.data().updatedAt || '' } : { names: {}, hidden: {}, at: '' };
       try { localStorage.setItem(LAYER_KEY, JSON.stringify(r)); } catch { /* optional */ }
       touched('layers');
@@ -178,7 +179,7 @@ export async function saveLayerRules({ names, hidden }, user) {
   const cleanNames = Object.fromEntries(Object.entries(names).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).filter(([, n]) => String(n).trim()))]).filter(([, v]) => Object.keys(v).length));
   const cleanHidden = Object.fromEntries(Object.entries(hidden).filter(([, v]) => v.length));
   const r = { names: cleanNames, hidden: cleanHidden, at };
-  if (user && user.uid !== 'debug') await setDoc(doc(db, 'config', 'layers'), { names: JSON.stringify(cleanNames), hidden: JSON.stringify(cleanHidden), updatedAt: at, by: user.email || '' });
+  if (user && user.uid !== 'debug') { const { db, doc, setDoc } = await firestore(); await setDoc(doc(db, 'config', 'layers'), { names: JSON.stringify(cleanNames), hidden: JSON.stringify(cleanHidden), updatedAt: at, by: user.email || '' }); }
   try { localStorage.setItem(LAYER_KEY, JSON.stringify(r)); } catch { /* optional */ }
   touched('layers');
   return r;
