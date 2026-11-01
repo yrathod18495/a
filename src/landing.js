@@ -26,6 +26,10 @@ const USE_CASES = [
 
 
 const HERO_PATHS = { characters: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0', voice: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM6 11a6 6 0 0 0 12 0M12 17v4', timeline: 'M3 5h18v14H3zM3 10h18M8 5v14M16 5v14', export: 'M12 4v11m0 0-4-4m4 4 4-4M5 20h14' };
+function menuIcon() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M4 6h16M4 12h16M4 18h16'); svg.append(path); return svg;
+}
 function heroIcon(name) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', HERO_PATHS[name]); svg.append(path);
@@ -79,8 +83,11 @@ export function landingView({ user, cta, profileMenu, logo }) {
     navLink('Home', 'top'), navLink('Features', 'features'), navLink('How it works', 'how'),
     h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing'), navLink('FAQ', 'faq'));
 
+  const burger = h('button', { type: 'button', class: 'hdr-burger', 'aria-label': 'Open menu', 'aria-expanded': 'false', onclick: () => { const open = mobileNav.classList.toggle('open'); burger.setAttribute('aria-expanded', String(open)); } }, menuIcon());
+  mobileNav.addEventListener('click', (e) => { if (e.target.closest('a')) { mobileNav.classList.remove('open'); burger.setAttribute('aria-expanded', 'false'); } });
   return h('div', { class: 'sh lp' },
     h('header', { class: 'sh-bar lp-header' },
+      burger,
       leftNav,
       h('div', { class: 'lp-brand-crest' }, brand),
       h('div', { class: 'lp-header-right' }, rightNav,
