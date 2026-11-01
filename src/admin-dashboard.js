@@ -123,7 +123,7 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
 
       content.append(
         h('div', { class: 'admin-dashboard-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'WORKSPACE OVERVIEW'), h('h1', {}, 'Dashboard'), h('p', {}, 'Live account, payment, support and partner activity from your admin services.')),
-          h('span', { class: 'admin-refresh-note' }, 'Auto refresh · 15 sec')),
+          h('span', { class: 'admin-refresh-note' }, 'Updates when you press Refresh')),
         h('div', { class: 'admin-kpi-grid' },
           stat('Accounts in current report', number(users.length), 'The security API returns up to 100 account records per refresh.', '♙'),
           stat('Active sessions in report', number(sessions.length), 'Sessions not revoked and not expired.', '⌁', 'blue'),
@@ -199,9 +199,8 @@ export function dashboardView({ user, home, toast, openStudio, openTesters }) {
     renderDashboard();
     refresh();
     setTimeout(refreshRequests, 50);       // the page is attached to the document by then
-    const requestTimer = window.setInterval(() => { if (!root.isConnected) { clearInterval(requestTimer); return; } refreshRequests(); }, 15000);
-    root.dispose = () => { clearInterval(timer); clearInterval(requestTimer); };
-    const timer = window.setInterval(() => { if (!root.isConnected) { clearInterval(timer); return; } refresh(); }, 30000);
+    // no automatic refresh: the numbers update when the page opens or when Refresh is pressed
+    root.dispose = () => {};
     return root;
 
   }

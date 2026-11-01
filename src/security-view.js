@@ -202,20 +202,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     finally{loading=false;refresh.disabled=false;}
   }
   await load();
-  requestTimer=window.setInterval(async()=>{
-    if(!root.isConnected){window.clearInterval(requestTimer);return;}
-    if(document.hidden)return;
-    try{
-      const data=await apiCall('/api/security',{action:'testerRequests'});
-      if (!state) { await load(false); return; }
-      const previous = new Set((state.testerRequests||[]).map(request=>request.uid));
-      state.testerRequests=data.requests||[];
-      const added=state.testerRequests.filter(request=>!previous.has(request.uid));
-      if(added.length)toast(`${added.length} new tester access request${added.length===1?'':'s'} awaiting approval.`);
-      renderStats();renderTabs();
-      if(tab==='testers')renderTesterRequests();
-    }catch(error){console.warn('Could not refresh tester requests:',error.message);}
-  },15000);
-  root.dispose=()=>window.clearInterval(requestTimer);
+  // no automatic refresh: use the Refresh button
+  root.dispose=()=>{};
   return root;
 }

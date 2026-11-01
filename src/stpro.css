@@ -182,3 +182,14 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
   :root[data-theme] body .admin-console-host{padding-bottom:90px}
 }
 :root[data-theme] body .admin-kpi .admin-kpi-icon{background:var(--brand)!important;color:var(--on-brand)!important}
+
+/* landing: the menu shortcuts next to the logo, so the space beside it is used */
+.lp-hero-top{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.lp-hero-top .lp-hero-logo{margin:0;flex:none}
+.lp-quick{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-width:0}
+.lp-quick-link{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:68px;padding:8px 4px;border:1px solid var(--edge);border-radius:16px;background:linear-gradient(180deg,var(--card1),var(--card2));text-decoration:none;text-align:center;transition:transform .15s,border-color .15s}
+:root[data-theme] body .lp .lp-quick-link{color:var(--ink)!important}
+.lp-quick-link:hover{border-color:#4f8dff;transform:translateY(-1px)}
+.lp-quick-link svg{width:24px;height:24px;fill:none;stroke:var(--accent);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.lp-quick-link span{font-size:10.5px;font-weight:800;line-height:1.15;letter-spacing:.01em}
+@media(min-width:861px){.lp-hero-top{gap:22px}.lp-quick{grid-template-columns:repeat(4,minmax(0,150px))}}
