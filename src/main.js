@@ -1162,10 +1162,10 @@ function drawClipBar() {
   if (!f) { clipBar.hidden = true; return; }
   const { s, m, list } = f;
   const num = (label, get, set) => h('label', { class: 'cb-n' }, label, h('input', { type: 'number', step: 0.05, min: 0, value: get().toFixed(2), onchange: (e) => { set(+e.target.value || 0); setTimeout(commitClips, 0); } }));
-  const btn = (txt, fn, title) => h('button', { class: 'btn sm', title, onclick: fn }, txt);
+  const btn = (txt, fn, title) => h('button', { class: `btn sm${/Delete/.test(txt) ? ' cb-del' : ''}`, title, onclick: fn }, txt);
   clipBar.hidden = false;
   clipBar.replaceChildren(
-    h('span', { class: 'dot', style: `background:${s?.color || '#888'}` }), h('b', { class: 'cb-name' }, m.ref.name), h('small', {}, `${s?.name || ''} · ${m.kind}`),
+    
     num('Start s', () => m.start, (v) => { m.start = Math.max(0, snap(v)); }), num('Length s', () => m.dur, (v) => { m.dur = Math.max(0.2, v); }),
     btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — at the playhead'),
     btn('⧉ Duplicate', () => { const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(m.start + m.dur) }; list.push(c); S.mclip = c.id; commitClips(); }, 'Same animation again, right after this one'),
@@ -1182,7 +1182,9 @@ function copySelected() {
   else if (bc) S.clipboard = { type: 'bg', data: clone(bc) };
   else if (pr) S.clipboard = { type: 'prop', data: { ...pr } };
   else { toast('Please choose a clip on the timeline first, then copy it.'); return false; }
-  toast('Clip copied. Place the playhead where you want it and press Ctrl+V to paste.'); drawClipBar(); return true;
+  // the hint is shown the first time only (and kept short); after that the Paste button / Ctrl+V are enough
+  try { if (!localStorage.getItem('toons-hint-copy')) { localStorage.setItem('toons-hint-copy', '1'); toast('Copied. Move the playhead, then Paste.'); } } catch { /* no hint */ }
+  drawClipBar(); return true;
 }
 async function pasteClip() {
   const cb = S.clipboard;
@@ -1205,10 +1207,10 @@ async function pasteClip() {
 /** the bar under the timeline for a selected background clip or prop / effect: exact start and length */
 function rangeBar(bc, pr) {
   const num = (label, get, set) => h('label', { class: 'cb-n' }, label, h('input', { type: 'number', step: 0.05, min: 0, value: get().toFixed(2), onchange: (e) => { set(+e.target.value || 0); if (bc) syncBgClips(); else { stage.setProps(S.props); dbPut('props', pr); } setTimeout(commitClips, 0); } }));
-  const btn = (txt, fn, title) => h('button', { class: 'btn sm', title, onclick: fn }, txt);
+  const btn = (txt, fn, title) => h('button', { class: `btn sm${/Delete/.test(txt) ? ' cb-del' : ''}`, title, onclick: fn }, txt);
   const name = bc ? (bc.bgId ? S.myBgs.find((r) => r.id === bc.bgId)?.name || 'Background image' : (BACKGROUNDS[bc.preset] || BACKGROUNDS[0]).name) : pr.name;
   clipBar.hidden = false;
-  clipBar.replaceChildren(h('b', { class: 'cb-name' }, name), h('small', {}, bc ? 'Background' : isEffect(pr) ? 'Effect' : 'Prop'),
+  clipBar.replaceChildren(
     bc ? num('Start s', () => bc.start, (v) => { bc.start = Math.max(0, snapTo(v)); }) : num('Start s', () => pr.start || 0, (v) => { pr.start = Math.max(0, snapTo(v)); }),
     bc ? num('Length s', () => bc.dur, (v) => { bc.dur = Math.max(MIN_CLIP, v); }) : num('Length s', () => (pr.end ?? player.total) - (pr.start || 0), (v) => { pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }),
     btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — at the playhead'),
@@ -2513,6 +2515,9 @@ async function doExport() {
 const blobIds = new WeakMap(), blobReg = new Map();
 function bid(b) { let id = blobIds.get(b); if (!id) { id = `b${Math.random().toString(36).slice(2, 9)}`; blobIds.set(b, id); blobReg.set(id, b); } return id; }
 const hist = new EditHistory(100);
+let historyPointerAt = 0;
+// a finger that opened a file picker or a system menu may never send its "up"; a press with no movement for 1.5 s no longer blocks undo / redo or history capture
+const pointerBusy = () => { if (historyPointer === null) return false; if (Date.now() - historyPointerAt > 1500) { historyPointer = null; return false; } return true; };
 let historyDepth = 0, historyPointer = null, historyQueued = false, historyGroup = null;
 let hdrUndo, hdrRedo, savedEl, lastSaved = '', saving = false, savedTimer;
 const savedAudio = new Set();
@@ -2631,7 +2636,7 @@ async function saveProject(doc, docStr) {
   localSaveError = ''; updateSaveStatus({ text: navigator.onLine ? 'Saving' : 'Offline' });
 }
 async function tick({ sceneCommit = false } = {}) {
-  if (!S.ready || hist.busy || saving || S.exporting || historyPointer !== null || (historyDepth && !sceneCommit) || (sceneChanging && !sceneCommit) || $app.hidden) return;
+  if (!S.ready || hist.busy || saving || S.exporting || pointerBusy() || (historyDepth && !sceneCommit) || (sceneChanging && !sceneCommit) || $app.hidden) return;
   saving = true;
   try {
     const doc = docOf(), str = JSON.stringify(doc);
@@ -2644,7 +2649,7 @@ function editGroup(event) {
   return ['input', 'change'].includes(event.type) && event.target.matches('textarea,input:not([type=checkbox]):not([type=radio]):not([type=file])') ? event.target : null;
 }
 function captureHistory(group = historyGroup) {
-  if (!S.ready || !hist.cur || hist.busy || historyDepth || historyPointer !== null || S.exporting || sceneChanging || previewChanging || $app.hidden) return;
+  if (!S.ready || !hist.cur || hist.busy || historyDepth || pointerBusy() || S.exporting || sceneChanging || previewChanging || $app.hidden) return;
   hist.record(docOf(), group); updateHistoryButtons();
 }
 function queueHistoryCapture(group) {
@@ -2669,18 +2674,19 @@ for (const type of ['input', 'change', 'click', 'drop']) document.addEventListen
 }, true);
 document.addEventListener('pointerdown', event => {
   if (!inStudio(event.target) || hist.busy || S.exporting || event.target.closest('[data-history-control]')) return;
-  captureHistory(); historyPointer = event.pointerId;
+  captureHistory(); historyPointer = event.pointerId; historyPointerAt = Date.now();
 }, true);
 const endHistoryPointer = event => {
   if (event && event.pointerId !== historyPointer) return;
   queueMicrotask(() => { historyPointer = null; queueHistoryCapture(null); });
 };
+window.addEventListener('pointermove', () => { if (historyPointer !== null) historyPointerAt = Date.now(); }, { capture: true, passive: true });
 window.addEventListener('pointerup', endHistoryPointer, true);
 window.addEventListener('pointercancel', endHistoryPointer, true);
 window.addEventListener('blur', () => endHistoryPointer());
 function updateHistoryButtons() { if (hdrUndo) { hdrUndo.disabled = hist.busy || historyDepth > 0 || !hist.undo.length; hdrRedo.disabled = hist.busy || historyDepth > 0 || !hist.redo.length; if (tlUndo) { tlUndo.disabled = hdrUndo.disabled; tlRedo.disabled = hdrRedo.disabled; } } }
 async function stepHistory(dir) {
-  if (S.exporting || hist.busy || sceneChanging || previewChanging || sceneDialogOpen || historyDepth || historyPointer !== null) return;
+  if (S.exporting || hist.busy || sceneChanging || previewChanging || sceneDialogOpen || historyDepth || pointerBusy()) return;
   captureHistory();
   const target = hist.destination(dir);
   if (!target) return;

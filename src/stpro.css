@@ -539,3 +539,12 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 :root[data-theme] body .lp .lp-header>.lp-button{min-height:34px!important;padding:6px 12px!important}
 :root[data-theme] body .lp .lp-header .lp-nav a{padding:10px 0!important}
 :root[data-theme] body .lp .lp-header .lp-nav a:after{bottom:2px}
+
+/* clip bar like a video editor's action strip: start / length first, then big icon-over-label actions, Delete in red */
+#app .ws .clipbar{gap:8px!important;padding:8px 10px!important;min-height:0!important;align-items:stretch!important}
+#app .ws .clipbar .cb-n{display:flex;flex-direction:column;gap:2px;flex:none;color:#9a9ea8;font-size:11px;font-weight:650;white-space:nowrap}
+#app .ws .clipbar .cb-n input{width:72px;height:36px;padding:0 8px;border-radius:10px}
+#app .ws .clipbar .btn{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:60px;height:auto!important;padding:8px 8px!important;border-radius:12px;font-size:11px!important;font-weight:650;line-height:1.1}
+#app .ws .clipbar .btn svg{width:20px;height:20px}
+#app .ws .clipbar .btn.cb-del{background:#3a1d22!important;color:#ff7a8c!important;border:1px solid #7a2e3a!important}
+#app .ws .clipbar .btn.cb-del svg{stroke:#ff7a8c}
