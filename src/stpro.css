@@ -142,3 +142,12 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 
 /* header badge: text "12" in the brand colour, next to the name */
 .brand-mark{display:inline-grid;place-items:center;width:1.9em;height:1.9em;margin-right:.3em;border-radius:.45em;background:var(--brand);color:#fff;font-weight:900;font-size:.82em;letter-spacing:-.02em;line-height:1;box-shadow:0 6px 16px var(--shadow)}
+
+/* header brand: plain text like the reference app, "12" in the logo blue, no badge, no frame around the text */
+:root{--logo-blue:#5b9bff}
+:root[data-theme="day"]{--logo-blue:#1f5fe0}
+.brand-mark{display:inline;width:auto;height:auto;margin:0 .02em 0 0;padding:0;border-radius:0;background:none;box-shadow:none;color:var(--logo-blue);font-weight:900;font-size:1.25em;letter-spacing:-.03em;line-height:1}
+.brand-name{font-weight:800;color:var(--ink)}
+:root[data-theme] body .lp .lp-header,:root[data-theme] body .lp .lp-header.sh-bar{margin:0;border:0;border-bottom:1px solid var(--edge);border-radius:0;background:var(--page)!important;background-image:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+:root[data-theme] body .lp .lp-brand-crest,:root[data-theme] body .lp .lp-brand-crest .logo-btn{border:0!important;background:none!important;box-shadow:none!important}
+:root[data-theme] body .lp .lp-header,:root[data-theme] body .lp .lp-header.sh-bar{outline:none!important;outline-offset:0;box-shadow:none!important;margin:0!important;border-radius:0!important;padding-block:12px;min-height:64px}
