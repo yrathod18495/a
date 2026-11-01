@@ -1,4 +1,3 @@
-import manifest from '../public/12toons/characters.json' with { type: 'json' };
 import { animationData, animationTarget, ANIMATION_LAYERS, MAX_ANIMATION_BYTES } from '../src/managed-animation.js';
 import { services } from '../server/firebase-admin.js';
 import { maintenanceOn } from '../server/maintenance.js';
@@ -8,6 +7,9 @@ import { kv } from '../server/rtdb.js';
 import { AccessError } from '../server/security-policy.js';
 import { cleanAssetMeta } from '../shared/studio-effects.js';
 
+// The bundled character library (public/12toons) was removed, so no built-in rig is a valid animation target any more.
+// Importing that deleted file crashed this whole function (props, backgrounds, effects and the library list all failed).
+const manifest = { characters: [] };
 const idOK = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{12,80}$/.test(value);
 const LIBRARY_CACHE_MS = 30_000;
 let libraryCache = null;
