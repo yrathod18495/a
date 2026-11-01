@@ -183,16 +183,25 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 }
 :root[data-theme] body .admin-kpi .admin-kpi-icon{background:var(--brand)!important;color:var(--on-brand)!important}
 
-/* landing: one vertical line of big shortcut icons that fills the free strip on the right of the logo and headline; the top button (three lines) opens it to show the names */
+/* landing: one slim vertical line of shortcut icons at the top right; the three-line button at the top opens it to show the names. Icons are black in day and white in night, and the strip animates in. */
 .lp-hero{position:relative}
-.lp-dock{position:absolute;top:12px;right:10px;z-index:6;display:flex;flex-direction:column;justify-content:space-between;gap:6px;width:62px;height:322px;padding:7px;box-sizing:border-box;border:1px solid var(--edge);border-radius:24px;background:var(--glass);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);overflow:hidden;transition:width .22s ease,box-shadow .22s}
-.lp-dock.open{width:224px;box-shadow:0 16px 38px #0005}
-.lp-dock-item{display:flex;align-items:center;justify-content:flex-start;gap:14px;flex:1;min-height:0;padding:0 11px;border:0;border-radius:16px;background:none;font:inherit;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.lp-dock{position:absolute;top:18px;right:10px;z-index:6;display:flex;flex-direction:column;gap:6px;width:54px;padding:7px;box-sizing:border-box;border:1px solid var(--edge);border-radius:22px;background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);overflow:hidden;transition:width .24s cubic-bezier(.3,.8,.3,1),box-shadow .24s;animation:dock-in .55s cubic-bezier(.2,.8,.2,1) both}
+.lp-dock.open{width:206px;box-shadow:0 14px 34px #0004}
+.lp-dock-item{display:flex;align-items:center;gap:12px;flex:none;height:40px;padding:0 8px;border:0;border-radius:13px;background:none;font:inherit;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .2s,transform .2s;animation:dock-item .45s cubic-bezier(.2,.8,.2,1) both}
+.lp-dock-item:nth-child(1){animation-delay:.12s}.lp-dock-item:nth-child(2){animation-delay:.2s}.lp-dock-item:nth-child(3){animation-delay:.28s}.lp-dock-item:nth-child(4){animation-delay:.36s}.lp-dock-item:nth-child(5){animation-delay:.44s}
 :root[data-theme] body .lp .lp-dock-item{color:var(--ink)!important}
-.lp-dock-item:hover{background:var(--hover)}
-.lp-dock-item svg{flex:none;width:30px;height:30px;fill:none;stroke:var(--accent);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.lp-dock-item span{font-size:15px;font-weight:800;opacity:0;transition:opacity .15s}
-.lp-dock.open .lp-dock-item span{opacity:1}
-.lp-dock-toggle{background:var(--btn)}
+.lp-dock-item:hover{background:var(--hover);transform:translateX(-2px)}
+.lp-dock-item:active{transform:scale(.96)}
+.lp-dock-item svg{flex:none;width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
+.lp-dock-item:hover svg{transform:scale(1.15)}
+.lp-dock-item span{font-size:13px;font-weight:800;opacity:0;transform:translateX(8px);transition:opacity .2s .05s,transform .24s .05s}
+.lp-dock.open .lp-dock-item span{opacity:1;transform:none}
+.lp-dock-toggle{background:var(--btn);position:relative}
 .lp-dock-toggle:hover{background:var(--hover)}
-@media(min-width:861px){.lp-dock{top:18px;right:22px;height:340px}}
+.lp-dock-toggle::after{content:"";position:absolute;inset:0;border-radius:13px;box-shadow:0 0 0 0 var(--shadow);animation:dock-pulse 3.2s ease-out 1.4s infinite;pointer-events:none}
+.lp-dock.open .lp-dock-toggle::after{animation:none}
+@keyframes dock-in{from{opacity:0;transform:translateX(28px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes dock-item{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes dock-pulse{0%{box-shadow:0 0 0 0 #4f8dff66}70%,100%{box-shadow:0 0 0 12px #4f8dff00}}
+@media(prefers-reduced-motion:reduce){.lp-dock,.lp-dock-item,.lp-dock-toggle::after{animation:none}}
+@media(min-width:861px){.lp-dock{top:22px;right:22px}}
