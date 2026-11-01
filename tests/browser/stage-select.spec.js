@@ -55,7 +55,7 @@ test(`${N} voices + ${N} characters + 5 backgrounds + 3 effects: every character
       S.sharedAssets.push({ id, type: 'effect', name, category: 'Magic', blend, opacity: 0.4, placement: 'full', updatedAt: '1' });
     }
   });
-  await tab(page, 'Effects');
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await tab(page, 'Effects');
   for (let i = 0; i < 3; i++) await press(page.locator('.lib-card').nth(i));
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.filter(p => p.kind === 'effect').length)).toBe(3);
   // 1. a click on each character selects exactly that character and shows its frame with four handles

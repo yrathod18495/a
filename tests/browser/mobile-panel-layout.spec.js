@@ -16,7 +16,7 @@ test('closing and reopening tools keeps the mobile toolbar below the timeline', 
     await page.setViewportSize({ width, height });
     if (await page.evaluate(() => window.__toon.S.panelOpen)) await close.click();
     for (let cycle = 0; cycle < 2; cycle++) {
-      await rail.getByRole('button', { name: 'Effects', exact: true }).click();
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await rail.getByRole('button', { name: 'Effects', exact: true }).click();
       await expect(page.locator('.panel.open')).toBeVisible();
       await close.click();
       await expect(page.locator('.panel.open')).toHaveCount(0);

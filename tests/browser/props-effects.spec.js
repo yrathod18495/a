@@ -40,7 +40,7 @@ test('props and effects come from the shared library, show in front, honour opac
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.map((p) => p.kind))).toEqual(['prop']);
   const beneath = await centerPixel(page);
-  await rail.getByRole('button', { name: 'Effects', exact: true }).click();
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await rail.getByRole('button', { name: 'Effects', exact: true }).click();
   await expect(page.locator('.lib-card')).toHaveCount(2);
   await page.locator('.lib-card').filter({ hasText: 'Sparkle' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.filter((p) => p.kind === 'effect').length)).toBe(1);
@@ -85,7 +85,7 @@ test('effects can be removed and props can be sent behind characters', async ({ 
   expect(await page.evaluate(() => window.__toon.S.props[0].behind)).toBe(true);
   await page.getByRole('button', { name: 'Remove prop' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(0);
-  await rail.getByRole('button', { name: 'Effects', exact: true }).click();
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await rail.getByRole('button', { name: 'Effects', exact: true }).click();
   await page.locator('.lib-card').filter({ hasText: 'Sparkle' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
   await page.getByRole('button', { name: 'Remove effect' }).click();

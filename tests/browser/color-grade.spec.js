@@ -22,7 +22,7 @@ test('the Colour tab grades the whole scene live, presets and Reset All work, an
   await studio(page);
   await page.evaluate(() => { const { stage } = window.__toon; stage.bg.preset = 3; stage.S = 1; window.__toon.S.dirty = true; });
   const base = await corner(page);
-  await page.locator('#app .tabs.big').getByRole('button', { name: 'Colour', exact: true }).click();
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await page.locator('#app .tabs.big').getByRole('button', { name: 'Colour', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Colour Grading/ })).toBeVisible();
   // brightness down darkens, saturation 0 makes the picture grey
   await setNum(page, 'Brightness', 0.5);
@@ -50,7 +50,7 @@ test('the grade can change over time: keyframes glide from one look to the next,
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page);
   await page.evaluate(() => { window.__toon.stage.bg.preset = 3; window.__toon.S.dirty = true; });
-  await page.locator('#app .tabs.big').getByRole('button', { name: 'Colour', exact: true }).click();
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await page.locator('#app .tabs.big').getByRole('button', { name: 'Colour', exact: true }).click();
   const at = (t) => page.evaluate((t) => {
     const { stage } = window.__toon; stage.render(t, 0, [], []);
     const px = new Uint8Array(4), gl = stage.gl; gl.readPixels(6, 6, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); return [...px];

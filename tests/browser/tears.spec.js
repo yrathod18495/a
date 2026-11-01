@@ -3,7 +3,7 @@ async function open(page,workers=0){
  await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
  await page.goto(`/?debug&workers=${workers}#/toons`);await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Tears');await page.getByRole('button',{name:'Create project',exact:true}).click();await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
- await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();
 }
 const config=page=>page.evaluate(()=>window.__toon.S.speakers[0].tears);
 async function seek(page,time){await page.evaluate(time=>{window.__toon.player.seek(time);window.__toon.S.dirty=true;},time);await expect.poll(()=>page.evaluate(()=>window.__toon.metrics.framePending)).toBe(false);}
@@ -73,6 +73,6 @@ test('tear attachment works for all six characters, a side pose and hides on bac
   const chars=page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true});if(await chars.getAttribute('aria-pressed')==='true')await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();
   expect((await choose(name)).sort()).toEqual(['left','right']);
  }
- await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();expect(await choose('Neha','Side')).toEqual(['left']);
- await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();expect(await choose('Neha','Back')).toEqual([]);
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();expect(await choose('Neha','Side')).toEqual(['left']);
+await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();expect(await choose('Neha','Back')).toEqual([]);
 });

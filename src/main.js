@@ -811,7 +811,7 @@ function drawTabs() {
   updatePathView();
   stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
-  const advanced = new Set(['motion', 'camera', 'mask', 'ai']);
+  const advanced = new Set(['motion', 'camera', 'mask', 'ai', 'tears', 'effects', 'grade']);
   const button = ([key, label, ic], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
     if (S.tab === key && !openOnly && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
     drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
@@ -827,7 +827,7 @@ function drawTabs() {
     },
   },
     h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('settings')), h('span', { class: 'sr' }, 'Advanced')),
-    h('div', { class: 'advanced-tools-list' }, ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
+    h('div', { class: 'advanced-tools-list' }, ...adv('Look', ['tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
   const uploads = new Set(['audio', 'canvas', 'props']);
   const upload = h('details', {
     class: `upload-tools${uploads.has(S.tab) && S.panelOpen ? ' has-active' : ''}`,
@@ -849,11 +849,11 @@ function drawTabs() {
     const railBtn = (key, step) => { const [, text, ic] = byKey[key], active = S.tab === key; return h('button', { type: 'button', class: `rail-btn${active ? ' on' : ''}${step && done[key] ? ' done' : ''}`, 'aria-pressed': String(active), onclick: () => { S.tab = key; S.panelOpen = true; drawTabs(); S.dirty = true; dockShow('panel'); } },
       h('span', { class: 'rb-ico', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'rb-label' }, text), step ? h('span', { class: 'rb-step', 'aria-hidden': 'true' }, done[key] ? '✓' : String(step)) : null); };
     tabsEl.replaceChildren(h('div', { class: 'rail-title' }, 'Start here'), railBtn('audio', 1), railBtn('chars', 2), railBtn('anim', 3),
-      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'props', 'tears', 'effects', 'grade'].map((key) => railBtn(key)),
+      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'props'].map((key) => railBtn(key)),
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
-      h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
+      h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
   } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), upload,
-    ...['chars', 'anim', 'tears', 'effects', 'grade'].map(key => button(byKey[key])), ...rail('Output', ['export']), more);
+    ...['chars', 'anim'].map(key => button(byKey[key])), ...rail('Output', ['export']), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
