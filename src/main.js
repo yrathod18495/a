@@ -687,7 +687,7 @@ function viewStudio() {
     tlRedo = h('button', { class: 'btn sm icon-btn tl-hist', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo')),
     h('b', { class: 'timeline-title' }, 'Timeline'),
     h('button', { class: 'btn sm icon-btn', title: 'Zoom out timeline', 'aria-label': 'Zoom out timeline', onclick: () => zoom(1 / 1.5) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Zoom in timeline', 'aria-label': 'Zoom in timeline', onclick: () => zoom(1.5) }, icon('zoom-in')),
-    h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')), h('span', { class: 'tl-sep', 'aria-hidden': 'true' }), editTools());
+    h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')), h('span', { class: 'tl-sep', 'aria-hidden': 'true' }), editTools(), clipBar = h('div', { class: 'clipbar', hidden: true }));
   drawTimeline(); drawLineBox(); drawTabs();
   setTimeout(fit, 0);
   return h('div', { class: 'workbench' },
@@ -696,7 +696,7 @@ function viewStudio() {
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
-      h('div', { class: 'tlwrap' }, sceneTabs(), tools, tlBox, clipBar = h('div', { class: 'clipbar', hidden: true }), h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
+      h('div', { class: 'tlwrap' }, sceneTabs(), tools, tlBox),
       h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
@@ -2127,6 +2127,7 @@ function tabAudio() {
   return h('div', { class: 'list' },
     h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Audio is optional. Add it when you have your voice lines — every voice then gets its own character.'),
     drop,
+    S.lines.length ? h('details', { class: 'line-details', open: true }, h('summary', {}, 'Selected audio line'), lineBox) : null,
     S.lines.length ? h('div', { class: 'row' }, h('b', {}, `${S.lines.length} line${S.lines.length > 1 ? 's' : ''}`), h('span', { class: 'chip' }, `${S.lines.reduce((a, l) => a + l.buffer.duration, 0).toFixed(1)}s`), h('span', { class: 'sp' }),
       h('button', { class: 'btn sm', onclick: async () => { if (S.exporting || !confirm('Remove all audio lines?')) return; S.lines = []; await afterAudioChange(); } }, 'Clear all')) : null,
     ...rows);

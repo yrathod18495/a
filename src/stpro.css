@@ -792,3 +792,25 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 /* an audio line can be grabbed in the middle and slid along the timeline */
 #app .ws .lane2.audio .tclip.voice{cursor:grab}
 #app .ws .lane2.audio .tclip.voice:active{cursor:grabbing}
+
+/* Start / Length of the selected clip: one slim group in the toolbar row, right after Delete (no extra bar under the timeline) */
+#app .ws .tltools{flex-wrap:wrap;overflow:visible;row-gap:4px}
+#app .ws .tltools .clipbar{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;flex:none;margin:0 0 0 4px;padding:0 0 0 10px;min-height:0;border:0;border-left:1px solid var(--line,#34363c);border-radius:0;background:none;overflow:visible}
+#app .ws .tltools .clipbar[hidden]{display:none}
+#app .ws .tltools .clipbar .cb-n{flex-direction:row;align-items:center;gap:5px;font-size:12px}
+#app .ws .tltools .clipbar .cb-n input{width:58px;height:28px;padding:0 6px;border-radius:8px;font-size:12px}
+#app .ws .tltools .clipbar .btn{flex-direction:row;min-width:0;height:28px!important;padding:0 9px!important;border-radius:9px;font-size:12px!important;white-space:nowrap}
+#app .ws .line-details{max-height:none;overflow:visible}
+#app .ws .panel .linebox{margin:0;padding:6px 0 0;border:0;background:none}
+#app .ws .tltools .clipbar{padding:0 0 0 10px!important;min-height:0!important;align-items:center!important;gap:6px!important}
+#app .ws .tltools:has(.clipbar:not([hidden])) :is(.timeline-title,.edit-btn span:not(.ic)){display:none}          /* make room: while Start / Length is shown the toolbar keeps only its icons */
+#app .ws .tltools:has(.clipbar:not([hidden])) .edit-btn{padding:0 8px}
+#app .ws .tltools .clipbar .btn{min-width:30px!important}
+#app .ws .tltools:has(.clipbar:not([hidden])){flex-wrap:nowrap}
+#app .ws .tltools:has(.clipbar:not([hidden])) .tl-sep:first-of-type{display:none}
+#app .ws .tltools .clipbar .cb-n input{width:52px!important}
+#app .ws .tltools .clipbar{margin-left:0;padding-left:8px!important}
+#app .ws .tltools .clipbar .cb-n input{width:58px!important;padding:0 4px!important}
+#app .ws .tltools .clipbar .cb-n{gap:3px}
+#app .ws .tltools .clipbar .btn{padding:0 7px!important}
+#app .ws .tltools{gap:3px}
