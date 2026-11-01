@@ -26,12 +26,13 @@ export function aspectOf(a) {
   return ASPECTS['16:9'];
 }
 export const BACKGROUNDS = [
-  { name: 'Blank canvas', a: '#ffffff', b: '#ffffff' },
+  { name: 'Blank canvas', a: '#262b34', b: '#14171c' },
   { name: 'Sunrise', a: '#ff9966', b: '#ff5e62' },
   { name: 'Sky', a: '#4facfe', b: '#c2e9fb' },
   { name: 'Forest', a: '#134e5e', b: '#71b280' },
   { name: 'Paper', a: '#f4efe6', b: '#f4efe6' },
   { name: 'Chroma', a: '#00b140', b: '#00b140' },
+  { name: 'White', a: '#ffffff', b: '#ffffff' },
 ];
 
 // Works on the page and inside a Web Worker (used by the parallel video export).

@@ -934,7 +934,22 @@ function drawTimeline() {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
     kinds.forEach((kind, i) => {
       const ln = h('div', { class: 'lane2 char', style: `height:${LH}px;--track-color:${s.color}` });
-      for (const c of plan.clips.filter((x) => x.kind === kind && !x.manual)) {
+      // many tiny automatic clips in a row (one per spoken sound) would be unreadable: three or more are drawn as one block
+      const autos = plan.clips.filter((x) => x.kind === kind && !x.manual).sort((a, b) => a.start - b.start), tiny = (c) => c.dur * pps < 44, items = [];
+      for (let k = 0; k < autos.length;) {
+        let end = k + 1;
+        while (tiny(autos[end - 1]) && autos[end] && tiny(autos[end]) && autos[end].start - (autos[end - 1].start + autos[end - 1].dur) < 0.15) end++;
+        if (end - k >= 3) items.push({ group: autos.slice(k, end) }); else for (let j = k; j < end; j++) items.push({ c: autos[j] });
+        k = end;
+      }
+      for (const item of items) {
+        if (item.group) {
+          const first = item.group[0], last = item.group.at(-1), names = item.group.map((x) => (nameOf.get(x.name) || x.name).replace(/^Listener · /, ''));
+          const el = h('div', { class: `tclip ${kind} auto`, title: `${s.name} · ${names.length} automatic clips: ${names.join(', ')}`, style: `left:${first.start * pps}px;width:${Math.max(6, (last.start + last.dur - first.start) * pps)}px` }, h('span', { class: 'tn' }, `${s.name} · ${names.length} clips`));
+          el.addEventListener('click', () => { const L = lineAt(first.start + 0.01); if (L && player.clips.length) selectLine(L.id); });
+          ln.append(el); continue;
+        }
+        const c = item.c;
         const name = (nameOf.get(c.name) || c.name).replace(/^Listener · /, '');
         const ref = plan.refs.find((r) => animKey(r) === c.name), soloBody = c.id.startsWith('solo:body') && S.solo[s.key]?.bodyLen > 0;
         const pickable = !!ref && (soloBody || !c.id.startsWith('solo:')), lz = pickable && h('i', { class: 'lz' }), rz = pickable && h('i', { class: 'rz' });
