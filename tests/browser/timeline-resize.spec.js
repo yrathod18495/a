@@ -46,3 +46,14 @@ test('a floating side panel saved on a small screen does not shrink the docked p
   const tl = await page.locator('.tl2').evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }));
   expect(tl.scroll).toBeLessThanOrEqual(tl.client + 2);                                        // nothing hidden below
 });
+
+test('the studio bar shows the project ID next to the save status', async ({ page }) => {
+  await studio(page);
+  const chip = page.locator('.project-id');
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveText(/^PROJECT ID:\s*\d{6,}$/);
+  const id = (await chip.locator('b').textContent()).trim();
+  expect(page.url()).toContain(id);                                                         // the same number as in the address bar
+  const a = await chip.boundingBox(), s = await page.locator('.save-status').boundingBox();
+  expect(Math.abs(a.y + a.height / 2 - (s.y + s.height / 2))).toBeLessThan(14);            // on the same row as the save status
+});

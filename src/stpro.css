@@ -826,3 +826,12 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .stagewrap{touch-action:none}
 .st-tool.bggen .st-tool-art{background:radial-gradient(120% 90% at 85% 20%,#1fae8e 0,#116a62 40%,#08262a 78%),linear-gradient(135deg,#0a2a2c,#04100f)}
 .st-tool.bggen .st-launch{background:linear-gradient(135deg,#2fd1ad,#7ff0c9);color:#04261f!important}
+
+/* project ID next to the save status in the studio bar */
+.project-id{display:inline-flex;align-items:center;gap:5px;flex:none;height:34px;padding:0 12px;border:1px solid var(--line,#3a3c43);border-radius:10px;background:var(--card2,#26272c);color:var(--mute,#9a9ea8);font:650 11px/1 system-ui,sans-serif;letter-spacing:.08em;white-space:nowrap;cursor:pointer;align-self:center}
+.project-id b{color:var(--text,#eeeff2);font:700 14px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em}
+.project-id:hover{border-color:#a597ff}
+.project-id.copied{border-color:#4fd69c}
+@media(max-width:700px){.project-id-label{display:none}.project-id::before{content:"ID: "}}
+:root[data-theme="day"] .project-id{background:#fff;border-color:#d9dcf2;color:#6b6f80}
+:root[data-theme="day"] .project-id b{color:#1d1e22}

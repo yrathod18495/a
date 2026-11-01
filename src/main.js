@@ -3009,6 +3009,13 @@ function previewControl() {
   previewSelect = h('select', { 'aria-label': 'Preview quality', title: 'Preview quality: Low is faster and softer. Export quality is set separately.', onchange: e => changePreviewQuality(e.target.value) }, Object.entries(PREVIEW_MODES).map(([value, mode]) => h('option', { value, selected: value === S.previewMode }, mode.label)));
   return h('label', { class: 'preview-quality' }, icon('monitor'), previewSelect);
 }
+/** the project's ID (the short number support asks for), shown next to the save status; a click copies it */
+function projectIdChip() {
+  const id = projectContext()?.id; if (!id) return null;
+  return h('button', { type: 'button', class: 'project-id', title: 'Your project ID. Click to copy it.', 'aria-label': `Project ID ${id}. Click to copy.`, onclick: async (e) => {
+    try { await navigator.clipboard.writeText(String(id)); toast('Project ID copied.'); e.currentTarget.classList.add('copied'); setTimeout(() => e.currentTarget.classList.remove('copied'), 1200); } catch { toast(`Your project ID is ${id}.`); }
+  } }, h('span', { class: 'project-id-label' }, 'PROJECT ID: '), h('b', {}, String(id)));
+}
 function headerTools() {
   hdrUndo = h('button', { class: 'btn sm icon-btn history-button', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, icon('undo'));
   hdrRedo = h('button', { class: 'btn sm icon-btn history-button', 'data-history-control': true, 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo'));
@@ -3019,7 +3026,7 @@ function headerTools() {
   queueMicrotask(updateHistoryButtons);
   exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: doExport }, icon('download'));
   const closeBtn = h('button', { class: 'btn sm icon-btn close-studio', 'aria-label': 'Close studio', title: 'Close studio — back to your projects', onclick: goHome }, icon('x'));
-  return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), saveDetails, hdrUndo, hdrRedo,
+  return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), projectIdChip(), saveDetails, hdrUndo, hdrRedo,
     h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
     exportBtn, closeBtn);
 }
