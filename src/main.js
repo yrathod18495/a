@@ -684,7 +684,7 @@ function viewStudio() {
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
-      h('div', { class: 'tlwrap' }, sceneTabs(), tools, editTools(), clipBar = h('div', { class: 'clipbar', hidden: true }), tlBox, h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
+      h('div', { class: 'tlwrap' }, sceneTabs(), tools, editTools(), tlBox, clipBar = h('div', { class: 'clipbar', hidden: true }), h('details', { class: 'line-details' }, h('summary', {}, 'Selected audio line'), lineBox)),
       h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
@@ -870,12 +870,18 @@ function drawTabs() {
 
 /* ---- timeline: ruler + the audio lines (the main track) ---- */
 const RULER = 28;
+/** ruler marks: a label every `major` seconds (never closer than ~56 px), a small tick every second, finer when zoomed in */
+const RULER_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+function rulerSteps(pps) {
+  const major = RULER_STEPS.find((v) => v * pps >= 56) || RULER_STEPS.at(-1);
+  return { major, minor: Math.min(major, pps >= 120 ? 0.25 : pps >= 60 ? 0.5 : 1) };
+}
 function selectLine(id, seek = true) {
   if (!id) return;
-  S.lineSel = id;
+  S.lineSel = id; S.mclip = S.bgSel = S.propSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
   const L = lineById(id);
   if (seek && L) { player.seek(L.start + 0.01); }
-  drawTimeline(); drawLineBox(); S.dirty = true;
+  drawTimeline(); drawLineBox(); drawClipBar(); S.dirty = true;
   if (S.tab === 'anim' && S.panelOpen) drawTabs();
 }
 /** which animation each character layer plays right now (at the playhead), shown under the layer name */
@@ -898,9 +904,13 @@ function drawTimeline() {
   const portrait = speaker => { const character = charOf(speaker); return character?.thumb || character?.thumbnail || null; };
   pruneTimelineThumbnails([background?.blob, ...S.order.map(sOf).filter(Boolean).map(portrait)]);
   tlBox.style.setProperty('--timeline-second', `${pps}px`);
-  const step = pps >= 90 ? 1 : pps >= 40 ? 2 : pps >= 18 ? 5 : pps >= 8 ? 10 : 20;
-  const ticks = [];
-  for (let t = 0; t <= total; t += step) ticks.push(h('span', { class: 'tick', style: `left:${t * pps}px` }, `${Math.floor(t / 60) ? `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}` : `${t}s`}`));
+  const { major, minor } = rulerSteps(pps);
+  tlBox.style.setProperty('--tl-major', `${major * pps}px`);          // the faint vertical lines in every lane follow the labels of the ruler
+  const ticks = [], clock = (t) => (total >= 60 ? `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}` : `${+t.toFixed(2)}s`);
+  for (let i = 0; i * minor <= total + 1e-6; i++) {
+    const t = +(i * minor).toFixed(3), isMajor = Math.abs(t / major - Math.round(t / major)) < 1e-6;
+    ticks.push(isMajor ? h('span', { class: 'tick', style: `left:${t * pps}px` }, clock(t)) : h('i', { class: `tmin${Math.abs(t - Math.round(t)) < 1e-6 ? '' : ' fine'}`, style: `left:${t * pps}px` }));
+  }
   const ruler = h('div', { class: 'ruler', style: `height:${RULER}px` }, ticks);
   let scrubbing = false;
   const scrub = (e) => { player.seek(Math.min(total, Math.max(0, (e.clientX - tlInner.getBoundingClientRect().left) / pps))); S.dirty = true; followLine(); };
@@ -912,7 +922,7 @@ function drawTimeline() {
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
     const lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' }), trimmed = (S.lines.find((l) => l.id === c.id)?.trimStart || 0) + (S.lines.find((l) => l.id === c.id)?.trimEnd || 0) > 0;
-    const el = h('div', { class: `tclip voice ${c.id === S.lineSel ? 'sel' : ''} ${trimmed ? 'trimmed' : ''}`, title: 'Drag the edge to resize the audio · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
+    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''}`, title: 'Drag the edge to resize the audio · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
       lz, h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), rz);
     el.addEventListener('pointerdown', (e) => { if (e.target === lz || e.target === rz) dragVoice(e, c, e.target === rz ? 'right' : 'left', el); });
     el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
@@ -1119,7 +1129,7 @@ async function retimeAudio() {
   await prepareStudio({ quiet: true });
   player.seek(Math.min(at, player.total)); S.dirty = true;
 }
-const selectOnly = (kind, id) => { S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; document.querySelectorAll('.tclip.sel:not(.voice)').forEach((x) => x.classList.remove('sel')); drawClipBar(); };
+const selectOnly = (kind, id) => { S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); };
 function dragClip(e, m, mode, el) {
   dragItem(e, mode === 'size' ? 'right' : mode, el, {
     get: () => ({ start: m.start, dur: m.dur, off: m.off || 0 }),
@@ -1174,11 +1184,7 @@ function drawClipBar() {
   clipBar.replaceChildren(
     
     num('Start s', () => m.start, (v) => { m.start = Math.max(0, snap(v)); }), num('Length s', () => m.dur, (v) => { m.dur = Math.max(0.2, v); }),
-    btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — at the playhead'),
-    btn('⧉ Duplicate', () => { const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(m.start + m.dur) }; list.push(c); S.mclip = c.id; commitClips(); }, 'Same animation again, right after this one'),
-    btn('✂ Split', () => { const t = player.time; if (t <= m.start + 0.1 || t >= m.start + m.dur - 0.1) { toast('Please move the playhead inside this clip first.'); return; } const c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(t), dur: m.start + m.dur - snap(t), off: (m.off || 0) + (snap(t) - m.start) }; m.dur = snap(t) - m.start; list.push(c); S.mclip = c.id; commitClips(); }, 'Cut this clip at the playhead'),
     btn('⇄ Replace', () => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); }), 'Pick another animation for this clip'),
-    btn('🗑 Delete', () => { list.splice(list.indexOf(m), 1); S.mclip = null; commitClips(); }),
     btn('✕', () => { S.mclip = null; drawTimeline(); }, 'Close'));
 }
 
@@ -1188,6 +1194,7 @@ function copySelected() {
   if (f) S.clipboard = { type: 'clip', key: f.s?.key, data: clone(f.m) };
   else if (bc) S.clipboard = { type: 'bg', data: clone(bc) };
   else if (pr) S.clipboard = { type: 'prop', data: { ...pr } };
+  else if (S.lineSel && lineModel(S.lineSel)) S.clipboard = { type: 'line', data: { id: S.lineSel } };      // an audio line is copied by reference to its sound
   else { toast('Please choose a clip on the timeline first, then copy it.'); return false; }
   // the hint is shown the first time only (and kept short); after that the Paste button / Ctrl+V are enough
   try { if (!localStorage.getItem('toons-hint-copy')) { localStorage.setItem('toons-hint-copy', '1'); toast('Copied. Move the playhead, then Paste.'); } } catch { /* no hint */ }
@@ -1196,11 +1203,49 @@ function copySelected() {
 /* ---------- the always-visible edit toolbar: split / copy / paste / duplicate / delete / jump between clips ---------- */
 const selectedItem = () => {
   const f = S.mclip && findManual(S.mclip), bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = S.propSel && S.props.find((x) => x.id === S.propSel);
-  return f ? { kind: 'clip', f } : bc ? { kind: 'bg', bc } : pr ? { kind: 'prop', pr } : null;
+  if (f) return { kind: 'clip', f };
+  if (bc) return { kind: 'bg', bc };
+  if (pr) return { kind: 'prop', pr };
+  const line = S.lineSel && lineById(S.lineSel);          // nothing else is picked: the audio line under the playhead
+  return line ? { kind: 'line', line } : null;
 };
+/* ---- audio lines in the edit toolbar: split at the playhead, duplicate, delete, copy / paste ---- */
+const lineModel = (id) => S.lines.find((l) => l.id === id);
+/** a copy of an audio line that shares the sound but is its own line (own script text, camera shot and character choices) */
+function copyOfLine(src, patch = {}) {
+  const id = crypto.randomUUID(), copy = { ...src, ...patch, id };
+  if (S.script.has(src.id)) S.script.set(id, S.script.get(src.id));
+  if (S.cast.has(src.id)) S.cast.set(id, clone(S.cast.get(src.id)));
+  if (S.shots.has(src.id)) S.shots.set(id, clone(S.shots.get(src.id)));
+  return copy;
+}
+/** after the audio lines changed: split / duplicate / paste keep the zoom and the playhead; a delete also refreshes the speakers */
+async function lineEdited(selectId, { full = false } = {}) {
+  S.lineSel = selectId; S.mclip = S.bgSel = S.propSel = null;
+  if (full) await afterAudioChange();
+  else { await retimeAudio(); drawTimeline(); drawLineBox(); drawTabs(); }
+  drawClipBar(); S.dirty = true;
+}
+async function splitLine(c) {
+  const t = player.time, line = lineModel(c.id);
+  if (!line || t <= c.start + 0.1 || t >= c.end - 0.1) { toast('Move the playhead inside the audio first, then press Split.'); return; }
+  const cut = +((line.trimStart || 0) + (t - c.start)).toFixed(3), second = copyOfLine(line, { trimStart: cut, trimEnd: line.trimEnd || 0 });
+  line.trimEnd = +Math.max(0, line.buffer.duration - cut).toFixed(3);       // the first part now ends at the playhead
+  S.lines.splice(S.lines.indexOf(line) + 1, 0, second);
+  await lineEdited(second.id); player.seek(Math.min(t, player.total)); followLine();
+}
+async function duplicateLine(c) {
+  const line = lineModel(c.id); if (!line) return;
+  const copy = copyOfLine(line); S.lines.splice(S.lines.indexOf(line) + 1, 0, copy); await lineEdited(copy.id);
+}
+async function deleteLine(c) {
+  const index = S.lines.findIndex((l) => l.id === c.id); if (index < 0) return;
+  S.lines.splice(index, 1); await lineEdited((S.lines[index] || S.lines[index - 1])?.id ?? null, { full: true });
+}
 async function splitSelected() {
   const it = selectedItem();
   if (!it) { toast('Choose a clip on the timeline first, then press Split.'); return; }
+  if (it.kind === 'line') { await splitLine(it.line); return; }
   const t = player.time, inside = (a, b) => t > a + 0.1 && t < b - 0.1;
   if (it.kind === 'clip') {
     const { m, list } = it.f; if (!inside(m.start, m.start + m.dur)) { toast('Move the playhead inside the clip first.'); return; }
@@ -1220,6 +1265,7 @@ async function splitSelected() {
 }
 async function duplicateSelected() {
   const it = selectedItem(); if (!it) { toast('Choose a clip on the timeline first.'); return; }
+  if (it.kind === 'line') { await duplicateLine(it.line); return; }
   if (it.kind === 'clip') { const { m, list } = it.f, c = { ...m, id: uid(), ref: { ...m.ref }, start: snap(m.start + m.dur) }; list.push(c); S.mclip = c.id; commitClips(); return; }
   if (it.kind === 'bg') { const bc = it.bc, c = { ...clone(bc), id: uid(), start: +(bc.start + bc.dur).toFixed(2) }; S.bgClips.push(c); selectOnly('bg', c.id); await syncBgClips(); commitClips(); return; }
   const pr = it.pr, len = Math.max(MIN_CLIP, (pr.end ?? player.total) - (pr.start || 0)), at = +((pr.end ?? player.total)).toFixed(2), c = { ...pr, id: uid(), start: at, end: +(at + len).toFixed(2) };
@@ -1228,6 +1274,7 @@ async function duplicateSelected() {
 }
 async function deleteSelected() {
   const it = selectedItem(); if (!it) { toast('Choose a clip on the timeline first.'); return; }
+  if (it.kind === 'line') { await deleteLine(it.line); return; }
   if (it.kind === 'clip') { it.f.list.splice(it.f.list.indexOf(it.f.m), 1); S.mclip = null; commitClips(); return; }
   if (it.kind === 'bg') { S.bgClips = S.bgClips.filter((x) => x !== it.bc); S.bgSel = null; await syncBgClips(); commitClips(); return; }
   await dbDel('props', it.pr.id); S.props = S.props.filter((p) => p.id !== it.pr.id); S.propSel = null; await stage.setProps(S.props); S.dirty = true; commitClips();
@@ -1264,6 +1311,11 @@ async function pasteClip() {
   const cb = S.clipboard;
   if (!cb) { toast('Please copy a clip first.'); return; }
   const at = snapTo(player.time);
+  if (cb.type === 'line') {
+    const src = lineModel(cb.data.id); if (!src) { toast('The copied audio line is no longer in the scene.'); return; }
+    const here = S.lines.findIndex((l) => l.id === lineAt(player.time)?.id), copy = copyOfLine(src);
+    S.lines.splice(here >= 0 ? here + 1 : S.lines.length, 0, copy); await lineEdited(copy.id); return;
+  }
   if (cb.type === 'clip') {
     const s = sOf(cb.key) || S.speakers.find((x) => x.charId);
     if (!s?.charId) { toast('The character for this clip is not in the scene.'); return; }
@@ -1287,8 +1339,7 @@ function rangeBar(bc, pr) {
   clipBar.replaceChildren(
     bc ? num('Start s', () => bc.start, (v) => { bc.start = Math.max(0, snapTo(v)); }) : num('Start s', () => pr.start || 0, (v) => { pr.start = Math.max(0, snapTo(v)); }),
     bc ? num('Length s', () => bc.dur, (v) => { bc.dur = Math.max(MIN_CLIP, v); }) : num('Length s', () => (pr.end ?? player.total) - (pr.start || 0), (v) => { pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }),
-    btn('📋 Copy', copySelected, 'Ctrl+C'), btn('📌 Paste', pasteClip, 'Ctrl+V — at the playhead'),
-    bc ? btn('🗑 Delete', () => { S.bgClips = S.bgClips.filter((x) => x !== bc); S.bgSel = null; syncBgClips(); commitClips(); }) : btn('↔ Whole scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Remove start / end: show through the whole scene'),
+    ...(bc ? [] : [btn('↔ Whole scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Remove start / end: show through the whole scene')]),
     btn('✕', () => { S.bgSel = null; S.propSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
 }
 
@@ -1645,7 +1696,7 @@ function setAspect(a) {
 /** while playing / scrubbing the "line layers" follow the playhead */
 function followLine() {
   const L = lineAt(player.time);
-  if (L && L.id !== S.lineSel) { S.lineSel = L.id; drawTimeline(); drawLineBox(); if (S.tab === 'anim' && S.panelOpen) drawTabs(); }
+  if (L && L.id !== S.lineSel) { S.lineSel = L.id; drawTimeline(); drawLineBox(); updateEditTools(); if (S.tab === 'anim' && S.panelOpen) drawTabs(); }
 }
 
 /* ---- layers of the selected audio line ---- */

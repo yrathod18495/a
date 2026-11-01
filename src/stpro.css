@@ -757,3 +757,14 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .start-pill[hidden]{display:none}.start-pill:hover{border-color:#a597ff}
 :root[data-theme="day"] .start-close{color:#1d1e22!important}
 .studio-shared-card .studio-shared-thumb{display:block;width:100%;aspect-ratio:16/10;object-fit:contain;border-radius:8px;background:repeating-conic-gradient(#2a2c31 0 25%,#1f2024 0 50%) 0 0/14px 14px}
+/* timeline ruler: a small tick every second, a label every few seconds, and faint lines through every lane */
+.ruler .tmin{position:absolute;bottom:0;width:0;height:8px;border-left:1px solid #5a5d68;pointer-events:none}
+.ruler .tmin.fine{height:5px;opacity:.65}
+.lane2::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(90deg,#ffffff14 1px,transparent 1px);background-size:var(--tl-major,60px) 100%}
+:root[data-theme="day"] .ruler .tmin{border-color:#b3b8d6}
+:root[data-theme="day"] .lane2::before{background-image:linear-gradient(90deg,#2e30360f 1px,transparent 1px)}
+/* trim handles of every timeline clip: a visible grip on hover and on the selected clip, so it is clear that the edges can be dragged */
+.tclip .lz::after,.tclip .rz::after{content:"";position:absolute;top:26%;bottom:26%;width:3px;border-radius:2px;background:#ffffffb3;opacity:0;transition:opacity .12s}
+.tclip .lz::after{left:4px}.tclip .rz::after{right:4px}
+.tclip:hover .lz::after,.tclip:hover .rz::after,.tclip.sel .lz::after,.tclip.sel .rz::after{opacity:1}
+:root[data-theme="day"] .tclip .lz::after,:root[data-theme="day"] .tclip .rz::after{background:#2e3036b3}
