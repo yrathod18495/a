@@ -72,3 +72,20 @@ test('the small ticks between two labels are all the same distance apart, at eve
     expect(gaps[0]).toBeGreaterThanOrEqual(5);
   }
 });
+
+test('splitting audio leaves no gap at the cut, and a split prop stays on its own row', async ({ page }) => {
+  await studioWithAudio(page);
+  const pps = await page.evaluate(() => window.__toon.S.pps), box = await page.locator('.ruler:not(.rl)').boundingBox();
+  await page.mouse.click(box.x + 8 * pps, box.y + 14);
+  await page.locator('.edittools button', { hasText: 'Split' }).click();
+  await expect(page.locator('.tclip.voice')).toHaveCount(2);
+  const edges = await page.evaluate(() => window.__toon.player.clips.map((c) => [c.start, c.end]));
+  expect(Math.abs(edges[1][0] - edges[0][1])).toBeLessThan(0.001);               // the second part starts exactly where the first ends
+  await page.evaluate(async () => { const { S, drawTimeline } = window.__toon, c = document.createElement('canvas'); c.width = c.height = 8; c.getContext('2d').fillRect(0, 0, 8, 8); const blob = await new Promise((r) => c.toBlob(r)); S.props.push({ id: 'p-test', name: 'Lamp', blob, start: 0, end: 20, x: .5, y: .5, w: .1, h: .1 }); S.propSel = 'p-test'; S.lineSel = null; drawTimeline(); });
+  await expect(page.locator('.lane2.prop')).toHaveCount(1);
+  await page.mouse.click(box.x + 10 * pps, box.y + 14);
+  await page.evaluate(() => { window.__toon.S.propSel = 'p-test'; window.__toon.S.lineSel = null; });
+  await page.locator('.edittools button', { hasText: 'Split' }).click();
+  await expect(page.locator('.lane2.prop')).toHaveCount(1);                      // still one row
+  await expect(page.locator('.lane2.prop .tclip.prop')).toHaveCount(2);          // with two pieces on it
+});

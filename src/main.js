@@ -467,7 +467,7 @@ async function prepareStudio({ quiet = false } = {}) {
   const b = quiet ? { done() {} } : busy('Setting up characters & lip-sync…');
   try {
     for (const s of S.speakers) { const d = charOf(s); if (d) await stage.loadCharacter(d); }
-    const tl = buildTimeline(S.lines.map((l) => ({ id: l.id, speaker: l.speaker.toLowerCase(), file: l.file, buffer: l.buffer, visemes: l.visemes, trimStart: l.trimStart || 0, trimEnd: l.trimEnd || 0 })));
+    const tl = buildTimeline(S.lines.map((l) => ({ id: l.id, speaker: l.speaker.toLowerCase(), file: l.file, buffer: l.buffer, visemes: l.visemes, trimStart: l.trimStart || 0, trimEnd: l.trimEnd || 0, gapBefore: l.gapBefore })));
     if (!tl.clips.length) tl.total = sceneLen();       // an empty scene is 8 seconds long (longer when clips or camera keys are placed later)
     player.setTimeline(tl);
     await applyLayers();
@@ -964,12 +964,19 @@ function drawTimeline() {
     lanes.push(bgLane);
   }
   // props and effects: one row each, visible from start to end
-  for (const prop of S.props.filter((p) => p.visible !== false)) {
+  // a prop that was split (or duplicated) stays on the same row as the piece it came from: pieces share a `lane`
+  const propRows = new Map();
+  for (const prop of S.props.filter((p) => p.visible !== false)) { const key = prop.lane || prop.id; if (!propRows.has(key)) propRows.set(key, []); propRows.get(key).push(prop); }
+  for (const rowProps of propRows.values()) {
+    const rowEls = [];
+    for (const prop of rowProps) {
     const start = prop.start || 0, end = prop.end ?? total, lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
     const el = h('div', { class: `tclip prop ${isEffect(prop) ? 'fx' : ''} mine ${prop.id === S.propSel ? 'sel' : ''}`, title: `${prop.name} — drag to move, drag an edge to resize`, style: `left:${start * pps}px;width:${Math.max(6, (end - start) * pps)}px` }, lz, h('span', { class: 'tn' }, `${isEffect(prop) ? '✨' : '🧸'} ${prop.name}`), rz);
     el.addEventListener('pointerdown', (e) => dragPropRange(e, prop, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
-    labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, isEffect(prop) ? 'Effect' : 'Prop')));
-    lanes.push(h('div', { class: 'lane2 prop', style: 'height:30px' }, el));
+      rowEls.push(el);
+    }
+    labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, isEffect(rowProps[0]) ? 'Effect' : 'Prop')));
+    lanes.push(h('div', { class: 'lane2 prop', style: 'height:30px' }, ...rowEls));
   }
   laneClips.clear();
   const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 46;
@@ -1246,7 +1253,7 @@ async function lineEdited(selectId, { full = false } = {}) {
 async function splitLine(c) {
   const t = player.time, line = lineModel(c.id);
   if (!line || t <= c.start + 0.1 || t >= c.end - 0.1) { toast('Move the playhead inside the audio first, then press Split.'); return; }
-  const cut = +((line.trimStart || 0) + (t - c.start)).toFixed(3), second = copyOfLine(line, { trimStart: cut, trimEnd: line.trimEnd || 0 });
+  const cut = +((line.trimStart || 0) + (t - c.start)).toFixed(3), second = copyOfLine(line, { trimStart: cut, trimEnd: line.trimEnd || 0, gapBefore: 0 });          // the two parts touch: no pause is added at the cut
   line.trimEnd = +Math.max(0, line.buffer.duration - cut).toFixed(3);       // the first part now ends at the playhead
   S.lines.splice(S.lines.indexOf(line) + 1, 0, second);
   await lineEdited(second.id); player.seek(Math.min(t, player.total)); followLine();
@@ -1277,6 +1284,7 @@ async function splitSelected() {
   const pr = it.pr, start = pr.start || 0, end = pr.end ?? player.total; if (!inside(start, end)) { toast('Move the playhead inside the clip first.'); return; }
   const at = snapTo(t), c = { ...pr, id: uid(), start: at, end: +end.toFixed(2) };
   if (pr.attach) c.attach = { ...pr.attach };
+  c.lane = pr.lane = pr.lane || pr.id;                       // the new piece stays on the same row
   pr.start = start; pr.end = +at.toFixed(2); S.props.push(c); selectOnly('prop', c.id);
   await dbPut('props', pr); await dbPut('props', c); await stage.setProps(S.props); S.dirty = true; commitClips();
 }
@@ -1287,7 +1295,8 @@ async function duplicateSelected() {
   if (it.kind === 'bg') { const bc = it.bc, c = { ...clone(bc), id: uid(), start: +(bc.start + bc.dur).toFixed(2) }; S.bgClips.push(c); selectOnly('bg', c.id); await syncBgClips(); commitClips(); return; }
   const pr = it.pr, len = Math.max(MIN_CLIP, (pr.end ?? player.total) - (pr.start || 0)), at = +((pr.end ?? player.total)).toFixed(2), c = { ...pr, id: uid(), start: at, end: +(at + len).toFixed(2) };
   if (pr.attach) c.attach = { ...pr.attach };
-  S.props.push(c); selectOnly('prop', c.id); await dbPut('props', c); await stage.setProps(S.props); S.dirty = true; commitClips();
+  c.lane = pr.lane = pr.lane || pr.id;
+  S.props.push(c); selectOnly('prop', c.id); await dbPut('props', pr); await dbPut('props', c); await stage.setProps(S.props); S.dirty = true; commitClips();
 }
 async function deleteSelected() {
   const it = selectedItem(); if (!it) { toast('Choose a clip on the timeline first.'); return; }
@@ -2645,7 +2654,7 @@ async function doExport() {
     let res;
     if (sequence) {
       const total = sequence.at(-1).end;
-      const clips = sequence.flatMap(scene => buildTimeline((scene.doc.lines || []).map(meta => sceneAudio.has(meta.id) ? { ...sceneAudio.get(meta.id), trimStart: meta.trimStart || 0, trimEnd: meta.trimEnd || 0 } : null).filter(Boolean).map(line => ({ ...line, speaker: line.speaker.toLowerCase() }))).clips.map(clip => ({ ...clip, start: clip.start + scene.start, end: clip.end + scene.start })));
+      const clips = sequence.flatMap(scene => buildTimeline((scene.doc.lines || []).map(meta => sceneAudio.has(meta.id) ? { ...sceneAudio.get(meta.id), trimStart: meta.trimStart || 0, trimEnd: meta.trimEnd || 0, gapBefore: meta.gapBefore } : null).filter(Boolean).map(line => ({ ...line, speaker: line.speaker.toLowerCase() }))).clips.map(clip => ({ ...clip, start: clip.start + scene.start, end: clip.end + scene.start })));
       res = await exportOffline({ stage, clips, plan: [], total, fps: S.fps, level: S.level, format: S.format, cancelled: () => stop,
         onProgress: p => b.set(`Rendering all scenes ${Math.round(p * 100)}%`, p),
         beforeFrame: async time => {
@@ -2705,7 +2714,7 @@ const savedAudio = new Set();
 function sceneDoc() {
   for (const line of S.lines) sceneAudio.set(line.id, line);
   return {
-    lines: S.lines.map(({id, order, file, speaker, trimStart, trimEnd}) => ({id, order, file, speaker, trimStart: trimStart || 0, trimEnd: trimEnd || 0})),
+    lines: S.lines.map(({id, order, file, speaker, trimStart, trimEnd, gapBefore}) => ({id, order, file, speaker, trimStart: trimStart || 0, trimEnd: trimEnd || 0, ...(Number.isFinite(gapBefore) ? { gapBefore } : {})})),
     fits: Object.fromEntries(S.speakers.filter(s=>s.charId).map(s=>[s.charId,getFit(s.charId)])),
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
     order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), paths: clone(S.paths), grade: gradeActive(S.grade) ? clone(S.grade) : null, gradeKeys: clone(S.gradeKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
