@@ -205,6 +205,7 @@ function syncPhoneNav() {
       h('div', { class: 'rail-foot' }, item(null, 'help', 'Help and support', () => document.querySelector('.support-launch')?.click()))));
   rail?.replaceWith(next); if (!rail) document.body.append(next); rail = next;
 }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && railOpen) setRail(false); });
 function setRail(open) { railOpen = open; rail?.classList.toggle('open', open); rail?.querySelector('.rail-burger')?.setAttribute('aria-expanded', String(open)); }
 
 /* ---------------- shared bits ---------------- */
@@ -335,6 +336,18 @@ function hubView() {
     const info = await cloudInfo();
     cloudLine.textContent = info ? `☁ Last cloud save: ${new Date(info.updatedAt).toLocaleString()}` : '☁ Projects save automatically while you edit.';
   }).catch(() => { cloudLine.textContent = ''; });
+  // quick way back into the latest work
+  const recent = h('section', { class: 'st-recent', hidden: true });
+  listProjects(user.uid).then((all) => {
+    const latest = all.filter((p) => !p.deleted).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3);
+    if (!latest.length) return;
+    recent.replaceChildren(h('div', { class: 'st-label' }, 'Continue where you left off'),
+      ...latest.map((p) => h('button', { type: 'button', class: 'st-recent-row', onclick: () => { location.hash = `#/${p.kind === 'animation' ? 'toons' : 'characters'}/${p.id}`; location.reload(); } },
+        h('span', { class: `st-recent-ico ${p.kind}` }, p.kind === 'animation' ? '▶' : '☻'),
+        h('span', { class: 'st-recent-text' }, h('b', {}, p.name), h('small', {}, `${p.kind === 'animation' ? 'Animation' : 'Character'} · ${new Date(p.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`)),
+        h('span', { class: 'st-recent-go', 'aria-hidden': 'true' }, '→'))));
+    recent.hidden = false;
+  }).catch(() => {});
   const tool = (cls, title, text, hash, btn) => h('article', { class: `sh-tool st-tool ${cls}`, role: 'link', tabindex: '0', onclick: () => go(hash), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(hash); } } },
     h('div', { class: 'st-tool-art', 'aria-hidden': 'true' }), h('div', { class: 'st-tool-body' }, h('h3', {}, title), h('p', {}, text), h('span', { class: 'st-launch' }, btn, ' →')));
   return h('div', { class: 'sh' },
@@ -344,6 +357,7 @@ function hubView() {
       h('div', { class: 'sh-tools' },
         tool('animator', '12toons Animator', 'Create animations with a timeline, voice lines, AI scene direction and character assets, then export a video.', '#/toons', 'Launch Animator'),
         tool('actor', '12toons Character Studio', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Studio')),
+      recent,
       cloudLine));
 }
 

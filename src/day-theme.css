@@ -1,5 +1,5 @@
 /* Royal daylight surfaces. Layout and gold controls are shared with night mode. */
-:root[data-theme="day"]{color-scheme:light;--bg:#ffffff;--card:#ffffff;--card2:#f4f7fa;--line:#dfd1b6;--text:#171a33;--mute:#5c6592;--ink:#171a33;--warn:#b42335}
+:root[data-theme="day"]{color-scheme:light;--bg:#ffffff;--card:#ffffff;--card2:#f4f7fa;--line:#a597ff;--text:#171a33;--mute:#5c6592;--ink:#171a33;--warn:#b42335}
 :root[data-theme="day"] body .step.on b{color:#171a33}
 :root[data-theme="day"] body .step.done b{color:#171a33}
 :root[data-theme="day"] body .drop:hover,
@@ -39,7 +39,7 @@
 :root[data-theme="day"] body .tclip.body{background:#f4f7fa;border:2px solid #d9dcf2;color:#171a33}
 :root[data-theme="day"] body .tclip.face{background:#ffffff;border:2px solid #d9dcf2;color:#171a33}
 :root[data-theme="day"] body .tclip.voice{color:#171a33aa}
-:root[data-theme="day"] body .tclip.empty{border:2px dashed #f59e0b;color:#171a33}
+:root[data-theme="day"] body .tclip.empty{border:2px dashed #7c6cf5;color:#171a33}
 :root[data-theme="day"] body .tclip.sel{background:#f4f7fa;border-color:#474f7e;color:#171a33;box-shadow:0 0 0 2px #2a2f551c}
 :root[data-theme="day"] body .tclip .rz{background:linear-gradient(90deg,transparent,#ffffff33)}
 :root[data-theme="day"] body .tclip.sel .rz{background:linear-gradient(90deg,transparent,#6d5ce699)}
@@ -58,7 +58,7 @@
 :root[data-theme="day"] body .seg3 button.on,
 :root[data-theme="day"] body .shotfocus button.on{color:#171a33}
 :root[data-theme="day"] body .stagewrap > .hd{background:#ffffff;border:2px solid #474f7e}
-:root[data-theme="day"] body .stagewrap > .hd.pinned{border-color:#ffb454;background:#f4f7fa}
+:root[data-theme="day"] body .stagewrap > .hd.pinned{border-color:#a597ff;background:#f4f7fa}
 :root[data-theme="day"] body .aitxt{background:var(--bg,#ffffff)}
 :root[data-theme="day"] body .sh{background:#ffffff}
 :root[data-theme="day"] body .maintenance-card .maintenance-mark{background:#ffffff}
@@ -239,14 +239,14 @@
 :root[data-theme="day"] body .th img[src*="/pose/"],
 :root[data-theme="day"] body .cs-th img[src*="/pose/"]{background: #ffffff}
 :root[data-theme="day"] body .clipbar{background: #ffffff;border: 1px solid #d9dcf2}
-:root[data-theme="day"] body .rl .rx.add{background: #ffffff;color: #77500f}
-:root[data-theme="day"] body .tclip.hand{background: #f4f7fa;border: 2px solid #fb923c;color: #9b3027}
+:root[data-theme="day"] body .rl .rx.add{background: #ffffff;color: #3d3585}
+:root[data-theme="day"] body .tclip.hand{background: #f4f7fa;border: 2px solid #7c6cf5;color: #9b3027}
 :root[data-theme="day"] body .tclip.legs{background: #ecf6ee;border: 2px solid #d9dcf2;color: #22613b}
 :root[data-theme="day"] body .lane2.cam{background: #ffffff}
 :root[data-theme="day"] body .lane2.cam .kf{background: #6d5ce6;border: 2px solid #d9dcf2;box-shadow: 0 1px 4px #2a2f551c}
-:root[data-theme="day"] body .lane2.cam .kf.sel{background: #f59e0b}
-:root[data-theme="day"] body .stagewrap > .camframe{border: 2px solid #f59e0b;box-shadow: 0 0 0 9999px #2a2f551c}
-:root[data-theme="day"] body .stagewrap > .camhd{background: #f59e0b;border: 2px solid #d9dcf2}
+:root[data-theme="day"] body .lane2.cam .kf.sel{background: #7c6cf5}
+:root[data-theme="day"] body .stagewrap > .camframe{border: 2px solid #7c6cf5;box-shadow: 0 0 0 9999px #2a2f551c}
+:root[data-theme="day"] body .stagewrap > .camhd{background: #7c6cf5;border: 2px solid #d9dcf2}
 :root[data-theme="day"] body .ad-name{border: 1px solid #d9dcf2;background: #ffffff}
 :root[data-theme="day"] body .ad-lrow{border: 1px solid #d9dcf2;background: #ffffff}
 :root[data-theme="day"] body .ad-lrow.off{background: #ffffff}
@@ -281,7 +281,7 @@
 :root[data-theme="day"] body .admin-console-tab.active{background:#6d5ce6;color:#171a33;box-shadow:0 4px 12px #2a2f551c}
 :root[data-theme="day"] body .admin-console-statusbar{color:#5c6592}
 :root[data-theme="day"] body .admin-live-dot{background:#ecf6ee;box-shadow:0 0 0 3px #2a2f551c}
-:root[data-theme="day"] body .admin-live-dot.warn{background:#f59e0b;box-shadow:0 0 0 3px #2a2f551c}
+:root[data-theme="day"] body .admin-live-dot.warn{background:#7c6cf5;box-shadow:0 0 0 3px #2a2f551c}
 :root[data-theme="day"] body .admin-dashboard-heading p{color:#5c6592}
 :root[data-theme="day"] body .admin-eyebrow{color:#5c6592}
 :root[data-theme="day"] body .admin-refresh-note{border:1px solid #d9dcf2;background:#ffffff;color:#171a33}
@@ -565,7 +565,7 @@
 :root[data-theme="day"] body .lp .lp-button-outline{background:#fff;color:#171a33;border-color:#9a8bff}:root[data-theme="day"] body .lp .lp-feature-card,:root[data-theme="day"] body .lp .lp-how-card,:root[data-theme="day"] body .lp .lp-use-card,:root[data-theme="day"] body .lp .lp-faq details,:root[data-theme="day"] body .lp .lp-tools-cards article{background:#fff;border-color:var(--line);color:var(--text)}
 :root[data-theme="day"] body .btn.pri,:root[data-theme="day"] body .btn.ok,:root[data-theme="day"] body .project-dialog-confirm,:root[data-theme="day"] body .lp .lp-button-primary,:root[data-theme="day"] body .theme-toggle,:root[data-theme="day"] body .seg button.on,:root[data-theme="day"] body .tabs button.on,:root[data-theme="day"] body .admin-console-tab.active,:root[data-theme="day"] body .admin-assets-tab.active{background:var(--royal-button);border-color:#8b7bff;color:#0d0b2b}
 :root[data-theme="day"] body input::placeholder,:root[data-theme="day"] body textarea::placeholder{color:#746852}
-:root[data-theme="day"] body .toast{background:#fff9ea;color:#171a33;border-color:#9a8bff}
+:root[data-theme="day"] body .toast{background:#ddd8ff;color:#171a33;border-color:#9a8bff}
 /* Keep small labels readable on white, with gold reserved for controls and trim. */
 :root[data-theme="day"] body .projects-eyebrow,
 :root[data-theme="day"] body .admin-eyebrow,
@@ -581,7 +581,7 @@
 :root[data-theme="day"] body .btn.pri:hover,
 :root[data-theme="day"] body .btn.ok:hover,
 :root[data-theme="day"] body .project-dialog-confirm:hover,
-:root[data-theme="day"] body .lp .lp-button-primary:hover{background:linear-gradient(135deg,#ffe7ad,#a597ff);color:#0d0b2b;border-color:#8b7bff}
+:root[data-theme="day"] body .lp .lp-button-primary:hover{background:linear-gradient(135deg,#ddd8ff,#a597ff);color:#0d0b2b;border-color:#8b7bff}
 :root[data-theme="day"] body .admin-alert-row{background:#fff1ec;border-color:#d99a86}
 :root[data-theme="day"] body .admin-alert-row b{color:#7a2d18}
 :root[data-theme="day"] body .admin-alert-row small{color:#5c6592}

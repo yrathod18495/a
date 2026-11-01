@@ -24,6 +24,14 @@ const USE_CASES = [
   { icon: '🎨', title: 'Original characters', body: 'Build or customise reusable 2D characters before they enter your video.' }
 ];
 
+
+const HERO_PATHS = { characters: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0', voice: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM6 11a6 6 0 0 0 12 0M12 17v4', timeline: 'M3 5h18v14H3zM3 10h18M8 5v14M16 5v14', export: 'M12 4v11m0 0-4-4m4 4 4-4M5 20h14' };
+function heroIcon(name) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', HERO_PATHS[name]); svg.append(path);
+  return h('i', { class: 'lp-hero-icon' }, svg);
+}
+
 const FAQ = [
   ['What is 12toons?', '12toons is a browser-based studio for making 2D animated videos. Pick a character, add your voice recordings or work silently, direct the scenes on a timeline and export a finished video.'],
   ['Do I need to draw to make an animation?', 'No. Choose a ready-made character and animation clips, or build and customise your own character in Character Studio.'],
@@ -79,10 +87,10 @@ export function landingView({ user, cta, profileMenu, logo }) {
           h('p', { class: 'lp-hero-lead' }, 'Create 2D animated videos online using characters, voice recordings and an editable timeline. Add lip-sync, direct scenes with AI, and export your animation from your browser.'),
           h('div', { class: 'lp-actions' }, button(primaryCta('Open my studio  →'), cta, 'primary', true), button('▶  Explore the studio', () => scrollToSection('features'), 'outline')),
           h('div', { class: 'lp-hero-foot' },
-            h('span', {}, goldCoin(56, { emblem: 'characters' }), h('strong', {}, 'AI Characters'), h('small', {}, 'Create & customise')),
-            h('span', {}, goldCoin(56, { emblem: 'voice' }), h('strong', {}, 'Voice & Lip-sync'), h('small', {}, 'Natural dialogue')),
-            h('span', {}, goldCoin(56, { emblem: 'timeline' }), h('strong', {}, 'Editable Timeline'), h('small', {}, 'Direct every scene')),
-            h('span', {}, goldCoin(56, { emblem: 'export' }), h('strong', {}, 'Export Anywhere'), h('small', {}, 'Video from browser')))
+            h('span', {}, heroIcon('characters'), h('strong', {}, 'AI Characters'), h('small', {}, 'Create & customise')),
+            h('span', {}, heroIcon('voice'), h('strong', {}, 'Voice & Lip-sync'), h('small', {}, 'Natural dialogue')),
+            h('span', {}, heroIcon('timeline'), h('strong', {}, 'Editable Timeline'), h('small', {}, 'Direct every scene')),
+            h('span', {}, heroIcon('export'), h('strong', {}, 'Export Anywhere'), h('small', {}, 'Video from browser')))
         )
       ),
       h('section', { class: 'lp-coin-section', 'aria-labelledby': 'lp-coins-title' },

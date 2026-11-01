@@ -104,7 +104,7 @@ body.studio-dark .tl2 .ruler:not(.rl){background-color:var(--track-ruler);backgr
 body.studio-dark .tl2 .tick{border-color:#43474e;color:var(--track-muted)}
 body.studio-dark .tl2 .lane2{background:none;border-color:var(--track-line)}
 body.studio-dark .tl2 .tclip{--clip-tint:#8d95a3;--clip-base:#444a54;--clip-end:#383d46;color:#f1f3f5;box-shadow:none}
-body.studio-dark .tl2 .tclip.hand{--clip-tint:#c9906a;--clip-base:#2a2f55;--clip-end:#2a2f55}
+body.studio-dark .tl2 .tclip.hand{--clip-tint:#7c6cf5;--clip-base:#2a2f55;--clip-end:#2a2f55}
 body.studio-dark .tl2 .tclip.legs{--clip-tint:#78ad82;--clip-base:#3b4a41;--clip-end:#2f3b34}
 body.studio-dark .tl2 .tclip.face{--clip-tint:#55b3a3;--clip-base:#34504f;--clip-end:#2b4140}
 body.studio-dark .tl2 .tclip.bg{--clip-tint:#a3a9d0;--clip-base:#2a2f55;--clip-end:#3e3d31}
@@ -119,7 +119,7 @@ body.studio-dark .scene-tab.active button,body.studio-dark .scene-tab.active sum
 body.studio-dark .tl2 .tclip.voice{background:linear-gradient(#4a4f58,#434851) !important;color:#eceef1 !important;border:1px solid #5a5f68 !important;border-left:4px solid var(--track-color,var(--acc)) !important}
 body.studio-dark .tl2 .tclip{--clip-tint:#6c7380 !important;--clip-base:#3f444c !important;--clip-end:#383c44 !important}
 body.studio-dark .tl2 .tclip:is(.hand,.legs,.face,.bg,.prop,.fx){--clip-tint:#6c7380 !important;--clip-base:#3f444c !important;--clip-end:#383c44 !important;border-left:3px solid var(--clip-accent,#8d95a3)}
-body.studio-dark .tl2 .tclip.hand{--clip-accent:#c9906a}
+body.studio-dark .tl2 .tclip.hand{--clip-accent:#7c6cf5}
 body.studio-dark .tl2 .tclip.legs{--clip-accent:#78ad82}
 body.studio-dark .tl2 .tclip.face{--clip-accent:#55b3a3}
 body.studio-dark .tl2 .tclip.fx{--clip-accent:#ab8fc8}

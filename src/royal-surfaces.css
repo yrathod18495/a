@@ -12,7 +12,7 @@
   --palace-banner:linear-gradient(100deg,#fffffff7 15%,#ffffffe6 55%,#ffffffa3);
   --palace-header:linear-gradient(90deg,#fffffff7,#ffffffe8);
   --palace-panel:color-mix(in srgb,var(--card) 96%,transparent);
-  --palace-shadow:0 16px 42px #69481712,inset 0 1px #fff;
+  --palace-shadow:0 16px 42px #3d358512,inset 0 1px #fff;
 }
 /* Keep the illustration behind the interface, outside the rendered scene. */
 :root[data-theme] body :is(.sh:not(.lp),.projects-page,.legal-page,.ws){
@@ -58,7 +58,7 @@
   background-size:auto,auto 600px;
   background-position:center,70% top;
   background-repeat:no-repeat;
-  border-color:#ae8946;
+  border-color:#7c6cf5;
   box-shadow:var(--palace-shadow);
 }
 :root[data-theme] body .legal-main{
@@ -101,7 +101,7 @@
 
 /* Compact account popover with a clear identity, actions and sign-out area. */
 :root[data-theme] body .sh-profile .sh-avatar{
-  width:42px;height:42px;border:1px solid #c7a45c;
+  width:42px;height:42px;border:1px solid #7c6cf5;
   background:var(--royal-button);color:#1c2040;
   box-shadow:0 3px 12px #0002;
 }
@@ -110,7 +110,7 @@
   display:flex;flex-direction:column;
   top:calc(100% + 12px);right:0;width:326px;max-width:calc(100vw - 28px);
   max-height:calc(100dvh - 110px);overflow-y:auto;
-  padding:0;gap:0;border:1px solid #a58445;border-radius:20px;
+  padding:0;gap:0;border:1px solid #7c6cf5;border-radius:20px;
   background:var(--card);color:var(--text);
   box-shadow:0 20px 60px #0005;z-index:110;
   text-align:left;font:14px/1.4 system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -133,7 +133,7 @@
   border:0;border-radius:12px;background:transparent;color:var(--text);text-align:left;
 }
 :root[data-theme] body .sh-profile .sh-mi:hover,:root[data-theme] body .sh-profile .sh-mi:focus-visible{background:var(--card2);color:var(--text)}
-.sh-mi-icon{display:grid;place-items:center;flex:none;width:34px;height:34px;border:1px solid var(--line);border-radius:11px;background:var(--card2);color:#b28a36;font-size:21px;font-weight:500}
+.sh-mi-icon{display:grid;place-items:center;flex:none;width:34px;height:34px;border:1px solid var(--line);border-radius:11px;background:var(--card2);color:#7c6cf5;font-size:21px;font-weight:500}
 .sh-mi-copy{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 .sh-mi-label{font-size:13px;font-weight:650}
 .sh-mi-copy small{font-size:11px;font-weight:400;color:var(--mute)}
