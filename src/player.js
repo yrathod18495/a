@@ -7,7 +7,9 @@ export const GAP = 0.4, LEAD = 0.3, TAIL = 0.7;
 export function buildTimeline(lines) {
   let t = LEAD;
   const clips = lines.map((l, i) => {
-    if (i && Number.isFinite(l.gapBefore)) t = t - GAP + Math.max(0, l.gapBefore);          // a split-off part carries gapBefore 0: it starts exactly where the part before it ends
+    // gapBefore = the silence before this line (the first line: from 0). Unset = the normal pause (LEAD for the first line, GAP after that).
+    // A split-off part carries 0 (it starts where the part before it ends); dragging a line along the timeline changes it.
+    if (Number.isFinite(l.gapBefore)) t = (i ? t - GAP : 0) + Math.max(0, l.gapBefore);
     const head = Math.min(l.trimStart || 0, Math.max(0, l.buffer.duration - 0.2)), cut = Math.round(head / HOP);
     const c = { ...l, trimStart: head, start: t, end: t + lineLength(l.buffer, l), visemes: cut && l.visemes ? l.visemes.slice(cut) : l.visemes };
     t = c.end + GAP;

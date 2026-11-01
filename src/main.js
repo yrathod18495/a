@@ -939,9 +939,9 @@ function drawTimeline() {
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
     const lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' }), trimmed = (S.lines.find((l) => l.id === c.id)?.trimStart || 0) + (S.lines.find((l) => l.id === c.id)?.trimEnd || 0) > 0;
-    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''}`, title: 'Drag the edge to resize the audio · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && selectLine(c.id) },
+    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && !voiceMoved && selectLine(c.id) },
       lz, h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), rz);
-    el.addEventListener('pointerdown', (e) => { if (e.target === lz || e.target === rz) dragVoice(e, c, e.target === rz ? 'right' : 'left', el); });
+    el.addEventListener('pointerdown', (e) => { if (e.button) return; dragVoice(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el); });
     el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
     lane.append(el);
   });
@@ -1132,9 +1132,28 @@ function dragItem(e, mode, el, io) {
   el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
 }
 /** drag the head or tail of a voice line to cut it shorter (or bring back what was cut); later lines slide up, the scene gets shorter */
+let voiceMoved = false;
 function dragVoice(e, c, mode, el) {
   const line = S.lines.find((l) => l.id === c.id);
   if (!line) return;
+  if (mode === 'move') {
+    // slide the line along the timeline: only the silence before it (and after it) changes, so the lines after it stay where they are while there is room
+    const at = S.lines.indexOf(line), clips = player.clips, prevEnd = at ? clips[at - 1]?.end ?? 0 : 0, next = S.lines[at + 1], nextGap = next ? clips[at + 1].start - c.end : 0;
+    let start = c.start;
+    dragItem(e, 'move', el, {
+      min: 0.2, room: Infinity,
+      get: () => ({ start: c.start, dur: c.end - c.start, off: 0 }),
+      set: (r) => { r.start = Math.max(prevEnd, +r.start.toFixed(2)); start = r.start; },
+      after: async () => {
+        const delta = +(start - c.start).toFixed(2); if (!delta) return;
+        voiceMoved = true; setTimeout(() => { voiceMoved = false; }, 250);          // the click that ends a drag must not select / seek
+        line.gapBefore = +Math.max(0, c.start - prevEnd + delta).toFixed(2);
+        if (next) next.gapBefore = +Math.max(0, nextGap - delta).toFixed(2);
+        await retimeAudio(); drawTimeline(); drawLineBox();
+      },
+    });
+    return;
+  }
   const whole = c.end - c.start, from = { start: c.start, dur: whole, off: line.trimStart || 0 };
   let result = from;
   dragItem(e, mode, el, {

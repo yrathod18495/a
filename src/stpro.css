@@ -789,3 +789,6 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 #app .ws .resize-tl .tl-toggle:hover{border-color:#a597ff;background:#2e3036}
 :root[data-theme="day"] #app .ws .resize-tl .tl-toggle{background:#fff;color:#2e3036;border-color:#cfd3ea}
 :root[data-theme="day"] #app .ws .resize-tl .tl-grip{background:#b3b8d6}
+/* an audio line can be grabbed in the middle and slid along the timeline */
+#app .ws .lane2.audio .tclip.voice{cursor:grab}
+#app .ws .lane2.audio .tclip.voice:active{cursor:grabbing}

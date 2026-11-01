@@ -113,3 +113,15 @@ test('outside the pieces of a split background the canvas is plain black, not th
   expect(keys.early).toMatch(/^blank\|/);            // before the clip: black
   expect(keys.inside).toMatch(/^1\|/);               // inside the clip: its own background
 });
+
+test('an audio line can be grabbed in the middle and moved along the timeline', async ({ page }) => {
+  await studioWithAudio(page, 10);
+  const pps = await page.evaluate(() => window.__toon.S.pps), start = () => page.evaluate(() => window.__toon.player.clips[0].start);
+  const first = await start(), clip = await page.locator('.tclip.voice').boundingBox(), y = clip.y + clip.height / 2, x = clip.x + clip.width / 2;
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 2 * pps, y, { steps: 8 }); await page.mouse.up();
+  await expect.poll(start).toBeGreaterThan(first + 1.8);
+  expect(await start()).toBeLessThan(first + 2.2);
+  const moved = await page.locator('.tclip.voice').boundingBox();
+  await page.mouse.move(moved.x + moved.width / 2, y); await page.mouse.down(); await page.mouse.move(moved.x - 400, y, { steps: 8 }); await page.mouse.up();
+  await expect.poll(start).toBeLessThan(0.05);                       // it cannot go before the start of the scene
+});
