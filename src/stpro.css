@@ -183,16 +183,16 @@ body.has-rail #shell>.sh>header{margin-left:-88px}
 }
 :root[data-theme] body .admin-kpi .admin-kpi-icon{background:var(--brand)!important;color:var(--on-brand)!important}
 
-/* landing: one vertical line of shortcut icons on the right side, lower down beside the headline; the top button (three lines) opens it to show the names */
+/* landing: one vertical line of big shortcut icons that fills the free strip on the right of the logo and headline; the top button (three lines) opens it to show the names */
 .lp-hero{position:relative}
-.lp-dock{position:absolute;top:128px;right:10px;z-index:6;display:flex;flex-direction:column;gap:4px;width:52px;padding:6px;box-sizing:border-box;border:1px solid var(--edge);border-radius:22px;background:var(--glass);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);overflow:hidden;transition:width .22s ease,box-shadow .22s}
-.lp-dock.open{width:210px;box-shadow:0 16px 38px #0005}
-.lp-dock-item{display:flex;align-items:center;gap:14px;flex:none;height:40px;padding:0 8px;border:0;border-radius:14px;background:none;font:inherit;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.lp-dock{position:absolute;top:12px;right:10px;z-index:6;display:flex;flex-direction:column;justify-content:space-between;gap:6px;width:62px;height:322px;padding:7px;box-sizing:border-box;border:1px solid var(--edge);border-radius:24px;background:var(--glass);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);overflow:hidden;transition:width .22s ease,box-shadow .22s}
+.lp-dock.open{width:224px;box-shadow:0 16px 38px #0005}
+.lp-dock-item{display:flex;align-items:center;justify-content:flex-start;gap:14px;flex:1;min-height:0;padding:0 11px;border:0;border-radius:16px;background:none;font:inherit;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 :root[data-theme] body .lp .lp-dock-item{color:var(--ink)!important}
 .lp-dock-item:hover{background:var(--hover)}
-.lp-dock-item svg{flex:none;width:22px;height:22px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.lp-dock-item span{font-size:13px;font-weight:800;opacity:0;transition:opacity .15s}
+.lp-dock-item svg{flex:none;width:30px;height:30px;fill:none;stroke:var(--accent);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.lp-dock-item span{font-size:15px;font-weight:800;opacity:0;transition:opacity .15s}
 .lp-dock.open .lp-dock-item span{opacity:1}
-.lp-dock-toggle{margin-bottom:4px;background:var(--btn);border-radius:14px}
+.lp-dock-toggle{background:var(--btn)}
 .lp-dock-toggle:hover{background:var(--hover)}
-@media(min-width:861px){.lp-dock{top:150px;right:22px}}
+@media(min-width:861px){.lp-dock{top:18px;right:22px;height:340px}}

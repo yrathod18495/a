@@ -28,7 +28,7 @@ const USE_CASES = [
 const HERO_PATHS = { characters: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0', voice: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3ZM6 11a6 6 0 0 0 12 0M12 17v4', timeline: 'M3 5h18v14H3zM3 10h18M8 5v14M16 5v14', export: 'M12 4v11m0 0-4-4m4 4 4-4M5 20h14' };
 /** the same shortcuts as the app menu, so they are also on the page itself */
 const QUICK = [
-  ['#/toons', 'Animator Studio', 'M3 9h18v11H3zM3 9l2.5-5h3L6 9m2.5 0L11 4h3l-2.5 5M14 9l2.5-5h3L17 9M10 13.5l4 2.5-4 2.5z'],
+  ['#/toons', 'Animator Studio', 'M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7ZM16 10.5l5-3v9l-5-3'],
   ['#/characters', 'Character Editor', 'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM3.5 20a6.5 6.5 0 0 1 10-5.2M14.5 21l.7-3 5.3-5.3 2.3 2.3-5.3 5.3-3 .7Z'],
   ['#/credits', 'Coins', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.5h-3a1.7 1.7 0 0 0 0 3.5h4'],
   ['#/affiliate-dashboard', 'Earn with us', 'M4 17l6-6 4 4 6-10m-6 0h6v6'],
@@ -39,13 +39,13 @@ function quickIcon(d) {
 }
 /** a vertical line of icons on the right side of the hero; the button at the top opens it to show every name */
 function quickDock() {
-  const toggle = h('button', { type: 'button', class: 'lp-dock-item lp-dock-toggle', 'aria-expanded': 'false', 'aria-label': 'Show all shortcuts', onclick: () => { const open = dock.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(open)); toggle.setAttribute('aria-label', open ? 'Hide shortcut names' : 'Show all shortcuts'); label.textContent = open ? 'Hide names' : 'Show all'; } });
+  const toggle = h('button', { type: 'button', class: 'lp-dock-item lp-dock-toggle', 'aria-expanded': 'false', 'aria-label': 'Show all shortcuts', onclick: () => { const open = dock.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(open)); toggle.setAttribute('aria-label', open ? 'Close the shortcut list' : 'Show all shortcuts'); } });
   const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); arrow.setAttribute('viewBox', '0 0 24 24'); arrow.setAttribute('aria-hidden', 'true');
   const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path'); arrowPath.setAttribute('d', 'M4 6h16M4 12h16M4 18h16'); arrow.append(arrowPath);
-  const label = h('span', {}, 'Show all');
+  const label = h('span', {}, 'Menu');
   toggle.append(arrow, label);
   const dock = h('aside', { class: 'lp-dock', 'aria-label': 'Quick links' }, toggle, ...QUICK.map(([href, name, path]) => h('a', { href, class: 'lp-dock-item', title: name }, quickIcon(path), h('span', {}, name))));
-  const close = () => { dock.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-label', 'Show all shortcuts'); label.textContent = 'Show all'; };
+  const close = () => { dock.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-label', 'Show all shortcuts'); };
   document.addEventListener('pointerdown', (e) => { if (!dock.isConnected) return; if (dock.classList.contains('open') && !dock.contains(e.target)) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dock.isConnected) close(); });
   return dock;
