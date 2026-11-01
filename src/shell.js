@@ -5,6 +5,7 @@ import './day-theme.css';
 import './royal-surfaces.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Studio)
 import { h, toast, logo } from './dom.js';
+import { startRoute, doneRoute } from './route-feedback.js';
 import { onUser, signInGoogle, signOutUser, finishRedirect, refreshUser } from './firebase.js';
 import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
 import { selectProject, projectMeta, listProjects, createProject } from './store.js';
@@ -62,11 +63,14 @@ if (directHash && location.hash !== directHash) location.replace('/' + directHas
 window.addEventListener('hashchange', route);
 
 let routing = Promise.resolve();
+let routeSeq = 0;
 function route() {
+  const key = `route-${++routeSeq}`, hash = (location.hash || '#/').split('/').slice(0, 2).join('/');
+  if (ready) startRoute(key, { studio: (hash === '#/toons' || hash === '#/characters') && !!(location.hash || '').split('/')[2] });
   routing = routing.then(renderRoute).then(syncPhoneNav).catch(e => {
     if (reloadForNewVersion(e)) return;
     toast(`Could not open the page: ${e.message}`);
-  });
+  }).finally(() => { doneRoute(key); if (ready) doneRoute('boot'); });
   return routing;
 }
 // After a redeploy, an already-open tab still points at old hashed chunks that no longer exist.
@@ -177,7 +181,7 @@ function syncPhoneNav() {
   document.body.classList.toggle('has-mnav', show);
   if (!show) { phoneNav?.remove(); phoneNav = null; return; }
   const svg = (d) => { const e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 24 24'); e.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', d); e.append(path); return e; };
-  const next = h('nav', { class: 'mnav', 'aria-label': 'Main' }, NAV_TABS.map(([to, label, d]) => h('button', { type: 'button', class: to === hash ? 'on' : '', 'aria-current': to === hash ? 'page' : null, onclick: () => go(to) }, svg(d), h('span', {}, label))));
+  const next = h('nav', { class: 'mnav', 'aria-label': 'Main' }, NAV_TABS.map(([to, label, d]) => h('button', { type: 'button', class: to === hash ? 'on' : '', 'aria-current': to === hash ? 'page' : null, onclick: (e) => { if (to !== hash) e.currentTarget.classList.add('wait'); go(to); } }, svg(d), h('span', {}, label))));
   phoneNav?.replaceWith(next); if (!phoneNav) document.body.append(next); phoneNav = next;
 }
 
@@ -331,7 +335,8 @@ function guardSession(u) {
 
 /* ---------------- start ---------------- */
 async function start() {
-  $shell.replaceChildren(h('div', { class: 'sh sh-center' }, h('p', { class: 'sub' }, 'Loading…')));
+  startRoute('boot', { quiet: true });
+  $shell.replaceChildren(h('div', { class: 'sh sh-center boot-splash', role: 'status', 'aria-live': 'polite' }, h('div', { class: 'rf-spin' }), h('p', { class: 'sub' }, 'Getting things ready…')));
   const maintenanceAtStart = maintenanceStatus();   // starts now and runs while the sign-in redirect is finished
   if (DEBUG) { try { maintenance = (await maintenanceAtStart).maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = location.search.includes('tester') ? 'tester' : 'user'; ready = true; route(); return; }
   await finishRedirect();
