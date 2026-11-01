@@ -1,6 +1,5 @@
 import { h } from './dom.js';
 import './landing.css';
-import { goldCoin } from './coin.js';
 
 /** Public marketing page. Media URLs below are bundled assets already shipped by 12toons. */
 const scrollToSection = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -153,13 +152,6 @@ export function landingView({ user, cta, profileMenu, logo }) {
         sectionTitle('Good to know', 'Frequently asked questions', 'A few answers before you start creating.'),
         faqList()
       ),
-      h('section', { class: 'lp-coin-section', 'aria-labelledby': 'lp-coins-title' },
-        h('div', { class: 'lp-coin-offer' },
-          h('div', { class: 'lp-coin-display', 'aria-hidden': 'true' }, goldCoin(112)),
-          h('div', { class: 'lp-coin-copy' }, eyebrow('COINS'),
-            h('h2', { id: 'lp-coins-title' }, 'More Coins. More possibilities.'),
-            h('p', {}, 'Find your Coin pack and keep creating. One-time purchases, with your balance and payment history in one place.')),
-          h('a', { class: 'lp-button lp-button-primary', href: '#/credits' }, 'Buy Coins  →'))),
       h('section', { class: 'lp-final-cta' }, eyebrow('Ready to create?'), h('h2', {}, 'Your next story starts here.'), h('p', {}, 'Bring characters and dialogue together with 12toons.'), button(user ? 'Open my studio →' : 'Get started with 12toons →', cta))
     ),
     h('footer', { class: 'lp-footer' }, h('a', { href: '/#/', style: 'color:inherit;text-decoration:none', 'aria-label': '12toons home' }, h('strong', {}, '12toons')), h('span', {}, 'Browser-based 2D animation & character creation'),
