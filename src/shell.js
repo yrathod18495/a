@@ -19,7 +19,6 @@ import { goldCoin } from './coin.js';
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
 const brandFavicon = favicon?.getAttribute('href') || '';
-const testerFavicon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="8" fill="%23d4a443"/%3E%3Ccircle cx="16" cy="16" r="6" fill="%231b1308"/%3E%3C/svg%3E';
 window.addEventListener('session-error', e => toast(e.detail));
 window.addEventListener('session-revoked', e => toast(e.detail));
 // a background save discovered this project's short ID collided with another account's and gave it a fresh one (see project-sync.js); keep the
@@ -91,7 +90,7 @@ async function renderRoute() {
   if (!ready) return;
   const parts = (location.hash || '#/').split('/'), hash = parts.slice(0,2).join('/'), projectId = parts[2];
   document.title = hash === '#/tester' ? 'Character Tester' : hash === '#/affiliates' ? 'Affiliate Partners | 12toons' : '12toons';
-  if (favicon) favicon.href = hash === '#/tester' ? testerFavicon : brandFavicon;
+  if (favicon) favicon.href = brandFavicon;
   if (user && (role === 'tester' || role === 'tester-pending') && hash !== '#/tester') { go('#/tester'); return; }
   // Maintenance never blocks signing in — only a signed-in, non-admin user sees the maintenance page; admins always get through.
   if (maintenance && user && role !== 'admin' && hash !== '#/tester') {

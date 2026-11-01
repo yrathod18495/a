@@ -12,15 +12,8 @@ export const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 export const toast = (msg) => { const t = h('div', { class: 'toast' }, typeof msg === 'string' ? hinglishify(msg) : msg); document.body.append(t); setTimeout(() => t.remove(), 4500); };
-const BRAND_MARK_SVG = `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="12toons">
-  <defs><linearGradient id="bm-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7fe0da"/><stop offset=".55" stop-color="#7c6cf5"/><stop offset="1" stop-color="#4a3cc0"/></linearGradient></defs>
-  <rect x="1" y="1" width="46" height="46" rx="12" fill="url(#bm-g)"/>
-  <rect x="1.5" y="1.5" width="45" height="45" rx="11.5" fill="none" stroke="#1b1560" stroke-width="1" opacity=".4"/>
-  <text x="24" y="33" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="22" letter-spacing="-1" fill="#0d0b2b">12</text>
-</svg>`;
-/** the 12toons brand mark: a rounded badge with "12", drawn as SVG so it stays sharp at any size.
- *  with no `size` it scales with the surrounding font-size (1.3em), matching every header it sits in. */
-export const brandMark = (size) => { const el = h('span', { class: 'brand-mark', style: size ? `width:${size}px;height:${size}px` : '' }); el.innerHTML = BRAND_MARK_SVG; return el; };
+/** the 12toons brand mark: the logo's "12" badge picture (public/images/12toons-badge.png), sized with the surrounding font */
+export const brandMark = (size) => h('img', { class: 'brand-mark', src: '/images/12toons-badge.png', alt: '', width: size || undefined, height: size || undefined, style: size ? '' : '', decoding: 'async' });
 export const brandWordmark = () => [
   brandMark(),
   h('span', { class: 'brand-name' }, 'toons'),

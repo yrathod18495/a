@@ -97,6 +97,7 @@ export function landingView({ user, cta, profileMenu, logo }) {
     h('main', {},
       h('section', { class: 'lp-hero', id: 'top' },
         h('div', { class: 'lp-hero-copy' },
+          h('img', { class: 'lp-hero-logo', src: '/images/12toons-logo.png', alt: '12toons logo', width: '118', height: '118', decoding: 'async' }),
           eyebrow('♛  AI-powered 2D animation studio'),
           h('h1', {}, 'Make your stories ', h('span', { class: 'lp-accent' }, 'move.')),
           h('p', { class: 'lp-hero-lead' }, 'Create 2D animated videos online using characters, voice recordings and an editable timeline. Add lip-sync, direct scenes with AI, and export your animation from your browser.'),
