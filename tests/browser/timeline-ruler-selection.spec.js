@@ -144,3 +144,16 @@ test('a selected background can be moved and resized on the canvas (mouse drag, 
   await page.mouse.move(hd.x + 8, hd.y + 8); await page.mouse.down(); await page.mouse.move(hd.x + 108, hd.y + 108, { steps: 6 }); await page.mouse.up();
   expect((await xf()).s).toBeGreaterThan(before);
 });
+
+test('deleting a background picture from the Background tab also removes its clips from the timeline', async ({ page }) => {
+  await studioWithAudio(page);
+  await page.evaluate(async () => {
+    const { S, drawTimeline } = window.__toon, c = document.createElement('canvas'); c.width = c.height = 8; c.getContext('2d').fillRect(0, 0, 8, 8);
+    S.myBgs.push({ id: 'bg-test', name: 'Picture', blob: await new Promise((r) => c.toBlob(r)) });
+    S.bgClips.push({ id: 'bc1', bgId: 'bg-test', preset: 0, start: 1, dur: 3 }); drawTimeline();
+  });
+  await expect(page.locator('.lane2.bg .tclip.bg.mine')).toHaveCount(1);
+  await page.getByRole('button', { name: /^Background/ }).first().click();
+  await page.locator('.bgc .x').first().click();
+  await expect(page.locator('.lane2.bg .tclip.bg.mine')).toHaveCount(0);
+});

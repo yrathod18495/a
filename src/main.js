@@ -2647,7 +2647,10 @@ function tabCanvas() {
     h('button', { class: 'bgc add', onclick: () => file.click() }, h('span', {}, '+'), h('small', {}, 'Add images')),
     S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },
       h('img', { src: URL.createObjectURL(r.blob), alt: r.name, loading: 'lazy' }),
-      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && scene.doc?.bgId === r.id)) { toast('This background is being used in another scene.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id); if (S.bgId === r.id) await pickBg(null); else drawTabs(); } }, '✕'))));
+      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && (scene.doc?.bgId === r.id || scene.doc?.bgClips?.some((c) => c.bgId === r.id)))) { toast('This background is being used in another scene.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id);
+        const usedOnTimeline = S.bgClips.some((c) => c.bgId === r.id); if (usedOnTimeline) { S.bgClips = S.bgClips.filter((c) => c.bgId !== r.id); if (S.bgSel && !S.bgClips.some((c) => c.id === S.bgSel)) S.bgSel = null; await syncBgClips(); }          // its pieces on the timeline go with it
+        if (S.bgId === r.id) await pickBg(null); else drawTabs();
+        updateTotal(); drawTimeline(); S.dirty = true; } }, '✕'))));
   const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })));
   const selBg = bgOf(), bgCard = (() => {
     if (!selBg) return h('div', { class: 'card flat' }, h('h2', {}, 'Move and resize'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Select the background on the timeline (or press the button) to move and resize it right on the canvas.'),
