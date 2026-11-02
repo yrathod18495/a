@@ -174,3 +174,7 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 
 /* ---- the Move/Camera/Mask/AI dropdown is positioned the same way as Upload (JS-clamped, fixed position), not the old CSS corner trick ---- */
 #app .ws .advanced-tools .advanced-tools-list{position:fixed;left:auto;right:auto;top:auto;bottom:auto;height:auto;max-height:calc(100dvh - 16px);overflow-y:auto;z-index:70}
+
+/* the save status shows its words (and how long ago) next to the icon when there is room */
+@media(min-width:1000px){#app .ws .save-status .save-label{position:static;width:auto;height:auto;clip:auto;overflow:hidden;text-overflow:ellipsis;max-width:240px;font-size:12px;font-weight:650}
+  #app .ws .save-status>summary{display:inline-flex;align-items:center;gap:6px;width:auto;padding:0 12px}}

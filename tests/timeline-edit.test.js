@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resizeClip, contentLength, snap, MIN_CLIP } from '../shared/timeline-edit.js';
+import { resizeClip, contentLength, snap, snapDelta, MIN_CLIP } from '../shared/timeline-edit.js';
 import { sceneDuration, lineLength, emptyScene } from '../src/scenes.js';
 
 test('dragging a clip: move, lengthen / shorten from the right, trim the head from the left', () => {
@@ -37,4 +37,22 @@ test('audio lines can be trimmed; the scene is as long as the trimmed lines', ()
   const audio = new Map([['a', { buffer: { duration: 4 } }], ['b', { buffer: { duration: 3 } }]]);
   const plain = { ...emptyScene(), lines: [{ id: 'a' }, { id: 'b' }] }, cut = { ...emptyScene(), lines: [{ id: 'a', trimEnd: 1.5 }, { id: 'b', trimStart: 1 }] };
   assert.equal(sceneDuration(cut, audio), sceneDuration(plain, audio) - 2.5);
+});
+
+test('snapDelta pulls the moving edges to the closest point within reach, and leaves the delta alone when nothing is near', () => {
+  const points = [0, 3, 8];
+  // moving a clip (1 s .. 3 s) a little: its end at 3.03 snaps to 3, so the delta shrinks by 0.03
+  assert.deepEqual(snapDelta({ mode: 'move', start: 1, dur: 2, delta: 0.03, points, within: 0.1 }), { delta: 0, at: 3 });
+  // the start edge can snap too (a clip 5 .. 7 moved to start at 3.04)
+  assert.deepEqual(snapDelta({ mode: 'move', start: 5, dur: 2, delta: -1.96, points, within: 0.1 }), { delta: -2, at: 3 });
+  // trimming the head only looks at the start; dragging the tail only at the end
+  assert.equal(snapDelta({ mode: 'left', start: 2.9, dur: 2, delta: 0.06, points, within: 0.1 }).at, 3);
+  assert.equal(snapDelta({ mode: 'right', start: 0, dur: 2.95, delta: 0.02, points, within: 0.1 }).at, 3);
+  assert.equal(snapDelta({ mode: 'left', start: 2.9, dur: 2, delta: 1.5, points, within: 0.1 }).at, null);       // far from any point
+  // outside the reach nothing changes
+  assert.deepEqual(snapDelta({ mode: 'move', start: 4, dur: 1, delta: 0.3, points, within: 0.1 }), { delta: 0.3, at: null });
+});
+test('resizeClip with a fine step keeps a snapped position exact', () => {
+  assert.equal(resizeClip({ mode: 'move', start: 1, dur: 2, delta: 2.03 - 1, step: 0.01 }).start, 2.03);
+  assert.equal(resizeClip({ mode: 'move', start: 1, dur: 2, delta: 1.03 }).start, 2.05);      // the normal 0.05 grid
 });

@@ -842,3 +842,50 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .stagewrap .of-frame{position:absolute;border:2px dashed #ffffffcc;box-shadow:0 0 0 4000px #05060a8c;box-sizing:border-box}
 .stagewrap .of-note{position:absolute;left:8px;bottom:6px;padding:3px 8px;border-radius:8px;background:#000a;color:#fff;font-size:11px;font-weight:650}
 .btn.icon-btn.on[aria-pressed=true]{background:linear-gradient(135deg,#7c6cf5,#a597ff);color:#fff;border-color:transparent}
+
+/* snapping: a yellow line shows where a dragged clip has stuck */
+.tl-inner .snap-line{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#ffcf4a;box-shadow:0 0 6px #ffcf4acc;z-index:6;pointer-events:none}
+#app .ws .snap-toggle.on,#app .ws .snap-toggle[aria-pressed=true]{background:linear-gradient(135deg,#7c6cf5,#a597ff);color:#fff;border-color:transparent}
+
+/* several clips selected: a bright outline on each one, and the box that is drawn to select them */
+.tl-inner .tclip.msel{outline:2px solid #ffcf4a;outline-offset:1px;box-shadow:0 0 0 3px #ffcf4a33}
+.tl-inner .tl-box{position:absolute;z-index:7;border:1px solid #a597ff;background:#a597ff2e;pointer-events:none}
+
+/* mixing controls of the selected audio line */
+.mixrow{display:grid;gap:6px;margin:8px 0;padding:8px;border:1px solid var(--line,#34363c);border-radius:10px}
+.mix-buttons{display:flex;gap:6px}
+.mix-btn[aria-pressed=true]{background:linear-gradient(135deg,#7c6cf5,#a597ff);color:#fff;border-color:transparent}
+.mix-field{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute,#9a9ea8)}
+.mix-field>span{width:58px;flex:none}.mix-field input{flex:1;min-width:0}.mix-field output{width:44px;text-align:right;color:var(--text,#eeeff2)}
+.tclip.voice.muted{opacity:.45;filter:grayscale(.6)}
+.tclip.voice .vmix{margin-left:6px;padding:1px 6px;border-radius:6px;background:#0007;font-size:10px;font-weight:700;text-transform:uppercase}
+.tclip.voice.solo{outline:2px solid #ffcf4a;outline-offset:1px}
+
+/* layer locks */
+.rl .lock-layer{flex:none;display:grid;place-items:center;width:22px;height:22px;padding:0;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--mute,#9a9ea8);cursor:pointer}
+.rl .lock-layer svg{width:13px;height:13px}
+.rl .lock-layer:hover{color:var(--text,#eeeff2);border-color:var(--line,#3a3c43)}
+.rl .lock-layer.on{color:#ffcf4a;background:#ffcf4a22}
+.tclip.locked{cursor:not-allowed;filter:saturate(.5);background-image:repeating-linear-gradient(135deg,#0000 0 6px,#00000026 6px 9px)}
+.tclip.locked .lz,.tclip.locked .rz{display:none}
+#app .ws .clipbar.locked :is(input,.btn){pointer-events:none;opacity:.45}
+
+/* the sound picture inside a voice clip */
+.tclip.voice{position:absolute}
+.tclip.voice canvas.wave{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;opacity:.5;z-index:0}
+.tclip.voice .tn,.tclip.voice .vmix{position:relative;z-index:1;text-shadow:0 1px 3px #000a}
+
+/* background music row */
+.tclip.music{background:linear-gradient(115deg,#3e6f8e,#2d4c66);border:1px solid #4a7f9f;color:#eaf6ff;font-size:11px;font-weight:700;cursor:pointer;top:3px;bottom:3px}
+.tclip.music canvas.wave{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;opacity:.55}
+.tclip.music .tn{position:relative;z-index:1;text-shadow:0 1px 3px #000a}
+.tclip.music.muted{opacity:.45;filter:grayscale(.6)}
+
+/* the box for an export that runs in the background */
+.export-pill{position:fixed;left:16px;bottom:16px;z-index:60;width:min(340px,calc(100vw - 32px));padding:10px 12px;border:1px solid #4a4c55;border-radius:14px;background:#1d1e22f2;color:#f2f3f5;box-shadow:0 10px 30px #0008;backdrop-filter:blur(6px);font:600 13px/1.3 system-ui,sans-serif}
+.export-pill .ep-row{display:flex;align-items:center;gap:8px}
+.export-pill .ep-row svg{width:16px;height:16px;flex:none}
+.export-pill .ep-text{flex:1;min-width:0}
+.export-pill .ep-cancel{flex:none;padding:4px 10px;border:1px solid #7a2e3a;border-radius:8px;background:#3a1d22;color:#ff9aa8;font:inherit;cursor:pointer}
+.export-pill .ep-bar{display:block;height:5px;margin-top:8px;border-radius:3px;background:#34363c;overflow:hidden}
+.export-pill .ep-bar b{display:block;height:100%;width:0;background:linear-gradient(90deg,#7c6cf5,#a597ff);transition:width .25s}

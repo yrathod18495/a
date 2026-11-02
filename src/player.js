@@ -1,5 +1,6 @@
 import { HOP } from './lipsync.js';
 import { lineLength } from './scenes.js';
+import { audibleClips, playClip } from './audio-mix.js';
 
 export const GAP = 0.4, LEAD = 0.3, TAIL = 0.7;
 
@@ -24,7 +25,7 @@ export class Player {
     this.speaker = ctx.createGain();
     this.speaker.connect(ctx.destination);
     this.rec = ctx.createMediaStreamDestination();
-    this.clips = []; this.total = 0;
+    this.clips = []; this.total = 0; this.music = null;
     this.pos = 0; this.playing = false; this.sources = [];
   }
   setTimeline({ clips, total }) { this.stop(); this.clips = clips; this.total = total; this.pos = 0; }
@@ -41,14 +42,13 @@ export class Player {
     await this.ctx.resume();
     if (this.pos >= this.total) this.pos = 0;
     this.t0 = this.ctx.currentTime + 0.05;
-    for (const c of this.clips) {
+    for (const c of audibleClips(this.clips)) {              // muted lines (and every line but the solo ones) stay silent; volume and fades come with the line
       if (c.end <= this.pos) continue;
-      const src = this.ctx.createBufferSource();
-      src.buffer = c.buffer; src.connect(this.speaker); src.connect(this.rec);
       const off = Math.max(0, this.pos - c.start), when = this.t0 + Math.max(0, c.start - this.pos);
-      src.start(when, (c.trimStart || 0) + off, Math.max(0.01, c.end - c.start - off));
-      this.sources.push(src);
+      this.sources.push(playClip(this.ctx, c, [this.speaker, this.rec], when, off));
     }
+    const m = this.music;                                    // the background music: from the start of the scene to its end, repeated, under the voices
+    if (m?.buffer && !m.muted && this.total > this.pos) this.sources.push(playClip(this.ctx, { ...m, loop: true, start: 0, end: this.total }, [this.speaker, this.rec], this.t0, this.pos));
     this.playing = true;
   }
   pause() {

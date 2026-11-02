@@ -1,5 +1,6 @@
 import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4Target } from 'mp4-muxer';
 import { Muxer as WebmMuxer, ArrayBufferTarget as WebmTarget } from 'webm-muxer';
+import { audibleClips, playClip } from './audio-mix.js';
 
 /*
  * Two output formats:
@@ -36,13 +37,18 @@ async function pickCodecs(W, H, bitrate, FPS, format = 'webm', silent = false) {
   return null;
 }
 export const canExportOffline = async (W, H, fps = 30, format = 'webm', silent = false) => !!(await pickCodecs(W, H, 4_000_000, fps, format, silent));
-const hasVoice = (clips) => clips.some((c) => c.buffer);
+const hasVoice = (clips, music) => clips.some((c) => c.buffer) || (music || []).some((m) => m.buffer && !m.muted);
 
 /** voice lines -> one stereo track -> encoded audio chunks */
-async function encodeAudio(clips, total, codecs) {
+/** all the sound of the video mixed into one buffer: the voice lines (mute / solo / volume / fades) and the background music (`music` = [{buffer, start, end, volume, fadeIn, fadeOut, muted}]) */
+export async function mixAudio(clips, total, music = []) {
   const oc = new OfflineAudioContext(2, Math.ceil(total * SR), SR);
-  for (const c of clips) { const src = oc.createBufferSource(); src.buffer = c.buffer; src.connect(oc.destination); src.start(c.start, c.trimStart || 0, Math.max(0.01, c.end - c.start)); }
-  const mix = await oc.startRendering(), out = [];
+  for (const m of music) if (m.buffer && !m.muted && m.end > m.start) playClip(oc, { ...m, loop: true }, oc.destination, m.start, 0);
+  for (const c of audibleClips(clips)) playClip(oc, c, oc.destination, c.start, 0);
+  return oc.startRendering();
+}
+async function encodeAudio(clips, total, codecs, music = []) {
+  const mix = await mixAudio(clips, total, music), out = [];
   let failure = null;
   const aenc = new AudioEncoder({ output: (c, m) => out.push([c, m]), error: (e) => { failure = e; } });
   aenc.configure({ codec: codecs.audio.codec, sampleRate: SR, numberOfChannels: 2, bitrate: 192000 });
@@ -80,13 +86,13 @@ function mux({ codecs, W, H, FPS }, video, audio) {
  * Frame-by-frame export on one thread: every frame is rendered and encoded exactly once and the audio is mixed offline,
  * so the result is always complete (same length as the audio) no matter how slow the phone is.
  */
-export async function exportOffline({ stage, clips, plan, total, onProgress, cancelled, fps: FPS = 30, level = 'high', format = 'webm', beforeFrame }) {
+export async function exportOffline({ stage, clips, plan, total, onProgress, cancelled, fps: FPS = 30, level = 'high', format = 'webm', beforeFrame, music = [] }) {
   const W = stage.W, H = stage.H;
-  const silent = !hasVoice(clips);
+  const silent = !hasVoice(clips, music);
   let codecs = await pickCodecs(W, H, bitrateFor(W, H, level, format), FPS, format, silent);
   if (!codecs) throw new Error('unsupported');
   const bitrate = bitrateFor(W, H, level, codecs.format), frames = Math.ceil(total * FPS);
-  const audioChunks = silent ? [] : await encodeAudio(clips, total, codecs);
+  const audioChunks = silent ? [] : await encodeAudio(clips, total, codecs, music);
   const video = []; let failure = null;
   const venc = new VideoEncoder({ output: (c, m) => video.push([c, m]), error: (e) => { failure = e; } });
   venc.configure({ codec: codecs.video.codec, width: W, height: H, bitrate, framerate: FPS, latencyMode: 'quality', bitrateMode: codecs.bitrateMode });
@@ -119,13 +125,13 @@ export function workerCount() {
  * Parallel export: the timeline is cut into slices, several workers render + encode slices at the same time,
  * and the slices are stitched together in order. `job` describes the scene (see exportWorker.js).
  */
-export async function exportParallel({ job, clips, total, onProgress, cancelled, workers }) {
+export async function exportParallel({ job, clips, total, onProgress, cancelled, workers, music = [] }) {
   const FPS = job.fps, W = job.W, H = job.H;
-  const silent = !hasVoice(clips);
+  const silent = !hasVoice(clips, music);
   const codecs = await pickCodecs(W, H, bitrateFor(W, H, job.level, job.format), FPS, job.format, silent);
   if (!codecs) throw new Error('unsupported');
   const bitrate = bitrateFor(W, H, job.level, codecs.format), frames = Math.ceil(total * FPS);
-  const audioPromise = silent ? Promise.resolve([]) : encodeAudio(clips, total, codecs);   // mixed + encoded here while the workers start up
+  const audioPromise = silent ? Promise.resolve([]) : encodeAudio(clips, total, codecs, music);   // mixed + encoded here while the workers start up
 
   // slices of ~4 s (at least 3 per worker, so a slower core just takes fewer slices)
   const segLen = Math.max(FPS * 2, Math.min(FPS * 6, Math.ceil(frames / (workers * 3))));

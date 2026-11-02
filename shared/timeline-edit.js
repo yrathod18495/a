@@ -2,15 +2,32 @@
 export const MIN_CLIP = 0.2, STEP = 0.05, EMPTY_SCENE = 8, MIN_SCENE = 1;
 export const snap = (value, step = STEP) => +(Math.round(value / step) * step).toFixed(2);
 
+/** the closest of `points` to `value`, if it is within `within` seconds */
+export function nearestPoint(points, value, within) {
+  let best = null, gap = within;
+  for (const p of points) { const d = Math.abs(p - value); if (d <= gap) { gap = d; best = p; } }
+  return best;
+}
+/**
+ * Magnetic snapping for a drag. The edges that move (a 'move' drags both ends, 'left' only the start, 'right' only the end) are pulled to the
+ * closest point (another clip's edge, the playhead, a whole second) when they come within `within` seconds. Returns the delta to use and where it snapped.
+ */
+export function snapDelta({ mode, start, dur, delta, points, within }) {
+  const edges = mode === 'move' ? [start + delta, start + dur + delta] : mode === 'left' ? [start + delta] : [start + dur + delta];
+  let best = null;
+  for (const edge of edges) { const p = nearestPoint(points, edge, within); if (p != null) { const d = Math.abs(p - edge); if (!best || d < best.d) best = { d, fix: p - edge, at: p }; } }
+  return best ? { delta: +(delta + best.fix).toFixed(4), at: best.at } : { delta, at: null };
+}
+
 /**
  * Drag one clip: 'move' shifts it, 'right' makes it longer / shorter, 'left' trims its head (the clip starts later and `off`, the part of
  * the media that is skipped, grows). `room` is how far the head may be pulled back out: an animation can go back to its own beginning (`off`),
  * a background or a prop range as far as 0 (Infinity).
  */
-export function resizeClip({ mode, start, dur, off = 0, delta, min = MIN_CLIP, room = off }) {
-  if (mode === 'move') return { start: Math.max(0, snap(start + delta)), dur, off };
-  if (mode === 'right') return { start, dur: Math.max(min, snap(dur + delta)), off };
-  let next = snap(start + delta);
+export function resizeClip({ mode, start, dur, off = 0, delta, min = MIN_CLIP, room = off, step = STEP }) {
+  if (mode === 'move') return { start: Math.max(0, snap(start + delta, step)), dur, off };
+  if (mode === 'right') return { start, dur: Math.max(min, snap(dur + delta, step)), off };
+  let next = snap(start + delta, step);
   next = Math.min(next, start + dur - min);        // keep a minimum length
   next = Math.max(next, 0, start - room);          // not before 0, not further back than the media allows
   const used = +(next - start).toFixed(2);

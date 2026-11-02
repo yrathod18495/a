@@ -8,7 +8,7 @@ import { summarizeProjectSnapshot } from '../shared/project-summary.js';
 const listeners = new Set(), jobs = new Map(), timers = new Map();
 export const syncStatus = { text: 'Saved locally', error: '', issue: null, projectId: null };
 export const onSyncStatus = fn => { listeners.add(fn); fn(syncStatus); return () => listeners.delete(fn); };
-function status(text, error = '', issue = null, projectId = null) { Object.assign(syncStatus, { text, error, issue, projectId }); listeners.forEach(fn => fn(syncStatus)); }
+function status(text, error = '', issue = null, projectId = null) { Object.assign(syncStatus, { text, error, issue, projectId, ...(text === 'Saved to Cloud' ? { at: Date.now() } : {}) }); listeners.forEach(fn => fn(syncStatus)); }
 /** claims this project's short ID right away, so support can find it by ID (owner, kind) the moment it exists — not only once it has fully
  *  synced. Best-effort and silent: offline or any other failure just means the ID shows up a little later, on the first real save instead. */
 export async function registerProject(uid, id, kind, name) {
