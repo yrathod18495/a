@@ -1,5 +1,6 @@
 import { h } from './dom.js';
 import { apiCall } from './session.js';
+import { contactChannels } from '../shared/contact-links.js';
 
 const ICONS = {
   chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z',
@@ -9,6 +10,8 @@ const ICONS = {
   shrink: 'M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7',
   min: 'M5 12h14',
   bolt: 'M13 3 5 14h6l-1 7 8-11h-6l1-7Z',
+  telegram: 'M21.4 4.3 2.9 11.5c-.9.4-.9 1.5 0 1.8l4.6 1.6 1.8 5.5c.2.7 1.1.9 1.6.4l2.5-2.4 4.6 3.4c.6.4 1.4.1 1.6-.6l3.1-14.3c.2-.9-.7-1.6-1.3-1.1ZM8.8 14l9.1-5.7-7.2 6.9-.3 3.2L8.8 14Z',
+  whatsapp: 'M12 3a9 9 0 0 0-7.8 13.4L3 21l4.7-1.2A9 9 0 1 0 12 3Zm4.4 12.3c-.2.6-1.2 1.1-1.7 1.1-.5.1-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.8s.7-2 .9-2.3c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5.2.5.8 1.8.8 1.9.1.1.1.3 0 .4-.1.2-.2.3-.3.4l-.4.5c-.1.1-.3.3-.1.5.2.3.7 1.2 1.5 1.9 1 .9 1.8 1.2 2.1 1.3.3.1.4.1.6-.1l.8-1c.2-.2.4-.2.6-.1l1.8.9c.2.1.4.2.4.3.1.1.1.6-.1 1.2Z',
 };
 const QUICK = ['How do coins work?', 'I need help with my video', 'Report a problem', 'Ask about a feature'];
 const icon = (name) => { const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', ICONS[name]); svg.append(path); return svg; };
@@ -35,11 +38,39 @@ export function chatWidget(user, onLogin = () => {}) {
   const sendButton = panel.querySelector('.support-send');
   const flip = async () => { open = !open; panel.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); if (open) { if (user) { await load(); clearInterval(timer); quietSince = Date.now(); schedule(); input.focus(); } else panel.querySelector('.support-guest button')?.focus(); } else { clearTimeout(timer); timer = 0; } };
   // keyboard (Enter / Space) still opens it; a pointer press is handled below so the bubble can be dragged without opening
-  const toggle = h('button', { class: 'support-launch', 'aria-label': 'Open live chat', 'aria-expanded': 'false', onclick: (e) => { if (e.detail === 0) flip(); } }, icon('chat'), h('i', { class: 'support-dot', 'aria-hidden': 'true' }));
+  const toggle = h('button', { class: 'support-launch', 'aria-label': 'Open live chat', 'aria-expanded': 'false', onclick: (e) => { if (e.detail === 0) press(); } }, icon('chat'), h('i', { class: 'support-dot', 'aria-hidden': 'true' }));
   const hideX = h('button', { class: 'support-hide', type: 'button', 'aria-label': 'Hide the chat button', hidden: true, onclick: (e) => { e.stopPropagation(); try { sessionStorage.setItem('toons-chat-hidden', '1'); } catch { /* this visit only */ } root.hidden = true; } }, icon('close'));
   hideX.addEventListener('pointerdown', (e) => e.stopPropagation());
   const fab = h('div', { class: 'support-fab' }, hideX, toggle);
-  root.append(panel, fab);
+  // the button first asks how to reach us (Telegram, WhatsApp, live chat) when Telegram / WhatsApp links are set; with none set it opens the live chat directly
+  const channels = contactChannels();
+  const menu = h('div', { class: 'support-menu', role: 'menu', 'aria-label': 'How would you like to reach us?', hidden: true });
+  const closeMenu = () => { menu.hidden = true; toggle.setAttribute('aria-expanded', String(open)); };
+  const chooseLive = () => { closeMenu(); flip(); };
+  const drawMenu = () => {
+    const row = (key, label, hint, onclick, ...extra) => h('div', { class: 'support-menu-row' },
+      h('button', { type: 'button', class: 'support-menu-item', role: 'menuitem', 'aria-expanded': extra.length ? 'false' : undefined, onclick }, h('span', { class: `support-menu-badge ${key}`, 'aria-hidden': 'true' }, icon(key === 'live' ? 'chat' : key)), h('span', { class: 'support-menu-text' }, h('b', {}, label), h('small', {}, hint))), ...extra);
+    const link = (option) => h('a', { class: 'support-menu-sub', role: 'menuitem', href: option.url, target: '_blank', rel: 'noopener noreferrer', onclick: () => closeMenu() }, option.label);
+    const rows = channels.map((channel) => {
+      if (channel.options.length === 1) { const only = channel.options[0]; return row(channel.key, channel.label, only.label, () => { window.open(only.url, '_blank', 'noopener,noreferrer'); closeMenu(); }); }
+      const subs = h('div', { class: 'support-menu-subs', hidden: true }, ...channel.options.map(link));
+      const item = row(channel.key, channel.label, 'Group or personal chat', (e) => { const row_ = e.currentTarget.closest('.support-menu-row'), opening = subs.hidden; menu.querySelectorAll('.support-menu-subs').forEach((x) => { x.hidden = true; }); menu.querySelectorAll('.support-menu-item[aria-expanded]').forEach((b) => b.setAttribute('aria-expanded', 'false')); subs.hidden = !opening; e.currentTarget.setAttribute('aria-expanded', String(opening)); row_.classList.toggle('open', opening); }, subs);
+      return item;
+    });
+    menu.replaceChildren(h('p', { class: 'support-menu-title' }, 'How would you like to reach us?'), ...rows, row('live', 'Live chat', 'Talk to our team here', chooseLive));
+  };
+  const placeMenu = () => {
+    const rect = fab.getBoundingClientRect(), below = rect.top < 280;
+    Object.assign(menu.style, { right: `${Math.max(8, innerWidth - rect.right)}px`, left: 'auto', top: below ? `${rect.bottom + 10}px` : 'auto', bottom: below ? 'auto' : `${innerHeight - rect.top + 10}px` });
+  };
+  function press() {
+    if (!channels.length) { flip(); return; }
+    if (!menu.hidden) { closeMenu(); return; }
+    drawMenu(); placeMenu(); menu.hidden = false; toggle.setAttribute('aria-expanded', 'true'); menu.querySelector('.support-menu-item')?.focus();
+  }
+  document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(e.target) && !fab.contains(e.target)) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.hidden) { closeMenu(); toggle.focus(); } });
+  root.append(panel, menu, fab);
   try { if (sessionStorage.getItem('toons-chat-hidden')) root.hidden = true; } catch { /* shown */ }
   // drag the bubble anywhere (the place is remembered); hold it still for half a second to show a cross that hides it for this visit
   const POS = 'toons-chat-pos';
@@ -67,7 +98,7 @@ export function chatWidget(user, onLogin = () => {}) {
     if (moved) { paint(true); try { localStorage.setItem(POS, JSON.stringify(pos)); } catch { /* not remembered */ } return; }
     if (heldOpen) { heldOpen = false; return; }          // the press that showed the cross does not also open the chat
     if (!hideX.hidden) { hideX.hidden = true; return; }
-    flip();
+    press();
   };
   fab.addEventListener('pointerup', release); fab.addEventListener('pointercancel', () => { drag = null; clearTimeout(hold); fab.classList.remove('dragging'); });
   // phone: pull the chat sheet down by its header to close it
