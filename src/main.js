@@ -27,7 +27,7 @@ import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
-import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
+import { authorizeExport, finishExport, ExportLimitError, currentPlan, refreshPlan } from './export-plan.js';
 import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
@@ -118,8 +118,12 @@ function render() {
   mountStage(); document.querySelector('.ws').dataset.previewQuality = S.previewMode; applyLayout(wsEl(), S.layout); placeDock('rail'); placeDock('panel'); dockShow('rail'); dockShow('panel');
 }
 function topBar() {
-  // no logo / title row: the studio keeps its space for the canvas and timeline. Quality, save state, undo / redo, export — then the X that leaves the studio.
-  return h('header', { class: 'topbar studio-bar' }, headerTools());
+  // The 12toons name sits in the middle of the bar; quality, save state, undo / redo, export — then the X that leaves the studio.
+  // The bar turns gold for paid accounts and admins (the server says who is paid; free accounts and the debug session see no change).
+  const bar = h('header', { class: 'topbar studio-bar' }, headerTools());
+  const paint = () => bar.classList.toggle('gold', currentPlan().tier === 'paid');
+  paint(); refreshPlan().then(paint).catch(() => {});
+  return bar;
 }
 /** audio lines changed (added / removed): rebuild the voices, the timeline and the characters */
 async function afterAudioChange() {
@@ -3384,7 +3388,7 @@ function headerTools() {
   queueMicrotask(updateHistoryButtons);
   exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: () => doExport() }, icon('download'));
   const closeBtn = h('button', { class: 'btn sm icon-btn close-studio', 'aria-label': 'Close studio', title: 'Close studio — back to your projects', onclick: goHome }, icon('x'));
-  return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), projectIdChip(), saveDetails, hdrUndo, hdrRedo,
+  return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), h('span', { class: 'studio-brand', title: '12toons', 'aria-label': '12toons' }, ...brandWordmark()), h('span', { class: 'sp' }), projectIdChip(), saveDetails, hdrUndo, hdrRedo,
     h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
     exportBtn, closeBtn);
 }

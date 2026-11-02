@@ -178,3 +178,12 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 /* the save status shows its words (and how long ago) next to the icon when there is room */
 @media(min-width:1000px){#app .ws .save-status .save-label{position:static;width:auto;height:auto;clip:auto;overflow:hidden;text-overflow:ellipsis;max-width:240px;font-size:12px;font-weight:650}
   #app .ws .save-status>summary{display:inline-flex;align-items:center;gap:6px;width:auto;padding:0 12px}}
+
+/* the 12toons name in the middle of the studio bar */
+#app .ws .studio-bar .studio-brand{display:inline-flex;align-items:baseline;gap:1px;font-size:17px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;user-select:none;pointer-events:none}
+#app .ws .studio-bar .studio-brand .brand-name{color:var(--text,#f3f3f6)}
+@media (max-width:900px){#app .ws .studio-bar .studio-brand{display:none}}
+/* paid accounts and admins: a gold bar and a gold name (free accounts keep the normal look) */
+#app .ws .topbar.studio-bar.gold{border-color:#d4a62a;background:linear-gradient(180deg,#2a2412 0%,var(--card) 100%);box-shadow:0 0 0 1px #d4a62a55,0 2px 14px #d4a62a33}
+#app .ws .studio-bar.gold .studio-brand .brand-mark{background:linear-gradient(135deg,#f7d56a,#c8921a);-webkit-background-clip:text;background-clip:text;color:transparent}
+#app .ws .studio-bar.gold .studio-brand .brand-name{color:#f2cf6a}
