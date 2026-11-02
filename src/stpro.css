@@ -920,3 +920,24 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 @media(max-width:420px){.credit-badge{padding:0 9px 0 7px;font-size:13px}}
 @media(max-width:900px){#app .ws .studio-bar .credit-badge{display:none}}
 .projects-header .credit-badge{margin-left:auto}
+
+/* the Coin history window */
+dialog.credit-history-window{width:min(460px,calc(100vw - 24px));max-height:min(640px,calc(100dvh - 40px));padding:0;border:1px solid var(--edge,#34363c);border-radius:22px;background:var(--page,#16171a);color:var(--ink,#f2f3f5);box-shadow:0 24px 70px #0008;overflow:hidden}
+dialog.credit-history-window[open]{display:flex;flex-direction:column}
+dialog.credit-history-window::backdrop{background:#0009;backdrop-filter:blur(2px)}
+.chw-head{display:flex;align-items:center;gap:8px;padding:16px 18px 6px}.chw-head h2{margin:0;flex:1;font-size:18px}
+.chw-close{width:34px;height:34px;border:0;border-radius:50%;background:transparent;color:var(--mute);font-size:16px;cursor:pointer}.chw-close:hover,.chw-close:focus-visible{background:color-mix(in srgb,var(--acc,#8b7bff) 18%,transparent);color:var(--ink,#f2f3f5)}
+.chw-summary{margin:6px 18px 10px;padding:14px 16px;border:1px solid color-mix(in srgb,#e8b93c 45%,var(--edge,#34363c));border-radius:16px;background:color-mix(in srgb,#e8b93c 10%,var(--card1,#1d1e22))}
+.chw-label{display:block;font-size:12px;color:var(--mute)}.chw-figure{display:flex;align-items:center;gap:10px;margin-top:4px}.chw-balance{font-size:30px;font-variant-numeric:tabular-nums}
+.chw-sub{margin:4px 18px 6px;font-size:13px;color:var(--mute);font-weight:700}
+.chw-body{flex:1;min-height:80px;overflow:auto;padding:0 18px 6px}
+.chw-hint,.chw-note{margin:6px 0 10px;font-size:13px;color:var(--mute)}.chw-hint.error{color:#ef8f7a}
+.chw-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.chw-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--edge,#34363c);border-radius:14px;background:var(--card1,#1d1e22)}
+.chw-main{display:grid;gap:2px;min-width:0;flex:1}.chw-main b,.chw-main small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.chw-main small,.chw-side small{font-size:11.5px;color:var(--mute)}
+.chw-side{display:grid;gap:2px;text-align:right;flex:none}.chw-coins{font-size:16px;font-variant-numeric:tabular-nums}
+.chw-row.added .chw-coins{color:#4fd69c}.chw-row.waiting .chw-coins,.chw-row.failed .chw-coins{color:var(--mute);text-decoration:none}.chw-row.failed{opacity:.75}
+.chw-status.added{color:#4fd69c}.chw-status.waiting{color:#e8b93c}.chw-status.failed{color:#ef8f7a}
+.chw-empty{display:grid;justify-items:center;gap:6px;padding:22px 8px;text-align:center}.chw-empty p{margin:0;font-size:13px;color:var(--mute)}
+.chw-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--edge,#34363c)}
+.chw-foot .btn{text-decoration:none}

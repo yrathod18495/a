@@ -3,6 +3,7 @@
 import { h } from './dom.js';
 import { apiCall } from './session.js';
 import { goldCoin } from './coin.js';
+import { openCreditHistory } from './credits-history.js';
 
 const KEY = (uid) => `12toons-coins-${uid}`, FRESH_MS = 60_000;
 let uid = null, balance = null, fetchedAt = 0, loading = null;
@@ -41,7 +42,9 @@ export function refreshCoins({ force = false } = {}) {
 /** the badge: a gold coin and the number; a tap opens the page where Coins are bought */
 export function creditsBadge({ compact = false } = {}) {
   const number = h('b', {}, '');
-  const el = h('a', { class: `credit-badge${compact ? ' compact' : ''}`, href: '#/credits', title: 'Your Coins. Tap to see your balance or buy more.', 'aria-label': 'Your Coins' }, goldCoin(compact ? 18 : 20), number);
+  const el = h('a', { class: `credit-badge${compact ? ' compact' : ''}`, href: '#/credits', title: 'Your Coins. Tap to see your Coin history.', 'aria-label': 'Your Coins' }, goldCoin(compact ? 18 : 20), number);
+  // a tap opens the Coin history window (the href still works for a middle click or "open in a new tab")
+  el.addEventListener('click', (e) => { if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return; e.preventDefault(); if (uid) openCreditHistory({ uid, balance, onBalance: setCoinBalance }); });
   const paint = () => {
     el.hidden = !uid || uid === 'debug';
     number.textContent = balance == null ? '…' : formatCoins(balance);
