@@ -20,5 +20,13 @@ test('a new login writes the session, the account, the device and one event; rel
  assert.equal(events(),1);assert.equal(writes(),before);                                   // five reloads, no write at all
  assert.equal(writes(),before);                                                            // sessions never expire, so there is nothing to renew
  assert.equal(events(),1);
- assert.equal((await call({...acquire,secret:'secret_other_1234567'})).statusCode,409);      // another browser is still refused
+ // another browser logs in: it is let in, and the first browser's session is replaced (and signalled)
+ const signalBefore=JSON.stringify(db.data.get('sessionSignals/'+uid));
+ const other=await call({...acquire,deviceId:'device_other_1234567',secret:'secret_other_1234567'});
+ assert.equal(other.statusCode,200);
+ const newSid=JSON.parse(other.body.token).sid;
+ assert.notEqual(newSid,first.sid);
+ assert.equal(db.data.get('securitySessions/'+uid).sid,newSid);
+ assert.equal(db.data.get('sessionSignals/'+uid).sid,newSid);assert.notEqual(JSON.stringify(db.data.get('sessionSignals/'+uid)),signalBefore);
+ assert.equal(Object.keys(db.data.get('sessionSignals/'+uid)).sort().join(),'at,sid');        // nothing secret in the signal
 });

@@ -14,13 +14,18 @@ const uid='user_12345678901234567890',other='user_98765432109876543210';
 function loginToken(key,id=uid){
  tokens.set(key,{uid:id,email:id+'@gmail.com',email_verified:true,auth_time:Math.floor(Date.now()/1000),firebase:{sign_in_provider:'google.com'}});
 }
-test('actual acquisition handler serializes simultaneous devices; backend rejects loser',async()=>{
+test('two logins at the same moment: both are let in, the later write wins and the other session is ended',async()=>{
  loginToken('google');
  const results=await Promise.all([call('google',{action:'acquire',deviceId:'device_111111111111',secret:'secret_111111111111'}),call('google',{action:'acquire',deviceId:'device_222222222222',secret:'secret_222222222222'})]);
- assert.deepEqual(results.map(r=>r.statusCode).sort(),[200,409]);
- const winner=JSON.parse(results.find(r=>r.statusCode===200).body.token);
- tokens.set('session',{...tokens.get('google'),sid:winner.sid,firebase:{sign_in_provider:'custom'}});
+ assert.deepEqual(results.map(r=>r.statusCode),[200,200]);                                   // nobody is refused any more
+ const current=db.data.get('securitySessions/'+uid).sid,sids=results.map(r=>JSON.parse(r.body.token).sid);
+ assert.ok(sids.includes(current));
+ const winner=sids.find(x=>x===current),loser=sids.find(x=>x!==current);
+ tokens.set('session',{...tokens.get('google'),sid:winner,firebase:{sign_in_provider:'custom'}});
  assert.equal((await access(request('session',{}))).uid,uid);
+ tokens.set('old',{...tokens.get('google'),sid:loser,firebase:{sign_in_provider:'custom'}});
+ await assert.rejects(access(request('old',{})),e=>e.code==='session_invalid');              // the older login is signed out
+ assert.equal(db.data.get('sessionSignals/'+uid).sid,winner);                                // and its device is told at once through this signal
  await assert.rejects(access(request('google',{})),e=>e.code==='session_invalid');
 });
 test('actual handler allows a second Gmail account to sign in on a device another account already used',async()=>{

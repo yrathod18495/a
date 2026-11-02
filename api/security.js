@@ -36,7 +36,7 @@ export default async function handler(req, res) {
         try {
           checkAccount(us.data(), now);
           if (claims.auth_time <= (us.data()?.reauthAfter || 0)) throw new AccessError('fresh_login_required', 'Please sign in again.', 401);
-          checkAcquisition(ss.data(), ds.data(), uid, secretHash, now, b.force === true);
+          checkAcquisition(ss.data(), ds.data(), uid, secretHash, now, true);          // the newest login always wins; the older one is signed out
         } catch (e) { denied = e; }
         // Opening the studio again on the same browser (a reload) continues the running session: no new login, so nothing is written
         // (a login writes four documents).
@@ -52,6 +52,8 @@ export default async function handler(req, res) {
         const same = ss.data()?.secretHash === secretHash && !ss.data()?.revoked;
         const sessionId = same ? ss.data().sid : sid;
         tx.set(s, { sid: sessionId, deviceId: b.deviceId, secretHash, startedAt: same ? ss.data().startedAt : now, lastSeen: now, expiresAt: NEVER_EXPIRES, revoked: false });
+        // the signal an older device listens to: it is signed out the moment this changes (only the session id, which the account's own tokens carry anyway)
+        tx.set(db.doc('sessionSignals/' + uid), { sid: sessionId, at: now });
         tx.set(d, { accounts: [...new Set([...accounts, uid])], lastSeen: now, firstSeen: ds.data()?.firstSeen || now }, { merge: true });
         return { sid: sessionId };
       });

@@ -23,6 +23,7 @@ service cloud.firestore {
   function admin() { return writable() && get(/databases/$(database)/documents/securityAdmins/$(request.auth.uid)).data.enabled == true; }
   match /securityUsers/{uid} { allow read, write: if false; }
   match /securitySessions/{uid} { allow read, write: if false; }
+  match /sessionSignals/{uid} { allow read: if signed() && request.auth.uid == uid; allow write: if false; }   // only the current session id: an older device sees it change and signs out at once
   match /securityDevices/{id} { allow read, write: if false; }
   match /securityEvents/{id} { allow read, write: if false; }
   match /securityAudit/{id} { allow read, write: if false; }
