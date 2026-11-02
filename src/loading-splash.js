@@ -1,19 +1,32 @@
-// The loading screen: a small bouncing mascot (pure CSS / SVG, so nothing extra to download) and a line that changes every few seconds.
+// The loading screen: the real 12toons logo, drawn piece by piece (pure SVG + CSS), and a line under it that changes every few seconds.
+// The logo is the original picture cut into layers (scripts/make_logo_layers.py), so its colours and shapes are exactly the real logo.
 import { h } from './dom.js';
 import { LOADING_LINES, nextLine } from '../shared/loading-lines.js';
+import { LOGO_VIEW, LOGO_PLATE, LOGO_LAYERS } from './logo-anim-data.js';
 
-const SVG = 'http://www.w3.org/2000/svg';
-function mascot() {
-  const svg = document.createElementNS(SVG, 'svg');
-  svg.setAttribute('viewBox', '0 0 120 120'); svg.setAttribute('class', 'ls-mascot'); svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = `
-    <ellipse class="ls-shadow" cx="60" cy="108" rx="26" ry="5"/>
-    <g class="ls-body">
-      <rect x="26" y="26" width="68" height="68" rx="24" class="ls-face"/>
-      <g class="ls-eyes"><ellipse cx="46" cy="58" rx="6" ry="8"/><ellipse cx="74" cy="58" rx="6" ry="8"/></g>
-      <path d="M48 76 Q60 86 72 76" class="ls-smile"/>
-      <path d="M60 26 Q58 14 66 10" class="ls-sprout"/>
-    </g>`;
+const SVG = 'http://www.w3.org/2000/svg', XLINK = 'http://www.w3.org/1999/xlink';
+const layerUrl = (name) => `/images/logo-anim/${name}.webp`;
+const node = (tag, attrs = {}) => { const el = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
+
+/** the animated logo; the animation starts when its pictures have loaded (or after a short wait), so nothing pops in half drawn */
+export function animatedLogo() {
+  const svg = node('svg', { viewBox: `0 0 ${LOGO_VIEW} ${LOGO_VIEW}`, class: 'ls-logo', role: 'img', 'aria-label': '12toons' });
+  const clip = node('clipPath', { id: 'ls-swoosh-clip' }); clip.append(node('rect', { class: 'ls-wipe', x: 0, y: 300, width: LOGO_VIEW, height: 300 }));
+  const clipUnder = node('clipPath', { id: 'ls-under-clip' }); clipUnder.append(node('rect', { class: 'ls-wipe ls-wipe-under', x: 0, y: 660, width: LOGO_VIEW, height: 80 }));
+  svg.append(node('defs'), clip, clipUnder);
+  const stage = node('g', { class: 'ls-stage' });
+  stage.append(node('path', { class: 'ls-plate', d: LOGO_PLATE.path, fill: LOGO_PLATE.fill }));
+  for (const name of LOGO_LAYERS) {
+    const image = node('image', { href: layerUrl(name), width: LOGO_VIEW, height: LOGO_VIEW, class: `ls-img ls-${name}`, preserveAspectRatio: 'none' });
+    image.setAttributeNS(XLINK, 'xlink:href', layerUrl(name));
+    if (name === 'swoosh') image.setAttribute('clip-path', 'url(#ls-swoosh-clip)');
+    if (name === 'under') image.setAttribute('clip-path', 'url(#ls-under-clip)');
+    stage.append(image);
+  }
+  svg.append(stage);
+  let started = false;
+  const go = () => { if (!started) { started = true; svg.classList.add('go'); } };
+  Promise.race([Promise.all(LOGO_LAYERS.map((name) => new Promise((resolve) => { const img = new Image(); img.onload = img.onerror = resolve; img.src = layerUrl(name); }))), new Promise((resolve) => setTimeout(resolve, 1500))]).then(go);
   return svg;
 }
 
@@ -21,7 +34,7 @@ function mascot() {
 export function loadingSplash(message = 'Getting things ready…', { every = 3200, lines = LOADING_LINES } = {}) {
   let index = 0;
   const line = h('p', { class: 'ls-line' }, lines[0]);
-  const el = h('div', { class: 'sh sh-center boot-splash loading-splash', role: 'status', 'aria-live': 'polite' }, mascot(), h('p', { class: 'sub ls-message' }, message), line);
+  const el = h('div', { class: 'sh sh-center boot-splash loading-splash', role: 'status', 'aria-live': 'polite' }, animatedLogo(), h('p', { class: 'sub ls-message' }, message), line);
   const timer = setInterval(() => {
     if (!el.isConnected) { clearInterval(timer); return; }
     line.classList.add('out');
