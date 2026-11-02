@@ -7,6 +7,7 @@ import './stpro.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Editor)
 import { h, toast, logo } from './dom.js';
 import { loadingSplash } from './loading-splash.js';
+import { setCoinUser, mountCreditBadges } from './credits-badge.js';
 import { startRoute, doneRoute } from './route-feedback.js';
 import { onUser, signInGoogle, signOutUser, finishRedirect } from './firebase.js';
 import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
@@ -381,6 +382,9 @@ function guardSession(u) {
 /* ---------------- start ---------------- */
 async function start() {
   startRoute('boot', { quiet: true });
+  // every page header gets the Coin balance; headers are drawn by many views, so new ones are picked up as they appear
+  let badgeTimer = 0;
+  new MutationObserver(() => { cancelAnimationFrame(badgeTimer); badgeTimer = requestAnimationFrame(() => mountCreditBadges($shell)); }).observe($shell, { childList: true, subtree: true });
   $shell.replaceChildren(loadingSplash('Getting things ready…'));
   const maintenanceAtStart = maintenanceStatus();   // starts now and runs while the sign-in redirect is finished
   if (DEBUG) { try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
@@ -389,7 +393,7 @@ async function start() {
   let first = true;
   onUser(async (u) => {
     if (ready && user && u && user.uid !== u.uid) { location.reload(); return; }   // only a real account switch forces a reload; a momentary null (mobile auth hiccup) must not nuke unsaved work
-    user = u;
+    user = u; setCoinUser(u?.uid || null);
     if (u) {
       // the two server checks are independent, so they are asked together
       const [maintenanceNow, adminAnswer] = await Promise.all([maintenanceStatus(), isAdmin(u)]);

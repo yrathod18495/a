@@ -11,6 +11,7 @@ import { installTips } from './tips.js';
 import './studio-icons.css';
 import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark, swipeAway } from './dom.js';
+import { creditsBadge } from './credits-badge.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
@@ -3388,7 +3389,7 @@ function headerTools() {
   queueMicrotask(updateHistoryButtons);
   exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: () => doExport() }, icon('download'));
   const closeBtn = h('button', { class: 'btn sm icon-btn close-studio', 'aria-label': 'Close studio', title: 'Close studio — back to your projects', onclick: goHome }, icon('x'));
-  return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), h('span', { class: 'studio-brand', title: '12toons', 'aria-label': '12toons' }, ...brandWordmark()), h('span', { class: 'sp' }), projectIdChip(), saveDetails, hdrUndo, hdrRedo,
+  return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), h('span', { class: 'studio-brand', title: '12toons', 'aria-label': '12toons' }, ...brandWordmark()), h('span', { class: 'sp' }), creditsBadge({ compact: true }), projectIdChip(), saveDetails, hdrUndo, hdrRedo,
     h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
     exportBtn, closeBtn);
 }

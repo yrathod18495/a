@@ -3,6 +3,7 @@ import { h, logo, toast } from './dom.js';
 import { apiCall } from './session.js';
 import { goldCoin, coinAmount, coinText, COIN_NAME } from './coin.js';
 import { CREDIT_PLANS, publicPlan } from '../shared/credit-plans.js';
+import { setCoinBalance } from './credits-badge.js';
 
 const money = (paise) => `₹${Math.round(Number(paise || 0) / 100).toLocaleString('en-IN')}`;
 const stamp = (ms) => ms ? new Date(ms).toLocaleString() : '—';
@@ -71,6 +72,7 @@ export async function view({ user, home }) {
             const result = await apiCall('/api/payments', { action: 'verify', orderId: response.razorpay_order_id, paymentId: response.razorpay_payment_id, signature: response.razorpay_signature }, user.uid);
             if (result.status === 'captured') {
               balance.replaceChildren(coinAmount(result.balance, { size: 26 }));
+              setCoinBalance(result.balance);
               message.textContent = result.credited ? `${coinText(plan.credits)} added to your account.` : 'Payment is already recorded in your account.';
               message.className = 'credit-message success'; toast(message.textContent);
             } else message.textContent = result.message || 'Payment is waiting for confirmation.';
@@ -109,6 +111,7 @@ export async function view({ user, home }) {
   refreshHistory();
   apiCall('/api/payments', { action: 'catalog' }, user.uid).then((fresh) => {
     catalog.configured = fresh.configured === true; catalog.credits = fresh.credits; catalog.known = true;
+    setCoinBalance(fresh.credits);
     balance.replaceChildren(coinAmount(fresh.credits, { size: 26 }));
     for (const b of buyButtons) { b.disabled = !catalog.configured; b.textContent = buttonLabel(); }
     try { localStorage.setItem(CACHE, JSON.stringify({ configured: catalog.configured, credits: catalog.credits })); } catch { /* optional */ }

@@ -20,6 +20,8 @@ export default async function handler(req, res) {
   try {
     const b = await bodyOf(req), who = await access(req, { write: ['createOrder', 'verify'].includes(b.action) || ADMIN_WRITES.includes(b.action), admin: ADMIN_ACTIONS.includes(b.action) }), { db } = services();
     if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    // the header badge: just the Coin balance (one small read), so every page can show it
+    if (b.action === 'balance') return send(res, 200, { credits: Number((await db.doc(`workspaces/${who.uid}`).get()).data()?.credits || 0) });
     if (b.action === 'catalog') return send(res, 200, {
       keyId: process.env.RAZORPAY_KEY_ID || '', configured: paymentConfigReady(),
       plans: CREDIT_PLANS.map(publicPlan), credits: Number((await db.doc(`workspaces/${who.uid}`).get()).data()?.credits || 0),

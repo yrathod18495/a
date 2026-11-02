@@ -176,3 +176,19 @@ test('Razorpay ground truth lists live payments and recovers a captured payment 
     assert.equal(db.data.has('creditPayments/order_gtghost'), false); assert.equal(db.data.has('creditPayments/order_gtother'), false);
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('the header balance: a signed-in account reads only its own Coin balance, a new account has 0, and signed-out requests are refused', async () => {
+  const fresh = 'fresh_12345678901234567890';
+  db.data.set(`securityUsers/${fresh}`, { status: 'active' });
+  db.data.set(`securitySessions/${fresh}`, { sid: 'fresh-session', expiresAt: Date.now() + 600000, revoked: false });
+  identities.set(fresh, { uid: fresh, sid: 'fresh-session', email: 'fresh@example.com', name: 'Fresh', email_verified: true });
+  db.data.set(`workspaces/${buyer}`, { ...(db.data.get(`workspaces/${buyer}`) || {}), credits: 4200 });
+  const mine = await call(fresh, { action: 'balance' });
+  assert.equal(mine.statusCode, 200); assert.deepEqual(mine.body, { credits: 0 });
+  const bought = await call(buyer, { action: 'balance' });
+  assert.equal(bought.statusCode, 200); assert.equal(bought.body.credits, 4200);
+  assert.deepEqual(Object.keys(bought.body), ['credits']);                                   // nothing else leaves the server (no keys, no plans)
+  const anonymous = response(); await payments({ method: 'POST', headers: {}, body: { action: 'balance' } }, anonymous);
+  assert.ok(anonymous.statusCode === 401 || anonymous.statusCode === 403, String(anonymous.statusCode));
+  assert.equal((await call(admin, { action: 'balance' })).statusCode, 200);                   // admins have a balance of their own too
+});
