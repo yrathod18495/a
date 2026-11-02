@@ -6,6 +6,7 @@ import './royal-surfaces.css';
 import './stpro.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Editor)
 import { h, toast, logo } from './dom.js';
+import { loadingSplash } from './loading-splash.js';
 import { startRoute, doneRoute } from './route-feedback.js';
 import { onUser, signInGoogle, signOutUser, finishRedirect } from './firebase.js';
 import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
@@ -380,7 +381,7 @@ function guardSession(u) {
 /* ---------------- start ---------------- */
 async function start() {
   startRoute('boot', { quiet: true });
-  $shell.replaceChildren(h('div', { class: 'sh sh-center boot-splash', role: 'status', 'aria-live': 'polite' }, h('div', { class: 'rf-spin' }), h('p', { class: 'sub' }, 'Getting things ready…')));
+  $shell.replaceChildren(loadingSplash('Getting things ready…'));
   const maintenanceAtStart = maintenanceStatus();   // starts now and runs while the sign-in redirect is finished
   if (DEBUG) { try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
   await finishRedirect();

@@ -904,3 +904,21 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .sa-user-body{display:grid;gap:10px;margin-top:8px}
 .sa-user-body[hidden]{display:none}
 :root[data-theme="day"] .sa-toggle{background:#fff;border-color:#d9dcf2;color:#1d1e22}
+
+/* loading screen: bouncing mascot + a changing line */
+.loading-splash{gap:6px}
+.ls-mascot{width:112px;height:112px;overflow:visible}
+.ls-face{fill:var(--acc,#8b7bff)}
+.ls-eyes ellipse{fill:#fff;transform-box:fill-box;transform-origin:center;animation:ls-blink 3.6s infinite}
+.ls-smile{fill:none;stroke:#fff;stroke-width:4;stroke-linecap:round}
+.ls-sprout{fill:none;stroke:var(--acc,#8b7bff);stroke-width:5;stroke-linecap:round;transform-box:fill-box;transform-origin:bottom center;animation:ls-sway 1.2s ease-in-out infinite}
+.ls-shadow{fill:currentColor;opacity:.16;transform-box:fill-box;transform-origin:center;animation:ls-shadow 1.2s ease-in-out infinite}
+.ls-body{transform-box:fill-box;transform-origin:50% 100%;animation:ls-bounce 1.2s cubic-bezier(.3,0,.4,1) infinite}
+.ls-message{margin:6px 0 0}
+.ls-line{margin:0;min-height:1.4em;max-width:min(88vw,420px);text-align:center;font-size:13px;color:var(--mute);transition:opacity .35s ease}
+.ls-line.out{opacity:0}
+@keyframes ls-bounce{0%,100%{transform:translateY(0) scale(1.08,.9)}45%{transform:translateY(-22px) scale(.94,1.06)}90%{transform:translateY(0) scale(1.08,.9)}}
+@keyframes ls-shadow{0%,100%{transform:scale(1);opacity:.18}45%{transform:scale(.7);opacity:.08}}
+@keyframes ls-blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes ls-sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@media(prefers-reduced-motion:reduce){.ls-body,.ls-shadow,.ls-sprout,.ls-eyes ellipse{animation:none}.ls-line{transition:none}}
