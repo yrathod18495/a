@@ -19,14 +19,16 @@ async function open(page, tier) {
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
 }
-const barColor = (page) => page.locator('.studio-bar').evaluate((el) => getComputedStyle(el).borderTopColor);
+const fill = (page) => page.locator('.studio-bar').evaluate((el) => getComputedStyle(el).backgroundImage + '|' + getComputedStyle(el).backgroundColor);
+const logoColors = (page) => page.locator('.studio-brand').evaluate((el) => [getComputedStyle(el.querySelector('.brand-mark')).color, getComputedStyle(el.querySelector('.brand-name')).color, getComputedStyle(el.querySelector('.brand-name')).fontWeight]);
 
 test('the studio bar shows the 12toons name, and stays unchanged for a free account', async ({ page }) => {
   await open(page);
   await expect(page.locator('.studio-bar .studio-brand')).toContainText('12');
   await expect(page.locator('.studio-bar .studio-brand')).toContainText('toons');
   await expect(page.locator('.studio-bar')).not.toHaveClass(/gold/);
-  expect(await barColor(page)).not.toBe('rgb(212, 166, 42)');
+  expect(await fill(page)).not.toMatch(/217, 171, 44|246, 213, 107/);
+  expect(await logoColors(page)).toEqual(['rgb(165, 151, 255)', 'rgb(242, 243, 245)', '800']);
   // the name sits between the quality picker and the project ID, not on top of them
   const box = async (sel) => page.locator(sel).first().boundingBox();
   const q = await box('.studio-bar .preview-quality'), brand = await box('.studio-bar .studio-brand'), id = await box('.studio-bar .project-id');
@@ -36,7 +38,9 @@ test('the studio bar shows the 12toons name, and stays unchanged for a free acco
 for (const tier of ['paid']) test(`the studio bar turns gold for a ${tier} account or an admin`, async ({ page }) => {
   await open(page, tier);
   await expect(page.locator('.studio-bar')).toHaveClass(/gold/);
-  expect(await barColor(page)).toBe('rgb(212, 166, 42)');
+  // the whole bar is filled with gold, and the logo keeps exactly the colours it has for a free account
+  expect(await fill(page)).toMatch(/246, 213, 107/);
+  expect(await logoColors(page)).toEqual(['rgb(165, 151, 255)', 'rgb(242, 243, 245)', '800']);
   await expect(page.locator('.studio-bar .studio-brand')).toBeVisible();
 });
 
