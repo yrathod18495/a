@@ -76,5 +76,6 @@ test('published characters cross studios within one account; deleting does not r
  s.selectProject('artist',b.id);assert.equal((await s.loadCharacters()).length,1);
  s.selectProject('stranger',other.id);assert.equal((await s.loadCharacters()).length,0);
  s.selectProject('artist',b.id);await s.deleteCharacter('character');assert.equal((await s.loadCharacters()).length,0);
- s.selectProject('artist',a.id);assert.equal((await s.all('characters')).length,1);
+ // deleting removes the character from every project of the account, and it does not come back from the library
+ s.selectProject('artist',a.id);assert.equal((await s.all('characters')).length,0);assert.equal((await s.loadCharacters()).length,0);
 });
