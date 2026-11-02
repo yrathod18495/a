@@ -4,7 +4,7 @@ import { AccessError } from '../server/security-policy.js';
 import { kv } from '../server/rtdb.js';
 
 const validUid = value => typeof value === 'string' && /^[A-Za-z0-9_-]{10,128}$/.test(value);
-const validProjectId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{16,128}$/.test(value);
+const validProjectId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{6,128}$/.test(value);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });

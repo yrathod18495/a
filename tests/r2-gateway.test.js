@@ -57,3 +57,10 @@ test('a project snapshot gets its own folder, and the old one is deleted when a 
  const first=await call({action:'sign',items:[],state:{projectId,opId:a,size:30}});
  assert.equal(new URL(first.body.state.url).pathname,`/bucket/u/${uid}/p/${projectId}/state-${a}.json`);
 });
+test('a new project with a short 9-digit ID can save its snapshot to the cloud; nonsense IDs are still refused',async()=>{
+ const a='operation_aaaaaaaaaaaa';
+ const ok=await call({action:'sign',items:[],state:{projectId:'502674123',opId:a,size:30}});
+ assert.equal(ok.statusCode,200);
+ assert.equal(new URL(ok.body.state.url).pathname,`/bucket/u/${uid}/p/502674123/state-${a}.json`);
+ for(const projectId of ['12','../x','a/b','502 674 123'])assert.equal((await call({action:'sign',items:[],state:{projectId,opId:a,size:30}})).statusCode,400,projectId);
+});

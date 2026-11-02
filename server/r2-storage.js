@@ -23,6 +23,7 @@ export const client = () => s3 ||= new S3Client({
 
 export const isHash = (v) => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
 const isId = (v) => typeof v === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(v);
+const isProjectId = (v) => typeof v === 'string' && /^[a-zA-Z0-9_-]{6,128}$/.test(v);   // the same rule as api/projects.js: new projects have a short 9-digit number
 export const assetKey = (uid, hash) => `u/${uid}/a/${hash.slice(0, 2)}/${hash}`;
 export const stateKey = (uid, projectId, opId) => `u/${uid}/p/${projectId}/state-${opId}.json`;
 const bad = (msg = 'The file details are not valid.') => new AccessError('invalid_file', msg, 400);
@@ -69,7 +70,7 @@ export async function signUploads(uid, store, { items = [], state = null }) {
   let extra = 0;
   for (const [hash, size] of wanted) { if (known.has(hash)) have.push(hash); else extra += size; }
   if (state) {
-    if (!isId(state.projectId) || !isId(state.opId) || !Number.isSafeInteger(state.size) || state.size < 1 || state.size > MAX_FILE) throw bad('The project snapshot details are not valid.');
+    if (!isProjectId(state.projectId) || !isId(state.opId) || !Number.isSafeInteger(state.size) || state.size < 1 || state.size > MAX_FILE) throw bad('The project snapshot details are not valid.');
     extra += state.size;
   }
   const usage = (await store.get(`usage/${uid}`)) || {};
