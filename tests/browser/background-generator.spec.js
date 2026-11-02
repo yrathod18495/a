@@ -66,7 +66,7 @@ test('a brush paints a road on its own layer, undo takes it back, and the painti
   await expect(page.locator('.bgg-layer')).toHaveCount(1);                                          // the same painting layer is reused
   await page.getByRole('button', { name: 'Save to my backgrounds' }).click();
   await expect(page.locator('.bgg-lib-item')).toHaveCount(1, { timeout: 25000 });
-  await page.getByRole('button', { name: 'New' }).click();
+  await page.getByRole('button', { name: 'New', exact: true }).click();
   await expect(page.locator('.bgg-layer')).toHaveCount(0);
   await page.locator('.bgg-lib-open').click();
   await expect(page.locator('.bgg-layer')).toHaveCount(1);
@@ -115,5 +115,34 @@ test('an imported texture is kept in the database, can be painted with and remov
   expect(await alpha()).toBeLessThan(10);                                                 // rubbed out: the grey checkerboard shows again
   await page.locator('.bgg-sample-wrap').getByRole('button', { name: /Remove/ }).click();
   await expect(page.locator('.bgg-sample-wrap')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('new layers can be added and dragged up or down, and the canvas follows the order', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await open(page);
+  await page.getByRole('heading', { name: 'Background Generator' }).click();
+  const box = await page.locator('.bgg-canvas').boundingBox(), y = box.y + box.height / 2;
+  const centre = () => page.locator('.bgg-canvas').evaluate((c) => { const d = c.getContext('2d').getImageData(Math.round(c.width / 2), Math.round(c.height / 2), 1, 1).data; return [d[0], d[1], d[2]]; });
+  const stroke = async () => { await page.mouse.move(box.x + 80, y); await page.mouse.down(); await page.mouse.move(box.x + box.width - 80, y, { steps: 12 }); await page.mouse.up(); };
+  await page.getByRole('button', { name: /Brush/ }).click();
+  await page.locator('select[aria-label="Brush"]').selectOption('colour');
+  await page.locator('input[aria-label="Brush colour"]').fill('#ff0000');
+  await page.locator('.bgg-left input[type=range]').first().fill('500');
+  await page.locator('.bgg-card-head').getByRole('button', { name: /New layer/ }).click();
+  await stroke();                                                                       // red, on the first layer
+  await page.locator('.bgg-card-head').getByRole('button', { name: /New layer/ }).click();
+  await expect(page.locator('.bgg-layer')).toHaveCount(2);
+  await page.locator('input[aria-label="Brush colour"]').fill('#0000ff');
+  await stroke();                                                                       // blue, on the second layer (above)
+  let c = await centre(); expect(c[2]).toBeGreaterThan(c[0] + 60);                      // blue is in front
+  const names = () => page.locator('.bgg-layer-main').allTextContents();
+  expect((await names())[0]).toContain('Painting 2');                                   // the newest layer is at the top of the list
+  const g = await page.locator('.bgg-layer').first().locator('.bgg-grip').boundingBox(), low = await page.locator('.bgg-layer').nth(1).boundingBox();
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2); await page.mouse.down(); await page.mouse.move(g.x + g.width / 2, low.y + low.height - 2, { steps: 8 }); await page.mouse.up();
+  await expect.poll(async () => (await names())[0]).not.toContain('Painting 2');          // dragged below the other layer
+  await expect.poll(async () => { const k = await centre(); return k[0] - k[2]; }).toBeGreaterThan(60);   // now red is in front: the canvas followed
+  await page.keyboard.press('Control+z');                                               // undo puts the order back
+  await expect.poll(async () => { const k = await centre(); return k[2] - k[0]; }).toBeGreaterThan(60);
   expect(errors).toEqual([]);
 });

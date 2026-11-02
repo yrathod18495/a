@@ -78,3 +78,10 @@
 .bgg-prompt{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--line,#34363c);border-radius:10px;background:var(--card2,#26272c)}
 .bgg-prompt b{font-size:12px}
 .bgg-prompt p{margin:0;font-size:11px;color:var(--mute,#9a9ea8);user-select:text}
+.bgg-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bgg-layer{position:relative;align-items:stretch}
+.bgg-grip{display:grid;place-items:center;width:26px;flex:none;border-radius:8px;color:var(--mute,#9a9ea8);cursor:grab;touch-action:none;user-select:none;font-size:16px}
+.bgg-grip:hover{color:#a597ff;background:var(--card2,#26272c)}
+.bgg-layer.dragging{z-index:5;opacity:.9;box-shadow:0 6px 18px #000a;pointer-events:none}
+.bgg-layer.drop-above::before,.bgg-layer.drop-below::after{content:"";position:absolute;left:0;right:0;height:3px;border-radius:2px;background:#a597ff}
+.bgg-layer.drop-above::before{top:-3px}.bgg-layer.drop-below::after{bottom:-3px}

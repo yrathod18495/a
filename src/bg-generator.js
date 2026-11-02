@@ -192,6 +192,18 @@ export async function view({ user, home, toast }) {
     if (!it) { it = { id: uid8(), type: 'paint', name: 'Painting', x: doc.size.w / 2, y: doc.size.h / 2, w: doc.size.w, h: doc.size.h, rot: 0, opacity: 1 }; const c = document.createElement('canvas'); c.width = doc.size.w; c.height = doc.size.h; bitmaps.set(it.id, c); doc.items.push(it); }
     return it;
   };
+  /** an empty painting layer, put right above the selected layer (or on top), and selected so the brush paints on it */
+  const newPaintLayer = () => {
+    const n = doc.items.filter((i) => i.type === 'paint').length, it = { id: uid8(), type: 'paint', name: n ? `Painting ${n + 1}` : 'Painting', x: doc.size.w / 2, y: doc.size.h / 2, w: doc.size.w, h: doc.size.h, rot: 0, opacity: 1 };
+    const c = document.createElement('canvas'); c.width = doc.size.w; c.height = doc.size.h; bitmaps.set(it.id, c); paintDirty.add(it.id);
+    const at = doc.items.findIndex((i) => i.id === sel); doc.items.splice(at >= 0 ? at + 1 : doc.items.length, 0, it);
+    sel = it.id; if (tool === 'select') tool = 'brush'; stage.classList.toggle('bgg-painting', tool !== 'select'); commit();
+  };
+  /** move a layer to a new place in the stack; `to` counts from the top of the list (0 = the front-most layer) */
+  const reorderTo = (item, to) => {
+    const from = doc.items.indexOf(item), target = clamp(doc.items.length - 1 - to, 0, doc.items.length - 1); if (from < 0 || from === target) return;
+    doc.items.splice(from, 1); doc.items.splice(target, 0, item); commit();
+  };
   const startStroke = (e) => {
     const it = paintLayer(), c = bitmaps.get(it.id), p = toCanvas(e);
     sel = it.id; stroke = { it, c, g: c.getContext('2d'), last: p, undo: { s: lastSnap, p: { id: it.id, canvas: cloneCanvas(c) } }, carry: 0, shift: e.shiftKey, from: p };
@@ -402,7 +414,7 @@ export async function view({ user, home, toast }) {
     h('div', { class: 'bgg-card' }, h('h2', {}, 'Canvas'), sizeSel, h('p', { class: 'bgg-sub' }, 'Colour or gradient'), swatches, h('label', { class: 'bgg-inline' }, 'Own colour', colourA)),
     h('div', { class: 'bgg-card' }, h('h2', {}, 'My backgrounds'), h('p', { class: 'bgg-sub' }, 'Saved in your account on this device. Open one to keep editing it.'), (libBox = h('div', { class: 'bgg-lib' }))));
   const props = h('div', { class: 'bgg-props' }), layers = h('div', { class: 'bgg-layers' });
-  const right = h('aside', { class: 'bgg-right' }, h('div', { class: 'bgg-card' }, h('h2', {}, 'Selected'), props), h('div', { class: 'bgg-card' }, h('h2', {}, 'Layers'), layers));
+  const right = h('aside', { class: 'bgg-right' }, h('div', { class: 'bgg-card' }, h('h2', {}, 'Selected'), props), h('div', { class: 'bgg-card' }, h('div', { class: 'bgg-card-head' }, h('h2', {}, 'Layers'), h('button', { type: 'button', class: 'btn sm', title: 'Add an empty layer to paint on', onclick: () => newPaintLayer() }, '＋ New layer')), layers));
   function drawSide() {
     syncPaintUi();
     emptyHint.hidden = doc.items.length > 0;
@@ -422,10 +434,26 @@ export async function view({ user, home, toast }) {
         h('button', { type: 'button', class: 'btn sm', onclick: () => move(it, 1) }, 'Forward'), h('button', { type: 'button', class: 'btn sm', onclick: () => move(it, -1) }, 'Back'),
         h('button', { type: 'button', class: 'btn sm danger', onclick: () => removeItem(it) }, 'Delete')),
     ] : [h('p', { class: 'bgg-sub' }, 'Click an item on the canvas to move it. Drag a corner, pinch with two fingers or use the mouse wheel to resize.')]));
-    layers.replaceChildren(...(doc.items.length ? [...doc.items].reverse().map((l) => h('div', { class: `bgg-layer ${l.id === sel ? 'on' : ''}` },
-      h('button', { type: 'button', class: 'bgg-layer-main', onclick: () => { sel = l.id; place(); drawSide(); } }, `${{ image: '🖼', paint: '🖌', rect: '▭', ellipse: '◯', text: 'T' }[l.type] || '•'} ${l.name || l.type}`),
-      h('button', { type: 'button', class: 'bgg-eye', title: l.hidden ? 'Show' : 'Hide', onclick: () => { l.hidden = !l.hidden; commit(); } }, l.hidden ? '🚫' : '👁')))
-      : [h('p', { class: 'bgg-sub' }, 'No layers yet.')]));
+    layers.replaceChildren(...(doc.items.length ? [...doc.items].reverse().map((l) => {
+      const grip = h('span', { class: 'bgg-grip', title: 'Drag up or down to change the order', 'aria-label': `Move layer ${l.name || l.type}` }, '⠿');
+      const row = h('div', { class: `bgg-layer ${l.id === sel ? 'on' : ''}`, 'data-id': l.id },
+        grip,
+        h('button', { type: 'button', class: 'bgg-layer-main', title: 'Click to select · double-click to rename', onclick: () => { sel = l.id; place(); drawSide(); }, ondblclick: async () => { const nm = await projectDialog({ title: 'Rename layer', description: 'Choose a name for this layer.', value: l.name || '', confirmLabel: 'Save name' }); if (nm) { l.name = nm; commit(); } } }, `${{ image: '🖼', paint: '🖌', rect: '▭', ellipse: '◯', text: 'T' }[l.type] || '•'} ${l.name || l.type}`),
+        h('button', { type: 'button', class: 'bgg-eye', title: l.hidden ? 'Show' : 'Hide', onclick: () => { l.hidden = !l.hidden; commit(); } }, l.hidden ? '🚫' : '👁'));
+      grip.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); grip.setPointerCapture(e.pointerId);
+        const rows = [...layers.children], from = rows.indexOf(row); let to = from;
+        row.classList.add('dragging');
+        const move = (ev) => {
+          const rects = rows.map((r) => r.getBoundingClientRect()); to = rows.findIndex((r, k) => ev.clientY < rects[k].top + rects[k].height / 2); if (to < 0) to = rows.length - 1;
+          row.style.transform = `translateY(${ev.clientY - e.clientY}px)`;
+          rows.forEach((r, k) => { r.classList.toggle('drop-above', k === to && to < from); r.classList.toggle('drop-below', k === to && to > from); });
+        };
+        const up = () => { grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); grip.removeEventListener('pointercancel', up); row.classList.remove('dragging'); row.style.transform = ''; rows.forEach((r) => r.classList.remove('drop-above', 'drop-below')); if (to !== from) reorderTo(l, to); };
+        grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up); grip.addEventListener('pointercancel', up);
+      });
+      return row;
+    }) : [h('p', { class: 'bgg-sub' }, 'No layers yet.')]));
     sizeInfo.textContent = `${doc.size.w} × ${doc.size.h}`;
   }
   async function drawLibrary() {
