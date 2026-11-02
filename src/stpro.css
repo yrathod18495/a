@@ -889,3 +889,5 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .export-pill .ep-cancel{flex:none;padding:4px 10px;border:1px solid #7a2e3a;border-radius:8px;background:#3a1d22;color:#ff9aa8;font:inherit;cursor:pointer}
 .export-pill .ep-bar{display:block;height:5px;margin-top:8px;border-radius:3px;background:#34363c;overflow:hidden}
 .export-pill .ep-bar b{display:block;height:100%;width:0;background:linear-gradient(90deg,#7c6cf5,#a597ff);transition:width .25s}
+.admin-asset-copy .prop-group{font-size:12px;padding:4px 6px;border-radius:8px;border:1px solid var(--line,#ddd);max-width:100%}
+.hand-props .hand-card small{color:#7c3aed}

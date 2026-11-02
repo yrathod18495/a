@@ -48,6 +48,12 @@ export async function saveStudioAsset(type, name, file, meta = {}) {
   forgetList();
   return asset;
 }
+/** change a prop's type after uploading it: 'general' or 'hand' (admin only) */
+export async function setPropGroup(id, group) {
+  const result = await apiCall('/api/studio-assets', { action: 'update', id, group }, uid());
+  forgetList();
+  return result.asset;
+}
 export async function deleteStudioAsset(id) {
   const result = await apiCall('/api/studio-assets', { action: 'delete', id }, uid());
   forgetList();

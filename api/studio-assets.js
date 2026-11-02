@@ -17,7 +17,7 @@ let libraryCache = null;
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
-    const b = await bodyOf(req, 16_000), isAdminAction = ['save', 'delete'].includes(b.action);
+    const b = await bodyOf(req, 16_000), isAdminAction = ['save', 'delete', 'update'].includes(b.action);
     const who = await access(req, { write: isAdminAction, admin: isAdminAction });
     if (!who.admin && await maintenanceOn()) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     const store = kv(services());
@@ -48,6 +48,19 @@ export default async function handler(req, res) {
         animationMeta = { target: b.target, layer: b.layer, frameRate: b.frameRate, length: data.duration / b.frameRate };
       }
       const asset = { ...animationMeta, ...imageMeta, id: b.id, type: b.type, name: b.name.trim(), key: b.key, size: b.size, mime: b.mime, ownerUid: who.uid, enabled: true, updatedAt: new Date().toISOString() };
+      await store.set(`studioAssets/${b.id}`, asset);
+      libraryCache = null;
+      return send(res, 200, { asset });
+    }
+
+    if (b.action === 'update') {
+      // the admin changes a prop's type (General / Hand) after uploading it
+      if (!idOK(b.id)) throw new AccessError('invalid_asset', 'The asset is not valid.', 400);
+      const existing = await store.get(`studioAssets/${b.id}`);
+      if (!existing || existing.type !== 'prop') throw new AccessError('not_found', 'Prop not found.', 404);
+      let meta; try { meta = cleanAssetMeta('prop', { group: b.group }); } catch (error) { throw new AccessError(error.code || 'invalid_asset', error.message, 400); }
+      const { group: _old, ...rest } = existing;
+      const asset = { ...rest, ...(meta.group ? { group: meta.group } : {}), updatedAt: new Date().toISOString() };
       await store.set(`studioAssets/${b.id}`, asset);
       libraryCache = null;
       return send(res, 200, { asset });

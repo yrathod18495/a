@@ -85,3 +85,16 @@ test('placing a prop also keeps it inside the frame', () => {
   assert.equal(small.y, 0.66); assert.deepEqual([small.w, small.h], [0.1, 0.1]);          // a small one stays where it was put
   assert.equal(placeProp({ id: 'x', w: 0.18 }, 0, 0, { w: 16, h: 9 }).w, 0.18);          // an unreadable picture keeps the old default
 });
+
+test('a prop can be a hand prop; general is the default and is stored as nothing', async () => {
+  const { cleanAssetMeta, isHandAsset, propFromAsset } = await import('../shared/studio-effects.js');
+  assert.deepEqual(cleanAssetMeta('prop', { category: 'Tools', group: 'hand' }), { category: 'Tools', group: 'hand' });
+  assert.deepEqual(cleanAssetMeta('prop', { group: 'general' }), {});
+  assert.deepEqual(cleanAssetMeta('prop', {}), {});
+  assert.throws(() => cleanAssetMeta('prop', { group: 'foot' }), /Hand/);
+  assert.deepEqual(cleanAssetMeta('effect', { group: 'hand' }).group, undefined);
+  assert.equal(isHandAsset({ type: 'prop', group: 'hand' }), true);
+  assert.equal(isHandAsset({ type: 'prop' }), false);
+  assert.equal(isHandAsset({ type: 'effect', group: 'hand' }), false);
+  assert.equal(propFromAsset({ id: 'a', type: 'prop', name: 'Cup', group: 'hand' }, 'b', 'p').group, 'hand');
+});

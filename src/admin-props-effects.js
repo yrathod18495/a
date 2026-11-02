@@ -1,11 +1,12 @@
 // Admin tab "Props & Effects": admins upload props and effects once; every creator sees them in the studio's Props / Effects tabs.
 // Data: studioAssets collection (type 'prop' | 'effect'), files in R2, a tiny thumbnail stored with each record (see shared/studio-effects.js).
 import { h, logo } from './dom.js';
-import { deleteStudioAsset, listStudioAssets, saveStudioAsset } from './studio-assets.js';
+import { deleteStudioAsset, listStudioAssets, saveStudioAsset, setPropGroup } from './studio-assets.js';
 import { cleanAssetMeta } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
 const KINDS = [['prop', '🧸 Props'], ['effect', '💫 Effects']];
+const GROUP_LABEL = { general: 'General (Props tab)', hand: 'Hand (character toolbox)' };
 const BLEND_LABEL = { normal: 'Normal', add: 'Glow (add)', screen: 'Screen' };
 
 export async function propsEffectsView({ back, home, toast }) {
@@ -28,11 +29,22 @@ export async function propsEffectsView({ back, home, toast }) {
     catch (e) { toast(`Could not remove it: ${friendlyError(e)}`); }
   }
 
+  async function changeGroup(asset, group, select) {
+    select.disabled = true;
+    try {
+      const saved = await setPropGroup(asset.id, group);
+      state.assets = state.assets.map((a) => (a.id === asset.id ? { ...a, ...saved } : a));
+      toast(`${asset.name} is now a ${group === 'hand' ? 'hand' : 'general'} prop.`);
+    } catch (e) { select.value = asset.group === 'hand' ? 'hand' : 'general'; toast(`Could not change the prop type: ${friendlyError(e)}`); }
+    finally { select.disabled = false; }
+  }
+
   function form() {
     const effect = state.kind === 'effect';
     const file = h('input', { type: 'file', accept: 'image/*', multiple: !effect, required: true, 'aria-label': 'Image file' });
     const name = h('input', { type: 'text', maxlength: 100, placeholder: 'Leave blank to use the file name', 'aria-label': 'Name' });
     const category = h('input', { type: 'text', maxlength: 40, list: 'asset-categories', placeholder: effect ? 'e.g. Weather, Light, Magic' : 'e.g. Furniture, Food, Nature', 'aria-label': 'Category' });
+    const group = h('select', { 'aria-label': 'Prop type' }, Object.entries(GROUP_LABEL).map(([value, label]) => h('option', { value }, label)));
     const datalist = h('datalist', { id: 'asset-categories' }, categories().map((value) => h('option', { value })));
     const field = (label, input, wide = false) => h('label', { class: 'admin-animation-field', style: wide ? 'grid-column:1/-1' : '' }, h('span', {}, label), input);
     const blend = h('select', { 'aria-label': 'Blend mode' }, Object.entries(BLEND_LABEL).map(([value, label]) => h('option', { value }, label)));
@@ -46,6 +58,7 @@ export async function propsEffectsView({ back, home, toast }) {
       const files = [...(file.files || [])];
       if (!files.length) { toast('Please choose an image file first.'); return; }
       const meta = { category: category.value.trim() };
+      if (!effect) meta.group = group.value;
       if (effect) Object.assign(meta, { blend: blend.value, opacity: Number(opacity.value), placement: placement.value, ...(state.sheet ? { sheet: { cols: Number(cols.value), rows: Number(rows.value), fps: Number(fps.value) } } : {}) });
       try { cleanAssetMeta(state.kind, meta); } catch (error) { toast(error.message); return; }
       submit.disabled = true; state.loading = true;
@@ -58,6 +71,7 @@ export async function propsEffectsView({ back, home, toast }) {
     } },
       field(effect ? 'Effect image / sprite sheet (up to 40 MB)' : 'Prop image(s) (PNG / WebP, up to 40 MB each)', file, true),
       field('Name', name), field('Category', category), datalist,
+      ...(effect ? [] : [field('Prop type', group)]),
       ...(effect ? [field('Blend mode', blend), field('Opacity (0.05 – 1)', opacity), field('Placement', placement),
         h('label', { class: 'admin-animation-field' }, h('span', {}, 'This is a sprite sheet (frame-based animation)'), sheetOn),
         ...(state.sheet ? [field('Columns', cols), field('Rows', rows), field('Frames per second', fps)] : [])] : []),
@@ -69,7 +83,9 @@ export async function propsEffectsView({ back, home, toast }) {
       ? `${asset.sheet ? `Animated ${asset.sheet.cols}×${asset.sheet.rows} · ${asset.sheet.fps} fps` : 'Still'} · ${BLEND_LABEL[asset.blend] || 'Normal'} · ${Math.round((asset.opacity ?? 1) * 100)}%`
       : `${(asset.size / 1024).toFixed(0)} KB`;
     return h('article', { class: 'admin-asset-card' }, asset.thumb ? h('img', { src: asset.thumb, alt: asset.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '◌'),
-      h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${asset.category || 'No category'} · ${detail}`)),
+      h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${asset.category || 'No category'} · ${detail}`),
+        asset.type === 'prop' ? h('select', { class: 'prop-group', 'aria-label': `Prop type for ${asset.name}`, title: 'General props show in the Props tab. Hand props show in the toolbox of a selected character.', onchange: (e) => changeGroup(asset, e.target.value, e.target) },
+          Object.entries(GROUP_LABEL).map(([value, label]) => h('option', { value, selected: (asset.group === 'hand' ? 'hand' : 'general') === value }, label))) : null),
       h('button', { class: 'btn sm', type: 'button', title: `Remove ${asset.name}`, onclick: () => remove(asset) }, 'Remove'));
   }
 

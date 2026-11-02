@@ -37,3 +37,19 @@ test('every signed-in user sees published effects and props with their thumbnail
   assert.deepEqual((await call({ action: 'list' }, visitor)).body.assets.map((a) => a.name), ['Chair']);
   assert.equal((await call({ action: 'delete', id: 'prop_chair_1234567' }, visitor)).statusCode, 403);
 });
+
+test('an admin marks a prop as a hand prop after uploading it, and can change it back; visitors cannot', async () => {
+  const id = 'prop_cup_1234567';
+  assert.equal((await call({ ...base, id, type: 'prop', name: 'Cup', category: 'Kitchen' })).body.asset.group, undefined);
+  assert.equal((await call({ action: 'update', id, group: 'hand' }, visitor)).statusCode, 403);
+  assert.equal((await call({ action: 'update', id, group: 'foot' })).statusCode, 400);
+  const hand = await call({ action: 'update', id, group: 'hand' });
+  assert.equal(hand.statusCode, 200); assert.equal(hand.body.asset.group, 'hand'); assert.equal(hand.body.asset.category, 'Kitchen');
+  assert.equal((await call({ action: 'list' }, visitor)).body.assets.find((a) => a.id === id).group, 'hand');
+  const back = await call({ action: 'update', id, group: 'general' });
+  assert.equal(back.body.asset.group, undefined);
+  assert.equal((await call({ action: 'list' }, visitor)).body.assets.find((a) => a.id === id).group, undefined);
+  assert.equal((await call({ action: 'update', id: 'effect_rain_123456', group: 'hand' })).statusCode, 404);
+  const published = await call({ ...base, id: 'prop_hammer_123456', type: 'prop', name: 'Hammer', group: 'hand' });
+  assert.equal(published.body.asset.group, 'hand');
+});

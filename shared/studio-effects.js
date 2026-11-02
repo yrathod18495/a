@@ -12,6 +12,9 @@ const bad = (message) => Object.assign(new Error(message), { status: 400, code: 
 const num = (value, min, max, fallback) => { const n = Number(value); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback; };
 
 /** the part of an asset record that is not the file itself: category, thumbnail and (for effects) blend / opacity / sprite sheet */
+export const PROP_GROUPS = Object.freeze(['general', 'hand']);
+/** a library prop an admin marked as a hand prop */
+export const isHandAsset = (asset) => asset?.type === 'prop' && asset.group === 'hand';
 export function cleanAssetMeta(type, input = {}) {
   const meta = {};
   const category = String(input.category ?? '').trim().slice(0, ASSET_CATEGORY_MAX);
@@ -19,6 +22,12 @@ export function cleanAssetMeta(type, input = {}) {
   if (input.thumb != null && input.thumb !== '') {
     if (typeof input.thumb !== 'string' || input.thumb.length > THUMB_MAX_CHARS || !THUMB_PATTERN.test(input.thumb)) throw bad('The thumbnail is not valid. Please upload the image again.');
     meta.thumb = input.thumb;
+  }
+  if (type === 'prop') {
+    // 'hand' props are held by a character; they appear in the toolbox of a selected character. 'general' (the default) is stored as nothing.
+    const group = input.group ?? 'general';
+    if (!PROP_GROUPS.includes(group)) throw bad('The prop type is not valid. Please choose General or Hand.');
+    if (group === 'hand') meta.group = 'hand';
   }
   if (type !== 'effect') return meta;
   const blend = input.blend ?? 'normal';
@@ -69,7 +78,7 @@ export function placeProp(prop, natW, natH, aspect) {
 /** a new scene prop from a shared library asset */
 export function propFromAsset(asset, blob, id) {
   const base = { id, assetId: asset.id, name: asset.name, blob, rotation: 0, visible: true };
-  if (asset.type !== 'effect') return { ...base, kind: 'prop', x: 0.5, y: 0.66, w: 0.18, h: 0.18, ...(asset.category ? { category: asset.category } : {}) };
+  if (asset.type !== 'effect') return { ...base, kind: 'prop', x: 0.5, y: 0.66, w: 0.18, h: 0.18, ...(asset.category ? { category: asset.category } : {}), ...(asset.group === 'hand' ? { group: 'hand' } : {}) };
   const full = asset.placement !== 'sticker';
   return { ...base, kind: 'effect', x: 0.5, y: full ? 0.5 : 0.4, w: full ? 1 : 0.3, h: full ? 1 : 0.3, opacity: asset.opacity ?? 1, blend: asset.blend || 'normal', ...(asset.sheet ? { sheet: { ...asset.sheet } } : {}), ...(asset.category ? { category: asset.category } : {}) };
 }

@@ -28,7 +28,7 @@ import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError } from './export-plan.js';
-import { propFromAsset, isEffect, isHeld, actualPropSize, placeProp } from '../shared/studio-effects.js';
+import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
 import { thin, pathLength, pathKeys, simplify, insertAt } from '../shared/motion-path.js';
@@ -2312,7 +2312,7 @@ function updateSel() {
   if (selToolsEl) updateSelTools(l, b, k, cw, ch);
 }
 /** a small floating toolbox over the selected character, for the tools that act on one character — tap a button to jump straight into that tool */
-const SEL_TOOLS = [['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask'], ['motion', 'Move', 'move']];
+const SEL_TOOLS = [['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask'], ['motion', 'Move', 'move'], ['props', 'Hand props', 'package']];
 function openCharTool(key, tab) {
   const s = sOf(key); if (!s) return;
   S.sel = key; S.animFor = key; if (tab === 'tears') S.tearFor = key; if (tab === 'motion') S.motionFor = key;
@@ -2811,12 +2811,13 @@ async function putProp(prop) {
   await dbPut('props', prop); S.props.push(prop); S.selectedPropId = prop.id;
   await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
 }
-async function addLibraryProp(asset) {
+async function addLibraryProp(asset, hold = null) {
   const loading = busy(asset.type === 'effect' ? 'Applying effect…' : 'Applying prop…');
   try {
     const blob = await libraryBlob(asset);
     let prop = propFromAsset(asset, blob, crypto.randomUUID());
     if (!isEffect(prop)) { const size = await imageSize(blob); prop = placeProp(prop, size.w, size.h, aspectOf(S.aspect)); }      // a prop keeps the size and shape of its picture
+    if (hold && !isEffect(prop)) prop = { ...prop, rotation: -90, attach: { key: hold.key, hand: hold.hand } };              // a hand prop starts in the chosen hand of the selected character
     await putProp(prop);
   }
   catch (e) { toast(`Could not add the ${asset.type === 'effect' ? 'effect' : 'prop'}: ${friendlyError(e)}`); }
@@ -2834,7 +2835,10 @@ async function addOwnProps(files) {
 function libraryTab(kind) {
   if (!libraryTab.checked) { libraryTab.checked = true; refreshShared().then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'effects')) redrawPanel(); }); }
   const effects = kind === 'effect', label = effects ? 'Effects' : 'Props', icon = effects ? '💫' : '🧸';
-  const assets = S.sharedAssets.filter((asset) => asset.type === kind);
+  const typed = S.sharedAssets.filter((asset) => asset.type === kind);
+  const assets = kind === 'prop' ? typed.filter((asset) => !isHandAsset(asset)) : typed;          // hand props are listed in the toolbox of a selected character
+  const handAssets = kind === 'prop' ? typed.filter(isHandAsset) : [];
+  const holder = S.speakers.find((sp) => sp.charId && sp.key === S.sel);
   const categories = [...new Set(assets.map((asset) => asset.category || 'Other'))].sort();
   if (libraryFilter[kind] !== 'all' && !categories.includes(libraryFilter[kind])) libraryFilter[kind] = 'all';
   const shown = assets.filter((asset) => libraryFilter[kind] === 'all' || (asset.category || 'Other') === libraryFilter[kind]);
@@ -2886,7 +2890,14 @@ function libraryTab(kind) {
     ...(effects ? [] : [h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.behind === true, onchange: (e) => edit('behind', e.target.checked ? true : undefined) }), 'Place behind the character')]),
     h('div', { class: 'prop-times' }, seconds('start', 'Dikhe: shuru (s)'), seconds('end', 'Dikhe: khatam (s)')),
     h('button', { class: 'btn sm', type: 'button', style: 'color:#b91c1c;border-color:#fecaca', onclick: async () => { await dbDel('props', selected.id); S.props = S.props.filter((p) => p.id !== selected.id); S.selectedPropId = null; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel(); } }, `Remove ${effects ? 'effect' : 'prop'}`));
+  const handCard = (asset) => h('button', { class: 'studio-shared-card lib-card hand-card', type: 'button', title: `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => addLibraryProp(asset, { key: holder.key, hand: 'R' }) },
+    asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, asset.category || 'Hand prop'));
+  const handBlock = !handAssets.length ? [] : [h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Hand props'),
+    holder ? h('p', { class: 'sub studio-help' }, `Tap a prop to put it in ${holder.name}'s right hand. You can switch the hand below once it is placed.`)
+      : h('p', { class: 'sub studio-help' }, 'Select a character on the stage to see the hand props. They go straight into that character\'s hand.'),
+    holder ? h('div', { class: 'studio-shared-grid' }, handAssets.map(handCard)) : null)];
   return h('div', { class: 'list' },
+    ...handBlock,
     h('div', { class: 'card flat' }, h('h2', {}, label),
       h('p', { class: 'sub studio-help' }, effects ? 'Tap an effect to apply it to the whole scene (rain, sparkle, light…). Change the look with opacity and blend, and optionally show it for only a few seconds.' : 'Tap a prop to place it in the scene. Drag it on the stage to move it; change its size, rotation and when it shows from here.'),
       categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
@@ -3421,7 +3432,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
