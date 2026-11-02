@@ -111,13 +111,19 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     } catch(error) { target.replaceChildren(el('p','sa-associated','Could not load cloud projects: '+friendlyError(error))); }
     finally { button.disabled = false; button.textContent = 'Hide cloud projects & uploads'; }
   }
+  const openUsers=new Set();                                   // accounts whose details are open; every account starts collapsed
   function renderUsers(){
     const users=(state.users||[]).filter(u=>(filter==='all'||(u.status||'active')===filter)&&(!term||String(u.email||'').toLowerCase().includes(term)||u.id.toLowerCase().includes(term)));
     if(!users.length){panel.replaceChildren(empty('No matching accounts','Try another search or status filter.'));return;}
     const out=users.map(u=>{
       const s=state.sessions.find(x=>x.id===u.id),live=isOnline(s),signedIn=!!s&&!s.revoked;
       const st=u.status||'active',tone=st==='active'?'success':st==='blocked'?'danger':'warning';
-      const main=sectionRow(u.email||u.id,'User ID: '+u.id,[badge(statusName(st),tone),live?badge('● Online now','success'):badge('Offline')]);
+      const isOpen=openUsers.has(u.id);
+      const toggle=h('button',{type:'button',class:'sa-toggle','aria-expanded':String(isOpen),'aria-label':(isOpen?'Hide':'Show')+' details for '+(u.email||u.id),title:isOpen?'Hide details':'Show details',onclick:()=>{
+        const open=body.hidden; body.hidden=!open; open?openUsers.add(u.id):openUsers.delete(u.id);
+        toggle.textContent=open?'−':'+'; toggle.setAttribute('aria-expanded',String(open)); toggle.setAttribute('aria-label',(open?'Hide':'Show')+' details for '+(u.email||u.id)); toggle.title=open?'Hide details':'Show details';
+      }},isOpen?'−':'+');
+      const main=sectionRow(u.email||u.id,'User ID: '+u.id,[badge(statusName(st),tone),live?badge('● Online now','success'):badge('Offline')],toggle);
       const details=el('div','sa-user-details',
         el('span','', 'Registered: '+(u.registeredAt||'—')),
         el('span','',signedIn?'Device: '+short(s.deviceId):'No active session'),
@@ -134,7 +140,9 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
       const projects=el('div','sa-project-list');
       projects.hidden=true;
       const projectsButton=btn('View cloud projects & uploads',()=>showProjects(u.id,projectsButton,projects),'sa-positive');
-      return el('article','sa-user',main,details,actions,roleControls,projectsButton,projects);
+      const body=el('div','sa-user-body',details,actions,roleControls,projectsButton,projects);
+      body.hidden=!isOpen;
+      return el('article','sa-user',main,body);
     });
     panel.replaceChildren(el('div','sa-results-count',users.length+' account'+(users.length===1?'':'s')), ...out);
   }
