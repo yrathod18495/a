@@ -36,5 +36,5 @@ test('downloads are checked against their hash',async()=>{
  const h=await hashBlob(a);files.set('https://r2.test/'+h,a);
  const got=await downloadAssets('u1',[h,h]);assert.equal(got.size,1);assert.equal(await got.get(h).text(),'first picture');
  files.set('https://r2.test/'+h,new Blob(['tampered']));
- await assert.rejects(downloadAssets('u3',[h]),/kharab/);
+ await assert.rejects(downloadAssets('u3',[h]),/corrupted/);
 });

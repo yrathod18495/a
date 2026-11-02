@@ -21,7 +21,7 @@ mock.module('../src/session.js',{exports:{apiCall:async(url,body,uid)=>{
  return res.body;
 }}});
 const sync=await import('../src/project-sync.js');
-const wipeLocal=()=>new Promise((resolve,reject)=>{const r=indexedDB.open('12toons-projects-v1',2);r.onsuccess=()=>{const names=[...r.result.objectStoreNames],tx=r.result.transaction(names,'readwrite');for(const n of names)tx.objectStore(n).clear();tx.oncomplete=()=>{r.result.close();resolve();};tx.onerror=()=>reject(tx.error);};r.onerror=()=>reject(r.error);});
+const wipeLocal=()=>new Promise((resolve,reject)=>{const r=indexedDB.open('12toons-projects-v1');r.onsuccess=()=>{const names=[...r.result.objectStoreNames],tx=r.result.transaction(names,'readwrite');for(const n of names)tx.objectStore(n).clear();tx.oncomplete=()=>{r.result.close();resolve();};tx.onerror=()=>reject(tx.error);};r.onerror=()=>reject(r.error);});
 
 test('save to the cloud and open it again on an empty browser: signed upload, one commit, sorted keys, exact bytes back',async(t)=>{
  t.mock.timers.enable({apis:['setTimeout']});
