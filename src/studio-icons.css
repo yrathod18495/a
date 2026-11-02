@@ -183,11 +183,6 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 #app .ws .studio-bar .studio-brand{display:inline-flex;align-items:baseline;gap:1px;font-size:17px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;user-select:none;pointer-events:none}
 #app .ws .studio-bar .studio-brand .brand-name{color:#f2f3f5}   /* the site's own night-mode logo colours (the studio redefines --ink for its buttons) */
 @media (max-width:900px){#app .ws .studio-bar .studio-brand{display:none}}
-/* paid accounts and admins: the whole bar is gold, in day and night mode alike (free accounts keep the normal look).
-   The logo keeps its own colours and shape; a dark plate behind it keeps it readable on the gold. */
-:root[data-theme] body #app .ws .topbar.studio-bar.gold{border-color:#a8780f;background-color:#d9ab2c;background-image:linear-gradient(135deg,#f6d56b 0%,#d9ab2c 52%,#bd8c1c 100%);box-shadow:0 2px 14px #d4a62a44;color:#2b2100}
-#app .ws .studio-bar.gold .studio-brand{padding:4px 11px;border-radius:9px;background:#17181c}
-#app .ws .studio-bar.gold .save-status .saved,#app .ws .studio-bar.gold .save-label,#app .ws .studio-bar.gold .save-dot{color:#2b2100}
-#app .ws .studio-bar.gold .close-studio{color:#2b2100}
-#app .ws .studio-bar.gold .history-button:not(:disabled){color:#2b2100}
-#app .ws .studio-bar.gold .preview-quality>svg,#app .ws .studio-bar.gold .preview-quality .icon{color:#2b2100}
+/* a paid account (or an admin) has a warm amber edge on the Project ID box. Nothing says why; it only shows in a screenshot sent to support. */
+#app .ws .studio-bar .project-id[data-t]{border-color:#d9a441;box-shadow:0 0 0 1px #d9a44140}
+#app .ws .studio-bar .project-id[data-t] .project-id-label{color:#e3b963}

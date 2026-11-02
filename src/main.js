@@ -119,9 +119,9 @@ function render() {
 }
 function topBar() {
   // The 12toons name sits in the middle of the bar; quality, save state, undo / redo, export — then the X that leaves the studio.
-  // The bar turns gold for paid accounts and admins (the server says who is paid; free accounts and the debug session see no change).
+  // A paid account or an admin gets a faint amber edge on the Project ID box (the server says who is paid; free accounts and the debug session see no change).
   const bar = h('header', { class: 'topbar studio-bar' }, headerTools());
-  const paint = () => bar.classList.toggle('gold', currentPlan().tier === 'paid');
+  const paint = () => bar.querySelector('.project-id')?.toggleAttribute('data-t', currentPlan().tier === 'paid');
   paint(); refreshPlan().then(paint).catch(() => {});
   return bar;
 }
