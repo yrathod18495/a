@@ -1,7 +1,7 @@
 // Firebase (login + database). The web config below is public by design (it only names the project);
 // what protects the data are the Firestore rules (firebase/firestore.rules) and the server check in api/r2.js.
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 
 const env = import.meta.env;
 const config = {
@@ -28,8 +28,6 @@ export async function signInGoogle() {
     throw e;
   }
 }
-/** the temporary test login: an email + password account that already exists in Firebase (see scripts/create-test-user.mjs) */
-export async function signInEmail(email, password) { return (await signInWithEmailAndPassword(auth, String(email || '').trim(), String(password || ''))).user; }
 export const finishRedirect = () => getRedirectResult(auth).catch(() => null);
 export async function signOutUser() {
   const session = await import('./session.js');

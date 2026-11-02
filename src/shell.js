@@ -8,9 +8,8 @@ import './stpro.css';
 import { h, toast, logo } from './dom.js';
 import { loadingSplash } from './loading-splash.js';
 import { setCoinUser, mountCreditBadges } from './credits-badge.js';
-import { emailLoginMessage } from '../shared/login-errors.js';
 import { startRoute, doneRoute } from './route-feedback.js';
-import { signInEmail, onUser, signInGoogle, signOutUser, finishRedirect } from './firebase.js';
+import { onUser, signInGoogle, signOutUser, finishRedirect } from './firebase.js';
 import { ensureProfile, r2Configured, cloudInfo, isAdmin, maintenanceStatus } from './cloud.js';
 import { selectProject, projectMeta, listProjects, renameProject, deleteProject } from './store.js';
 import { projectDialog } from './project-dialog.js';
@@ -294,32 +293,12 @@ function landingView() {
 }
 
 /* ---------------- login ---------------- */
-/* TEMPORARY test login (email + password). The account is created in Firebase with scripts/create-test-user.mjs.
-   To remove it: delete this function and the testLoginForm() line in loginView(); to hide it without a code change set VITE_TEST_LOGIN=off. */
-function testLoginForm() {
-  if (import.meta.env.VITE_TEST_LOGIN === 'off') return null;
-  const email = h('input', { type: 'email', name: 'email', autocomplete: 'username', placeholder: 'Email', 'aria-label': 'Email', required: true });
-  const password = h('input', { type: 'password', name: 'password', autocomplete: 'current-password', placeholder: 'Password', 'aria-label': 'Password', required: true });
-  const message = h('p', { class: 'test-login-message', role: 'alert', 'aria-live': 'polite' });
-  const submit = h('button', { class: 'btn big', type: 'submit' }, 'Sign in');
-  return h('form', { class: 'test-login', novalidate: true, onsubmit: async (e) => {
-    e.preventDefault(); message.textContent = '';
-    if (!email.value.trim() || !password.value) { message.textContent = !email.value.trim() ? 'Please enter your email address.' : 'Please enter your password.'; return; }
-    submit.disabled = true; submit.textContent = 'Signing in…';
-    try { const u = await signInEmail(email.value, password.value); if (u) go('#/hub'); }
-    catch (err) { message.textContent = emailLoginMessage(err); }
-    finally { submit.disabled = false; submit.textContent = 'Sign in'; }
-  } },
-    h('div', { class: 'test-login-title' }, h('span', {}, 'Test login'), h('small', {}, 'temporary')),
-    email, password, submit, message);
-}
 function loginView() {
   if (user) { queueMicrotask(() => go('#/hub')); return h('div'); }
   return h('div', { class: 'sh sh-center' },
     h('div', { class: 'sh-login' }, logo(() => go('#/')),
       h('h1', {}, 'Welcome back'), h('p', { class: 'sub' }, 'Log in to open your studio. Your work is saved to your account.'),
       h('button', { class: 'btn pri big gbtn', onclick: login }, h('span', { class: 'g' }, 'G'), 'Continue with Google'),
-      testLoginForm(),
       h('button', { class: 'btn-link', onclick: () => go('#/') }, '← Back to home')));
 }
 

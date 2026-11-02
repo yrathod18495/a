@@ -936,10 +936,3 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 @keyframes ls-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}
 @keyframes ls-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 @media(prefers-reduced-motion:reduce){.ls-logo *,.ls-stage{animation:none!important}.ls-line{transition:none}}
-
-/* temporary test login on the login page */
-.test-login{display:grid;gap:8px;width:100%;margin:14px 0 4px;padding:14px;border:1px dashed var(--edge,#34363c);border-radius:16px;text-align:left}
-.test-login-title{display:flex;align-items:baseline;justify-content:space-between;font-size:13px;font-weight:700}.test-login-title small{font-weight:600;color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-.test-login input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--edge,#34363c);border-radius:12px;background:var(--card1,var(--card,#1d1e22));color:var(--ink,#f2f3f5);font:inherit}
-.test-login input:focus-visible{outline:2px solid var(--acc,#8b7bff);outline-offset:1px}
-.test-login-message{min-height:1.2em;margin:0;font-size:12.5px;color:#ef8f7a}
