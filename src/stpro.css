@@ -835,3 +835,10 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 @media(max-width:700px){.project-id-label{display:none}.project-id::before{content:"ID: "}}
 :root[data-theme="day"] .project-id{background:#fff;border-color:#d9dcf2;color:#6b6f80}
 :root[data-theme="day"] .project-id b{color:#1d1e22}
+
+/* "show outside the frame": the video frame stays bright, everything outside it is dimmed */
+.stagewrap .of-clip{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:2}
+.stagewrap .of-clip[hidden]{display:none}
+.stagewrap .of-frame{position:absolute;border:2px dashed #ffffffcc;box-shadow:0 0 0 4000px #05060a8c;box-sizing:border-box}
+.stagewrap .of-note{position:absolute;left:8px;bottom:6px;padding:3px 8px;border-radius:8px;background:#000a;color:#fff;font-size:11px;font-weight:650}
+.btn.icon-btn.on[aria-pressed=true]{background:linear-gradient(135deg,#7c6cf5,#a597ff);color:#fff;border-color:transparent}

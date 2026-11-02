@@ -94,7 +94,7 @@ export class Stage {
     const { w, h } = aspectOf(aspect);
     const k = short / Math.min(w, h);
     this.aspect = aspect; this.W = Math.round((w * k) / 2) * 2; this.H = Math.round((h * k) / 2) * 2;
-    this.out.width = this.W; this.out.height = this.H;
+    this.out.width = this.W; this.out.height = this.H; this.overCam = null;
     this.layout();
   }
 
@@ -427,6 +427,7 @@ export class Stage {
   /** camera for time t: the user's keyframes if there are any, else the shot of the current audio line (it glides to the next line's shot just before that line starts) */
   cameraAt(plan, t, real = false) {
     if (this.userCam) return this.userCam;
+    if (this.overflow && !real) return (this.overCam ||= { zoom: 1 / 1.5, cx: this.W / 2, cy: this.H / 2 });          // editor only: look at a larger area, so what sticks out of the frame is visible
     if (this.fullView && !real) return { zoom: 1, cx: this.W / 2, cy: this.H / 2 };
     if (this.camKeys?.length) return this.keyCam(t);
     if (!plan?.length) return this.shotCam(null);
@@ -478,10 +479,10 @@ export class Stage {
     }
     this.ensureBackground(t);
     r.target(this.gradeKeys.length ? gradeAt(this.gradeKeys, t, this.grade) : this.grade, W, H);                             // colour grade on: the scene goes into a texture first
-    r.clear(...(this.userCam ? [0.93, 0.95, 0.97] : [0, 0, 0]));
+    r.clear(...(this.userCam ? [0.93, 0.95, 0.97] : this.overflow ? [0.1, 0.11, 0.13] : [0, 0, 0]));
     const cam = this.cameraAt(plan, t), vw = W / cam.zoom, vh = H / cam.zoom;
     this.camZoom = cam.zoom;
-    const free = this.userCam === cam, cx = free ? cam.cx : Math.min(W - vw / 2, Math.max(vw / 2, cam.cx)), cy = free ? cam.cy : Math.min(H - vh / 2, Math.max(vh / 2, cam.cy));
+    const free = this.userCam === cam || cam === this.overCam, cx = free ? cam.cx : Math.min(W - vw / 2, Math.max(vw / 2, cam.cx)), cy = free ? cam.cy : Math.min(H - vh / 2, Math.max(vh / 2, cam.cy));
     this.view = { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh };      // the part of the canvas on screen (the editor maps pen lines through it)
     r.begin(W, H, { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
     r.setMask(null, W, H);
