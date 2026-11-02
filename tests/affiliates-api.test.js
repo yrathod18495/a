@@ -11,7 +11,7 @@ tokens.set('admin-token',{uid:admin,sid:'affiliate-session',email:'admin@example
 const user='affiliate_user_123456',partnerUser='affiliate_owner_123456';
 for (const [uid,sid,email,token] of [[user,'affiliate-user-session','referred@example.com','user-token'],[partnerUser,'affiliate-owner-session','asha@example.com','partner-token']]) {db.data.set(`securitySessions/${uid}`,{sid,expiresAt:Date.now()+120000,revoked:false});tokens.set(token,{uid,sid,email,email_verified:true,auth_time:Math.floor(Date.now()/1000),firebase:{sign_in_provider:'custom'}});}
 async function call(body,token,ip='203.0.113.9'){const res=response();await handler({method:'POST',headers:{...(token?{authorization:'Bearer '+token}:{}),'x-forwarded-for':ip,origin:'https://site.example'},body},res);return res;}
-const form={action:'submit',name:'Asha Creator',email:'asha@example.com',phone:'+91 98765 43210',company:'Asha Studio',platform:'YouTube',audience:'50,000',profile:'https://youtube.com/@asha',message:'Interested in referrals',consent:true};
+const form={action:'submit',name:'Asha Creator',email:'asha@example.com',phone:'+91 98765 43210',company:'Asha Studio',platform:'YouTube',audience:'25,001-50,000',profile:'https://youtube.com/@asha',message:'Interested in referrals',consent:true};
 test('affiliate application collects consented contact data and is admin-only in dashboard',async()=>{
  const submitted=await call(form);assert.equal(submitted.statusCode,201);
  const id=submitted.body.id,record=db.data.get(`affiliatePartners/${id}`);
@@ -87,4 +87,13 @@ test('a partner can withdraw only what they have earned, and the admin approves 
  const empty=await ask(100);assert.equal(empty.body.code,'amount_exceeds_balance');assert.match(empty.body.error,/no commission available/);
  // new earnings become withdrawable again
  earn('order_wallet3',2500);assert.equal((await call({action:'dashboard'},'wallet-token')).body.wallet.availablePaise,2500);
+});
+
+test('the audience size must be one of the listed ranges, or left empty',async()=>{
+ const typed=await call({...form,email:'typed@example.com',audience:'5000000000000000000'},undefined,'203.0.113.41');
+ assert.equal(typed.statusCode,400);assert.equal(typed.body.code,'invalid_audience');
+ const empty=await call({...form,email:'empty@example.com',audience:''},undefined,'203.0.113.42');
+ assert.equal(empty.statusCode,201);
+ const listed=await call({...form,email:'listed@example.com',audience:'Over 10M'},undefined,'203.0.113.43');
+ assert.equal(listed.statusCode,201);
 });

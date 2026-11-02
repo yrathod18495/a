@@ -4,6 +4,7 @@ import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { AccessError } from '../server/security-policy.js';
 import { walletBalance, checkWithdrawalAmount, cleanPayoutDetails, publicWithdrawal } from '../server/affiliate-wallet.js';
+import { AUDIENCE_RANGES } from '../shared/affiliate-audience.js';
 
 const text = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const emailOK = value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254;
@@ -50,6 +51,7 @@ export default async function handler(req, res) {
       if (await maintenanceOn(db)) throw new AccessError('maintenance', 'The affiliate form is closed for a short while. Please try again later.', 503);
       if (text(b.website, 200)) return send(res, 200, { submitted: true }); // honeypot
       const name = text(b.name, 120), email = text(b.email, 254).toLowerCase(), phone = text(b.phone, 32), company = text(b.company, 120), platform = text(b.platform, 80), audience = text(b.audience, 80), profile = text(b.profile, 400), message = text(b.message, 1500);
+      if (audience && !AUDIENCE_RANGES.includes(audience)) throw new AccessError('invalid_audience', 'Please choose your audience size from the list.', 400);
       if (name.length < 2) throw new AccessError('invalid_name', 'Please enter your name (at least 2 characters).', 400);
       if (!emailOK(email)) throw new AccessError('invalid_email', 'Please enter a valid email address.', 400);
       if (phone.replace(/\D/g, '').length < 7 || phone.length > 32) throw new AccessError('invalid_phone', 'Please enter a phone or WhatsApp number where you can be reached.', 400);

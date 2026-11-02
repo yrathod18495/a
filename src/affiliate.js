@@ -1,4 +1,5 @@
 import { h, logo } from './dom.js';
+import { AUDIENCE_RANGES } from '../shared/affiliate-audience.js';
 
 const field = (label, name, options = {}) => h('label', { class: 'affiliate-field' }, h('span', {}, label, options.required ? h('i', {}, ' *') : null),
   options.select ? h('select', { name, required: options.required || false }, h('option', { value: '' }, 'Choose one'), ...options.select.map(x => h('option', { value: x }, x))) :
@@ -13,7 +14,7 @@ export function affiliateView({ home }) {
       field('Phone or WhatsApp number', 'phone', { required: true, type: 'tel', maxlength: 32, autocomplete: 'tel', placeholder: '+91 98765 43210' }),
       field('Company or creator brand', 'company', { required: true, maxlength: 120, placeholder: 'Organization or channel name' }),
       field('Platform', 'platform', { required: true, select: ['YouTube', 'Instagram', 'Facebook', 'Website / Blog', 'Agency', 'Other'] }),
-      field('Audience size', 'audience', { maxlength: 80, placeholder: 'e.g. 25,000 subscribers' }),
+      field('Audience size', 'audience', { select: AUDIENCE_RANGES }),
       h('label', { class: 'affiliate-field affiliate-wide' }, h('span', {}, 'Channel or profile link'), h('input', { name: 'profile', type: 'url', maxlength: '400', placeholder: 'https://…' })),
       h('label', { class: 'affiliate-field affiliate-wide' }, h('span', {}, 'Tell us about your partnership idea'), h('textarea', { name: 'message', rows: '4', maxlength: '1500', placeholder: 'How would you like to work with 12toons?' }))
     ),
