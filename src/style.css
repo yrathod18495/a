@@ -905,27 +905,34 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .sa-user-body[hidden]{display:none}
 :root[data-theme="day"] .sa-toggle{background:#fff;border-color:#d9dcf2;color:#1d1e22}
 
-/* loading screen: a scratch card — a coin scratches the foil and the 12toons logo shows up (+ a changing line) */
+/* loading screen: the animated 12toons logo + a changing line */
 .loading-splash{gap:6px}
-.ls-logo{width:176px;height:176px;overflow:visible;filter:drop-shadow(0 8px 18px rgba(0,0,0,.28))}
+.ls-logo{width:168px;height:168px;overflow:visible;filter:drop-shadow(0 8px 18px rgba(0,0,0,.28))}
 .ls-logo *{transform-box:view-box}
 .ls-logo:not(.go) *{animation-play-state:paused}
-.ls-scratched{stroke-dasharray:1;stroke-dashoffset:1;animation:ls-scratch 2.7s cubic-bezier(.4,0,.6,1) forwards}
-.ls-foil-text{font:800 74px/1 system-ui,sans-serif;letter-spacing:.14em;fill:#6f7480;opacity:.75}
-.ls-spark{fill:#fff;opacity:.9}
-.ls-coin-tilt{transform-box:fill-box;transform-origin:center;animation:ls-coin-wobble .32s ease-in-out infinite alternate}
-.ls-logo:not(.go) .ls-coin{opacity:0}
-.ls-logo.done .ls-cover,.ls-logo.done .ls-coin{display:none}
-.ls-logo.done .ls-scratched{animation:none;stroke-dashoffset:0}
-.ls-stage{animation:ls-float 3.4s ease-in-out 3.2s infinite}
-.ls-pencil{transform-origin:188px 527px;animation:ls-write 1.6s ease-in-out 3.2s infinite}
-.ls-play{transform-origin:463px 636px;animation:ls-pulse 1.4s ease-in-out 3.2s infinite}
+.ls-stage{animation:ls-float 3.4s ease-in-out 3s infinite}
+.ls-plate{transform-origin:384px 384px;animation:ls-pop .6s cubic-bezier(.2,1.3,.4,1) both}
+.ls-one{transform-origin:215px 520px;animation:ls-drop .7s cubic-bezier(.3,1.2,.5,1) .35s both}
+.ls-two{transform-origin:460px 520px;animation:ls-drop .7s cubic-bezier(.3,1.2,.5,1) .5s both}
+.ls-wipe{transform-origin:0 0;animation:ls-wipe .7s cubic-bezier(.5,0,.2,1) 1s both}
+.ls-wipe-under{animation-delay:2s}
+.ls-pencil{transform-origin:188px 527px;animation:ls-pencil-in .5s cubic-bezier(.2,1.4,.4,1) .85s both,ls-write 1.6s ease-in-out 3s infinite}
+.ls-w12{transform-origin:170px 640px;animation:ls-rise .5s cubic-bezier(.3,1.3,.5,1) 1.45s both}
+.ls-w_t{transform-origin:300px 640px;animation:ls-rise .5s cubic-bezier(.3,1.3,.5,1) 1.55s both}
+.ls-w_o1{transform-origin:370px 650px;animation:ls-rise .5s cubic-bezier(.3,1.3,.5,1) 1.63s both}
+.ls-w_o2{transform-origin:460px 650px;animation:ls-rise .5s cubic-bezier(.3,1.3,.5,1) 1.71s both}
+.ls-w_n{transform-origin:545px 650px;animation:ls-rise .5s cubic-bezier(.3,1.3,.5,1) 1.79s both}
+.ls-w_s{transform-origin:625px 650px;animation:ls-rise .5s cubic-bezier(.3,1.3,.5,1) 1.87s both}
+.ls-play{transform-origin:463px 636px;animation:ls-rise .45s cubic-bezier(.3,1.5,.5,1) 2.1s both,ls-pulse 1.4s ease-in-out 3s infinite}
 .ls-message{margin:8px 0 0}
 .ls-line{margin:0;min-height:1.4em;max-width:min(88vw,420px);text-align:center;font-size:13px;color:var(--mute);transition:opacity .35s ease}
 .ls-line.out{opacity:0}
-@keyframes ls-scratch{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-@keyframes ls-coin-wobble{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}
+@keyframes ls-pop{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:none}}
+@keyframes ls-drop{from{opacity:0;transform:translateY(-70px) scale(.92,1.1)}55%{opacity:1;transform:translateY(10px) scale(1.05,.92)}78%{transform:translateY(-4px) scale(.99,1.02)}to{opacity:1;transform:none}}
+@keyframes ls-rise{from{opacity:0;transform:translateY(34px) scale(.85)}60%{opacity:1;transform:translateY(-7px) scale(1.06)}to{opacity:1;transform:none}}
+@keyframes ls-pencil-in{from{opacity:0;transform:rotate(-40deg) scale(.4)}to{opacity:1;transform:none}}
+@keyframes ls-wipe{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes ls-write{0%,100%{transform:rotate(0)}25%{transform:rotate(-7deg) translateX(-3px)}60%{transform:rotate(5deg) translateX(4px)}}
 @keyframes ls-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}
 @keyframes ls-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-@media(prefers-reduced-motion:reduce){.ls-logo *,.ls-stage{animation:none!important}.ls-line{transition:none}.ls-cover,.ls-coin{display:none}}
+@media(prefers-reduced-motion:reduce){.ls-logo *,.ls-stage{animation:none!important}.ls-line{transition:none}}
