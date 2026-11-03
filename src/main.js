@@ -1190,7 +1190,22 @@ function updateTotal() {
   if (Math.abs(len - player.total) > 0.01) { player.total = len; fitTimeline(); }
 }
 const snap = (v) => Math.round(v * 20) / 20;
-function commitClips(redraw = true) { updateTotal(); refreshPresence(); if (redraw) { drawTimeline(); } else drawClipBar(); }
+/** a path moves with the animation clip it was drawn for: same start and same length, so that animation plays all the way along the path.
+    Change the clip on the timeline (move it, stretch it) and the path follows; delete the clip and the path goes with it. */
+function syncPaths() {
+  for (const [key, path] of Object.entries(S.paths || {})) {
+    if (!path.clipId) continue;
+    const m = (S.manual[key] || []).find((x) => x.id === path.clipId);
+    if (!m) { delete S.paths[key]; applyPath(key); continue; }
+    if (Math.abs(path.start - m.start) > 0.005 || Math.abs(path.dur - m.dur) > 0.005) { path.start = +m.start.toFixed(2); path.dur = Math.max(0.5, +m.dur.toFixed(2)); applyPath(key); }
+  }
+}
+/** the animation clip a new path is drawn for: the selected one, else the one under the playhead (an animation picked without audio becomes a clip of its own) */
+function pathClipFor(s) {
+  const body = (S.manual[s.key] || []).filter((m) => m.kind === 'body');
+  return body.find((x) => x.id === S.mclip) || body.find((x) => player.time >= x.start - 0.01 && player.time < x.start + x.dur) || (body.length === 1 ? body[0] : null) || takeSoloBody(s);
+}
+function commitClips(redraw = true) { syncPaths(); updateTotal(); refreshPresence(); if (redraw) { drawTimeline(); } else drawClipBar(); }
 async function addClip(s, ref, overlay, length) {
   const kind = ref.layer || (overlay ? 'face' : 'body'), dur = Math.max(0.3, +(length || 3).toFixed(2));
   const start = Math.max(0, snap(Math.min(player.time, Math.max(0, player.total - 0.3))));
@@ -1817,23 +1832,27 @@ const viewOf = () => stage.view || { x: 0, y: 0, w: stage.W, h: stage.H };
 const toScreen = (p) => { const v = viewOf(); return { x: (p.x * stage.W - v.x) / v.w, y: ((1 - p.y) * stage.H - v.y) / v.h }; };
 const fromScreen = (fx, fy) => { const v = viewOf(); return { x: (v.x + fx * v.w) / stage.W, y: 1 - (v.y + fy * v.h) / stage.H }; };
 const penLine = (pts) => pts.map((p) => { const q = toScreen(p); return `${(q.x * 100).toFixed(2)},${(q.y * 100).toFixed(2)}`; }).join(' ');
-/** a soft, blurred trail along the path plus a few faint outlines of the character at even steps ("from here to here"), shown while the path is being drawn or edited */
-function pathGhosts(pts, key) {
-  if (!pts || pts.length < 2) return '';
-  const q = pts.map(toScreen), seg = q.slice(1).map((b, i) => Math.hypot(b.x - q[i].x, b.y - q[i].y)), total = seg.reduce((x, y) => x + y, 0) || 1;
-  const box = stage.layers.find((l) => l.key === key)?.box, v = viewOf(), n = 5;
-  const w = box ? ((box.x1 - box.x0) / v.w) * 100 : 0, hh = box ? ((box.y1 - box.y0) / v.h) * 100 : 0;
-  let out = `<polyline class="trail" points="${q.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(' ')}"/>`;
-  if (!box || !(w > 0)) return out;
-  for (let i = 0; i <= n; i++) {                                               // the spot at distance i/n of the way
+/** the blurred trail along the path (drawn in the path's SVG) */
+function pathTrail(pts) { return pts && pts.length > 1 ? `<polyline class="trail" points="${penLine(pts)}"/>` : ''; }
+/** the character's own picture */
+const portraitOf = (s) => { const c = charOf(s), t = c?.thumb || c?.thumbnail || null; return t && !/^(https?:|blob:|data:)/.test(t) ? cdn(t) : t; };
+/** faint, slightly blurred copies of the character itself at even steps along the path (start ... end), like a time-lapse of where it will walk */
+function pathGhostImgs(pts, key) {
+  const sp = sOf(key), src = sp && portraitOf(sp), box = stage.layers.find((l) => l.key === key)?.box;
+  if (!src || !box || !pts || pts.length < 2) return [];
+  const q = pts.map(toScreen), seg = q.slice(1).map((b, i) => Math.hypot(b.x - q[i].x, b.y - q[i].y)), total = seg.reduce((x, y) => x + y, 0) || 1, v = viewOf(), n = 5;
+  const height = ((box.y1 - box.y0) / v.h) * 100, flip = !!sp.flip, out = [];
+  for (let i = 0; i <= n; i++) {
     let d = (total * i) / n, k = 0; while (k < seg.length - 1 && d > seg[k]) { d -= seg[k]; k++; }
     const u = seg[k] ? Math.min(1, d / seg[k]) : 0, x = (q[k].x + (q[k + 1].x - q[k].x) * u) * 100, y = (q[k].y + (q[k + 1].y - q[k].y) * u) * 100;
-    out += `<rect class="ghost" x="${(x - w / 2).toFixed(2)}" y="${(y - hh).toFixed(2)}" width="${w.toFixed(2)}" height="${hh.toFixed(2)}" rx="${Math.min(w, hh) / 5}"/>`;
+    out.push(h('img', { class: 'pathghost', src, alt: '', draggable: 'false', style: `left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;height:${height.toFixed(2)}%;${flip ? 'transform:translate(-50%,-100%) scaleX(-1);' : ''}opacity:${(0.22 + 0.26 * (i / n)).toFixed(2)}` }));
   }
   return out;
 }
+let pathGhostBox = null;
+const showGhosts = (pts, key) => { if (!pathGhostBox?.isConnected) { pathGhostBox = h('div', { class: 'pathghosts', 'aria-hidden': 'true' }); wrapEl.append(pathGhostBox); } pathGhostBox.replaceChildren(...pathGhostImgs(pts, key)); };
 let pathSvg = null, pathDots = [], pathSig = '';
-const removePathView = () => { pathSvg?.remove(); pathSvg = null; pathDots.forEach((d) => d.remove()); pathDots = []; pathSig = ''; };
+const removePathView = () => { pathSvg?.remove(); pathSvg = null; pathGhostBox?.remove(); pathGhostBox = null; pathDots.forEach((d) => d.remove()); pathDots = []; pathSig = ''; };
 /** the saved path of the character in the Move tab, drawn over the stage (start = green dot, end = red dot); in edit mode its points can be dragged */
 function updatePathView(force = true) {
   const path = S.tab === 'motion' && !S.pathDraw && S.motionFor ? S.paths[S.motionFor] : null;
@@ -1848,9 +1867,10 @@ function updatePathView(force = true) {
   }
   const a = toScreen(path.pts[0]), b = toScreen(path.pts.at(-1));
   pathSvg.setAttribute('class', `pathview${S.pathEdit ? ' editing' : ''}`);
-  pathSvg.innerHTML = `${S.pathEdit ? pathGhosts(path.pts, S.motionFor) : ''}<polyline points="${penLine(path.pts)}"/><circle class="s" cx="${a.x * 100}" cy="${a.y * 100}" r="1.1"/><circle class="e" cx="${b.x * 100}" cy="${b.y * 100}" r="1.1"/>`;
+  pathSvg.innerHTML = `${S.pathEdit ? pathTrail(path.pts) : ''}<polyline points="${penLine(path.pts)}"/><circle class="s" cx="${a.x * 100}" cy="${a.y * 100}" r="1.1"/><circle class="e" cx="${b.x * 100}" cy="${b.y * 100}" r="1.1"/>`;
   pathDots.forEach((d) => d.remove()); pathDots = [];
-  if (!S.pathEdit) return;
+  if (!S.pathEdit) { pathGhostBox?.remove(); pathGhostBox = null; return; }
+  showGhosts(path.pts, S.motionFor);
   const poly = pathSvg.querySelector('polyline:not(.trail)');
   poly.addEventListener('dblclick', (e) => {                    // double-click the line: a new point appears there
     const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height), hit = insertAt(path.pts, p);
@@ -1860,7 +1880,7 @@ function updatePathView(force = true) {
     const q = toScreen(pt), dot = h('i', { class: 'pathpt', title: 'Kheenchein · double-click = point hatao', style: `left:${q.x * 100}%;top:${q.y * 100}%` });
     dot.addEventListener('pointerdown', (e) => {
       e.preventDefault(); e.stopPropagation(); dot.setPointerCapture(e.pointerId);
-      const mv = (ev) => { const r = stage.out.getBoundingClientRect(); path.pts[i] = fromScreen((ev.clientX - r.left) / r.width, (ev.clientY - r.top) / r.height); dot.style.left = `${toScreen(path.pts[i]).x * 100}%`; dot.style.top = `${toScreen(path.pts[i]).y * 100}%`; pathSvg.querySelector('polyline:not(.trail)').setAttribute('points', penLine(path.pts)); pathSvg.querySelectorAll('.trail,.ghost').forEach((n) => n.remove()); pathSvg.insertAdjacentHTML('afterbegin', pathGhosts(path.pts, S.motionFor)); };
+      const mv = (ev) => { const r = stage.out.getBoundingClientRect(); path.pts[i] = fromScreen((ev.clientX - r.left) / r.width, (ev.clientY - r.top) / r.height); dot.style.left = `${toScreen(path.pts[i]).x * 100}%`; dot.style.top = `${toScreen(path.pts[i]).y * 100}%`; pathSvg.querySelector('polyline:not(.trail)').setAttribute('points', penLine(path.pts)); pathSvg.querySelectorAll('.trail').forEach((n) => n.remove()); pathSvg.insertAdjacentHTML('afterbegin', pathTrail(path.pts)); showGhosts(path.pts, S.motionFor); };
       const up = () => { dot.removeEventListener('pointermove', mv); dot.removeEventListener('pointerup', up); applyPath(S.motionFor); updatePathView(); };
       dot.addEventListener('pointermove', mv); dot.addEventListener('pointerup', up);
     });
@@ -1872,22 +1892,25 @@ function stopPathDraw() { S.pathDraw?.cleanup(); S.pathDraw = null; }
 /** pen tool: press on the stage and draw the way the character should walk; letting go finishes the line */
 function startPathDraw(s) {
   if (S.exporting || !wrapEl) return;
+  const clip = pathClipFor(s);
+  if (!clip) { toast(`Please add an animation for ${s.name} first (for example walk): the character keeps playing it while it moves along the path.`); return; }
+  drawTimeline();
   stopPathDraw(); removePathView(); S.pathEdit = false; player.pause();
   const layer = h('div', { class: 'pathdraw', title: 'Draw a line with the pen' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<g class="ghosts"></g><polyline points=""/>';
-  layer.append(svg, h('span', { class: 'pathhint' }, `✏️ Draw a line for ${s.name} · Esc = cancel`));
+  svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<g class="ghosts"></g><polyline points=""/>'; const ghostBox = h('div', { class: 'pathghosts', 'aria-hidden': 'true' });
+  layer.append(ghostBox, svg, h('span', { class: 'pathhint' }, `✏️ Draw a line for ${s.name} · Esc = cancel`));
   wrapEl.append(layer);
   const line = svg.querySelector('polyline:not(.trail)'); let pts = null;
   const at = (e) => { const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); return { x: Math.min(1.2, Math.max(-0.2, p.x)), y: Math.min(1.2, Math.max(-0.2, p.y)) }; };
   const down = (e) => { e.preventDefault(); e.stopPropagation(); layer.setPointerCapture(e.pointerId); pts = [at(e)]; };
-  const ghosts = svg.querySelector('.ghosts');
-  const move = (e) => { if (!pts) return; pts.push(at(e)); line.setAttribute('points', penLine(pts)); ghosts.innerHTML = pathGhosts(pts, s.key); };
+  const ghosts = svg.querySelector('.ghosts'); let ghostFrame = 0;
+  const move = (e) => { if (!pts) return; pts.push(at(e)); line.setAttribute('points', penLine(pts)); ghosts.innerHTML = pathTrail(pts); if (!ghostFrame) ghostFrame = requestAnimationFrame(() => { ghostFrame = 0; ghostBox.replaceChildren(...pathGhostImgs(pts, s.key)); }); };
   const up = () => {
     if (!pts) return;
     const clean = thin(pts, 0.006), now = charNow(s.key);
     if (clean.length < 2 || pathLength(clean) < 0.03) { pts = null; line.setAttribute('points', ''); toast('The line is too short. Please draw a slightly longer line.'); return; }
     const old = S.paths[s.key];
-    S.paths[s.key] = { pts: clean, start: old?.start ?? +player.time.toFixed(2), dur: old?.dur ?? Math.max(1, +(pathLength(clean) * 8).toFixed(1)), face: old?.face ?? true, smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
+    S.paths[s.key] = { pts: clean, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), face: old?.face ?? true, smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
     stopPathDraw(); applyPath(s.key); player.seek(Math.min(player.total, S.paths[s.key].start)); drawTabs();
   };
   const key = (e) => { if (e.key === 'Escape') { stopPathDraw(); drawTabs(); } };
@@ -1899,12 +1922,12 @@ function pathCard(s) {
   const path = S.paths[s.key], num = (label, get, set) => h('label', { class: 'cs-sl' }, h('span', {}, label), h('input', { type: 'number', step: 0.1, min: 0, value: get().toFixed(1), onchange: (e) => { set(Math.max(0, +e.target.value || 0)); applyPath(s.key); drawTabs(); } }));
   const tog = (label, key) => h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: !!path[key], onchange: (e) => { path[key] = e.target.checked; applyPath(s.key); } }), label);
   return h('div', { class: 'card flat path-card' }, h('h2', {}, `✏️ Path · ${s.name}`),
-    h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, path ? `The character follows this line (from ${fmt(path.start)} to ${fmt(path.start + path.dur)}).` : 'Draw a line on the stage with the pen; the character will follow that path.'),
+    h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, path ? `The character follows this line while its animation plays (${fmt(path.start)} to ${fmt(path.start + path.dur)}).` : 'Select the animation clip (for example walk) on the timeline, then draw a line on the stage: the character walks along it.'),
     S.pathDraw ? h('button', { class: 'btn', onclick: () => { stopPathDraw(); drawTabs(); } }, '✕ Cancel') : h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', onclick: () => startPathDraw(s) }, path ? '✏️ Redraw' : '✏️ Draw a path with the pen'),
       path ? h('button', { class: `btn${S.pathEdit ? ' pri' : ''}`, onclick: () => { S.pathEdit = !S.pathEdit; if (S.pathEdit) path.pts = simplify(path.pts, 14); applyPath(s.key); drawTabs(); } }, S.pathEdit ? '✔ Points done' : '✎ Edit points') : null,
       path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; S.pathEdit = false; applyPath(s.key); drawTabs(); } }, '🗑 Remove path') : null),
     path && S.pathEdit ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Drag the yellow dots to change the path. Double-click the line to add a point, double-click a point to remove it.') : null,
-    path && !S.pathDraw ? [num('Start (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), num('Duration (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
+    path && !S.pathDraw ? [path.clipId ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'The path is on the same timeline row as its animation: move or stretch that animation clip and the path follows.') : num('Start (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), path.clipId ? null : num('Duration (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
       tog('↔ Turn to face the direction of travel', 'face'), tog('🐢 Slow at start / end', 'smooth')] : null);
 }
 
@@ -3539,7 +3562,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, drawCharBar, hideSelBar, updatePathView, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, drawCharBar, hideSelBar, updatePathView, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

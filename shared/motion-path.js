@@ -41,8 +41,9 @@ export function pathKeys(path, mul = 1, idPrefix = 'p') {
   for (let i = 0; i <= count; i++) {
     const u = i / count, p = pointAt(pts, ease(u));
     if (path.face) {
-      const a = pointAt(pts, Math.max(0, ease(u) - 0.02)), b = pointAt(pts, Math.min(1, ease(u) + 0.02)), dx = b.x - a.x;
-      if (Math.abs(dx) > 0.004) flip = path.faceLeft ? dx > 0 : dx < 0;
+      // the facing follows where the path goes over a stretch (not point by point), and only changes for a clear left / right move, so the character does not keep turning on a wobbly line
+      const a = pointAt(pts, Math.max(0, ease(u) - 0.08)), b = pointAt(pts, Math.min(1, ease(u) + 0.08)), dx = b.x - a.x;
+      if (Math.abs(dx) > 0.02) flip = path.faceLeft ? dx > 0 : dx < 0;
     }
     keys.push({ id: `${idPrefix}${i}`, pathKey: true, t: +(path.start + path.dur * u).toFixed(3), x: +p.x.toFixed(4), y: +p.y.toFixed(4), mul, flip, ease: 'linear' });
   }

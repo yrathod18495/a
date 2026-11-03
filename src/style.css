@@ -954,3 +954,6 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 /* while a path is drawn or edited: a soft blurred trail and faint outlines of the character along it */
 .pathdraw polyline.trail,.pathview polyline.trail{stroke:#a597ff;stroke-width:16;opacity:.22;filter:blur(4px);stroke-dasharray:none;pointer-events:none}
 .pathdraw .ghost,.pathview .ghost{fill:#a597ff22;stroke:#c9c0ff;stroke-width:1;stroke-dasharray:3 3;opacity:.55;filter:blur(.6px);vector-effect:non-scaling-stroke;pointer-events:none}
+.pathghosts{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden}
+.pathdraw .pathghosts{z-index:1}
+.pathghost{position:absolute;width:auto;transform:translate(-50%,-100%);filter:blur(1.4px) saturate(.85);pointer-events:none;user-select:none}
