@@ -12,7 +12,23 @@ export function estimateSeconds({ duration, pixels, fps, live = false, last = nu
 }
 export const prettyTime = (s) => (s < 90 ? `${Math.max(5, Math.round(s / 5) * 5)} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`);
 export const BASIS_TEXT = { live: 'A live recording takes as long as the video.', last: 'Based on how fast your last export was on this device.', guess: 'A rough guess. It becomes accurate after your first export.' };
-export function estimateMegabytes({ videoBps, duration, audio }) { return ((videoBps / 1e6 + (audio ? AUDIO_MBPS : 0)) * duration) / 8; }
+// `ratio`: how much of the requested video bitrate the encoder really uses. Cartoon pictures are easy to compress, so a real file is far smaller than "bitrate × length";
+// the ratio is measured from the last export on this device (see rememberSize), and until then a cautious default is used.
+export const DEFAULT_SIZE_RATIO = { mp4: 0.15, webm: 0.35 };
+export function estimateMegabytes({ videoBps, duration, audio, ratio = 1 }) { return ((videoBps * ratio / 1e6 + (audio ? AUDIO_MBPS : 0)) * duration) / 8; }
+
+const SIZE_KEY = '12toons.exportSizeRatio';
+/** remembers how big the finished file was compared with what the bitrate promised, per format */
+export function rememberSize({ bytes, duration, videoBps, audio, format }, storage = globalThis.localStorage) {
+  if (!(bytes > 0 && duration > 0.5 && videoBps > 0)) return null;
+  const videoActual = Math.max(0, (bytes * 8) / duration - (audio ? AUDIO_MBPS * 1e6 : 0)), ratio = Math.min(1.2, Math.max(0.02, videoActual / videoBps));
+  try { const all = JSON.parse(storage.getItem(SIZE_KEY) || '{}'); all[format] = { ratio, at: Date.now() }; storage.setItem(SIZE_KEY, JSON.stringify(all)); } catch { /* optional */ }
+  return ratio;
+}
+export function sizeRatio(format, storage = globalThis.localStorage) {
+  try { const v = JSON.parse(storage.getItem(SIZE_KEY) || '{}')[format]; if (v && v.ratio > 0) return v.ratio; } catch { /* use the default */ }
+  return DEFAULT_SIZE_RATIO[format] ?? 0.2;
+}
 
 export function rememberSpeed({ duration, seconds, pixels, fps }, storage = globalThis.localStorage) {
   if (!(duration > 0.5 && seconds > 0.2)) return null;

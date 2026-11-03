@@ -38,7 +38,7 @@ import { thin, pathLength, pathKeys, simplify, insertAt } from '../shared/motion
 import { resizeClip, contentLength, snap as snapTo, snapDelta, MIN_CLIP } from '../shared/timeline-edit.js';
 import { presetKeys, withPreset, PRESETS as CAM_PRESETS } from '../shared/camera-presets.js';
 import { saveLabel } from '../shared/save-time.js';
-import { estimateSeconds, prettyTime, estimateMegabytes, BASIS_TEXT, rememberSpeed, lastSpeed } from '../shared/export-estimate.js';
+import { estimateSeconds, prettyTime, estimateMegabytes, BASIS_TEXT, rememberSpeed, lastSpeed, rememberSize, sizeRatio } from '../shared/export-estimate.js';
 import { DEFAULT_LAYOUT, SHORTCUT_GROUPS, EXPORT_PRESETS, presetMatch, loadLayout, saveLayout, applyLayout, clampPanel, clampTimeline } from './studio-layout.js';
 
 const initialPreviewMode = readPreviewMode();
@@ -3086,11 +3086,11 @@ function tabExport() {
         : 'Plays the video once in real time and records the screen — takes as long as the video. Use it only if Fast render does not work on your device.'));
   const cQuality = h('div', { class: 'card flat' }, h('h2', {}, 'Quality'), q, S.quality >= 2160 ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, '4K needs a strong phone or computer and takes longer. Try 1080p first.') : null);
   const cFormat = h('div', { class: 'card flat' }, h('h2', {}, 'File format'), fm, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.format === 'webm' ? 'WebM (VP9): same sharpness in about half the size. Plays in Chrome, Edge, Firefox, VLC and most editors; some phone galleries and WhatsApp may not open it.' : 'MP4 (H.264): opens everywhere — gallery, WhatsApp, editors — but the file is bigger for the same sharpness.'));
-  const cLevel = h('div', { class: 'card flat' }, h('h2', {}, 'Video quality'), lv, (() => { const { W, H } = sizeFor(); const mbps = bitrateFor(W, H, S.level, S.format) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo }); return h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `${W}×${H} · about ${mbps.toFixed(1)} Mbps → roughly ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB for this video. Higher = sharper picture and a bigger file.`); })());
+  const cLevel = h('div', { class: 'card flat' }, h('h2', {}, 'Video quality'), lv, (() => { const { W, H } = sizeFor(); const mbps = bitrateFor(W, H, S.level, S.format) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo, ratio: sizeRatio(S.format) }); return h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `${W}×${H} · about ${mbps.toFixed(1)} Mbps → roughly ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB for this video. Higher = sharper picture and a bigger file.`); })());
   const cFps = h('div', { class: 'card flat' }, h('h2', {}, 'Smoothness'), f, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'Fewer frames per second = faster export.'));
   const cDone = h('button', { class: 'btn ok', style: 'width:100%;padding:14px', disabled: !!bgExport || (!pickType() && !window.VideoEncoder), onclick: () => doExport() }, bgExport ? 'Exporting in the background…' : '⬇ Export video');
   const { W: outW, H: outH } = sizeFor(), preset = presetMatch(S);
-  const mbps = bitrateFor(outW, outH, S.level, S.format) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo });
+  const mbps = bitrateFor(outW, outH, S.level, S.format) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo, ratio: sizeRatio(S.format) });
   const live = !multi && S.expMethod === 'live', eta = estimateSeconds({ duration, pixels: outW * outH, fps: S.fps, live, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
   const group = (key, icon, title, ...body) => h('details', { class: 'exp-group', open: S.expOpen[key], ontoggle: e => { S.expOpen[key] = e.currentTarget.open; } }, h('summary', {}, h('span', { 'aria-hidden': 'true' }, icon), title), h('div', { class: 'exp-body' }, ...body));
   const stat = (label, value) => h('div', {}, label, h('b', {}, value));
@@ -3128,7 +3128,7 @@ function openExportPopup() {
   const info = h('div', { class: 'exp-pop-info' });
   const chips = (items, cur, set) => { const box = h('div', { class: 'seg exp-pop-seg' }); const draw = () => box.replaceChildren(...items.map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); draw(); refresh(); } }, label))); draw(); return box; };
   const refresh = () => {
-    const { W, H } = sizeFor(), mbps = bitrateFor(W, H, S.level, 'mp4') / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: sound });
+    const { W, H } = sizeFor(), mbps = bitrateFor(W, H, S.level, 'mp4') / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: sound, ratio: sizeRatio('mp4') });
     const eta = estimateSeconds({ duration, pixels: W * H, fps: S.fps, live: false, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
     info.replaceChildren(h('div', {}, 'Estimated size', h('b', {}, `about ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)), h('div', {}, 'Picture', h('b', {}, `${W}×${H}`)), h('div', {}, 'Length', h('b', {}, `${duration.toFixed(1)} s`)), h('div', {}, 'Time to render', h('b', {}, `about ${prettyTime(eta.seconds)}`)));
   };
@@ -3177,6 +3177,7 @@ async function runBackgroundExport(grant) {
     const { blob, ext, info } = await exportParallel({ job, clips, total, music, onProgress: progress, cancelled: () => bgExport.stop, workers: workerCount() });
     const took = (performance.now() - t0) / 1000;
     rememberSpeed({ duration: total, seconds: took, pixels: W * H, fps });
+    rememberSize({ bytes: blob.size, duration: total, videoBps: bitrateFor(W, H, S.level, ext === 'mp4' ? 'mp4' : 'webm'), audio: clips.length > 0 || music.length > 0, format: ext === 'mp4' ? 'mp4' : 'webm' });
     const a = h('a', { href: URL.createObjectURL(blob), download: `toon-${exportAspect.replace(':', 'x')}-${Date.now()}.${ext}` });
     document.body.append(a); a.click(); a.remove(); exported = true;
     toast(`Your video is ready (${took.toFixed(0)} s) · ${ext.toUpperCase()} · ${info}`);
@@ -3249,6 +3250,7 @@ async function doExport({ foreground = false } = {}) {
     } else res = offline ? await single() : await exportRealtime({ canvas: stage.out, stage, audioStream: player.rec.stream, player, onProgress: progress, level: S.level });
     const { blob, ext, info } = res;
     const took = (performance.now() - t0) / 1000;
+    if (offline && !stop) rememberSize({ bytes: blob.size, duration: sequence ? sequence.at(-1).end : player.total, videoBps: bitrateFor(stage.W, stage.H, S.level, ext === 'mp4' ? 'mp4' : 'webm'), audio: !silentExport(), format: ext === 'mp4' ? 'mp4' : 'webm' });
     if (offline && !stop) rememberSpeed({ duration: sequence ? sequence.at(-1).end : player.total, seconds: took, pixels: stage.W * stage.H, fps: S.fps });          // the next estimate is based on this export
     const a = h('a', { href: URL.createObjectURL(blob), download: `toon-${exportAspect.replace(':', 'x')}-${Date.now()}.${ext}` });
     document.body.append(a); a.click(); a.remove();
