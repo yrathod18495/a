@@ -1,7 +1,9 @@
 import { tearConfig, tearDrops, TEAR_UV } from '../tears.js';
 const point = (m,x,y) => ({x:m.a*x+m.c*y+m.tx,y:m.b*x+m.d*y+m.ty});
 const vector = (m,x,y) => ({x:m.a*x+m.c*y,y:m.b*x+m.d*y});
-const sideOf = name => /eye(?!brow|lash)/i.test(name) ? /(?:^|[_\-/])(l|left)(?:$|[_\-/])/i.test(name) ? 'left' : /(?:^|[_\-/])(r|right)(?:$|[_\-/])/i.test(name) ? 'right' : null : null;
+// which eye a slot is: named "eye ..." or "iris ..." with a left / right part (eyebrows, lashes, glasses / accessories ("acc") are not eyes)
+const EYE_SLOT = /(?:eye(?!brow|lash)|iris)/i, ACCESSORY = /acc(?:essor|$|[_\-/])/i;
+const sideOf = name => EYE_SLOT.test(name) && !ACCESSORY.test(name) ? /(?:^|[_\-/])(l|left)(?:$|[_\-/])/i.test(name) ? 'left' : /(?:^|[_\-/])(r|right)(?:$|[_\-/])/i.test(name) ? 'right' : null : null;
 export function bindTearEyes(layer, items) {
   const eyes={};
   for(const item of items){

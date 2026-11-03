@@ -202,3 +202,39 @@ test('animation previews: a tiny MP4 at 128, 480 and 720 px (about a tenth of a 
   expect(r['720'].bytes).toBeLessThan(500 * 1024);
   expect(r['480'].duration).toBeGreaterThan(3.5);
 });
+
+test('tears work on an uploaded character: both eyes are found (iris slots), the drops are drawn and follow the head', async ({ page }) => {
+  test.skip(!existsSync(ZIP), 'the Maya ZIP is not part of the repository');
+  test.setTimeout(5 * 60 * 1000);
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  fakeServer(page);
+  await page.goto('/?debug#/hub');
+  await page.evaluate(async () => { const { charactersView } = await import('/src/admin-characters.js'); document.querySelector('#shell').replaceChildren(await charactersView({ home() {}, back() {}, toast: (m) => { window.__toast = m; } })); });
+  await page.getByLabel('Character ZIP').setInputFiles(ZIP);
+  await page.getByLabel('Animation preview quality').selectOption('low');
+  await page.getByRole('button', { name: 'Done — upload' }).click();
+  await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 4 * 60 * 1000, intervals: [2000] }).toMatch(/Maya is saved/);
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Tears');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
+  await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
+  await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click(); await page.locator('.cp-next').click(); await page.locator('.cp-next').click();
+  await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
+  await page.evaluate(() => window.__toon.openTab('tears'));
+  await page.locator('.tear-style').nth(1).click();                                                   // the first real style (0 = none)
+  await expect(page.locator('.busy')).toHaveCount(0, { timeout: 30000 });
+  await expect(page.locator('.tears-panel')).not.toContainText('No visible eyes were detected');
+  const r = await page.evaluate(async () => {
+    const { stage, player, S } = window.__toon, l = stage.layers[0];
+    const bound = Object.keys(l.tearBind || {}).sort();
+    player.seek(1.2); S.dirty = true; await new Promise((res) => setTimeout(res, 600));
+    stage.render(1.2, 0, [], []); const a = Object.keys(l.tearAnchors || {}).sort(), p0 = l.tearAnchors.left && { ...l.tearAnchors.left.p };
+    l.mul = 1.0; stage.render(1.3, 0, [], []); const p1 = l.tearAnchors.left && { ...l.tearAnchors.left.p };
+    return { bound, drawn: a, style: S.speakers[0].tears?.style, p0, p1 };
+  });
+  expect(r.bound).toEqual(['left', 'right']); expect(r.drawn).toEqual(['left', 'right']); expect(r.style).toBeTruthy();
+  expect(r.p0.x).toBeGreaterThan(0); expect(r.p0.y).toBeGreaterThan(0);
+});
