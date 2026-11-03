@@ -41,3 +41,25 @@ test('the new-project message names the project, tool, ID and owner, and cannot 
   assert.match(newProjectMessage({ id: '1', kind: 'character', name: '', owner: {} }), /Character Editor[\s\S]*By:<\/b> an account/);
   assert.ok(newProjectMessage({ id: '1', kind: 'animation', name: 'x'.repeat(500), owner: {} }).length < 400);                  // long names are cut
 });
+
+test('a live-chat message for the owner names the sender, the plan and the chat to answer, and escapes the user\'s text', async () => {
+  const { chatMessageText } = await import('../server/telegram.js');
+  const text = chatMessageText({ uid: 'user_abcdefghij123456', name: 'Asha', email: 'asha@example.com', message: 'Help <b>me</b> & fast', paid: true });
+  assert.match(text, /^💬 <b>Live chat<\/b> · ⭐ Paid/); assert.match(text, /<b>From:<\/b> Asha \(asha@example\.com\)/);
+  assert.match(text, /Help &lt;b&gt;me&lt;\/b&gt; &amp; fast/); assert.match(text, /Reply to this message to answer/);
+  assert.ok(text.trimEnd().endsWith('<code>chat:user_abcdefghij123456</code>'));
+  assert.match(chatMessageText({ uid: 'user_abcdefghij123456', message: 'x' }), /Free/);
+});
+test('a Reply is matched to the right user: only the bot\'s own message in the owner\'s chat counts, and the last chat tag wins', async () => {
+  const { chatUidFromReply } = await import('../server/telegram.js');
+  const env = { TELEGRAM_CHAT_ID: '-1001' };
+  const update = (over = {}, original = {}) => ({ message: { chat: { id: -1001 }, text: 'ok', reply_to_message: { from: { is_bot: true }, text: 'Hello\nchat:real_user_1234567890', ...original }, ...over } });
+  assert.equal(chatUidFromReply(update(), env), 'real_user_1234567890');
+  // a user who types a fake tag in their own message cannot redirect the answer: the bot's tag comes last
+  assert.equal(chatUidFromReply(update({}, { text: 'please chat:victim_user_1234567890 thanks\n\nReply to this message to answer.\nchat:real_user_1234567890' }), env), 'real_user_1234567890');
+  assert.equal(chatUidFromReply(update({ chat: { id: -999 } }), env), null);                         // another chat
+  assert.equal(chatUidFromReply(update({}, { from: { is_bot: false } }), env), null);                 // a message of a person, not of the bot
+  assert.equal(chatUidFromReply(update({}, { text: 'no tag here' }), env), null);
+  assert.equal(chatUidFromReply({ message: { chat: { id: -1001 }, text: 'x' } }, env), null);         // not a reply
+  assert.equal(chatUidFromReply(null, env), null);
+});

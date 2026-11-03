@@ -17,6 +17,14 @@ export async function tierOf(db, uid) {
   return paid ? 'paid' : 'free';
 }
 
+/** the same answer as tierOf, but only READS: nothing is recorded (used where a plain label is needed, e.g. the Telegram message) */
+export async function peekTier(db, uid) {
+  const recorded = (await entitlementRef(db, uid).get()).data()?.tier;
+  if (recorded === 'free' || recorded === 'paid') return recorded;
+  const workspace = await db.doc(`workspaces/${uid}`).get();
+  return Number(workspace.data()?.credits || 0) > 0 ? 'paid' : 'free';
+}
+
 /** the tier that decides export limits: admins export like paid accounts */
 export async function effectiveTier(db, who) {
   return who.admin ? 'paid' : normalizeTier(await tierOf(db, who.uid));

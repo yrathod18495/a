@@ -2,7 +2,9 @@ import { services } from '../server/firebase-admin.js';
 import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { AccessError } from '../server/security-policy.js';
-import { tierOf } from '../server/entitlements.js';
+import { tierOf, peekTier } from '../server/entitlements.js';
+import { PHOTO_LABEL, addAdminReply } from '../server/support-chat.js';
+import { notifyChatMessage } from '../server/telegram.js';
 // Temporarily disabled until Firebase Web Push VAPID is configured.
 // import { sendSupportReplyPush } from '../server/support-push.js';
 
@@ -22,12 +24,7 @@ const cleanImage = value => {
   if (typeof value !== 'string' || value.length > IMAGE_MAX_CHARS || !/^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/]+=*$/.test(value)) throw new AccessError('invalid_image', 'Please attach a smaller picture (JPG, PNG or WebP).', 400);
   return value;
 };
-const PHOTO_LABEL = '📷 Photo';
 const validEmail = value => typeof value === 'string' && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-const writeChat = async (db, ref, messageRef, row, summary) => {
-  if (typeof db.batch === 'function') { const batch = db.batch(); batch.set(messageRef, row); batch.set(ref, summary, { merge: true }); await batch.commit(); }
-  else { await messageRef.set(row); await ref.set(summary, { merge: true }); }
-};
 /** after an edit or a delete: the inbox preview must show the newest message that is still there (the list order is not changed) */
 async function refreshSummary(db, ref, revision) {
   const rows = (await ref.collection('messages').get()).docs.map(d => d.data()).sort((a, b) => a.createdAt - b.createdAt), last = rows.at(-1);
@@ -62,6 +59,9 @@ export default async function handler(req, res) {
       const messageRef = ref.collection('messages').doc();
       if (typeof db.batch === 'function') { const batch = db.batch(); batch.set(messageRef, row); batch.set(ref, summary, { merge: true }); await batch.commit(); }
       else { await messageRef.set(row); await ref.set(summary, { merge: true }); }
+      // the owner's Telegram: the message arrives there and a Reply to it answers this user (see api/telegram.js)
+      const plan = await peekTier(db, who.uid).catch(() => '');
+      await notifyChatMessage({ uid: who.uid, name: summary.displayName, email: summary.email, message, paid: plan === 'paid' });
       return send(res, 200, { message: row });
     }
     if (b.action === 'messages' || b.action === 'adminMessages') {
@@ -96,11 +96,8 @@ export default async function handler(req, res) {
     }
     if (b.action === 'adminReply') {
       if (!validUid(b.uid)) throw new AccessError('invalid_user', 'Please choose a user\'s conversation.', 400);
-      const image = cleanImage(b.image), message = cleanText(b.message, { optional: !!image }), ref = db.collection('supportChats').doc(b.uid), chat = await ref.get();
-      if (!chat.exists) throw new AccessError('chat_not_found', 'This conversation no longer exists.', 404);
-      const now = Date.now(), row = { sender: 'admin', message, createdAt: now, ...(image ? { image } : {}) };
-      const summary = { updatedAt: now, lastMessage: message || PHOTO_LABEL, lastSender: 'admin', unreadAdmin: false, unreadUser: true };
-      await writeChat(db, ref, ref.collection('messages').doc(), row, summary);
+      const image = cleanImage(b.image), message = cleanText(b.message, { optional: !!image });
+      const { row } = await addAdminReply(db, b.uid, message, { image });
       // Temporarily disabled until Firebase Web Push VAPID is configured.
       // Keep this call for re-enabling after VAPID setup.
       // try { await sendSupportReplyPush(db, services().messaging, b.uid); }

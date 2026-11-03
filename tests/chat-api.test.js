@@ -127,3 +127,24 @@ test('an admin can start a conversation with an account, and delete conversation
   assert.equal((await call(adminToken,{action:'adminMessages',uid:spare.uid})).statusCode,404);
   assert.deepEqual((await call(spare.token,{action:'messages'})).body.messages,[]);                                // the user just sees an empty chat
 });
+
+test('a live-chat message is also sent to the owner on Telegram, with the chat to answer; if Telegram is down the chat still works',async()=>{
+  const toTelegram=[],realFetch=globalThis.fetch;
+  process.env.TELEGRAM_BOT_TOKEN='111:TOKEN';process.env.TELEGRAM_CHAT_ID='-1009';
+  globalThis.fetch=async(url,init)=>{if(String(url).startsWith('https://api.telegram.org/'))toTelegram.push(JSON.parse(init.body));return {ok:true,status:200};};
+  try{
+    db.data.set(`securityUsers/${user}`,{status:'active'});
+    await new Promise(r=>setTimeout(r,900));                                                        // the chat's own 0.8 s limit between messages
+    const sent=await call(userToken,{action:'send',message:'My export fails'});
+    assert.equal(sent.statusCode,200);
+    assert.equal(toTelegram.length,1);assert.equal(toTelegram[0].chat_id,'-1009');
+    assert.match(toTelegram[0].text,/My export fails/);assert.match(toTelegram[0].text,new RegExp('chat:'+user));assert.match(toTelegram[0].text,/Free/);
+    db.data.set(`entitlements/${user}`,{tier:'paid'});
+    await new Promise(r=>setTimeout(r,900));
+    await call(userToken,{action:'send',message:'Second one'});
+    assert.match(toTelegram.at(-1).text,/Paid/);
+    globalThis.fetch=async()=>{throw new Error('offline');};
+    await new Promise(r=>setTimeout(r,900));
+    assert.equal((await call(userToken,{action:'send',message:'Still works'})).statusCode,200);
+  }finally{globalThis.fetch=realFetch;delete process.env.TELEGRAM_BOT_TOKEN;delete process.env.TELEGRAM_CHAT_ID;}
+});
