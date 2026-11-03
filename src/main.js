@@ -1867,7 +1867,7 @@ function startPathShadow(s) {
   stopPathDraw(); player.pause(); drawTimeline();
   const box = stage.layers.find((l) => l.key === s.key)?.box, v = viewOf(), src = portraitOf(s);
   const heightPct = box ? ((box.y1 - box.y0) / v.h) * 100 : 40, widthPct = box ? ((box.x1 - box.x0) / v.w) * 100 : 14;
-  const layer = h('div', { class: 'pathshadow-layer', title: 'Drag the shadow to where the character should go' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const layer = h('div', { class: 'pathshadow-layer' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<polyline points=""/>';
   const shadow = src ? h('img', { class: 'pathshadow', src, alt: '', draggable: 'false' }) : h('div', { class: 'pathshadow blob' });
   shadow.style.height = `${heightPct}%`; if (!src) shadow.style.width = `${widthPct}%`;
