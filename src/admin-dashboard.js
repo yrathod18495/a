@@ -37,8 +37,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
     ['Payments', () => import('./admin-payments.js').then(m => m.view({ user, home, toast, back: goOverview }))],
     ['Studio Controls', openStudio],
     ['Find Project', () => import('./admin-find-project.js').then(m => m.findProjectView({ user, back: goOverview, toast }))],
-    ['Props & Effects', () => import('./admin-props-effects.js').then(m => m.propsEffectsView({ home, toast, back: goOverview }))],
-    ['Add Assets', () => import('./admin-assets.js').then(m => m.assetsView({ user, home, toast, back: goOverview, openCharacters: () => show('Characters', openCharacters) }))],
+    ['Add Assets', () => import('./admin-assets.js').then(m => m.assetsView({ user, home, toast, back: goOverview }))],
     ['Characters', openCharacters],
     ['Affiliates', () => import('./admin-affiliates.js').then(m => m.affiliatesView({ user, toast, back: goOverview }))],
   ];
@@ -49,7 +48,6 @@ export function dashboardView({ user, home, toast, openStudio }) {
     'Payments': 'M6 4h12M6 9h12M9 4c4 0 6 2 6 5s-2 5-6 5l7 6',
     'Studio Controls': 'M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M8 14v6',
     'Find Project': 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7ZM15 15l3 3M13.5 14a2.5 2.5 0 1 0 0-.01',
-    'Props & Effects': 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z',
     'Add Assets': 'M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM12 8v8M8 12h8',
     'Characters': 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1M17 3l1 2 2 .5-1.5 1.5.4 2.2L17 8.2 15.1 9.2l.4-2.2L14 5.5l2-.5 1-2Z',
     'Affiliates': 'M3 10 12 4l9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18',

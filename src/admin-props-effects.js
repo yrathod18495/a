@@ -1,4 +1,4 @@
-// Admin tab "Props & Effects": admins upload props and effects once; every creator sees them in the studio's Props / Effects tabs.
+// Admin → Add Assets → Add Props / Add Effects (also usable as a page of its own): admins upload props and effects once; every creator sees them in the studio's Props / Effects tabs.
 // Data: studioAssets collection (type 'prop' | 'effect'), files in R2, a tiny thumbnail stored with each record (see shared/studio-effects.js).
 import { h, logo } from './dom.js';
 import { deleteStudioAsset, listStudioAssets, saveStudioAsset, setPropGroup, setAssetAccess } from './studio-assets.js';
@@ -10,11 +10,12 @@ const ACCESS_LABEL = { paid: 'Paid accounts only', free: 'Free for everyone' };
 const GROUP_LABEL = { general: 'General (Props tab)', hand: 'Hand (character toolbox)' };
 const BLEND_LABEL = { normal: 'Normal', add: 'Glow (add)', screen: 'Screen' };
 
-export async function propsEffectsView({ back, home, toast }) {
+/** `only` ('prop' | 'effect'): the same screen for one kind, without its own header, tabs or back button (used inside Admin → Add Assets). Returns the content element then. */
+export async function propsEffectsView({ back, home, toast, only = null }) {
   const root = h('div', { class: 'sh admin-assets admin-props-effects' });
   const tabs = h('div', { class: 'admin-assets-tabs', role: 'tablist', 'aria-label': 'Props aur effects' });
   const content = h('main', { class: 'admin-assets-content' });
-  const state = { kind: 'prop', assets: [], loading: false, filter: 'all', sheet: false };
+  const state = { kind: only || 'prop', assets: [], loading: false, filter: 'all', sheet: false };
 
   const records = () => state.assets.filter((asset) => asset.type === state.kind);
   const categories = () => [...new Set(records().map((asset) => asset.category).filter(Boolean))].sort();
@@ -103,7 +104,7 @@ export async function propsEffectsView({ back, home, toast }) {
   }
 
   function draw() {
-    tabs.replaceChildren(...KINDS.map(([key, label]) => h('button', { class: `admin-assets-tab ${state.kind === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.kind === key, onclick: () => { state.kind = key; state.filter = 'all'; draw(); } }, label)));
+    if (!only) tabs.replaceChildren(...KINDS.map(([key, label]) => h('button', { class: `admin-assets-tab ${state.kind === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.kind === key, onclick: () => { state.kind = key; state.filter = 'all'; draw(); } }, label)));
     const effect = state.kind === 'effect', list = records(), cats = categories();
     const shown = list.filter((asset) => state.filter === 'all' || (asset.category || '') === state.filter);
     content.replaceChildren(...[
@@ -114,11 +115,12 @@ export async function propsEffectsView({ back, home, toast }) {
       state.loading && !list.length ? h('p', { class: 'admin-assets-empty' }, 'Loading library…')
         : shown.length ? h('div', { class: 'admin-assets-grid' }, shown.map(card))
           : h('div', { class: 'admin-assets-empty' }, h('span', {}, effect ? '💫' : '🧸'), h('b', {}, `No ${effect ? 'effect' : 'prop'} yet`), h('p', {}, 'Upload the first one above; it will show up for creators right away.')),
-      h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'),
+      only ? null : h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'),
     ].filter(Boolean));
   }
 
+  if (only) content.classList.add('admin-embedded');
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin · Props & Effects'), h('span', { class: 'sp' }), h('button', { class: 'btn', type: 'button', onclick: back }, 'Back to Admin')), tabs, content);
   await refresh();
-  return root;
+  return only ? content : root;
 }

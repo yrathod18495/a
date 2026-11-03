@@ -2,7 +2,7 @@
 
 Admins publish **props** (pictures placed on the stage) and **effects** (pictures or sprite sheets that cover the frame in front of the characters: rain, sparkle, light leaks). Creators see them in the studio's **Props** and **Effects** tabs, grouped by category.
 
-## Admin: Admin Dashboard → Props & Effects
+## Admin: Admin Dashboard → Add Assets → Add Props / Add Effects
 - Two sub-tabs, **Props** and **Effects**, each with an upload form, category filter and a list with a *Hatayein* (remove) button.
 - Props: image(s), optional name and category.
 - Effects: image or sprite sheet, name, category, **blend** (Normal / Glow = add / Screen), **opacity** (0.05–1), **placement** (whole frame or small sticker) and, for an animated effect, the sprite sheet's **columns, rows and fps** (2–144 frames).

@@ -2,7 +2,7 @@ import { h, logo } from './dom.js';
 import { loadCatalog, libraryCharacters, cdn } from './catalog.js';
 import { deleteStudioAsset, listStudioAssets, saveStudioAsset, saveStudioAnimation, setAssetAccess } from './studio-assets.js';
 
-export async function assetsView({ user, home, back, toast, openCharacters }) {
+export async function assetsView({ user, home, back, toast }) {
   const root = h('div', { class: 'sh admin-assets' });
   const tabs = h('div', { class: 'admin-assets-tabs', role: 'tablist', 'aria-label': 'Studio asset types' });
   const content = h('main', { class: 'admin-assets-content' });
@@ -30,14 +30,25 @@ export async function assetsView({ user, home, back, toast, openCharacters }) {
 
   function drawTabs() {
     tabs.replaceChildren(...[
-      ['background', '🖼 Add Background'], ['prop', '🧸 Add Props'], ['animation', '🎬 Add Animation'],
-    ].map(([key, label]) => h('button', { class: `admin-assets-tab ${state.type === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.type === key, onclick: () => { state.type = key; draw(); } }, label)),
-      // characters are uploaded as a ZIP in their own admin section
-      ...(openCharacters ? [h('button', { class: 'admin-assets-tab', type: 'button', title: 'Upload a character ZIP', onclick: openCharacters }, '🎭 Characters →')] : []));
+      ['background', '🖼 Add Background'], ['prop', '🧸 Add Props'], ['effect', '💫 Add Effects'], ['animation', '🎬 Add Animation'],
+    ].map(([key, label]) => h('button', { class: `admin-assets-tab ${state.type === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.type === key, onclick: () => { state.type = key; draw(); } }, label)));
+  }
+  // Props and Effects have their own screen (category, prop type, blend, sprite sheet ...): it is shown here, made once and kept
+  const embedded = new Map(); let embedToken = 0;
+  async function drawEmbedded(kind) {
+    const mine = ++embedToken;
+    if (embedded.has(kind)) { content.replaceChildren(embedded.get(kind)); return; }
+    content.replaceChildren(h('p', { class: 'admin-assets-empty' }, 'Loading…'));
+    try {
+      const { propsEffectsView } = await import('./admin-props-effects.js'), node = await propsEffectsView({ back, home, toast, only: kind });
+      embedded.set(kind, node);
+      if (mine === embedToken && state.type === kind) content.replaceChildren(node);
+    } catch (e) { if (mine === embedToken) content.replaceChildren(h('p', { class: 'admin-assets-empty', role: 'alert' }, `Could not open this page: ${e.message}`)); }
   }
   function draw() {
     drawTabs();
     if (state.type === 'animation') { drawAnimations(); return; }
+    if (state.type === 'prop' || state.type === 'effect') { drawEmbedded(state.type); return; }
     const kind = assetType(), label = kind === 'background' ? 'Backgrounds' : 'Props';
     const records = state.assets.filter((a) => a.type === kind);
     content.replaceChildren(
