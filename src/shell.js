@@ -74,12 +74,28 @@ syncThemeColor();
 // installable app: the worker only makes the site installable, it never keeps copies
 if ('serviceWorker' in navigator && import.meta.env.PROD) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}), { once: true });
 
+/* The live chat button: signed-in creators see it on every page; visitors who are signed out and admins see it on the home page.
+   It is decided again on every page change (not only at sign-in), so it is there when a visitor comes back to the home page from the login page. */
+let widgetFor = null;
+async function syncSupportWidget() {
+  if (!ready || DEBUG) return;
+  const home = (location.hash || '#/') === '#/', show = user ? (role !== 'admin' || home) : home, who = user ? user.uid : 'guest';
+  const existing = document.querySelector('.support-widget');
+  if (!show) { existing?.dispose?.(); existing?.remove(); widgetFor = null; return; }
+  if (existing && widgetFor === who) return;
+  existing?.dispose?.(); existing?.remove(); widgetFor = who;
+  try {
+    const { chatWidget } = await import('./chat-widget.js');
+    if (widgetFor !== who || document.querySelector('.support-widget')) return;          // the page changed again meanwhile
+    document.body.append(chatWidget(user, () => go('#/login')));
+  } catch (e) { widgetFor = null; console.warn('Live chat unavailable:', e.message); }
+}
 let routing = Promise.resolve();
 let routeSeq = 0;
 function route() {
   const key = `route-${++routeSeq}`, hash = (location.hash || '#/').split('/').slice(0, 2).join('/');
   if (ready) startRoute(key, { studio: (hash === '#/toons' || hash === '#/characters') && !!(location.hash || '').split('/')[2] });
-  routing = routing.then(renderRoute).then(syncPhoneNav).catch(e => {
+  routing = routing.then(renderRoute).then(syncPhoneNav).then(syncSupportWidget).catch(e => {
     if (reloadForNewVersion(e)) return;
     toast(`Could not open the page: ${e.message}`);
   }).finally(() => { doneRoute(key); if (ready) doneRoute('boot'); });
@@ -418,13 +434,7 @@ async function start() {
         catch (e) { if (e.status === 400 || e.status === 403) localStorage.removeItem('12toons-affiliate-referral'); }
       }
     }
-    document.querySelector('.support-widget')?.remove();
-    const publicHome = !user && (location.hash || '#/') === '#/';
-    const adminHome = user && role === 'admin' && (location.hash || '#/') === '#/';
-    if ((user && role !== 'admin') || publicHome || adminHome) {
-      try { const { chatWidget } = await import('./chat-widget.js'); document.body.append(chatWidget(user, () => go('#/login'))); }
-      catch (e) { console.warn('Live chat unavailable:', e.message); }
-    }
+    await syncSupportWidget();
     guardSession(u);
     if (u) { ensureProfile(u); syncAll().catch(e=>console.warn('Pending cloud sync:',e.message)); }
     if (first) { first = false; route(); } else if (!u && PRIVATE.includes(location.hash)) go('#/login'); else if (u && location.hash === '#/login') go('#/hub'); else route();
