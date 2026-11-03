@@ -950,3 +950,7 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .cp-nav{display:flex;justify-content:space-between;gap:10px;margin-top:14px;position:sticky;bottom:0;padding:10px 0 2px;background:linear-gradient(180deg,transparent,var(--bg,#16171a) 40%)}
 .cp-nav .btn{min-width:110px}
 .cp-nav .btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* while a path is drawn or edited: a soft blurred trail and faint outlines of the character along it */
+.pathdraw polyline.trail,.pathview polyline.trail{stroke:#a597ff;stroke-width:16;opacity:.22;filter:blur(4px);stroke-dasharray:none;pointer-events:none}
+.pathdraw .ghost,.pathview .ghost{fill:#a597ff22;stroke:#c9c0ff;stroke-width:1;stroke-dasharray:3 3;opacity:.55;filter:blur(.6px);vector-effect:non-scaling-stroke;pointer-events:none}

@@ -1817,6 +1817,21 @@ const viewOf = () => stage.view || { x: 0, y: 0, w: stage.W, h: stage.H };
 const toScreen = (p) => { const v = viewOf(); return { x: (p.x * stage.W - v.x) / v.w, y: ((1 - p.y) * stage.H - v.y) / v.h }; };
 const fromScreen = (fx, fy) => { const v = viewOf(); return { x: (v.x + fx * v.w) / stage.W, y: 1 - (v.y + fy * v.h) / stage.H }; };
 const penLine = (pts) => pts.map((p) => { const q = toScreen(p); return `${(q.x * 100).toFixed(2)},${(q.y * 100).toFixed(2)}`; }).join(' ');
+/** a soft, blurred trail along the path plus a few faint outlines of the character at even steps ("from here to here"), shown while the path is being drawn or edited */
+function pathGhosts(pts, key) {
+  if (!pts || pts.length < 2) return '';
+  const q = pts.map(toScreen), seg = q.slice(1).map((b, i) => Math.hypot(b.x - q[i].x, b.y - q[i].y)), total = seg.reduce((x, y) => x + y, 0) || 1;
+  const box = stage.layers.find((l) => l.key === key)?.box, v = viewOf(), n = 5;
+  const w = box ? ((box.x1 - box.x0) / v.w) * 100 : 0, hh = box ? ((box.y1 - box.y0) / v.h) * 100 : 0;
+  let out = `<polyline class="trail" points="${q.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(' ')}"/>`;
+  if (!box || !(w > 0)) return out;
+  for (let i = 0; i <= n; i++) {                                               // the spot at distance i/n of the way
+    let d = (total * i) / n, k = 0; while (k < seg.length - 1 && d > seg[k]) { d -= seg[k]; k++; }
+    const u = seg[k] ? Math.min(1, d / seg[k]) : 0, x = (q[k].x + (q[k + 1].x - q[k].x) * u) * 100, y = (q[k].y + (q[k + 1].y - q[k].y) * u) * 100;
+    out += `<rect class="ghost" x="${(x - w / 2).toFixed(2)}" y="${(y - hh).toFixed(2)}" width="${w.toFixed(2)}" height="${hh.toFixed(2)}" rx="${Math.min(w, hh) / 5}"/>`;
+  }
+  return out;
+}
 let pathSvg = null, pathDots = [], pathSig = '';
 const removePathView = () => { pathSvg?.remove(); pathSvg = null; pathDots.forEach((d) => d.remove()); pathDots = []; pathSig = ''; };
 /** the saved path of the character in the Move tab, drawn over the stage (start = green dot, end = red dot); in edit mode its points can be dragged */
@@ -1833,10 +1848,10 @@ function updatePathView(force = true) {
   }
   const a = toScreen(path.pts[0]), b = toScreen(path.pts.at(-1));
   pathSvg.setAttribute('class', `pathview${S.pathEdit ? ' editing' : ''}`);
-  pathSvg.innerHTML = `<polyline points="${penLine(path.pts)}"/><circle class="s" cx="${a.x * 100}" cy="${a.y * 100}" r="1.1"/><circle class="e" cx="${b.x * 100}" cy="${b.y * 100}" r="1.1"/>`;
+  pathSvg.innerHTML = `${S.pathEdit ? pathGhosts(path.pts, S.motionFor) : ''}<polyline points="${penLine(path.pts)}"/><circle class="s" cx="${a.x * 100}" cy="${a.y * 100}" r="1.1"/><circle class="e" cx="${b.x * 100}" cy="${b.y * 100}" r="1.1"/>`;
   pathDots.forEach((d) => d.remove()); pathDots = [];
   if (!S.pathEdit) return;
-  const poly = pathSvg.querySelector('polyline');
+  const poly = pathSvg.querySelector('polyline:not(.trail)');
   poly.addEventListener('dblclick', (e) => {                    // double-click the line: a new point appears there
     const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height), hit = insertAt(path.pts, p);
     path.pts.splice(hit.index, 0, hit.point); applyPath(S.motionFor); updatePathView();
@@ -1845,7 +1860,7 @@ function updatePathView(force = true) {
     const q = toScreen(pt), dot = h('i', { class: 'pathpt', title: 'Kheenchein · double-click = point hatao', style: `left:${q.x * 100}%;top:${q.y * 100}%` });
     dot.addEventListener('pointerdown', (e) => {
       e.preventDefault(); e.stopPropagation(); dot.setPointerCapture(e.pointerId);
-      const mv = (ev) => { const r = stage.out.getBoundingClientRect(); path.pts[i] = fromScreen((ev.clientX - r.left) / r.width, (ev.clientY - r.top) / r.height); dot.style.left = `${toScreen(path.pts[i]).x * 100}%`; dot.style.top = `${toScreen(path.pts[i]).y * 100}%`; pathSvg.querySelector('polyline').setAttribute('points', penLine(path.pts)); };
+      const mv = (ev) => { const r = stage.out.getBoundingClientRect(); path.pts[i] = fromScreen((ev.clientX - r.left) / r.width, (ev.clientY - r.top) / r.height); dot.style.left = `${toScreen(path.pts[i]).x * 100}%`; dot.style.top = `${toScreen(path.pts[i]).y * 100}%`; pathSvg.querySelector('polyline:not(.trail)').setAttribute('points', penLine(path.pts)); pathSvg.querySelectorAll('.trail,.ghost').forEach((n) => n.remove()); pathSvg.insertAdjacentHTML('afterbegin', pathGhosts(path.pts, S.motionFor)); };
       const up = () => { dot.removeEventListener('pointermove', mv); dot.removeEventListener('pointerup', up); applyPath(S.motionFor); updatePathView(); };
       dot.addEventListener('pointermove', mv); dot.addEventListener('pointerup', up);
     });
@@ -1859,13 +1874,14 @@ function startPathDraw(s) {
   if (S.exporting || !wrapEl) return;
   stopPathDraw(); removePathView(); S.pathEdit = false; player.pause();
   const layer = h('div', { class: 'pathdraw', title: 'Draw a line with the pen' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<polyline points=""/>';
+  svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<g class="ghosts"></g><polyline points=""/>';
   layer.append(svg, h('span', { class: 'pathhint' }, `✏️ Draw a line for ${s.name} · Esc = cancel`));
   wrapEl.append(layer);
-  const line = svg.querySelector('polyline'); let pts = null;
+  const line = svg.querySelector('polyline:not(.trail)'); let pts = null;
   const at = (e) => { const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); return { x: Math.min(1.2, Math.max(-0.2, p.x)), y: Math.min(1.2, Math.max(-0.2, p.y)) }; };
   const down = (e) => { e.preventDefault(); e.stopPropagation(); layer.setPointerCapture(e.pointerId); pts = [at(e)]; };
-  const move = (e) => { if (!pts) return; pts.push(at(e)); line.setAttribute('points', penLine(pts)); };
+  const ghosts = svg.querySelector('.ghosts');
+  const move = (e) => { if (!pts) return; pts.push(at(e)); line.setAttribute('points', penLine(pts)); ghosts.innerHTML = pathGhosts(pts, s.key); };
   const up = () => {
     if (!pts) return;
     const clean = thin(pts, 0.006), now = charNow(s.key);
@@ -3523,7 +3539,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, drawCharBar, hideSelBar, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, drawCharBar, hideSelBar, updatePathView, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
