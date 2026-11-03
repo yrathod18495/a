@@ -2864,16 +2864,17 @@ async function addOwnProps(files) {
   } catch (e) { toast(`Could not add the prop: ${friendlyError(e)}`); }
 }
 /** one picture tile of the Props / Effects / Background lists (same look as the animation cards): a picture with its name underneath; `add` makes the dashed "+" tile */
-function tile({ src, icon = '🖼', name, on, locked, add, cover, title, onclick, onremove }) {
+function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, onclick, onremove, onview, viewing }) {
   return h('button', { type: 'button', class: `tile${add ? ' add' : ''}${on ? ' on' : ''}${locked ? ' locked' : ''}${cover ? ' cover' : ''}`, title: title || name, 'aria-disabled': locked ? 'true' : undefined, onclick },
     locked ? lockBadge() : null,
-    h('span', { class: 'tile-pic' }, add ? h('span', { class: 'tile-plus' }, '+') : src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : icon),
+    h('span', { class: 'tile-pic' }, add ? h('span', { class: 'tile-plus' }, '+') : src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : glyph),
     h('span', { class: 'tile-name' }, h('b', {}, name)),
+    onview ? h('span', { class: `eye${viewing ? ' on' : ''}`, role: 'button', 'aria-label': viewing ? `Hide ${name}` : `Show ${name}`, title: viewing ? 'Showing: tap to hide' : 'Hidden: tap to show', onclick: (e) => { e.stopPropagation(); onview(); } }, icon(viewing ? 'eye' : 'eye-off')) : null,
     onremove ? h('span', { class: 'x', role: 'button', 'aria-label': `Delete ${name}`, title: 'Delete', onclick: (e) => { e.stopPropagation(); onremove(); } }, '✕') : null);
 }
 function libraryTab(kind) {
   if (!libraryTab.checked) { libraryTab.checked = true; refreshShared().then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'effects')) redrawPanel(); }); }
-  const effects = kind === 'effect', label = effects ? 'Effects' : 'Props', icon = effects ? '💫' : '🧸';
+  const effects = kind === 'effect', label = effects ? 'Effects' : 'Props', glyph = effects ? '💫' : '🧸';
   const typed = S.sharedAssets.filter((asset) => asset.type === kind);
   const assets = kind === 'prop' ? typed.filter((asset) => !isHandAsset(asset)) : typed;          // hand props are listed in the toolbox of a selected character
   const handAssets = kind === 'prop' ? typed.filter(isHandAsset) : [];
@@ -2885,9 +2886,9 @@ function libraryTab(kind) {
   askPlan();
   const card = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Add to scene: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset)) },
     locked ? lockBadge() : null,
-    asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, icon), h('b', {}, asset.name),
+    asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, glyph), h('b', {}, asset.name),
     h('small', {}, locked ? 'Paid accounts only' : effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'}` : (asset.category || 'Shared library'))); };
-  const tileOf = (asset) => { const locked = assetLocked(asset); return tile({ src: asset.thumb, icon, name: asset.name, locked, title: locked ? `Paid accounts only: ${asset.name}` : `${effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'} · ` : ''}Add to scene: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset)) }); };
+  const tileOf = (asset) => { const locked = assetLocked(asset); return tile({ src: asset.thumb, icon: glyph, name: asset.name, locked, title: locked ? `Paid accounts only: ${asset.name}` : `${effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'} · ` : ''}Add to scene: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset)) }); };
   const ownFile = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; await addOwnProps(files); } });
   const onStage = S.props.filter((prop) => (isEffect(prop) ? 'effect' : 'prop') === kind);
   const selected = onStage.find((prop) => prop.id === S.selectedPropId);
@@ -2948,8 +2949,8 @@ function libraryTab(kind) {
       !shown.length ? h('p', { class: 'sub studio-library-empty' }, assets.length ? 'There is nothing in this category.' : `No shared ${label.toLowerCase()} have been published yet. They are added from the "Props & Effects" tab in the admin panel.`) : null,
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', title: 'See what the admin has newly published', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new')), ownFile),
     onStage.length ? h('div', { class: 'card flat' }, h('h3', {}, `In scene (${onStage.length})`), h('div', { class: 'lib-onstage' }, onStage.map((prop) => h('div', { class: `lib-row${prop.id === S.selectedPropId ? ' on' : ''}` },
-      h('button', { type: 'button', class: 'lib-pick', onclick: () => { S.selectedPropId = prop.id; S.sel = null; redrawPanel(); updateSel(); S.dirty = true; } }, h('span', {}, icon), h('b', {}, prop.name)),
-      h('button', { type: 'button', class: 'ib', title: prop.visible === false ? 'Dikhayein' : 'Chhupayein', 'aria-pressed': String(prop.visible !== false), onclick: () => { prop.visible = prop.visible === false; stage.setProps(S.props); S.dirty = true; dbPut('props', prop); redrawPanel(); } }, prop.visible === false ? '🚫' : '👁'))))) : null,
+      h('button', { type: 'button', class: 'lib-pick', onclick: () => { S.selectedPropId = prop.id; S.sel = null; redrawPanel(); updateSel(); S.dirty = true; } }, h('span', {}, glyph), h('b', {}, prop.name)),
+      h('button', { type: 'button', class: 'ib', title: prop.visible === false ? 'Show' : 'Hide', 'aria-label': prop.visible === false ? 'Show the prop' : 'Hide the prop', 'aria-pressed': String(prop.visible !== false), onclick: () => { prop.visible = prop.visible === false; stage.setProps(S.props); S.dirty = true; dbPut('props', prop); redrawPanel(); } }, icon(prop.visible === false ? 'eye-off' : 'eye')))))) : null,
     editor);
 }
 
@@ -3003,7 +3004,7 @@ function tabCanvas() {
   // one list: "+" first (opens the device's files), then the pictures this project already has, the generated ones and the admin's shared scenes
   const mine = h('div', { class: 'tile-grid' },
     tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => file.click() }),
-    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: r.name, onclick: () => pickBg(r), onremove: () => removeBg(r) })),
+    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: r.name, onclick: () => pickBg(r), onremove: () => removeBg(r), ...(S.bgAtTime ? {} : { viewing: S.bgId === r.id, onview: () => pickBg(S.bgId === r.id ? null : r) }) })),
     shared('background').map(sharedTile));
   generatedTiles(pickBg, mine);
   const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })));

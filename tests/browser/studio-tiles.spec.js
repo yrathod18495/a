@@ -45,3 +45,22 @@ test('phone: no floating toolbar over the character; a slider moves the timeline
   const box = await slide.boundingBox(), tl = await page.locator('.tl2').boundingBox();
   expect(box.y).toBeGreaterThanOrEqual(tl.y + tl.height - 1); expect(box.height).toBeGreaterThanOrEqual(30);
 });
+
+test('background tile: the eye button shows or hides it (eye / crossed eye, no emoji)', async ({ page }) => {
+  await open(page, 390);
+  await page.evaluate(() => window.__toon.openTab('canvas'));
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('.tile.add').first().click()]);
+  await chooser.setFiles({ name: 'pic.png', mimeType: 'image/png', buffer: PNG });
+  const eye = page.locator('.tile:not(.add) .eye').first();
+  await expect(eye).toBeVisible({ timeout: 15000 });
+  await expect(eye).toHaveClass(/on/);                                   // just added = showing
+  expect(await page.evaluate(() => !!window.__toon.S.bgId)).toBe(true);
+  await eye.click();
+  await expect(page.locator('.tile:not(.add) .eye').first()).not.toHaveClass(/on/);
+  expect(await page.evaluate(() => window.__toon.S.bgId)).toBeFalsy();
+  expect(await page.locator('.tile .eye').first().textContent()).not.toContain('🚫');
+  await page.locator('.tile:not(.add) .eye').first().click();
+  await expect(page.locator('.tile:not(.add) .eye').first()).toHaveClass(/on/);
+  const eb = await page.locator('.tile:not(.add) .eye').first().boundingBox(), xb = await page.locator('.tile:not(.add) .x').first().boundingBox();
+  expect(eb.x + eb.width).toBeLessThanOrEqual(xb.x);                    // the eye and the delete button do not overlap
+});

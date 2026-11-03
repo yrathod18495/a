@@ -368,3 +368,6 @@ body:has(#app:not([hidden])){overflow:hidden}
 .tile.add .tile-name{background:transparent;justify-content:center}.tile.add .tile-name b{color:var(--acc)}
 .tile.locked .tile-pic img,.tile.locked .tile-pic{opacity:.5}
 .tile .lock-badge{z-index:2}
+.tile .eye{position:absolute;top:6px;left:6px;z-index:2;width:30px;height:30px;display:grid;place-items:center;border-radius:99px;background:#000a;color:#fff}
+.tile .eye svg{width:17px;height:17px}
+.tile .eye.on{background:var(--acc)}
