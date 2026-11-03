@@ -10,6 +10,7 @@ export const PACKAGE_FORMAT = '12toons-character';
 export const PACKAGE_VERSION = 1;
 export const DB_MAX_BYTES = 192 * 1024;          // a JSON file up to this size (before compression) is kept in the database
 export const MAX_VIEWS = 8, MAX_ANIMATIONS = 200, MAX_TEXTURES = 8;
+export const PREVIEW_TYPES = Object.freeze(['gif', 'mp4']);          // what the files in a view's `gifs` are: GIF pictures (older uploads) or small MP4 videos
 export const VIEW_LABELS = { f34: '3/4 Front', fr: 'Front', sd: 'Side', bk: 'Back' };
 
 export const slug = (s) => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
@@ -21,7 +22,7 @@ export const gifName = (animation, category) => `${slug(animation) || 'animation
 
 /** 'db' or 'r2' for a file of the package */
 export function storageOf(path, size) {
-  if (/\.(webp|png|gif|jpe?g)$/i.test(path)) return 'r2';
+  if (/\.(webp|png|gif|jpe?g|mp4|webm)$/i.test(path)) return 'r2';
   return size <= DB_MAX_BYTES ? 'db' : 'r2';
 }
 
@@ -59,7 +60,7 @@ export function checkManifest(m, files = null) {
 
 /* ---- the stored record ----
    A file reference is { db: <sha256> } (in the database) or { r2: <sha256>, size } (in R2); both carry the sha so the browser can cache it.
-   character: { id, name, category, views: { <view>: { label, skeleton: ref, textures: [{ json: ref, page: ref }], thumb?: ref, gifs?: { <animation name>: ref } } }, thumb: ref|null, owner, createdAt }
+   character: { id, name, category, views: { <view>: { label, skeleton: ref, textures: [{ json: ref, page: ref }], thumb?: ref, gifs?: { <animation name>: ref }, previewType?: 'gif'|'mp4' } }, thumb: ref|null, owner, createdAt }
    (the GIF previews belong to each character view: two characters that share the animations still show their own look; older uploads have them in the category animations instead)
    category:  { id, name, views: { <view>: { animations: [{ name, label, group, layer, length, file: ref, gif: ref|null, gifName }] } }, owner, createdAt } */
 const isRef = (r) => !!r && typeof r === 'object' && ((isSha(r.db) && !('r2' in r)) || (isSha(r.r2) && Number.isSafeInteger(r.size) && r.size > 0 && !('db' in r)));
@@ -81,7 +82,7 @@ export function cleanRecord(input) {
     const gifs = {};
     for (const [name, r] of Object.entries(v.gifs || {})) { if (typeof name !== 'string' || !name || name.length > 80) bad(`View ${vid}: a preview name is not valid.`); gifs[name] = ref(r, `The preview of ${name}`); }
     if (Object.keys(gifs).length > MAX_ANIMATIONS) bad(`View ${vid}: too many previews.`);
-    character.views[vid] = { label: String(v.label || VIEW_LABELS[vid] || vid).slice(0, 40), ...(v.thumb ? { thumb: ref(v.thumb, `View ${vid} thumbnail`) } : {}), ...(Object.keys(gifs).length ? { gifs } : {}), skeleton: ref(v.skeleton, `View ${vid} skeleton`), textures: v.textures.map((t, i) => ({ json: ref(t.json, `View ${vid} texture ${i}`), page: ref(t.page, `View ${vid} picture ${i}`) })) };
+    character.views[vid] = { label: String(v.label || VIEW_LABELS[vid] || vid).slice(0, 40), ...(v.thumb ? { thumb: ref(v.thumb, `View ${vid} thumbnail`) } : {}), ...(Object.keys(gifs).length ? { gifs, previewType: PREVIEW_TYPES.includes(v.previewType) ? v.previewType : 'gif' } : {}), skeleton: ref(v.skeleton, `View ${vid} skeleton`), textures: v.textures.map((t, i) => ({ json: ref(t.json, `View ${vid} texture ${i}`), page: ref(t.page, `View ${vid} picture ${i}`) })) };
   }
   let category = null;
   if (g.views) {

@@ -2,7 +2,8 @@
 // Done makes a small looping GIF of every animation (low quality, for the studio's animation list), then stores everything:
 // small JSON in the database, pictures in R2 (src/cloud-characters.js -> api/studio-assets.js -> server/characters-api.js). Delete removes a character and its files.
 import JSZip from 'jszip';
-import { GIFEncoder, quantize, applyPalette } from 'gifenc';
+import { encodeFrames } from './gifEncode.js';
+import { canEncodePreview, encodeMp4 } from './previewVideo.js';
 import { h, logo } from './dom.js';
 import { Stage } from './db/stage.js';
 import { rigInfo } from './db/info.js';
@@ -12,7 +13,7 @@ import { friendlyError } from '../shared/hinglish-errors.js';
 
 const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // the small one: it only shows what the animation does
 /** preview quality the admin can pick: size in pixels (the picture is square), frames per second, colours (a GIF has 256 at most). Bigger = sharper, but heavier to store and to show. */
-export const GIF_QUALITY = { low: { label: 'Small · 128 px (light)', ...GIF }, 480: { label: 'Good · 480 px', size: 480, fps: 12, maxSeconds: 4, colors: 256 }, 720: { label: 'Best · 720 px (heaviest)', size: 720, fps: 10, maxSeconds: 4, colors: 256 } };
+export const GIF_QUALITY = { low: { label: 'Small · 128 px (lightest)', ...GIF, bitrate: 60_000 }, 480: { label: 'Good · 480 px (recommended)', size: 480, fps: 12, maxSeconds: 4, colors: 256, bitrate: 200_000 }, 720: { label: 'Best · 720 px', size: 720, fps: 12, maxSeconds: 4, colors: 256, bitrate: 420_000 } };
 const PREVIEW = 420;
 const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
 
@@ -67,16 +68,19 @@ function gifWorkers() {
   return gifPool;
 }
 export function stopGifWorkers() { gifPool?.forEach((w) => w.terminate()); gifPool = null; }
-/** GIF bytes for these frames (ArrayBuffers of RGBA pixels): in a worker when possible, here otherwise */
-function encodeGif(frames, opts) {
-  const pool = gifWorkers();
+let videoOk = new Map();
+/** can this browser make the small preview video at this size? (checked once per size) */
+const videoSupported = (q) => { if (!videoOk.has(q.size)) videoOk.set(q.size, canEncodePreview(q.size, q.fps, q.bitrate)); return videoOk.get(q.size); };
+/** the preview file for these frames (ArrayBuffers of RGBA pixels): { bytes, kind } with kind 'mp4' (a tiny video) or 'gif'; made in a worker when possible, here otherwise */
+async function encodePreview(frames, opts) {
+  const kind = (await videoSupported(opts)) ? 'mp4' : 'gif', pool = gifWorkers();
   if (!pool.length) {
-    const gif = GIFEncoder();
-    for (const buffer of frames) { const data = new Uint8ClampedArray(buffer), palette = quantize(data, opts.colors); gif.writeFrame(applyPalette(data, palette), opts.size, opts.size, { palette, delay: Math.round(1000 / opts.fps), repeat: 0 }); }
-    gif.finish(); return Promise.resolve(gif.bytes().slice().buffer);
+    const bytes = kind === 'mp4' ? await encodeMp4(frames, opts) : encodeFrames(frames, opts);
+    return { bytes: bytes.slice().buffer, kind };
   }
   const w = pool.reduce((best, x) => (x.pending.size < best.pending.size ? x : best)), id = ++gifJobs;
-  return new Promise((resolve, reject) => { w.pending.set(id, { resolve, reject }); w.postMessage({ id, frames, size: opts.size, fps: opts.fps, colors: opts.colors }, frames); });
+  const bytes = await new Promise((resolve, reject) => { w.pending.set(id, { resolve, reject }); w.postMessage({ id, kind, frames, size: opts.size, fps: opts.fps, colors: opts.colors, bitrate: opts.bitrate }, frames); });
+  return { bytes, kind };
 }
 /** draws the frames of an animation here (a list of RGBA pixel buffers); the encoding is a separate step so it can run beside the next drawing */
 export async function renderGifFrames(stage, def, name, anim, length, opts = GIF) {
@@ -91,9 +95,9 @@ export async function renderGifFrames(stage, def, name, anim, length, opts = GIF
   }
   return pictures;
 }
-/** a promise of the GIF Blob for these frames (encoded by a worker) */
-export const encodeGifBlob = async (pictures, opts = GIF) => new Blob([await encodeGif(pictures, opts)], { type: 'image/gif' });
-/** one looping GIF of an animation, start to finish */
+/** a promise of the preview Blob for these frames: an MP4 video (type video/mp4) or, where the browser cannot make one, a GIF (type image/gif) */
+export const encodeGifBlob = async (pictures, opts = GIF) => { const { bytes, kind } = await encodePreview(pictures, opts); return new Blob([bytes], { type: kind === 'mp4' ? 'video/mp4' : 'image/gif' }); };
+/** one looping preview of an animation, start to finish */
 export async function animationGif(stage, def, name, anim, length, opts = GIF) { return encodeGifBlob(await renderGifFrames(stage, def, name, anim, length, opts), opts); }
 
 export async function charactersView({ back, home, toast }) {

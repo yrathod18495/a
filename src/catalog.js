@@ -59,7 +59,7 @@ export async function fetchLibraryCharacter(entry) {
   if (!entry?.template) throw new Error('This character template is no longer available.');
   if (entry.template.cloud) {
     const { character, view } = entry.template, { ske, tex } = await loadCloudView(character, view);
-    const rig = rigInfo(ske, { templateId: entry.id, toonChar: entry.charBase, cloudAnims: (character.animations?.[view]?.animations || []).map((a) => ({ ...a, gif: character.views?.[view]?.gifs?.[a.name] || a.gif })), category: character.category });          // this character's own preview first, an older upload's category preview otherwise
+    const rig = rigInfo(ske, { templateId: entry.id, toonChar: entry.charBase, cloudAnims: (character.animations?.[view]?.animations || []).map((a) => { const own = character.views?.[view]?.gifs?.[a.name]; return { ...a, gif: own || a.gif, posterType: own ? (character.views[view].previewType || 'gif') : 'gif' }; }), category: character.category });          // this character's own preview first, an older upload's category preview otherwise
     return { skins: null, id: `lib:${entry.id}`, name: entry.name, pose: entry.pose, patternId: entry.patternId, lib: true, thumbnail: entry.thumbnail, ske, tex, rig, anims: [] };
   }
   const a = entry.template, load = async () => {
@@ -139,7 +139,7 @@ export const cloudFile = (ref) => (ref?.db ? `cloud:db:${ref.db}` : ref?.r2 ? `c
 export const cloudRef = (file) => { const [, where, sha, size] = String(file).split(':'); return where === 'db' ? { db: sha } : { r2: sha, size: Number(size) }; };
 function cloudCategories(rig) {
   const all = rig.cloudAnims.map((a) => ({ ...a, label: a.label || a.name }));
-  const mk = (a) => ({ ref: { source: 'lib', id: `${rig.category}:${a.name}`, name: a.label, file: cloudFile(a.file), overlay: a.layer === 'hand', layer: a.layer === 'hand' ? 'hand' : undefined }, name: a.label, length: a.length, poster: a.gif ? cloudFile(a.gif) : undefined });
+  const mk = (a) => ({ ref: { source: 'lib', id: `${rig.category}:${a.name}`, name: a.label, file: cloudFile(a.file), overlay: a.layer === 'hand', layer: a.layer === 'hand' ? 'hand' : undefined }, name: a.label, length: a.length, poster: a.gif ? cloudFile(a.gif) : undefined, posterType: a.posterType });
   const body = all.filter((a) => a.layer !== 'hand'), pick = (re) => body.filter((a) => re.test(a.name));
   const talk = pick(/talk|speak|explain/i), idle = pick(/stand|idle|bored|yawn|think|sad|fed_up|sleep/i).filter((a) => !talk.includes(a)), move = pick(/walk|run|dance|swim|jump|kick|punch/i).filter((a) => !talk.includes(a) && !idle.includes(a));
   const rest = body.filter((a) => ![...talk, ...idle, ...move].includes(a));
@@ -191,7 +191,7 @@ export function modeEntries(rig) {
   const cats = categoriesFor(rig).filter((c) => !c.overlay), all = cats.flatMap((c) => c.animations);
   const find = (re) => all.find((a) => re.test(a.name));
   const talk = find(/^talk one$|^talk · style 1$/i), fold = find(/folding/i), hip = find(/^both hand on hip|^hands on hip · both/i), lh = find(/^left palm on hip|^hand on hip · left/i), rh = find(/^right palm on hip|^hand on hip · right/i);
-  const entry = (ref, name, like) => ({ ref, name, preview: like?.preview, poster: like?.poster, mode: true });
+  const entry = (ref, name, like) => ({ ref, name, preview: like?.preview, poster: like?.poster, posterType: like?.posterType, mode: true });
   const list = [];
   const pools = modePools(rig);
   if (pools.talk.length) list.push(entry(MODE_REFS.speaker, '🎤 Speaker mode', talk));

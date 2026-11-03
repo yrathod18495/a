@@ -79,7 +79,8 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   const dbFiles = new Set([...Object.values(rec.character.views).flatMap((v) => [v.skeleton.db, ...v.textures.map((t) => t.json.db)]), ...Object.values(rec.category.views).flatMap((v) => v.animations.map((a) => a.file.db))]);
   expect(server.putFiles).toBe(dbFiles.size); expect(dbFiles.size).toBeGreaterThan(80); expect(dbFiles.size).toBeLessThanOrEqual(96);
   const gif = server.r2.get(rec.character.views.f34.gifs[rec.category.views.f34.animations[1].name].r2);
-  expect(gif.subarray(0, 6).toString()).toBe('GIF89a'); expect(gif.readUInt16LE(6)).toBe(128); expect(gif.length).toBeLessThan(150 * 1024);
+  expect(gif.subarray(4, 8).toString()).toBe('ftyp'); expect(gif.length).toBeLessThan(60 * 1024);                    // a tiny MP4 video (a GIF of the same picture is more than ten times bigger)
+  expect(Object.values(rec.character.views).every((v) => v.previewType === 'mp4')).toBe(true);
   // the saved list
   await expect(page.locator('.admin-character-card')).toHaveCount(1);
   await expect(page.locator('.admin-character-card')).toContainText('3/4 Front, Front, Side, Back · 88 animations');
@@ -163,7 +164,7 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   await page.getByLabel('Animation category').selectOption({ label: walkLabel });
   const walkCount = Number(walkLabel.match(/\((\d+)\)/)[1]);
   expect(walkCount).toBeGreaterThanOrEqual(1);
-  await expect.poll(() => page.locator('.animation-thumb img').evaluateAll((imgs) => imgs.filter((i) => i.src.startsWith('blob:') && i.naturalWidth === 128).length), { timeout: 30000 }).toBe(walkCount);
+  await expect.poll(() => page.locator('.animation-thumb video').evaluateAll((vs) => vs.filter((v) => v.src.startsWith('blob:') && v.videoWidth === 128 && v.loop && v.muted).length), { timeout: 30000 }).toBe(walkCount);      // the previews are looping, muted videos
   // apply walk: the clip is placed and the animation file came from the stored copy
   await page.getByTitle('Apply walk', { exact: true }).click();
   await expect(page.getByTitle('Apply walk', { exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
@@ -171,7 +172,7 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   expect(errors).toEqual([]);
 });
 
-test('animation previews can be made at 480 and 720 px (sharper than the small 128 px ones)', async ({ page }) => {
+test('animation previews: a tiny MP4 at 128, 480 and 720 px (about a tenth of a GIF), that plays', async ({ page }) => {
   test.skip(!existsSync(ZIP), 'the Maya ZIP is not part of the repository');
   test.setTimeout(4 * 60 * 1000);
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
@@ -185,14 +186,19 @@ test('animation previews can be made at 480 and 720 px (sharper than the small 1
     const out = {};
     for (const key of ['low', '480', '720']) {
       const q = m.GIF_QUALITY[key], stage = new Stage({ maxTex: 2048 }); stage.setSize('1:1', q.size); stage.fullView = false; await stage.loadCharacter(def);
-      const t0 = performance.now(), blob = await m.animationGif(stage, def, a.name, anim, a.length, q), head = new Uint8Array(await blob.slice(0, 10).arrayBuffer());
-      out[key] = { width: head[6] | (head[7] << 8), bytes: blob.size, ms: Math.round(performance.now() - t0), fps: q.fps };
+      const t0 = performance.now(), blob = await m.animationGif(stage, def, a.name, anim, a.length, q);
+      const video = document.createElement('video'); video.muted = true; video.src = URL.createObjectURL(blob);
+      await new Promise((res, rej) => { video.onloadedmetadata = res; video.onerror = () => rej(new Error('the preview does not play')); });
+      out[key] = { type: blob.type, bytes: blob.size, ms: Math.round(performance.now() - t0), width: video.videoWidth, duration: +video.duration.toFixed(2) };
       stage.unload(def.id);
     }
     return out;
   }, [...zip]);
-  console.log('GIF', JSON.stringify(r));
+  console.log('PREVIEW', JSON.stringify(r));
+  for (const k of ['low', '480', '720']) expect(r[k].type).toBe('video/mp4');
   expect(r.low.width).toBe(128); expect(r['480'].width).toBe(480); expect(r['720'].width).toBe(720);
   expect(r['480'].bytes).toBeGreaterThan(r.low.bytes); expect(r['720'].bytes).toBeGreaterThan(r['480'].bytes);
-  expect(r['720'].bytes).toBeLessThan(15 * 1024 * 1024);                                     // still a sane size for one animation
+  expect(r['480'].bytes).toBeLessThan(250 * 1024);                                       // the same walk as a 480 px GIF is 1.2 MB
+  expect(r['720'].bytes).toBeLessThan(500 * 1024);
+  expect(r['480'].duration).toBeGreaterThan(3.5);
 });

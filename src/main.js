@@ -204,8 +204,14 @@ function defaultBody(def) {
 }
 const animKey = (r) => (r.source === 'lib' ? `a${r.id}` : r.source === 'custom' ? `c${r.id}` : r.name);
 /** the small picture of an animation in the list; an uploaded character's GIF is downloaded once and kept by the browser */
-function posterImg(poster) {
+function posterImg(poster, type = 'gif') {
   if (!String(poster).startsWith('cloud:')) return h('img', { src: assetUrl(poster), alt: '', loading: 'lazy', decoding: 'async' });
+  if (type === 'mp4') {                                              // the preview is a tiny looping video (muted, plays by itself, like a GIF)
+    const video = h('video', { class: 'animation-poster', loop: true, playsinline: true, preload: 'auto', 'aria-hidden': 'true', tabindex: '-1' });
+    video.muted = true; video.autoplay = true;
+    pictureUrl(cloudRef(poster), 'video/mp4').then((u) => { video.src = u; video.play().catch(() => {}); }).catch(() => { video.remove(); });
+    return video;
+  }
   const img = h('img', { alt: '', decoding: 'async' });
   pictureUrl(cloudRef(poster)).then((u) => { img.src = u; }).catch(() => { img.remove(); });
   return img;
@@ -351,7 +357,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
           apply.disabled = true;
           try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
           catch (error) { toast(`Could not apply the animation: ${error.message}`); apply.disabled = false; }
-        } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, hasGif ? posterImg(a.poster) : '▶'),
+        } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, hasGif ? posterImg(a.poster, a.posterType) : '▶'),
         a.length ? h('span', { class: 'animation-len' }, `${Number(a.length).toFixed(2)} s`) : null,
         h('span', { class: 'animation-copy', title: a.cat.layer || a.cat.name }, h('b', {}, a.name), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+')));
         const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${Math.floor(index / cols) * ROW}px;left:calc(${col} * (100% + ${GAP}px) / ${cols});width:calc((100% - ${(cols - 1) * GAP}px) / ${cols});height:${CARD}px` }, apply);

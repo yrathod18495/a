@@ -51,10 +51,10 @@ export async function getFiles(refs) {
 export async function getJson(ref) { return JSON.parse(await (await getFiles([ref])).get(refSha(ref)).text()); }
 const urls = new Map();
 /** a picture (thumbnail, GIF preview) as an object URL, downloaded once */
-export async function pictureUrl(ref) {
+export async function pictureUrl(ref, type = null) {
   const sha = refSha(ref);
   if (!sha) return null;
-  if (!urls.has(sha)) urls.set(sha, getFiles([ref]).then((m) => URL.createObjectURL(m.get(sha))).catch((e) => { urls.delete(sha); throw e; }));
+  if (!urls.has(sha)) urls.set(sha, getFiles([ref]).then((m) => URL.createObjectURL(type ? new Blob([m.get(sha)], { type }) : m.get(sha))).catch((e) => { urls.delete(sha); throw e; }));
   return urls.get(sha);
 }
 /** one view of a character as the studio needs it: { ske, tex: [{ json, image }] } */
@@ -80,7 +80,7 @@ async function gzipBase64(blob) {
  * `progress(text, done, total)` is called as it goes. Everything that can run side by side does: hashing, the database files, the R2 files.
  */
 export async function storeCharacter({ manifest, files, gifs = new Map(), gifsDone = null, thumb = null, thumbs = new Map(), withAnimations = true, progress = () => {} }) {
-  const refs = new Map(), r2 = new Map(), small = [];
+  const refs = new Map(), r2 = new Map(), small = [], previewTypes = new Map();
   const pool = async (items, work, n = 8) => { let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await work(items[i++]); })); };
   const add = async (key, blob, path, into = r2) => {
     const sha = await hashBlob(blob);
@@ -112,14 +112,14 @@ export async function storeCharacter({ manifest, files, gifs = new Map(), gifsDo
   {                                                              // every character has its own previews, also when it shares the animations of a category
     if (gifsDone) await gifsDone;
     const gifJobs = [];
-    for (const v of manifest.views) for (const a of v.animations) gifJobs.push((async () => { const gif = await gifs.get(`${v.id}/${a.name}`); if (gif) await add(`${v.id}:gif:${a.name}`, gif, 'preview.gif', late); })());
+    for (const v of manifest.views) for (const a of v.animations) gifJobs.push((async () => { const gif = await gifs.get(`${v.id}/${a.name}`); if (gif) { const mp4 = gif.type === 'video/mp4'; previewTypes.set(v.id, mp4 ? 'mp4' : 'gif'); await add(`${v.id}:gif:${a.name}`, gif, mp4 ? 'preview.mp4' : 'preview.gif', late); } })());
     await Promise.all(gifJobs);
   }
   const phase2 = late.size ? uploadAssets(owner(), late).then(() => { done += late.size; progress(`GIFs uploaded (${late.size})`, done, total); }) : Promise.resolve();
   await Promise.all([phase1, phase2]);
   progress('Saving the character…', total, total);
   const record = { character: { id: manifest.character.id, name: manifest.character.name, thumb: refs.get('thumb') || null, views: {} }, category: { id: manifest.category.id, name: manifest.category.name } };
-  for (const v of manifest.views) record.character.views[v.id] = { label: v.label, ...(refs.get(`${v.id}:thumb`) ? { thumb: refs.get(`${v.id}:thumb`) } : {}), gifs: Object.fromEntries(v.animations.filter((a) => refs.get(`${v.id}:gif:${a.name}`)).map((a) => [a.name, refs.get(`${v.id}:gif:${a.name}`)])), skeleton: refs.get(`${v.id}:skeleton`), textures: v.textures.map((_, i) => ({ json: refs.get(`${v.id}:tex${i}`), page: refs.get(`${v.id}:page${i}`) })) };
+  for (const v of manifest.views) record.character.views[v.id] = { label: v.label, ...(refs.get(`${v.id}:thumb`) ? { thumb: refs.get(`${v.id}:thumb`) } : {}), gifs: Object.fromEntries(v.animations.filter((a) => refs.get(`${v.id}:gif:${a.name}`)).map((a) => [a.name, refs.get(`${v.id}:gif:${a.name}`)])), previewType: previewTypes.get(v.id) || 'gif', skeleton: refs.get(`${v.id}:skeleton`), textures: v.textures.map((_, i) => ({ json: refs.get(`${v.id}:tex${i}`), page: refs.get(`${v.id}:page${i}`) })) };
   if (withAnimations) {
     record.category.views = {};
     for (const v of manifest.views) record.category.views[v.id] = { animations: v.animations.map((a) => ({ name: a.name, label: a.label, group: a.group, layer: a.layer, length: a.length, file: refs.get(`${v.id}:anim:${a.name}`), gif: null, gifName: a.gifName })) };
