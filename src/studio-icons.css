@@ -294,3 +294,12 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .scene-tabs{flex-basis:30px}
   #app .ws .scene-tab>button,#app .ws .new-scene{padding:3px 8px}
 }
+
+/* the export box opened by the header's Download button */
+.exp-pop{display:grid;gap:8px;min-width:min(320px,86vw)}
+.exp-pop h3{margin:6px 0 0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.exp-pop .seg{display:flex;flex-wrap:wrap;gap:6px}
+.exp-pop .seg button{flex:1 1 56px;min-height:40px}
+.exp-pop-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--card2);font-size:12px;color:var(--mute)}
+.exp-pop-info b{display:block;margin-top:2px;font-size:14px;color:var(--text)}
+.exp-pop-go{width:100%;padding:13px;font-size:15px;margin-top:4px}

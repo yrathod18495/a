@@ -3118,6 +3118,27 @@ function exportLength() {
   return { scenes: scenes.length, seconds: sequencePlan(scenes, sceneAudio).at(-1)?.end || player.total };
 }
 let exportChecking = false;
+/** the Download button in the header: a small box to pick the quality and smoothness, see the estimated size, then Render (always MP4, so it opens everywhere) */
+function openExportPopup() {
+  if (bgExport) { toast('An export is already running. You can follow it in the box at the bottom left.'); return; }
+  if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
+  S.format = 'mp4';
+  const scenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
+  const duration = sequencePlan(scenes, sceneAudio).at(-1)?.end || player.total, sound = scenes.some((sc) => sc.doc.lines?.length) || scenes.some((sc) => sc.doc.music && !sc.doc.music.muted);
+  const info = h('div', { class: 'exp-pop-info' });
+  const chips = (items, cur, set) => { const box = h('div', { class: 'seg exp-pop-seg' }); const draw = () => box.replaceChildren(...items.map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); draw(); refresh(); } }, label))); draw(); return box; };
+  const refresh = () => {
+    const { W, H } = sizeFor(), mbps = bitrateFor(W, H, S.level, 'mp4') / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: sound });
+    const eta = estimateSeconds({ duration, pixels: W * H, fps: S.fps, live: false, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
+    info.replaceChildren(h('div', {}, 'Estimated size', h('b', {}, `about ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)), h('div', {}, 'Picture', h('b', {}, `${W}×${H}`)), h('div', {}, 'Length', h('b', {}, `${duration.toFixed(1)} s`)), h('div', {}, 'Time to render', h('b', {}, `about ${prettyTime(eta.seconds)}`)));
+  };
+  const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { close(); doExport(); } }, 'Render');
+  const close = modal('Export video', h('div', { class: 'exp-pop' },
+    h('h3', {}, 'Quality'), chips([[360, '360p'], [480, '480p'], [720, '720p'], [1080, '1080p'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; }),
+    h('h3', {}, 'Frames per second'), chips([[12, '12'], [15, '15'], [24, '24'], [30, '30']], () => S.fps, (v) => { S.fps = v; }),
+    info, render));
+  refresh();
+}
 /** everything the render workers need to draw the video (a snapshot of the scene), for a picture of W × H */
 async function exportJob(W, H) {
   const layers = await buildLayerSpecs();
@@ -3472,7 +3493,7 @@ function headerTools() {
   saveDetails = h('details', { class: 'save-status' }, savedEl, saveBody);
   updateSaveStatus();
   queueMicrotask(updateHistoryButtons);
-  exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: () => doExport() }, icon('download'));
+  exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: () => openExportPopup() }, icon('download'));
   const closeBtn = h('button', { class: 'btn sm icon-btn close-studio', 'aria-label': 'Close studio', title: 'Close studio — back to your projects', onclick: goHome }, icon('x'));
   return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), h('span', { class: 'studio-brand', title: '12toons', 'aria-label': '12toons' }, ...brandWordmark()), h('span', { class: 'sp' }), creditsBadge({ compact: true }), projectIdChip(), saveDetails, hdrUndo, hdrRedo,
     h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
