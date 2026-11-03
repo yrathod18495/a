@@ -381,7 +381,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlSlide, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
+let bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -750,10 +750,6 @@ function viewStudio() {
   tlLabels = h('div', { class: 'tl-labels' });
   tlInner = h('div', { class: 'tl-inner' }); wireBoxSelect();
   tlScroll = h('div', { class: 'tl-scroll' }, tlInner);
-  // a slider under the timeline: drag it from the start to the end of the project (easier than swiping on a phone)
-  tlSlide = h('input', { type: 'range', class: 'tl-slide', min: 0, max: 1000, step: 1, value: 0, 'aria-label': 'Move along the timeline, from the start to the end', title: 'Move along the timeline',
-    oninput: () => { tlScroll.scrollLeft = (Number(tlSlide.value) / 1000) * Math.max(0, tlScroll.scrollWidth - tlScroll.clientWidth); } });
-  tlScroll.addEventListener('scroll', () => syncTlSlide(), { passive: true });
   tlBox = h('div', { class: 'tl2' }, tlLabels, tlScroll);
   // phone: a grip above the timeline. Tap = bigger timeline / back; drag up or down = any size in between
   const grip = h('button', { type: 'button', class: 'tl-size-grip', 'aria-label': 'Make the timeline bigger or smaller', title: 'Tap to make the timeline bigger or smaller, or drag it up and down' }, icon('chevron-up'));
@@ -794,7 +790,7 @@ function viewStudio() {
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), overflowBtn(), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
-      h('div', { class: 'tlwrap' }, grip, sceneTabs(), tools, tlBox, tlSlide),
+      h('div', { class: 'tlwrap' }, h('div', { class: 'scene-row' }, sceneTabs(), grip), tools, tlBox),
       h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
@@ -998,12 +994,6 @@ function refreshLayerAnim(force = true) {
     el.classList.toggle('none', !at);
   }
 }
-function syncTlSlide() {
-  if (!tlSlide || !tlScroll) return;
-  const room = tlScroll.scrollWidth - tlScroll.clientWidth;
-  tlSlide.disabled = room <= 2;
-  tlSlide.value = room > 2 ? Math.round((tlScroll.scrollLeft / room) * 1000) : 0;
-}
 function drawTimeline() {
   if (!tlInner) return;
   const total = player.total || 1, pps = S.pps;
@@ -1173,7 +1163,6 @@ function drawTimeline() {
   tlInner.replaceChildren(...lanes, headEl);
   drawClipBar();
   headEl.style.left = `${player.time * pps}px`;
-  syncTlSlide();
 }
 
 /* ---------- the user's own animation clips on the timeline ---------- */

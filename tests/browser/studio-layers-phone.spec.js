@@ -18,6 +18,8 @@ const heights = (page) => page.evaluate(() => ({ prev: document.querySelector('.
 test('the grip above the timeline makes it bigger and smaller (tap and drag)', async ({ page }) => {
   await open(page, 390);
   const grip = page.locator('.tl-size-grip'); await expect(grip).toBeVisible();
+  const gb = await grip.boundingBox(), wb = await page.locator('.tlwrap').boundingBox(), tb = await page.locator('.scene-tabs').boundingBox();
+  expect(gb.y).toBeGreaterThanOrEqual(wb.y - 1); expect(gb.y + gb.height).toBeLessThanOrEqual(tb.y + tb.height + 2);      // inside the scene row: no line of its own
   const a = await heights(page);
   await tap(page);
   const b = await heights(page); expect(b.tl).toBeGreaterThan(a.tl + 30); expect(b.prev).toBeLessThan(a.prev - 30);

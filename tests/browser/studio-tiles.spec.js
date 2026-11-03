@@ -30,20 +30,14 @@ for (const tab of ['props', 'canvas']) test(`${tab}: the first tile is "+", it o
   await page.locator('.tile-grid').first().screenshot({ path: `/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/tiles-${tab}.png` });
 });
 
-test('phone: no floating toolbar over the character; a slider moves the timeline from start to end', async ({ page }) => {
+test('phone: no floating toolbar over the character; the timeline has a thick scrollbar of its own and no extra bar', async ({ page }) => {
   await open(page, 390);
-  const sel = await page.evaluate(() => getComputedStyle(document.querySelector('.sel-tools')).display);
-  expect(sel).toBe('none');
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.sel-tools')).display)).toBe('none');
+  expect(await page.locator('.tl-slide').count()).toBe(0);
   await page.evaluate(() => { window.__toon.S.pps = 120; window.__toon.drawTimeline(); });
-  const slide = page.locator('.tl-slide');
-  await expect(slide).toBeVisible(); await expect(slide).toBeEnabled();
-  const read = () => page.evaluate(() => { const t = document.querySelector('.tl-scroll'); return { left: t.scrollLeft, room: t.scrollWidth - t.clientWidth }; });
-  await slide.fill('1000'); let m = await read(); expect(m.room).toBeGreaterThan(50); expect(Math.abs(m.left - m.room)).toBeLessThan(2);
-  await slide.fill('0'); m = await read(); expect(m.left).toBe(0);
-  await page.evaluate(() => { document.querySelector('.tl-scroll').scrollLeft = 1e6; });
-  await expect.poll(() => slide.inputValue()).toBe('1000');          // swiping moves the slider too
-  const box = await slide.boundingBox(), tl = await page.locator('.tl2').boundingBox();
-  expect(box.y).toBeGreaterThanOrEqual(tl.y + tl.height - 1); expect(box.height).toBeGreaterThanOrEqual(30);
+  // the test browser hides scrollbars, so the style is checked instead of the painted size
+  const bar = await page.evaluate(() => { const t = document.querySelector('.tl-scroll'); return { h: getComputedStyle(t, '::-webkit-scrollbar').height, width: getComputedStyle(t).scrollbarWidth, room: t.scrollWidth - t.clientWidth }; });
+  expect(parseFloat(bar.h)).toBeGreaterThanOrEqual(14); expect(bar.width).toBe('auto'); expect(bar.room).toBeGreaterThan(50);
 });
 
 test('background tile: the eye button shows or hides it (eye / crossed eye, no emoji)', async ({ page }) => {

@@ -213,17 +213,8 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .tabs.big>button>span:not(.ti),#app .ws .tabs.big>details>summary>span:not(.ti){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 
-/* the slider under the timeline is for fingers: shown on phones and tablets only; the floating character toolbar over the canvas is replaced there by the bottom bar */
-.tl-slide{display:none}
-@media(max-width:860px){
-  .tl-slide{display:block;width:100%;height:34px;margin:2px 0 0;padding:0 6px;box-sizing:border-box;accent-color:var(--acc);touch-action:pan-y;background:transparent}
-  .tl-slide:disabled{opacity:.35}
-  .tl-slide::-webkit-slider-runnable-track{height:8px;border-radius:99px;background:var(--line)}
-  .tl-slide::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:26px;margin-top:-9px;border-radius:99px;background:var(--acc);border:0}
-  .tl-slide::-moz-range-track{height:8px;border-radius:99px;background:var(--line)}
-  .tl-slide::-moz-range-thumb{width:30px;height:26px;border-radius:99px;background:var(--acc);border:0}
-  #app .sel-tools{display:none !important}
-}
+/* the floating character toolbar over the canvas is replaced on phones by the character bar */
+@media(max-width:860px){ #app .sel-tools{display:none !important} }
 
 /* ===== Phone timeline: a narrow label column (picture + two clear buttons), names live on the clips, no overlap ===== */
 @media(max-width:860px){
@@ -251,9 +242,12 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 }
 
 /* phone: the grip above the timeline makes the timeline (layers) bigger by shrinking the picture, or the reverse */
+.scene-row{display:contents}
 .tl-size-grip{display:none}
 @media(max-width:860px){
-  #app .ws .tl-size-grip{display:flex;order:-3;align-self:center;align-items:center;justify-content:center;flex:none;width:64px;height:24px;margin:1px 0 0;padding:0;border:1px solid var(--line);border-radius:99px;background:var(--card2);color:var(--text);touch-action:none;cursor:ns-resize}
+  #app .ws .scene-row{display:flex;align-items:center;gap:6px;order:-1;flex:0 0 30px;min-width:0}
+  #app .ws .scene-row .scene-tabs{flex:1 1 auto;min-width:0;order:0;height:100%}
+  #app .ws .tl-size-grip{display:flex;position:static;flex:none;align-items:center;justify-content:center;width:46px;height:26px;padding:0;border:1px solid var(--line);border-radius:99px;background:var(--card2);color:var(--text);touch-action:none;cursor:ns-resize}
   #app .ws .tl-size-grip svg{width:18px;height:18px}
   #app .ws .studio,#app .ws:has(.panel:not(.open)) .studio{grid-template-rows:var(--prev-h,minmax(150px,min(58vh,calc((100vw - 32px) / var(--ratio,1.7778) + 100px)))) 0 minmax(170px,1fr) 52px}
   #app .ws[data-tl=big] .studio,#app .ws[data-tl=big]:has(.panel:not(.open)) .studio{grid-template-rows:minmax(110px,26vh) 0 minmax(170px,1fr) 52px}
@@ -284,4 +278,19 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .tltools .edit-btn{flex-direction:column;height:auto;min-width:54px;padding:5px 6px;gap:2px;font-size:10.5px;line-height:1.1}
   #app .ws .tltools .edit-btn svg{width:18px;height:18px}
   #app .ws .tltools .edit-btn span:not(.ic),#app .ws .tltools:has(.clipbar:not([hidden])) .edit-btn span:not(.ic){display:block !important}
+}
+
+/* phone: the timeline's own scrollbar is a thick grey pill you can drag from the start to the end (no extra bar); the rows above the timeline are slimmer */
+@media(max-width:860px){
+  :root[data-theme] body #app .ws .tl2 .tl-scroll,#app .ws .tl2 .tl-scroll{scrollbar-width:auto;scrollbar-color:auto}
+  #app .ws .tl2 .tl-scroll::-webkit-scrollbar{height:16px}
+  #app .ws .tl2 .tl-scroll::-webkit-scrollbar-track{background:#ffffff0d;border-radius:99px;margin:0 4px}
+  #app .ws .tl2 .tl-scroll::-webkit-scrollbar-thumb{background:#8b8f9a;border:3px solid transparent;background-clip:padding-box;border-radius:99px;min-width:48px}
+  #app .ws .tltools{gap:3px;padding:1px 3px;min-height:0}
+  #app .ws .tltools .btn.icon-btn,#app .ws .tltools .btn.sm{min-height:32px;height:32px;padding:0 10px}
+  #app .ws .tltools .edit-btn{padding:3px 5px;min-width:50px;gap:1px}
+  #app .ws .tltools .edit-btn svg{width:16px;height:16px}
+  #app .ws .tltools .edit-btn span:not(.ic){font-size:9.5px}
+  #app .ws .scene-tabs{flex-basis:30px}
+  #app .ws .scene-tab>button,#app .ws .new-scene{padding:3px 8px}
 }
