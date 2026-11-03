@@ -4,6 +4,9 @@ const vector = (m,x,y) => ({x:m.a*x+m.c*y,y:m.b*x+m.d*y});
 // which eye a slot is: named "eye ..." or "iris ..." with a left / right part (eyebrows, lashes, glasses / accessories ("acc") are not eyes)
 const EYE_SLOT = /(?:eye(?!brow|lash)|iris)/i, ACCESSORY = /acc(?:essor|$|[_\-/])/i;
 const sideOf = name => EYE_SLOT.test(name) && !ACCESSORY.test(name) ? /(?:^|[_\-/])(l|left)(?:$|[_\-/])/i.test(name) ? 'left' : /(?:^|[_\-/])(r|right)(?:$|[_\-/])/i.test(name) ? 'right' : null : null;
+// The drops are drawn in units of the width of the slot they hang from. An iris is a small slot, so its drops were tiny: they are made bigger by default
+// (the "Tear size" slider is on top of this), so they are clear at 100% canvas and 100% character size, not only when zoomed in.
+export const TEAR_BOOST_IRIS = 3.5, TEAR_BOOST_EYE = 1.8;
 export function bindTearEyes(layer, items) {
   const eyes={};
   for(const item of items){
@@ -13,7 +16,7 @@ export function bindTearEyes(layer, items) {
     const xs=[],ys=[];for(let i=0;i<item.verts.length;i+=2){xs.push(item.verts[i]);ys.push(item.verts[i+1]);}
     const width=Math.max(...xs)-Math.min(...xs),height=Math.max(...ys)-Math.min(...ys);if(width<.01)continue;
     const x=(Math.min(...xs)+Math.max(...xs))/2-m.tx,y=Math.max(...ys)-height*.12-m.ty;
-    eyes[side]={slot:item.slot,bone:bone.name,x:(m.d*x-m.c*y)/det,y:(-m.b*x+m.a*y)/det,ux:m.d*width/det,uy:-m.b*width/det,vx:-m.c*width/det,vy:m.a*width/det};
+    eyes[side]={slot:item.slot,boost:/iris/i.test(item.slot)?TEAR_BOOST_IRIS:TEAR_BOOST_EYE,bone:bone.name,x:(m.d*x-m.c*y)/det,y:(-m.b*x+m.a*y)/det,ux:m.d*width/det,uy:-m.b*width/det,vx:-m.c*width/det,vy:m.a*width/det};
   }
   return eyes;
 }
@@ -21,7 +24,7 @@ export function tearEyeFrame(layer, side) {
   const bind=layer.tearBind?.[side],c=tearConfig(layer.tears)[side];if(!bind || !c.enabled)return null;
   const m=layer.arm.getBone(bind.bone)?.globalTransformMatrix;if(!m)return null;
   const p=point(m,bind.x+bind.ux*c.x/100+bind.vx*c.y/100,bind.y+bind.uy*c.x/100+bind.vy*c.y/100),u=vector(m,bind.ux,bind.uy),v=vector(m,bind.vx,bind.vy);
-  return {p,u,v,rotation:c.rotation*Math.PI/180,size:c.size,slot:bind.slot};
+  return {p,u,v,rotation:c.rotation*Math.PI/180,size:c.size*(bind.boost||1),slot:bind.slot};
 }
 export function worldTearFrame(layer, frame) {
   const [a,b,c,d,tx,ty]=layer.mat,m={a,b,c,d,tx,ty};return {p:point(m,frame.p.x,frame.p.y),u:vector(m,frame.u.x,frame.u.y),v:vector(m,frame.v.x,frame.v.y)};

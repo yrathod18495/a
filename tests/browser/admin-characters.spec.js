@@ -236,5 +236,18 @@ test('tears work on an uploaded character: both eyes are found (iris slots), the
     return { bound, drawn: a, style: S.speakers[0].tears?.style, p0, p1 };
   });
   expect(r.bound).toEqual(['left', 'right']); expect(r.drawn).toEqual(['left', 'right']); expect(r.style).toBeTruthy();
+  // clear at 100% canvas and 100% character size (the preview is 854 x 480): the drops change a good number of pixels (they were about 7, invisible)
+  const px = await page.evaluate(() => {
+    const { stage } = window.__toon, l = stage.layers[0], on = l.tears, out = [];
+    const grab = () => { const c = stage.out, o = new OffscreenCanvas(c.width, c.height), g = o.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0); return g.getImageData(0, 0, c.width, c.height).data; };
+    for (const t of [0.9, 1.3, 1.7]) {
+      l.tears = on; stage.render(t, 1 / 30, [], []); const a = grab(); l.tears = { ...on, style: 0 }; stage.render(t, 1 / 30, [], []); const b = grab();
+      let n = 0; for (let p = 0; p < a.length; p += 4) if (Math.abs(a[p] - b[p]) + Math.abs(a[p + 1] - b[p + 1]) + Math.abs(a[p + 2] - b[p + 2]) > 30) n++;
+      out.push(n);
+    }
+    l.tears = on; return { out, mul: l.mul, H: stage.H };
+  });
+  expect(px.mul).toBe(1); expect(px.H).toBe(480);
+  for (const n of px.out) expect(n).toBeGreaterThan(40);
   expect(r.p0.x).toBeGreaterThan(0); expect(r.p0.y).toBeGreaterThan(0);
 });
