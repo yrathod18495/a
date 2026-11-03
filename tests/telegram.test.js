@@ -63,3 +63,25 @@ test('a Reply is matched to the right user: only the bot\'s own message in the o
   assert.equal(chatUidFromReply({ message: { chat: { id: -1001 }, text: 'x' } }, env), null);         // not a reply
   assert.equal(chatUidFromReply(null, env), null);
 });
+
+test('TELEGRAM_CHAT_ID can hold several chats; spaces, commas, line breaks and junk are cleaned, duplicates dropped', async () => {
+  const { chatIds, isOwnerChat, telegramConfigured: configured } = await import('../server/telegram.js');
+  assert.deepEqual(chatIds({ TELEGRAM_CHAT_ID: '993332413' }), ['993332413']);
+  assert.deepEqual(chatIds({ TELEGRAM_CHAT_ID: ' 993332413 , 1122334455;\n-1001234567890  993332413 ' }), ['993332413', '1122334455', '-1001234567890']);
+  assert.deepEqual(chatIds({ TELEGRAM_CHAT_ID: 'abc, @channel, 12' }), []);                 // not numbers: never used
+  assert.deepEqual(chatIds({}), []);
+  assert.equal(isOwnerChat(1122334455, { TELEGRAM_CHAT_ID: '993332413,1122334455' }), true);
+  assert.equal(isOwnerChat('-1001234567890', { TELEGRAM_CHAT_ID: '993332413,-1001234567890' }), true);
+  assert.equal(isOwnerChat(5, { TELEGRAM_CHAT_ID: '993332413,1122334455' }), false);
+  assert.equal(configured({ TELEGRAM_BOT_TOKEN: 't', TELEGRAM_CHAT_ID: 'abc' }), false);
+});
+test('a message goes to every chat in the list, and one chat failing does not stop the others', async () => {
+  const calls = [];
+  const env = { TELEGRAM_BOT_TOKEN: '1:T', TELEGRAM_CHAT_ID: '111111,222222,333333' };
+  const fetchImpl = async (url, init) => { const body = JSON.parse(init.body); calls.push(body.chat_id); if (body.chat_id === '222222') throw new Error('blocked the bot'); return { ok: true, status: 200 }; };
+  const warn = console.warn; console.warn = () => {};
+  try { assert.equal(await sendTelegram('hi', { env, fetchImpl }), true); } finally { console.warn = warn; }
+  assert.deepEqual(calls.sort(), ['111111', '222222', '333333']);
+  assert.equal(await sendTelegram('hi', { env, fetchImpl, chatId: 333333 }), true);          // one chat only, when asked
+  assert.equal(calls.at(-1), 333333);
+});

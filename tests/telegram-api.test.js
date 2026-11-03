@@ -81,3 +81,22 @@ test('a space or line break pasted after the chat id in the settings does not br
   assert.equal(messages().length,before+1);assert.equal(messages().at(-1).message,'Works with a space');
  }finally{process.env.TELEGRAM_CHAT_ID=saved;process.env.TELEGRAM_WEBHOOK_SECRET=savedSecret;}
 });
+
+test('several people can answer: a Reply from any listed chat reaches the user, and the others are told who answered',async()=>{
+ const saved=process.env.TELEGRAM_CHAT_ID;process.env.TELEGRAM_CHAT_ID='-1009, 4242 ,5151';
+ try{
+  const before=messages().length,sent=sentToTelegram.length;
+  // the second person answers from their own chat
+  const answer=reply('This is Priya from support.',{chat:{id:4242},from:{id:8,is_bot:false,first_name:'Priya',username:'priya_s'}});
+  assert.equal((await call(answer)).statusCode,200);
+  assert.equal(messages().length,before+1);assert.equal(messages().at(-1).message,'This is Priya from support.');
+  const out=sentToTelegram.slice(sent);
+  const toPriya=out.find(m=>String(m.chat_id)==='4242'),toOthers=out.filter(m=>['-1009','5151'].includes(String(m.chat_id)));
+  assert.match(toPriya.text,/✅ Sent to Rahul/);                                             // the confirmation goes to the one who answered
+  assert.equal(toOthers.length,2);for(const m of toOthers){assert.match(m.text,/↩️ Priya @priya_s answered Rahul/);assert.match(m.text,/This is Priya from support/);assert.equal(m.reply_to_message_id,undefined);}
+  // the first chat still works
+  assert.equal((await call(reply('And me too.'))).statusCode,200);assert.equal(messages().at(-1).message,'And me too.');
+  // a chat that is not in the list is still refused
+  const refused=messages().length;await call(reply('Let me in',{chat:{id:9999}}));assert.equal(messages().length,refused);
+ }finally{process.env.TELEGRAM_CHAT_ID=saved;}
+});

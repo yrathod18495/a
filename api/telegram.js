@@ -3,7 +3,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
 import { addAdminReply } from '../server/support-chat.js';
-import { chatUidFromReply, sendTelegram, telegramConfigured, clean } from '../server/telegram.js';
+import { chatUidFromReply, sendTelegram, telegramConfigured, clean, chatIds, isOwnerChat } from '../server/telegram.js';
 import { send } from '../server/access.js';
 
 const same = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   try {
     const update = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}), message = update.message;
     if (!message || message.from?.is_bot) return send(res, 200, { ok: true });
-    const owner = String(message.chat?.id) === clean(process.env.TELEGRAM_CHAT_ID), command = typeof message.text === 'string' ? message.text.trim().split(/[\s@]/)[0].toLowerCase() : '';
+    const owner = isOwnerChat(message.chat?.id), command = typeof message.text === 'string' ? message.text.trim().split(/[\s@]/)[0].toLowerCase() : '';
     if (!owner) {
       // a stranger (or the wrong chat id in the settings): never answers a user, but /status and /start say what is wrong, with that chat's own id only
       if (command === '/status' || command === '/start') await reply(update, `This chat is not allowed to answer support messages.\nThis chat's ID is <code>${String(message.chat.id).replace(/[^0-9-]/g, '')}</code>. If this is your own chat, set <b>TELEGRAM_CHAT_ID</b> on the server to this number.`);
@@ -38,7 +38,14 @@ export default async function handler(req, res) {
     if (text.length > 2000) { await reply(update, 'That reply is too long (2000 characters at most). Please shorten it.'); return send(res, 200, { ok: true }); }
     try {
       const { chat } = await addAdminReply(services().db, uid, text);
-      await reply(update, `✅ Sent to ${(chat.displayName || chat.email || 'the user').replace(/[&<>]/g, '')}.`);
+      const who = (chat.displayName || chat.email || 'the user').replace(/[&<>]/g, '');
+      await reply(update, `✅ Sent to ${who}.`);
+      // the other people who answer support are told, so two of them do not answer the same message
+      const others = chatIds().filter((id) => id !== String(message.chat.id));
+      if (others.length) {
+        const by = [message.from?.first_name, message.from?.username && `@${message.from.username}`].filter(Boolean).join(' ').replace(/[&<>]/g, '') || 'A teammate';
+        await Promise.all(others.map((id) => sendTelegram(`↩️ ${by} answered ${who}:\n${text.slice(0, 400).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}`, { timeoutMs: 3000, chatId: id })));
+      }
     } catch (error) {
       if (error.code === 'chat_not_found') await reply(update, 'This conversation no longer exists, so the reply was not sent.');
       else { console.error('Telegram reply could not be saved:', error?.code || error?.message); await reply(update, 'The reply could not be saved. Please try again.'); }
