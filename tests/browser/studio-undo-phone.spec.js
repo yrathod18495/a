@@ -12,7 +12,7 @@ test('phone: Undo and Redo work from the top bar and from the timeline buttons',
   await page.evaluate(() => window.__toon.openTab('canvas'));
   const preset = () => page.evaluate(() => window.__toon.stage.bg.preset);
   const p0 = await preset();
-  await page.locator('.sw button').nth(3).tap(); await page.waitForTimeout(600);
+  await page.locator('.bg-swatch').nth(3).tap(); await page.waitForTimeout(600);
   const p1 = await preset(); console.log('P', p0, p1);
   if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').tap();
   await page.locator('.history-button[aria-label=Undo]').tap(); await page.waitForTimeout(1500);
