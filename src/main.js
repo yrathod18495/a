@@ -256,7 +256,7 @@ function chooseCharacter(s, after) {
   close = modal(`Character for ${s.name}`, h('div', {},
     h('div', { class: 'gridc' }, card(null, 'No character', 'Voice only', () => pick(null), !s.charId)),
     h('h2', { style: 'margin:16px 0 8px' }, 'Characters'),
-    libraryCharacters().some((e) => e.template) ? characterPicker({ entries: libraryCharacters(), isOn: (e) => s.charId === `lib:${e.id}`, onPick: (e) => pick(`lib:${e.id}`) }) : libraryStatus() ? h('p', { class: 'sub', role: 'alert' }, libraryStatus()) : null,
+    libraryCharacters().some((e) => e.template) ? characterPicker({ entries: libraryCharacters(), isOn: (e) => s.charId === `lib:${e.id}`, onPick: (e) => pick(`lib:${e.id}`), steps: true }) : libraryStatus() ? h('p', { class: 'sub', role: 'alert' }, libraryStatus()) : null,
     S.characters.length ? [h('h2', { style: 'margin:16px 0 8px' }, 'Your characters'), h('div', { class: 'gridc' }, S.characters.map((c) => { const wrap = h('div', { class: 'cc-wrap' }, card(c.thumb || null, c.name, 'from your device', () => pick(c.id), s.charId === c.id),
       h('button', { type: 'button', class: 'cc-del', 'aria-label': `Delete ${c.name}`, title: 'Delete this character', onclick: async (e) => {
         e.stopPropagation();
@@ -913,29 +913,19 @@ function drawTabs() {
   const rail = (label, keys) => [h('div', { class: 'rail-label' }, label), ...keys.map(k => button(byKey[k]))];
   const adv = (label, keys) => [h('div', { class: 'adv-label' }, label), ...keys.map(k => button(byKey[k]))];
   const more = h('details', {
-    class: `advanced-tools${advanced.has(S.tab) ? ' has-active' : ''}`,
+    class: `advanced-tools${advanced.has(S.tab) || S.tab === 'export' ? ' has-active' : ''}`,
     ontoggle: event => {
       const group = event.currentTarget;
       if (group.open) { upload.open = false; placeToolbarGroup(group); }
     },
   },
     h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('settings')), h('span', { class: 'sr' }, 'Advanced')),
-    h('div', { class: 'advanced-tools-list' }, ...adv('Look', ['tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai'])));
-  const uploads = new Set(['audio', 'canvas', 'props']);
-  const upload = h('details', {
-    class: `upload-tools${uploads.has(S.tab) && S.panelOpen ? ' has-active' : ''}`,
-    ontoggle: event => {
-      const group = event.currentTarget;
-      if (group.open) { more.open = false; placeToolbarGroup(group); }
-    },
-    onkeydown: event => {
-      if (event.key === 'Escape' && event.currentTarget.open) {
-        event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false;
-        event.currentTarget.querySelector('summary').focus();
-      }
-    },
-  }, h('summary', { title: 'Upload', 'aria-label': 'Upload' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('upload')), h('span', { class: 'sr' }, 'Upload')),
-  h('div', { class: 'advanced-tools-list upload-tools-list' }, ...['audio', 'canvas', 'props'].map(key => button(byKey[key], true))));
+    h('div', { class: 'advanced-tools-list' }, ...adv('Look', ['tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai']), ...adv('Finish', ['export'])));
+  // phone bar: Upload (the voices), Characters, Animations, Props, Background and Advanced (which ends with Export; Export is also in the header)
+  const upload = h('button', { type: 'button', class: S.tab === 'audio' && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === 'audio' && S.panelOpen), title: 'Upload', 'aria-label': 'Upload', onclick: () => {
+    if (S.tab === 'audio' && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = 'audio'; S.panelOpen = true; }
+    more.open = false; drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
+  } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('upload')), h('span', { class: 'sr' }, 'Upload'));
   if (wideStudio()) {
     // On a big screen the tools are a plain labelled list, in the order a person works: voices, characters, animations, then the rest.
     const done = { audio: S.lines.length > 0, chars: S.speakers.some((x) => x.charId), anim: Object.values(S.manual || {}).some((list) => list?.length) };
@@ -946,7 +936,7 @@ function drawTabs() {
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
       h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
   } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), upload,
-    ...['chars', 'anim'].map(key => button(byKey[key])), ...rail('Output', ['export']), more);
+    ...['chars', 'anim', 'props', 'canvas'].map(key => button(byKey[key])), more);
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
@@ -3399,7 +3389,9 @@ function previewControl() {
 function projectIdChip() {
   const id = projectContext()?.id; if (!id) return null;
   const chip = h('button', { type: 'button', class: 'project-id', title: 'Your project ID. Click to copy it.', 'aria-label': `Project ID ${id}. Click to copy.`, onclick: async (e) => {
-    const now = e.currentTarget.dataset.id || String(id); try { await navigator.clipboard.writeText(now); toast('Project ID copied.'); e.currentTarget.classList.add('copied'); setTimeout(() => e.currentTarget.classList.remove('copied'), 1200); } catch { toast(`Your project ID is ${now}.`); }
+    const button = e.currentTarget, now = button.dataset.id || String(id);          // (e.currentTarget is empty after the first await, so the button is kept here)
+    try { await navigator.clipboard.writeText(now); toast('Project ID copied.'); button.classList.add('copied'); setTimeout(() => button.classList.remove('copied'), 1200); }
+    catch { toast(`Your project ID is ${now}.`); }
   } }, h('span', { class: 'project-id-label' }, 'PROJECT ID: '), h('b', {}, String(id)));
   // if the ID was already taken by another account, the app gives this project a fresh one: show the new number straight away
   const changed = (e) => { if (!chip.isConnected) { removeEventListener('project-id-changed', changed); return; } if (String(e.detail?.oldId) !== chip.dataset.id) return; chip.dataset.id = String(e.detail.newId); chip.querySelector('b').textContent = String(e.detail.newId); chip.setAttribute('aria-label', `Project ID ${e.detail.newId}. Click to copy.`); };

@@ -125,24 +125,41 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
   await page.getByRole('button', { name: 'Add character', exact: true }).click();
+  // page 1: the characters only (no poses below); Prev is off, Next needs a character
+  await expect(page.locator('.cp-stepbar .cp-step.on')).toHaveText('1Character');
+  await expect(page.locator('.cp-poses')).toHaveCount(0);
+  await expect(page.locator('.cp-prev')).toBeDisabled(); await expect(page.locator('.cp-next')).toBeDisabled();
+  await expect(page.locator('.cp-card:not(.pose) .cp-img img')).toHaveCount(1);
   await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click();
+  await expect(page.locator('.cp-poses')).toHaveCount(0); await expect(page.locator('.cp-next')).toBeEnabled();
+  await page.locator('.cp-next').click();
+  // page 2: the chosen character on top, then its poses; Prev goes back, Next confirms
+  await expect(page.locator('.cp-stepbar .cp-step.on')).toHaveText('2Pose');
+  await expect(page.locator('.cp-chosen')).toContainText('Maya');
   await expect(page.locator('.cp-poses .pose')).toHaveCount(4);
   await expect(page.locator('.cp-poses .pose small')).toHaveText(['3/4 Front', 'Front', 'Side', 'Back']);
+  await expect(page.locator('.cp-poses .pose.on small')).toHaveText('3/4 Front');                       // the front pose is ready to use
   // each pose card has its own picture, drawn as a portrait with the character filling it
   const pics = await page.locator('.cp-poses .pose img').evaluateAll((imgs) => imgs.map((i) => [i.src, i.naturalWidth, i.naturalHeight]));
   expect(new Set(pics.map((p) => p[0])).size).toBe(4); expect(pics.every((p) => p[1] === 200 && p[2] === 320)).toBe(true);
   const pixels = await Promise.all((await page.locator('.cp-poses .pose img').all()).map((img) => img.evaluate(async (el) => { const c = document.createElement('canvas'); c.width = 40; c.height = 64; const g = c.getContext('2d'); g.drawImage(el, 0, 0, 40, 64); const d = g.getImageData(0, 0, 40, 64).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1000003; return h; })));
   expect(new Set(pixels).size).toBe(4);                                                                   // different views really look different
-  await expect(page.locator('.cp-card:not(.pose) .cp-img img')).toHaveCount(1);
-  await page.locator('.cp-poses .pose').first().click();
+  await page.locator('.cp-prev').click(); await expect(page.locator('.cp-stepbar .cp-step.on')).toHaveText('1Character'); await expect(page.locator('.cp-card.on')).toContainText('Maya');
+  await page.locator('.cp-next').click();
+  await page.locator('.cp-poses .pose').nth(1).click(); await expect(page.locator('.cp-poses .pose.on small')).toHaveText('Front');   // choosing a pose only marks it ...
+  expect(await page.evaluate(() => window.__toon.stage.layers.length)).toBe(0);                          // ... nothing is applied before Next
+  await page.locator('.cp-next').click();                                                               // Next on the last page confirms
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
   // the animation list: Maya's categories, each animation with its GIF
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Animations', exact: true }).click();
   const cats = await page.evaluate(async () => { const { categoriesFor } = await import('/src/catalog.js'); const l = window.__toon.stage.layers[0]; const def = [...window.__toon.stage.assets.values()][0].def; return categoriesFor(def.rig).map((c) => [c.name, c.animations.length]); });
   expect(cats.map((c) => c[0])).toEqual(['Idle', 'Walk / run / dance', 'Body animations', 'Arms & hands (layer)']);          // Maya's talking moves are arm actions (both talk, right explain)
-  expect(cats.reduce((n, c) => n + c[1], 0)).toBe(29);
-  await page.getByLabel('Animation category').selectOption({ label: 'Walk / run / dance (8)' });
-  await expect.poll(() => page.locator('.animation-thumb img').evaluateAll((imgs) => imgs.filter((i) => i.src.startsWith('blob:') && i.naturalWidth === 128).length), { timeout: 30000 }).toBe(8);
+  expect(cats.reduce((n, c) => n + c[1], 0)).toBe(21);                    // the Front view (the pose chosen above) has 21 animations; the 3/4 view has 29
+  const walkLabel = (await page.locator('select[aria-label="Animation category"] option', { hasText: 'Walk / run / dance' }).textContent()).trim();      // e.g. "Walk / run / dance (7)" for the Front view
+  await page.getByLabel('Animation category').selectOption({ label: walkLabel });
+  const walkCount = Number(walkLabel.match(/\((\d+)\)/)[1]);
+  expect(walkCount).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => page.locator('.animation-thumb img').evaluateAll((imgs) => imgs.filter((i) => i.src.startsWith('blob:') && i.naturalWidth === 128).length), { timeout: 30000 }).toBe(walkCount);
   // apply walk: the clip is placed and the animation file came from the stored copy
   await page.getByTitle('Apply walk', { exact: true }).click();
   await expect(page.getByTitle('Apply walk', { exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
