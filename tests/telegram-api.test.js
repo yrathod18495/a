@@ -28,7 +28,7 @@ test('a Reply in the owner\'s Telegram chat becomes the admin reply in that user
  const chat=db.data.get('supportChats/'+user);
  assert.equal(chat.unreadUser,true);assert.equal(chat.lastSender,'admin');assert.equal(chat.lastMessage,'Hi Rahul, we are checking this.');assert.equal(chat.unreadAdmin,false);
  const confirm=sentToTelegram.at(-1);
- assert.equal(confirm.chat_id,'-1009');assert.equal(confirm.reply_to_message_id,50);assert.match(confirm.text,/✅ Sent to Rahul/);
+ assert.equal(String(confirm.chat_id),'-1009');assert.equal(confirm.reply_to_message_id,50);assert.match(confirm.text,/✅ Sent to Rahul/);
 });
 test('messages from other chats or from bots are ignored, and a Reply to something that is not a live-chat message says nothing wrong',async()=>{
  const before=messages().length,sent=sentToTelegram.length;
@@ -53,4 +53,31 @@ test('the answer always reaches the user it was meant for, even if the user type
  await call(reply('Answer',{reply_to_message:{message_id:49,from:{is_bot:true},text:`Hi chat:victim_user_1234567890 sneaky\n\nReply to this message to answer.\nchat:${user}`}}));
  assert.equal(messages().length,before+1);assert.equal(messages().at(-1).message,'Answer');
  assert.equal(db.data.has('supportChats/victim_user_1234567890'),false);
+});
+
+test('/status and /start tell the owner the webhook works; a stranger or a wrong chat id in the settings is told its own chat id, and nothing else',async()=>{
+ const before=messages().length;
+ await call(reply('/status',{reply_to_message:undefined}));
+ assert.match(sentToTelegram.at(-1).text,/✅ The webhook works/);assert.match(sentToTelegram.at(-1).text,/<code>-1009<\/code>/);assert.equal(sentToTelegram.at(-1).chat_id,-1009);
+ await call(reply('/start',{reply_to_message:undefined}));assert.match(sentToTelegram.at(-1).text,/webhook works/);
+ // another chat (for example the settings hold a different chat id): it is told the id of ITS OWN chat, never the configured one
+ const sent=sentToTelegram.length;
+ await call(reply('/status',{chat:{id:555777},reply_to_message:undefined}));
+ const stranger=sentToTelegram.at(-1);assert.equal(stranger.chat_id,555777);assert.match(stranger.text,/not allowed/);assert.match(stranger.text,/<code>555777<\/code>/);assert.doesNotMatch(stranger.text,/1009/);
+ await call(reply('hello',{chat:{id:555777},reply_to_message:undefined}));assert.equal(sentToTelegram.length,sent+1);   // anything else from a stranger: no answer
+ assert.equal(messages().length,before);
+});
+test('a Reply that carries no live-chat tag is explained instead of being ignored silently',async()=>{
+ const before=messages().length;
+ await call(reply('hi',{reply_to_message:{message_id:3,from:{is_bot:true},text:'a project notification, no chat tag'}}));
+ assert.match(sentToTelegram.at(-1).text,/could not tell which user/);assert.equal(messages().length,before);
+});
+test('a space or line break pasted after the chat id in the settings does not break the match',async()=>{
+ const saved=process.env.TELEGRAM_CHAT_ID,savedSecret=process.env.TELEGRAM_WEBHOOK_SECRET;
+ process.env.TELEGRAM_CHAT_ID=' -1009\n';process.env.TELEGRAM_WEBHOOK_SECRET='secret_secret_secret_1234 ';
+ try{
+  const before=messages().length;
+  assert.equal((await call(reply('Works with a space'))).statusCode,200);
+  assert.equal(messages().length,before+1);assert.equal(messages().at(-1).message,'Works with a space');
+ }finally{process.env.TELEGRAM_CHAT_ID=saved;process.env.TELEGRAM_WEBHOOK_SECRET=savedSecret;}
 });

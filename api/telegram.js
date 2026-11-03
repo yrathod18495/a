@@ -3,24 +3,34 @@
 import { timingSafeEqual } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
 import { addAdminReply } from '../server/support-chat.js';
-import { chatUidFromReply, sendTelegram, telegramConfigured } from '../server/telegram.js';
+import { chatUidFromReply, sendTelegram, telegramConfigured, clean } from '../server/telegram.js';
 import { send } from '../server/access.js';
 
 const same = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
-const reply = (update, text) => sendTelegram(text, { timeoutMs: 3000, extra: { reply_to_message_id: update.message.message_id } });
+// answers go back to the chat the message came from, as a reply to it
+const reply = (update, text) => sendTelegram(text, { timeoutMs: 3000, chatId: update.message.chat.id, extra: { reply_to_message_id: update.message.message_id } });
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid.' });
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  const secret = clean(process.env.TELEGRAM_WEBHOOK_SECRET);
   if (!telegramConfigured() || !secret) return send(res, 503, { error: 'The Telegram bot is not set up.' });
   // only Telegram knows the secret it was told to send with every call
   if (!same(req.headers['x-telegram-bot-api-secret-token'] || '', secret)) return send(res, 401, { error: 'The request is not valid.' });
   try {
     const update = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}), message = update.message;
-    if (!message || message.from?.is_bot || String(message.chat?.id) !== String(process.env.TELEGRAM_CHAT_ID)) return send(res, 200, { ok: true });   // not from the owner's chat: ignored
+    if (!message || message.from?.is_bot) return send(res, 200, { ok: true });
+    const owner = String(message.chat?.id) === clean(process.env.TELEGRAM_CHAT_ID), command = typeof message.text === 'string' ? message.text.trim().split(/[\s@]/)[0].toLowerCase() : '';
+    if (!owner) {
+      // a stranger (or the wrong chat id in the settings): never answers a user, but /status and /start say what is wrong, with that chat's own id only
+      if (command === '/status' || command === '/start') await reply(update, `This chat is not allowed to answer support messages.\nThis chat's ID is <code>${String(message.chat.id).replace(/[^0-9-]/g, '')}</code>. If this is your own chat, set <b>TELEGRAM_CHAT_ID</b> on the server to this number.`);
+      else console.warn('Telegram message ignored: not from the configured chat.');
+      return send(res, 200, { ok: true });
+    }
+    if (command === '/status' || command === '/start') { await reply(update, `✅ The webhook works. This chat is allowed to answer support messages (chat ID <code>${String(message.chat.id).replace(/[^0-9-]/g, '')}</code>).\nTo answer a user, use <b>Reply</b> on their 💬 Live chat message.`); return send(res, 200, { ok: true }); }
     const uid = chatUidFromReply(update);
     if (!uid) {
-      if (typeof message.text === 'string' && !message.reply_to_message) await reply(update, 'To answer a user, use <b>Reply</b> on their live-chat message here.');
+      console.warn('Telegram message ignored: no live-chat message was replied to.');
+      await reply(update, message.reply_to_message ? 'I could not tell which user that message belongs to. Please use <b>Reply</b> on a 💬 Live chat message from this bot.' : 'To answer a user, use <b>Reply</b> on their live-chat message here.');
       return send(res, 200, { ok: true });
     }
     const text = typeof message.text === 'string' ? message.text.trim() : '';
