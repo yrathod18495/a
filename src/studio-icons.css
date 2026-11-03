@@ -262,3 +262,18 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 /* stretching a clip: it turns light and dotted while you drag, and a dotted frame marks where it was; both go away when you let go */
 #app .tclip.resizing,.tclip.resizing{opacity:.5 !important;outline:2px dashed #fff;outline-offset:-3px;filter:saturate(.6)}
 .tclip-ghost{position:absolute;top:4px;bottom:4px;z-index:2;box-sizing:border-box;border:2px dashed #ffffffcc;border-radius:8px;background:#ffffff14;pointer-events:none}
+
+/* phone: tools of the selected character (named buttons), shown in place of the bottom menu */
+.char-bar{display:none !important}
+@media(max-width:860px){
+  #app .ws .char-bar:not([hidden]){display:flex !important;grid-area:rail;position:relative;align-items:stretch;z-index:55;min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--card);overflow:hidden}
+  #app .ws .char-bar .cb-list{flex:1;min-width:0;display:flex;gap:2px;padding:4px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+  #app .ws .char-bar .cb-list::-webkit-scrollbar{display:none}
+  #app .ws .char-bar .cb-btn{flex:0 0 66px;width:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:44px;padding:4px 2px;border:0;border-radius:12px;background:transparent;color:var(--mute);scroll-snap-align:start}
+  #app .ws .char-bar .cb-btn svg{width:22px;height:22px}
+  #app .ws .char-bar .cb-btn>span:last-child{font-size:10.5px;font-weight:600;line-height:1.1;max-width:62px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #app .ws .char-bar .cb-btn.on{background:var(--acc);color:#fff}
+  #app .ws .char-bar .cb-btn.danger{color:#ff8f8f}
+  #app .ws .char-bar .cb-close{flex:none;width:48px;display:grid;place-items:center;border:0;border-left:1px solid var(--line);background:transparent;color:var(--text)}
+  #app .ws .char-bar .cb-close svg{width:22px;height:22px}
+}

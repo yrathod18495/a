@@ -381,7 +381,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlSlide, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
+let bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlSlide, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -695,7 +695,7 @@ function setOverflow(on) {
   if (on && (S.exporting || S.step !== 3)) return;
   stage.overflow = !!on; stage.overCam = null; overflowToggle?.setAttribute('aria-pressed', String(!!on)); overflowToggle?.classList.toggle('on', !!on);
   if (overflowEl) { overflowEl.hidden = !on; const z = 1 / OVERFLOW_ZOOM, f = overflowEl.firstChild; Object.assign(f.style, { left: `${((1 - z) / 2) * 100}%`, top: `${((1 - z) / 2) * 100}%`, width: `${z * 100}%`, height: `${z * 100}%` }); }
-  if (on) { selEl && (selEl.hidden = true); Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (propSelEl) propSelEl.hidden = true; if (selBar) selBar.hidden = true; }
+  if (on) { selEl && (selEl.hidden = true); Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (propSelEl) propSelEl.hidden = true; hideSelBar(); }
   updateBgSel(); S.dirty = true; if (!on) updateSel();
 }
 function resizeHandle(cls, label, onDrag, onReset) {
@@ -795,7 +795,7 @@ function viewStudio() {
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), overflowBtn(), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, grip, sceneTabs(), tools, tlBox, tlSlide),
-      h('div', { class: 'side' }, tabsEl, panelEl), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
+      h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
 }
 function sceneTabs() {
   const strip = h('div', { class: 'scene-tabs', role: 'tablist', 'aria-label': 'Scenes' });
@@ -2325,7 +2325,7 @@ function updateSel() {
   const prop = S.props.find((item) => item.id === S.selectedPropId);
   if (prop && !isHeld(prop) && S.step === 3 && !fullView && stage.camZoom <= 1.02 && !player.playing) {      // a held prop has no box: it moves with the hand
     selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; });
-    if (selBar) selBar.hidden = true;
+    hideSelBar();
     if (hintEl) hintEl.hidden = true;
     const k = stage.out.clientWidth / stage.W, w = (prop.w || .18) * stage.W * k, hgt = (prop.h || .18) * stage.H * k;
     propSelEl.hidden = false;
@@ -2336,10 +2336,10 @@ function updateSel() {
   const l = stage.layers.find((x) => x.key === S.sel);
   if (hintEl) hintEl.hidden = !!S.sel || stage.layers.length === 0;
   const hideBox = () => { selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (selToolsEl) selToolsEl.hidden = true; };
-  if (!l || l.shown === false || S.step !== 3 || fullView) { hideBox(); if (selBar) selBar.hidden = true; return; }
-  if (S.tab === 'tears' && S.tearPlacement) { hideBox(); if (selBar) selBar.hidden = true; return; }
+  if (!l || l.shown === false || S.step !== 3 || fullView) { hideBox(); hideSelBar(); return; }
+  if (S.tab === 'tears' && S.tearPlacement) { hideBox(); hideSelBar(); return; }
   if (selBar.dataset.key !== l.key) drawSelBar(l);
-  selBar.hidden = false;
+  selBar.hidden = false; drawCharBar(l);
   const r = selBar.querySelector('input[type=range]'); if (r && document.activeElement !== r) r.value = Math.round((l.mul ?? 1) * 100);
   const pct = selBar.querySelector('.pct'); if (pct) pct.textContent = `${Math.round((l.mul ?? 1) * 100)}%`;
   // the box never shows while playing or in a zoomed camera shot, so it can't cover the picture
@@ -2385,6 +2385,24 @@ function selectChar(key) {
   if (l && l.shown === false && l.present?.length) { const t = Math.min(...l.present.map((x) => x.start)); if (Number.isFinite(t)) { player.seek(t); toast(`${sOf(key)?.name || 'Character'} was not in frame at this time, so the playhead was moved to its earlier shot.`); } }
   updateSel(); drawLineBox(); S.dirty = true;
 }
+function hideSelBar() { if (selBar) selBar.hidden = true; if (charBar) { charBar.hidden = true; charBar.dataset.key = ''; } }
+const mirrorChar = (l, s) => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; };
+const resetChar = (l, s) => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; };
+/** phone: when a character is selected, a bar with a named button for each thing you can do with it replaces the bottom menu */
+function drawCharBar(l) {
+  if (!charBar) return;
+  const s = S.speakers.find((x) => x.key === l.key); if (!s) return;
+  charBar.hidden = false;
+  if (charBar.dataset.key === l.key) { for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', S.tab === b.dataset.tab && S.panelOpen); return; }
+  charBar.dataset.key = l.key;
+  const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
+  charBar.replaceChildren(
+    h('div', { class: 'cb-list' },
+      ...[['anim', 'Animations', 'film'], ['props', 'Hand props', 'package'], ['motion', 'Move', 'move'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']].map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
+      btn('flip', 'Mirror', () => mirrorChar(l, s)), btn('rotate', 'Reset', () => resetChar(l, s)),
+      btn('trash', 'Delete', () => removeCharacterFrom(s), { class: 'cb-btn danger', disabled: S.exporting })),
+    h('button', { type: 'button', class: 'cb-close', title: 'Done', 'aria-label': 'Close the character tools', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, icon('x')));
+}
 function drawSelBar(l) {
   const s = S.speakers.find((x) => x.key === l.key);
   selBar.dataset.key = l.key; selBar.hidden = false;
@@ -2396,10 +2414,10 @@ function drawSelBar(l) {
       cur.axf ??= cur.anchor.x / stage.W; cur.ayf ??= (stage.H - cur.anchor.y) / stage.H; // keep feet where they are
       cur.mul = m; saveXf(cur); stage.layout(); updateSel(); S.dirty = true;
     } }),
-    h('button', { class: 'btn sm icon-btn', title: 'Mirror', 'aria-label': 'Mirror', onclick: () => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; } }, icon('flip')),
+    h('button', { class: 'btn sm icon-btn', title: 'Mirror', 'aria-label': 'Mirror', onclick: () => mirrorChar(l, s) }, icon('flip')),
     h('button', { type: 'button', class: 'btn sm delete-character', title: 'Delete selected character', 'aria-label': 'Delete selected character', disabled: S.exporting, onclick: () => removeCharacterFrom(s) }, '🗑 Delete'),
     h('button', { class: 'btn sm icon-btn', title: 'Hide the box', 'aria-label': 'Hide the box', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, icon('x')),
-    h('button', { class: 'btn sm icon-btn', title: 'Reset size & position', 'aria-label': 'Reset size and position', onclick: () => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; } }, icon('rotate')));
+    h('button', { class: 'btn sm icon-btn', title: 'Reset size & position', 'aria-label': 'Reset size and position', onclick: () => resetChar(l, s) }, icon('rotate')));
 }
 window.addEventListener('resize', () => fitEditor());
 
@@ -3504,7 +3522,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, drawCharBar, hideSelBar, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
