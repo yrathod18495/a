@@ -56,21 +56,45 @@ export async function viewThumbnail(stage, def, { size = 512, width = 200, heigh
   return new Promise((resolve) => out.toBlob(resolve, 'image/webp', 0.82));
 }
 
-/** one looping GIF of an animation, small and light (it only shows what the animation does) */
-export async function animationGif(stage, def, name, anim, length, opts = GIF) {
+/* ---- the GIF files are encoded by a few workers at the same time while the main thread draws the next animation ---- */
+const GIF_WORKERS = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
+let gifPool = null, gifJobs = 0;
+function gifWorkers() {
+  if (gifPool) return gifPool;
+  gifPool = [];
+  try { for (let i = 0; i < GIF_WORKERS; i++) { const w = new Worker(new URL('./gifWorker.js', import.meta.url), { type: 'module' }); w.pending = new Map(); w.onmessage = (e) => { const { id, bytes, error } = e.data, job = w.pending.get(id); w.pending.delete(id); if (job) (error ? job.reject(new Error(error)) : job.resolve(bytes)); }; w.onerror = (e) => { for (const j of w.pending.values()) j.reject(new Error(e.message || 'GIF worker failed')); w.pending.clear(); }; gifPool.push(w); } }
+  catch { gifPool.forEach((w) => w.terminate()); gifPool = []; }
+  return gifPool;
+}
+export function stopGifWorkers() { gifPool?.forEach((w) => w.terminate()); gifPool = null; }
+/** GIF bytes for these frames (ArrayBuffers of RGBA pixels): in a worker when possible, here otherwise */
+function encodeGif(frames, opts) {
+  const pool = gifWorkers();
+  if (!pool.length) {
+    const gif = GIFEncoder();
+    for (const buffer of frames) { const data = new Uint8ClampedArray(buffer), palette = quantize(data, opts.colors); gif.writeFrame(applyPalette(data, palette), opts.size, opts.size, { palette, delay: Math.round(1000 / opts.fps), repeat: 0 }); }
+    gif.finish(); return Promise.resolve(gif.bytes().slice().buffer);
+  }
+  const w = pool.reduce((best, x) => (x.pending.size < best.pending.size ? x : best)), id = ++gifJobs;
+  return new Promise((resolve, reject) => { w.pending.set(id, { resolve, reject }); w.postMessage({ id, frames, size: opts.size, fps: opts.fps, colors: opts.colors }, frames); });
+}
+/** draws the frames of an animation here (a list of RGBA pixel buffers); the encoding is a separate step so it can run beside the next drawing */
+export async function renderGifFrames(stage, def, name, anim, length, opts = GIF) {
   stage.setLayers([layerFor(def, name, anim, length)]);
   const seconds = Math.min(opts.maxSeconds, Math.max(0.5, length)), frames = Math.max(2, Math.round(seconds * opts.fps));
   const c = document.createElement('canvas'); c.width = c.height = opts.size;
-  const g = c.getContext('2d', { willReadFrequently: true }), gif = GIFEncoder();
+  const g = c.getContext('2d', { willReadFrequently: true }), pictures = [];
   for (let i = 0; i < frames; i++) {
     stage.render((i / opts.fps) % length, 1 / opts.fps, [], []);
     g.drawImage(stage.out, 0, 0, opts.size, opts.size);
-    const { data } = g.getImageData(0, 0, opts.size, opts.size), palette = quantize(data, opts.colors);
-    gif.writeFrame(applyPalette(data, palette), opts.size, opts.size, { palette, delay: Math.round(1000 / opts.fps), repeat: 0 });
+    pictures.push(g.getImageData(0, 0, opts.size, opts.size).data.buffer);
   }
-  gif.finish();
-  return new Blob([gif.bytes()], { type: 'image/gif' });
+  return pictures;
 }
+/** a promise of the GIF Blob for these frames (encoded by a worker) */
+export const encodeGifBlob = async (pictures, opts = GIF) => new Blob([await encodeGif(pictures, opts)], { type: 'image/gif' });
+/** one looping GIF of an animation, start to finish */
+export async function animationGif(stage, def, name, anim, length, opts = GIF) { return encodeGifBlob(await renderGifFrames(stage, def, name, anim, length, opts), opts); }
 
 export async function charactersView({ back, home, toast }) {
   const root = h('div', { class: 'sh admin-characters' });
@@ -143,26 +167,45 @@ export async function charactersView({ back, home, toast }) {
       const gifs = new Map(), thumbs = new Map();
       let thumb = null;
       const q = GIF_QUALITY[st.gifQuality] || GIF_QUALITY[480], small = new Stage({ maxTex: 2048 }); small.setSize('1:1', q.size); small.fullView = false; let gifBytes = 0;
-      const total = views().reduce((n, v) => n + v.animations.length, 0); let made = 0;
+      const total = st.withAnimations ? views().reduce((n, v) => n + v.animations.length, 0) : 0; let made = 0, uploading = '';
+      const report = () => say(total ? `Making the animation previews ${made} / ${total}${uploading ? ` · ${uploading}` : ''}` : (uploading || 'Saving…'), total ? (made / total) * 0.8 : 0.5);
+      // 1) a picture of every view (quick)
       for (const v of views()) {
         const def = await viewDef(pkg, v); await small.loadCharacter(def);
         const picture = await viewThumbnail(small, def); thumbs.set(v.id, picture);          // each view gets its own picture
         if (!thumb || v.id === 'f34') thumb = picture;
-        small.setSize('1:1', q.size);
-        if (st.withAnimations) for (const a of v.animations) {
-          say(`Making the animation previews ${++made} / ${total} (${a.label || a.name})…`, made / total * 0.4);
-          const gif = await animationGif(small, def, a.name, await animOf(pkg, a), a.length, q); gifBytes += gif.size; gifs.set(`${v.id}/${a.name}`, gif);
-          await new Promise((r) => setTimeout(r, 0));             // let the page breathe between animations
-        }
         small.unload(def.id);
       }
-      say(`Previews ready (${(gifBytes / 1048576).toFixed(1)} MB in all). Saving…`, 0.4);
-      const result = await storeCharacter({ manifest: pkg.manifest, files: pkg.files, gifs, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => say(text, 0.4 + (t ? d / t : 1) * 0.6) });
+      // 2) saving starts now: the rig, the animations and the pictures go up while the GIFs are still being made
+      let finishGifs, failGifs;
+      const gifsDone = new Promise((resolve, reject) => { finishGifs = resolve; failGifs = reject; });
+      const stored = storeCharacter({ manifest: pkg.manifest, files: pkg.files, gifs, gifsDone, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => { uploading = text; report(); if (!total) bar.value = t ? d / t : 1; } });
+      stored.catch(() => {});                                  // a failure is shown below
+      // 3) the GIFs: drawn here one after another, encoded by workers side by side
+      try {
+        const flight = [];
+        for (const v of views()) {
+          const def = await viewDef(pkg, v); await small.loadCharacter(def); small.setSize('1:1', q.size);
+          if (st.withAnimations) for (const a of v.animations) {
+            made++; report();
+            const frames = await renderGifFrames(small, def, a.name, await animOf(pkg, a), a.length, q);
+            const job = encodeGifBlob(frames, q).then((blob) => { gifBytes += blob.size; return blob; });
+            job.catch(() => {}); gifs.set(`${v.id}/${a.name}`, job); flight.push(job);
+            if (flight.length >= GIF_WORKERS * 2) await flight.shift();          // not more than a few animations waiting to be encoded (they are big in memory)
+            await new Promise((r) => setTimeout(r, 0));                         // let the page breathe between animations
+          }
+          small.unload(def.id);
+        }
+        await Promise.all(flight);
+        finishGifs();
+      } catch (error) { failGifs(error); throw error; }
+      say(`Previews ready (${(gifBytes / 1048576).toFixed(1)} MB in all). Finishing the upload…`, 0.85);
+      const result = await stored;
       toast(`${pkg.manifest.character.name} is saved${result.categoryCreated ? ` with a new category "${pkg.manifest.category.name}"` : ''}. Creators can use the character now.`);
       st.pkg = null; status.textContent = 'Saved.'; bar.hidden = true;
       await refresh();
     } catch (e) { status.textContent = `The upload did not finish: ${friendlyError(e)} Nothing was published; you can press Done again.`; bar.hidden = true; }
-    finally { st.busy = false; draw(); if (st.pkg) show(); }
+    finally { stopGifWorkers(); st.busy = false; draw(); if (st.pkg) show(); }
   }
   async function remove(c) {
     const views = Object.keys(c.views || {}).length, anims = Object.values(c.animations || {}).reduce((n, v) => n + (v.animations?.length || 0), 0);
