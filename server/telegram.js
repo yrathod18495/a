@@ -73,3 +73,29 @@ export function chatUidFromReply(update, env = process.env) {
   const all = [...original.text.matchAll(CHAT_TAG)];
   return all.length ? all.at(-1)[1] : null;
 }
+
+/* ---- other things the owner hears about: a new sign-up and a successful payment ---- */
+const person = (name, email) => [name, email && `(${email})`].filter(Boolean).map((x) => clip(x, 80)).join(' ') || 'an account';
+const rupees = (paise) => { const value = Number(paise || 0) / 100; return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}`; };
+export function newUserMessage({ name, email }) {
+  return ['👤 <b>New sign-up</b>', `<b>Name:</b> ${escapeHtml(clip(name, 80) || '—')}`, `<b>Email:</b> ${escapeHtml(clip(email, 120) || '—')}`].join('\n');
+}
+export function paymentMessage({ amountPaise, credits, planName, name, email, orderId, paymentId, promoCode }) {
+  return [
+    '💰 <b>Payment received</b>',
+    `<b>Amount:</b> ${escapeHtml(rupees(amountPaise))}`,
+    `<b>Plan:</b> ${escapeHtml(clip(planName, 60) || 'Coins purchase')} (${escapeHtml(Number(credits || 0).toLocaleString('en-IN'))} Coins)`,
+    `<b>By:</b> ${escapeHtml(person(name, email))}`,
+    ...(promoCode ? [`<b>Promo code:</b> ${escapeHtml(clip(promoCode, 20))}`] : []),
+    `<b>Order:</b> <code>${escapeHtml(orderId)}</code>`,
+    `<b>Payment:</b> <code>${escapeHtml(paymentId)}</code>`,
+  ].join('\n');
+}
+const brief = async (html, { waitMs = 1500, ...options } = {}) => {
+  if (!telegramConfigured(options.env)) return false;
+  return Promise.race([sendTelegram(html, options), new Promise((resolve) => setTimeout(() => resolve(false), waitMs))]);
+};
+/** a brand-new account signed in for the first time */
+export const notifyNewUser = (user, options) => brief(newUserMessage(user), options);
+/** a payment was captured and the Coins were credited (call once per payment) */
+export const notifyPayment = (payment, options) => brief(paymentMessage(payment), options);

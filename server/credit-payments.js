@@ -1,3 +1,4 @@
+import { notifyPayment } from './telegram.js';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const hexEqual = (a, b) => {
@@ -79,6 +80,8 @@ export async function creditCapturedPayment(db, payment) {
     }
     credited = true;
   });
+  // the first time this payment is credited (the browser callback, the webhook and the admin tools can all arrive; only one of them credits), the owner is told on Telegram
+  if (credited) await notifyPayment({ amountPaise: order.amountPaise, credits: order.credits, planName: order.planName, name: order.name, email: order.email, orderId, paymentId, promoCode: order.promoCode });
   return { ok: true, alreadyCredited: !credited, credits: order.credits };
 }
 

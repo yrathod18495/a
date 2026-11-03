@@ -85,3 +85,17 @@ test('a message goes to every chat in the list, and one chat failing does not st
   assert.equal(await sendTelegram('hi', { env, fetchImpl, chatId: 333333 }), true);          // one chat only, when asked
   assert.equal(calls.at(-1), 333333);
 });
+
+test('the sign-up and payment messages show who, how much and which order, and cannot be broken by the user\'s text', async () => {
+  const { newUserMessage, paymentMessage } = await import('../server/telegram.js');
+  const signup = newUserMessage({ name: 'Asha <b>X</b>', email: 'asha@example.com' });
+  assert.match(signup, /^👤 <b>New sign-up<\/b>/); assert.match(signup, /<b>Name:<\/b> Asha &lt;b&gt;X&lt;\/b&gt;/); assert.match(signup, /<b>Email:<\/b> asha@example\.com/);
+  assert.match(newUserMessage({}), /Name:<\/b> —/);
+  const pay = paymentMessage({ amountPaise: 99900, credits: 1500, planName: 'Studio', name: 'Rahul', email: 'rahul@example.com', orderId: 'order_A1', paymentId: 'pay_B2', promoCode: 'PARTNER01' });
+  assert.match(pay, /^💰 <b>Payment received<\/b>/); assert.match(pay, /<b>Amount:<\/b> ₹999/); assert.match(pay, /<b>Plan:<\/b> Studio \(1,500 Coins\)/);
+  assert.match(pay, /<b>By:<\/b> Rahul \(rahul@example\.com\)/); assert.match(pay, /<b>Promo code:<\/b> PARTNER01/);
+  assert.match(pay, /<code>order_A1<\/code>/); assert.match(pay, /<code>pay_B2<\/code>/);
+  assert.match(paymentMessage({ amountPaise: 45050, credits: 500, orderId: 'o', paymentId: 'p' }), /Amount:<\/b> ₹450\.50/);
+  assert.doesNotMatch(paymentMessage({ amountPaise: 100, credits: 1, orderId: 'o', paymentId: 'p' }), /Promo/);
+  assert.match(paymentMessage({ amountPaise: 100, credits: 1, planName: '<script>', orderId: 'o', paymentId: 'p' }), /&lt;script&gt;/);
+});

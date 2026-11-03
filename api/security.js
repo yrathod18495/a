@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
 import { maintenanceOn, setMaintenance, getFeatures, setFeature } from '../server/maintenance.js';
+import { notifyNewUser } from '../server/telegram.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
 import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
@@ -55,9 +56,11 @@ export default async function handler(req, res) {
         // the signal an older device listens to: it is signed out the moment this changes (only the session id, which the account's own tokens carry anyway)
         tx.set(db.doc('sessionSignals/' + uid), { sid: sessionId, at: now });
         tx.set(d, { accounts: [...new Set([...accounts, uid])], lastSeen: now, firstSeen: ds.data()?.firstSeen || now }, { merge: true });
-        return { sid: sessionId };
+        return { sid: sessionId, isNew: !us.exists };
       });
       if (result.denied) throw new AccessError(result.denied.code, result.denied.message, result.denied.status);
+      // the very first sign-in of an account is a sign-up: tell the owner on Telegram
+      if (result.isNew) await notifyNewUser({ name: claims.name, email: claims.email });
       // persisted on the account (not just this token) so the sid claim survives the hourly ID-token refresh instead of forcing a fresh Google sign-in every time it rolls
       await auth.setCustomUserClaims(uid, { sid: result.sid });
       const token = await auth.createCustomToken(uid, { sid: result.sid });

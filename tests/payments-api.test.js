@@ -192,3 +192,37 @@ test('the header balance: a signed-in account reads only its own Coin balance, a
   assert.ok(anonymous.statusCode === 401 || anonymous.statusCode === 403, String(anonymous.statusCode));
   assert.equal((await call(admin, { action: 'balance' })).statusCode, 200);                   // admins have a balance of their own too
 });
+
+test('a successful payment tells the owner on Telegram once, whichever of the browser, the webhook or the admin credits it; a failed one says nothing',async()=>{
+  const toTelegram=[],base=globalThis.fetch;let orderForPayment='';
+  process.env.TELEGRAM_BOT_TOKEN='111:TOKEN';process.env.TELEGRAM_CHAT_ID='-1009';
+  globalThis.fetch=async(url,options={})=>{
+    if(String(url).startsWith('https://api.telegram.org/')){toTelegram.push(JSON.parse(options.body));return {ok:true,status:200};}
+    if(String(url).includes('/payments/pay_notify1'))return {ok:true,json:async()=>({id:'pay_notify1',order_id:orderForPayment,amount:85000,currency:'INR',status:'captured',method:'upi'})};
+    return base(url,options);
+  };
+  try{
+    const created=await call(buyer,{action:'createOrder',planId:'creator'});
+    assert.equal(created.statusCode,200);orderForPayment=created.body.orderId;
+    assert.equal(toTelegram.length,0);                                                          // an order that is only created tells nobody
+    const signature=createHmac('sha256',process.env.RAZORPAY_KEY_SECRET).update(`${orderForPayment}|pay_notify1`).digest('hex');
+    const first=await call(buyer,{action:'verify',orderId:orderForPayment,paymentId:'pay_notify1',signature});
+    assert.equal(first.body.credited,true);
+    assert.equal(toTelegram.length,1);assert.equal(toTelegram[0].chat_id,'-1009');
+    assert.match(toTelegram[0].text,/Payment received/);assert.match(toTelegram[0].text,/₹850/);assert.match(toTelegram[0].text,/1,000 Coins/);assert.match(toTelegram[0].text,new RegExp(orderForPayment));assert.match(toTelegram[0].text,/pay_notify1/);assert.match(toTelegram[0].text,/buyer_12345678901234567890@example\.com/);
+    // the same payment arriving again (a second browser callback, then the webhook): the Coins are not added twice and nobody is told twice
+    assert.equal((await call(buyer,{action:'verify',orderId:orderForPayment,paymentId:'pay_notify1',signature})).body.credited,false);
+    assert.equal(toTelegram.length,1);
+    // a failed payment is not a sale
+    const failed=await call(buyer,{action:'createOrder',planId:'starter'});
+    await call(buyer,{action:'failed',orderId:failed.body.orderId,code:'x',description:'declined'});
+    assert.equal(toTelegram.length,1);
+    // Telegram down: the payment is still credited
+    globalThis.fetch=async(url,options={})=>{if(String(url).startsWith('https://api.telegram.org/'))throw new Error('offline');return base(url,options);};
+    const another=await call(buyer,{action:'createOrder',planId:'creator'});orderForPayment=another.body.orderId;
+    globalThis.fetch=async(url,options={})=>{if(String(url).startsWith('https://api.telegram.org/'))throw new Error('offline');if(String(url).includes('/payments/pay_notify1'))return {ok:true,json:async()=>({id:'pay_notify1',order_id:orderForPayment,amount:85000,currency:'INR',status:'captured',method:'upi'})};return base(url,options);};
+    const sig2=createHmac('sha256',process.env.RAZORPAY_KEY_SECRET).update(`${orderForPayment}|pay_notify1`).digest('hex');
+    const done=await call(buyer,{action:'verify',orderId:orderForPayment,paymentId:'pay_notify1',signature:sig2});
+    assert.equal(done.statusCode,200);assert.equal(done.body.credited,true);
+  }finally{globalThis.fetch=base;delete process.env.TELEGRAM_BOT_TOKEN;delete process.env.TELEGRAM_CHAT_ID;}
+});
