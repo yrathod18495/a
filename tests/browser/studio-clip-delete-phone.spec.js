@@ -13,6 +13,13 @@ test('phone: selected clip shows Delete in view and removes the clip', async ({ 
   await page.evaluate(async () => { const { S, stage } = window.__toon; S.bgClips.push({ id: 'b1', bgId: null, preset: 3, start: 0, dur: 2 }); await stage.setBackgroundClips(S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset, blob: null }))); window.__toon.drawTimeline(); });
   await page.locator('#app .lane2.bg .tclip.mine').first().click();
   const bar = page.locator('.tltools .clipbar'); await expect(bar).toBeVisible();
+  await expect(bar.locator('input')).toHaveCount(0);                                         // nothing to type: arrows only
+  const before = await page.evaluate(() => window.__toon.S.bgClips[0].start);
+  await bar.getByRole('button', { name: 'Move later' }).click(); await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.__toon.S.bgClips[0].start)).toBeCloseTo(before + 0.1, 2);
+  const len0 = await page.evaluate(() => window.__toon.S.bgClips[0].dur);
+  await bar.getByRole('button', { name: 'Longer' }).click(); await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.__toon.S.bgClips[0].dur)).toBeCloseTo(len0 + 0.1, 2);
   const del = bar.getByRole('button', { name: /Delete/ });
   const box = await del.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(390);      // not pushed off the screen
   const edit = await page.locator('.edit-del').boundingBox(); expect(edit.x + edit.width).toBeLessThanOrEqual(390.5);

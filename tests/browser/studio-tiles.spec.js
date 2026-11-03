@@ -89,3 +89,21 @@ test('props: one picture is added once (tapping it again selects it); a backgrou
   await expect(page.locator('.tile', { hasText: 'Colour #ff0000' })).toBeVisible({ timeout: 10000 });
   expect(await page.evaluate(() => !!window.__toon.S.bgId)).toBe(true);
 });
+
+test('search by name hides the other pictures in Backgrounds and Props', async ({ page }) => {
+  await open(page, 390);
+  await page.evaluate(async () => {
+    const { S } = window.__toon, png = await (await fetch('data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==')).blob();
+    S.myBgs.push({ id: 'g1', name: 'Forest village.png', blob: png }, { id: 'g2', name: 'Palace hall.png', blob: png });
+    window.__toon.openTab('canvas');
+  });
+  const names = () => page.locator('.tile:not(.add):visible .tile-name').allTextContents();
+  expect((await names()).sort()).toEqual(['Forest village', 'Palace hall']);
+  await page.getByLabel('Search backgrounds by name').fill('pal');
+  expect(await names()).toEqual(['Palace hall']);
+  await page.getByLabel('Search backgrounds by name').fill('');
+  expect((await names()).length).toBe(2);
+  await page.evaluate(() => { window.__toon.S.sharedAssets = [{ id: 'a1', type: 'prop', access: 'free', name: 'Lamp' }, { id: 'a2', type: 'prop', access: 'free', name: 'Chair' }]; window.__toon.openTab('props'); });
+  await page.getByLabel('Search props by name').fill('lam');
+  expect(await names()).toEqual(['Lamp']);
+});

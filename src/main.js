@@ -784,7 +784,7 @@ function viewStudio() {
     snapBtn = h('button', { class: 'btn sm icon-btn snap-toggle', type: 'button', 'aria-pressed': String(snapOn()), title: 'Snap: clips stick to other clips, the playhead and whole seconds. Hold Alt while dragging to move freely.', 'aria-label': 'Snap clips', onclick: () => setSnap(!snapOn()) }, icon('magnet')), h('span', { class: 'tl-sep', 'aria-hidden': 'true' }), editTools(), clipBar = h('div', { class: 'clipbar', hidden: true }));
   drawTimeline(); drawLineBox(); drawTabs();
   setTimeout(fit, 0);
-  return h('div', { class: 'workbench' },
+  const root = h('div', { class: 'workbench' },
     h('div', { class: 'studio' },
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard(), startPill = h('button', { class: 'start-pill', type: 'button', hidden: true, title: 'Show the quick start guide', 'aria-label': 'Show the quick start guide', onclick: () => setStartHidden(false) }, '☰ Quick start')),
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
@@ -792,6 +792,13 @@ function viewStudio() {
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, h('div', { class: 'scene-row' }, sceneTabs(), grip), tools, tlBox),
       h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
+  // phone: the Play button sits in the scene row (one row less); on a wide screen it stays at the start of the player controls
+  const phone = matchMedia('(max-width: 860px)'), placePlay = () => {
+    const row = root.querySelector('.scene-row'), controls = root.querySelector('.controls');
+    if (phone.matches) row.insertBefore(playBtn, row.querySelector('.tl-size-grip')); else controls.prepend(playBtn);
+  };
+  placePlay(); phone.addEventListener('change', placePlay);
+  return root;
 }
 function sceneTabs() {
   const strip = h('div', { class: 'scene-tabs', role: 'tablist', 'aria-label': 'Scenes' });
@@ -908,11 +915,15 @@ function placeToolbarGroup(group) {
   popup.style.left = `${Math.max(8, Math.min(left, innerWidth - popup.offsetWidth - 8))}px`;
   popup.style.top = `${Math.max(8, Math.min(top, innerHeight - popup.offsetHeight - 8))}px`;
 }
+// pop-up menus close when you tap anywhere else, and after you pick something inside them
+const POPUPS = '#app :is(.upload-tools,.advanced-tools,.scene-menu,.studio-menu,.save-status)[open]';
 document.addEventListener('pointerdown', event => {
-  for (const group of document.querySelectorAll('#app .upload-tools[open]')) {
-    if (!group.contains(event.target)) group.open = false;
-  }
-});
+  for (const group of document.querySelectorAll(POPUPS)) if (!group.contains(event.target)) group.open = false;
+}, true);
+document.addEventListener('click', event => {
+  const inside = event.target.closest?.('.advanced-tools-list button,.scene-menu-items button,.studio-menu button,.studio-menu a');
+  if (inside) for (const group of document.querySelectorAll(POPUPS)) if (group.contains(inside)) group.open = false;
+}, false);
 window.addEventListener('resize', () => {
   for (const group of document.querySelectorAll('#app .upload-tools[open]')) group.open = false;
 });
@@ -1459,6 +1470,14 @@ function dragPropRange(e, prop, mode, el) {
     after: () => { stage.setProps(S.props); S.dirty = true; dbPut('props', prop); },
   });
 }
+/** two arrow buttons that nudge a value by 0.1 s (no typing): ‹ = earlier / shorter, › = later / longer */
+const NUDGE = 0.1;
+function arrows(label, get, set, after) {
+  const go = (d) => { set(get() + d); after(); };
+  return h('div', { class: 'cb-arrows', role: 'group', 'aria-label': label }, h('span', {}, label),
+    h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': label === 'Move' ? 'Move earlier' : 'Shorter', title: label === 'Move' ? 'Move earlier (0.1 s)' : 'Shorter (0.1 s)', onclick: () => go(-NUDGE) }, icon('chevron-left')),
+    h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': label === 'Move' ? 'Move later' : 'Longer', title: label === 'Move' ? 'Move later (0.1 s)' : 'Longer (0.1 s)', onclick: () => go(NUDGE) }, icon('chevron-right')));
+}
 function drawClipBar() {
   updateEditTools(); updateBgSel();
   if (!clipBar) return;
@@ -1473,7 +1492,7 @@ function drawClipBar() {
   clipBar.hidden = false;
   clipBar.replaceChildren(
     
-    num('Start s', () => m.start, (v) => { m.start = Math.max(0, snap(v)); }), num('Length s', () => m.dur, (v) => { m.dur = Math.max(0.2, v); }),
+    arrows('Move', () => m.start, (v) => { m.start = Math.max(0, +v.toFixed(2)); }, () => setTimeout(commitClips, 0)), arrows('Length', () => m.dur, (v) => { m.dur = Math.max(0.2, +v.toFixed(2)); }, () => setTimeout(commitClips, 0)),
     btn('⇄ Replace', () => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); }), 'Pick another animation for this clip'),
     btn('🗑 Delete', deleteSelected, 'Remove this animation: the character goes back to idle'),
     btn('✕', () => { S.mclip = null; drawTimeline(); }, 'Close'));
@@ -1644,8 +1663,8 @@ function rangeBar(bc, pr) {
   const name = bc ? (bc.bgId ? S.myBgs.find((r) => r.id === bc.bgId)?.name || 'Background image' : (BACKGROUNDS[bc.preset] || BACKGROUNDS[0]).name) : pr.name;
   clipBar.hidden = false;
   clipBar.replaceChildren(
-    bc ? num('Start s', () => bc.start, (v) => { bc.start = Math.max(0, snapTo(v)); }) : num('Start s', () => pr.start || 0, (v) => { pr.start = Math.max(0, snapTo(v)); }),
-    bc ? num('Length s', () => bc.dur, (v) => { bc.dur = Math.max(MIN_CLIP, v); }) : num('Length s', () => (pr.end ?? player.total) - (pr.start || 0), (v) => { pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }),
+    arrows('Move', () => (bc ? bc.start : pr.start || 0), (v) => { if (bc) bc.start = Math.max(0, +v.toFixed(2)); else { const len = (pr.end ?? player.total) - (pr.start || 0); pr.start = Math.max(0, +v.toFixed(2)); if (pr.end != null) pr.end = +(pr.start + len).toFixed(2); } }, () => { if (bc) syncBgClips(); else { stage.setProps(S.props); dbPut('props', pr); } setTimeout(commitClips, 0); }),
+    arrows('Length', () => (bc ? bc.dur : (pr.end ?? player.total) - (pr.start || 0)), (v) => { if (bc) bc.dur = Math.max(MIN_CLIP, +v.toFixed(2)); else pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }, () => { if (bc) syncBgClips(); else { stage.setProps(S.props); dbPut('props', pr); } setTimeout(commitClips, 0); }),
     ...(bc ? [] : [btn('↔ Whole scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Remove start / end: show through the whole scene')]),
     btn('🗑 Delete', deleteSelected, bc ? 'Remove this background clip' : 'Remove this prop'),
     btn('✕', () => { S.bgSel = null; S.propSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
@@ -2905,9 +2924,12 @@ async function addOwnProps(files) {
     }
   } catch (e) { toast(`Could not add the prop: ${friendlyError(e)}`); }
 }
+/** a search box for a tile grid: tiles whose name does not contain the text are hidden (the "+" tile stays) */
+const filterTiles = (grid) => { const q = (grid.dataset.q || '').trim().toLowerCase(); for (const t of grid.querySelectorAll('.tile:not(.add)')) t.hidden = !!q && !(t.dataset.name || '').includes(q); };
+const tileSearch = (grid, label) => h('input', { type: 'search', class: 'tile-search', placeholder: `Search ${label} by name…`, 'aria-label': `Search ${label} by name`, oninput: (e) => { grid.dataset.q = e.target.value; filterTiles(grid); } });
 /** one picture tile of the Props / Effects / Background lists (same look as the animation cards): a picture with its name underneath; `add` makes the dashed "+" tile */
 function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, onclick, onremove, onview, viewing }) {
-  return h('button', { type: 'button', class: `tile${add ? ' add' : ''}${on ? ' on' : ''}${locked ? ' locked' : ''}${cover ? ' cover' : ''}`, title: title || name, 'aria-disabled': locked ? 'true' : undefined, onclick },
+  return h('button', { type: 'button', 'data-name': String(name || '').toLowerCase(), class: `tile${add ? ' add' : ''}${on ? ' on' : ''}${locked ? ' locked' : ''}${cover ? ' cover' : ''}`, title: title || name, 'aria-disabled': locked ? 'true' : undefined, onclick },
     locked ? lockBadge() : null,
     h('span', { class: 'tile-pic' }, add ? h('span', { class: 'tile-plus' }, '+') : src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : glyph),
     h('span', { class: 'tile-name' }, h('b', {}, name)),
@@ -2937,6 +2959,7 @@ function libraryTab(kind) {
   const tileOf = (asset) => { const locked = assetLocked(asset), p = inScene(asset); return tile({ src: asset.thumb, icon: glyph, name: asset.name, locked, title: locked ? `Paid accounts only: ${asset.name}` : p ? `Already in the scene: tap to select it` : `${effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'} · ` : ''}Add to scene: ${asset.name}`,
     onclick: () => (locked ? lockHint() : p ? pick(p) : addLibraryProp(asset)), ...(p ? controls(p) : {}) }); };
   const ownTile = (p) => tile({ src: URL.createObjectURL(p.blob), name: p.name, title: `${p.name} (tap to select it)`, onclick: () => pick(p), ...controls(p) });
+  const grid = h('div', { class: 'tile-grid' }, effects ? null : tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => ownFile.click() }), own.map(ownTile), shown.map(tileOf));
   const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset, { key: holder.key, hand: 'R' })) },
     locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : (asset.category || 'Hand prop'))); };
@@ -2949,7 +2972,7 @@ function libraryTab(kind) {
     h('div', { class: 'card flat' }, h('h2', {}, label),
       h('p', { class: 'sub studio-help' }, effects ? 'Tap an effect to apply it to the whole scene. Tap it again to select it, eye to hide it, ✕ to remove it.' : 'Tap a picture to add it once. Tap it again to select it, eye to hide it, ✕ to remove it. Move and resize it on the stage.'),
       categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
-      h('div', { class: 'tile-grid' }, effects ? null : tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => ownFile.click() }), own.map(ownTile), shown.map(tileOf)),
+      tileSearch(grid, label.toLowerCase()), grid,
       !shown.length && !own.length ? h('p', { class: 'sub studio-library-empty' }, assets.length ? 'There is nothing in this category.' : `No shared ${label.toLowerCase()} have been published yet. They are added from the "Props & Effects" tab in the admin panel.`) : null,
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', title: 'See what the admin has newly published', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new')), ownFile));
 }
@@ -2968,7 +2991,7 @@ function generatedTiles(pick, grid) {
           await pick(rec);
         } catch (e) { toast(`Could not add the background: ${e.message}`); }
       } });
-    }));
+    })); filterTiles(grid);
   }).catch(() => { /* the other backgrounds still show */ });
 }
 function tabCanvas() {
@@ -3016,7 +3039,7 @@ function tabCanvas() {
     } }), '+'));
   return h('div', { class: 'list' },
     h('div', { class: 'card flat bg-colours' }, h('h2', {}, 'Plain colours'), sw),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Tap + to add a picture from your device, or choose one below. Eye = show / hide, ✕ = delete.'), mine, file),
+    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Tap + to add a picture from your device, or choose one below. Eye = show / hide, ✕ = delete.'), tileSearch(mine, 'backgrounds'), mine, file),
     h('div', { class: 'card flat' }, h('h2', {}, 'Where should the background be applied?'), seg([[0, 'Whole scene'], [1, 'On the timeline (from the playhead)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
       h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `The background you choose will be added to the timeline at the playhead (${fmt(player.time)}).` : 'The background you choose will stay behind for the whole scene.')));
 }

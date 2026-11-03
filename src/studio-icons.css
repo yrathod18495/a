@@ -318,3 +318,17 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 @media(max-width:860px){
   #app .ws,#app .ws .workbench,#app .ws .studio{overflow-x:clip;max-width:100vw}
 }
+
+/* clip bar: arrows instead of typing numbers */
+.cb-arrows{display:flex;align-items:center;gap:4px;flex:none;font-size:11px;font-weight:650;color:var(--mute)}
+.cb-arrows .btn{min-width:34px;height:30px}
+.cb-arrows svg{width:18px;height:18px}
+
+/* phone: Play lives in the scene row, so the player row above only has the time and the zoom */
+@media(max-width:860px){
+  #app .ws .scene-row .play-btn{flex:none;width:42px;height:28px;padding:0;border-radius:99px}
+  #app .ws .scene-row .play-btn svg{width:18px;height:18px}
+}
+
+.tile-search{width:100%;box-sizing:border-box;height:38px;margin:0 0 6px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);font-size:14px}
+.tile[hidden]{display:none !important}
