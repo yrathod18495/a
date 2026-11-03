@@ -742,7 +742,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['props', 'Props', 'package'], ['effects', 'Effects', 'zap'], ['export', 'Export', 'download']];
+const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['props', 'Props', 'shapes'], ['effects', 'Effects', 'zap'], ['export', 'Export', 'download']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri icon-btn play-btn', title: 'Play (Space)', 'aria-label': 'Play', onclick: togglePlay }, icon('play'));
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -2445,12 +2445,12 @@ function drawCharBar(l) {
   if (charBar.dataset.key === l.key) { for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', S.tab === b.dataset.tab && S.panelOpen); return; }
   charBar.dataset.key = l.key;
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
-  const items = [['anim', 'Animations', 'film'], ['props', 'Hand props', 'package'], ['motion', 'Path', 'move']];
+  const items = [['anim', 'Animations', 'film'], ['props', 'Hand props', 'sword'], ['motion', 'Path', 'move']];
   const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']];
   charBar.replaceChildren(
     h('div', { class: 'cb-list' },
       ...items.map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
-      btn('flip', 'Mirror', () => mirrorChar(l, s))),
+      btn('flip', 'Flip', () => mirrorChar(l, s), { title: 'Flip the character left / right' })),
     // everything else is one tap away in a list (no sideways scrolling to find it)
     h('details', { class: 'char-more' },
       h('summary', { title: 'More', 'aria-label': 'More character tools' }, icon('more'), h('span', {}, 'More')),
@@ -2471,7 +2471,7 @@ function drawSelBar(l) {
       cur.axf ??= cur.anchor.x / stage.W; cur.ayf ??= (stage.H - cur.anchor.y) / stage.H; // keep feet where they are
       cur.mul = m; saveXf(cur); stage.layout(); updateSel(); S.dirty = true;
     } }),
-    h('button', { class: 'btn sm icon-btn', title: 'Mirror', 'aria-label': 'Mirror', onclick: () => mirrorChar(l, s) }, icon('flip')),
+    h('button', { class: 'btn sm icon-btn', title: 'Flip the character left / right', 'aria-label': 'Flip', onclick: () => mirrorChar(l, s) }, icon('flip')),
     h('button', { type: 'button', class: 'btn sm delete-character', title: 'Delete selected character', 'aria-label': 'Delete selected character', disabled: S.exporting, onclick: () => removeCharacterFrom(s) }, '🗑 Delete'),
     h('button', { class: 'btn sm icon-btn', title: 'Hide the box', 'aria-label': 'Hide the box', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, icon('x')),
     h('button', { class: 'btn sm icon-btn', title: 'Reset size & position', 'aria-label': 'Reset size and position', onclick: () => resetChar(l, s) }, icon('rotate')));

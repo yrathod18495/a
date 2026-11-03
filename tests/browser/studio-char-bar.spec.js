@@ -16,7 +16,7 @@ test('phone: a selected character gets named tool buttons over the bottom menu; 
   await page.evaluate(() => { const { S, drawCharBar } = window.__toon; S.speakers.push({ key: 'fake1', name: 'Fake', color: '#c06', charId: 'fake' }); drawCharBar({ key: 'fake1' }); });
   const bar = page.locator('.char-bar'); await expect(bar).toBeVisible();
   // the main tools are all in view (no sideways scrolling), the rest is behind "More"
-  await expect(bar.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Animations', 'Hand props', 'Path', 'Mirror']);
+  await expect(bar.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Animations', 'Hand props', 'Path', 'Flip']);
   const row = await bar.locator('.cb-list').evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth })); expect(row.scroll).toBeLessThanOrEqual(row.client + 1);
   const sizes = await bar.locator('.cb-list .cb-btn').evaluateAll((els) => els.map((e) => { const b = e.getBoundingClientRect(); return [b.left, b.right, b.width, b.height]; }));
   for (const [i, a] of sizes.entries()) { expect(a[2]).toBeGreaterThanOrEqual(56); expect(a[3]).toBeGreaterThanOrEqual(44); expect(a[1]).toBeLessThanOrEqual(390); if (i) expect(a[0]).toBeGreaterThanOrEqual(sizes[i - 1][1] - 0.5); }
