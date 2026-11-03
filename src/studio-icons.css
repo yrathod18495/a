@@ -346,3 +346,6 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .cb-more-list{position:absolute;right:0;bottom:calc(100% + 8px);z-index:70;display:grid;grid-template-columns:repeat(3,78px);gap:6px;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:0 10px 30px #000a}
   #app .ws .cb-more-list .cb-btn{flex:none;width:auto;min-height:56px}
 }
+
+/* the selected clip is easy to see: bright outline and a lighter body */
+#app .ws .tclip.sel{outline:3px solid var(--acc);outline-offset:1px;filter:brightness(1.3);z-index:2}

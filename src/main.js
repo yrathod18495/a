@@ -1438,7 +1438,7 @@ async function retimeAudio() {
   await prepareStudio({ quiet: true });
   player.seek(Math.min(at, player.total)); S.dirty = true;
 }
-const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); };
+const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
 function dragClip(e, m, mode, el) {
   dragItem(e, mode === 'size' ? 'right' : mode, el, {
     id: m.id, key: keyOf('clip', m.id), lock: `char:${findManual(m.id)?.s?.key}`,
@@ -2738,7 +2738,11 @@ function tabAnim() {
   const L = lineById(S.lineSel), noAudio = !player.clips.length;
   const cur = () => { const s = sOf(S.animFor), l = lineById(S.lineSel); if (noAudio) { const o = s && S.solo[s.key]; return s ? { body: o?.body ?? defaultAnims(charOf(s)).idle, auto: !o?.body } : null; } return s && l ? resolveLine(l, s) : null; };
   const chips = () => h('div', { class: 'tabs' }, withChar.map((s) => h('button', { class: s.key === S.animFor ? 'on' : '', onclick: () => { S.animFor = s.key; drawTabs(); drawLineBox(); } }, h('span', { class: 'dot', style: `background:${s.color};display:inline-block;margin-right:6px` }), s.name)));
-  const selectedRef = () => { const r = cur(); return r && !r.auto ? r.body : r?.body ?? null; };
+  const selectedRef = () => {
+    const sp = sOf(S.animFor), f = S.mclip && findManual(S.mclip);
+    if (f && sp && f.s?.key === sp.key && f.m.kind === 'body') return f.m.ref;          // the animation clip you tapped on the timeline (or just added) is the marked one
+    const r = cur(); return r && !r.auto ? r.body : r?.body ?? null;
+  };
   const idx = L ? player.clips.indexOf(L) + 1 : 0;
   return h('div', { class: 'animation-panel' },
     h('div', { class: 'animation-context' }, h('p', { class: 'hint', style: 'text-align:left;margin:0 0 6px' }, noAudio ? 'Choose an animation for this scene.' : L ? `Choosing for line ${idx} (${fmt(L.start)}–${fmt(L.end)}). Pick the audio line first on the timeline.` : 'Tap an audio line on the timeline first.')),

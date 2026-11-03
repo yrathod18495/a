@@ -12,6 +12,7 @@ test('phone: selected clip shows Delete in view and removes the clip', async ({ 
   if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();
   await page.evaluate(async () => { const { S, stage } = window.__toon; S.bgClips.push({ id: 'b1', bgId: null, preset: 3, start: 0, dur: 2 }); await stage.setBackgroundClips(S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset, blob: null }))); window.__toon.drawTimeline(); });
   await page.locator('#app .lane2.bg .tclip.mine').first().click();
+  expect(await page.locator('#app .lane2.bg .tclip.mine').first().evaluate((e) => getComputedStyle(e).outlineWidth)).toBe('3px');      // the tapped clip looks selected
   const bar = page.locator('.tltools .clipbar'); await expect(bar).toBeVisible();
   await expect(bar.locator('input')).toHaveCount(0);                                         // nothing to type: arrows only
   const before = await page.evaluate(() => window.__toon.S.bgClips[0].start);
