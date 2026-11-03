@@ -2884,6 +2884,7 @@ async function putProp(prop) {
   await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
 }
 async function addLibraryProp(asset, hold = null) {
+  if (!hold && S.props.some((p) => p.assetId === asset.id)) return;                       // the same picture is added once
   const loading = busy(asset.type === 'effect' ? 'Applying effect…' : 'Applying prop…');
   try {
     const blob = await libraryBlob(asset);
@@ -2925,74 +2926,32 @@ function libraryTab(kind) {
   const shown = assets.filter((asset) => libraryFilter[kind] === 'all' || (asset.category || 'Other') === libraryFilter[kind]);
   const chip = (value, text) => h('button', { type: 'button', class: `btn sm ${libraryFilter[kind] === value ? 'pri' : ''}`, 'aria-pressed': String(libraryFilter[kind] === value), onclick: () => { libraryFilter[kind] = value; redrawPanel(); } }, text);
   askPlan();
-  const card = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Add to scene: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset)) },
-    locked ? lockBadge() : null,
-    asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, glyph), h('b', {}, asset.name),
-    h('small', {}, locked ? 'Paid accounts only' : effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'}` : (asset.category || 'Shared library'))); };
-  const tileOf = (asset) => { const locked = assetLocked(asset); return tile({ src: asset.thumb, icon: glyph, name: asset.name, locked, title: locked ? `Paid accounts only: ${asset.name}` : `${effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'} · ` : ''}Add to scene: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset)) }); };
   const ownFile = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; await addOwnProps(files); } });
-  const onStage = S.props.filter((prop) => (isEffect(prop) ? 'effect' : 'prop') === kind);
-  const selected = onStage.find((prop) => prop.id === S.selectedPropId);
-  const change = (apply) => { apply(); stage.setProps(S.props); updateSel(); S.dirty = true; dbPut('props', selected); };
-  const edit = (key, value) => change(() => { if (value === undefined) delete selected[key]; else selected[key] = value; });
-  const percent = (value) => `${Math.round(value * 100)}%`;
-  const range = (key, text, min, max, step, fallback, format = percent, set = (value) => edit(key, value)) => {
-    const value = selected[key] ?? fallback, out = h('b', {}, format(value));
-    return h('label', { class: 'studio-prop-range' }, h('span', {}, text, out), h('input', { type: 'range', min, max, step, value, oninput: (e) => { set(Number(e.target.value)); out.textContent = format(Number(e.target.value)); } }));
-  };
-  const seconds = (key, text) => h('label', { class: 'prop-time' }, h('span', {}, text), h('input', { type: 'number', min: 0, step: 0.1, placeholder: 'whole scene', value: selected[key] ?? '', 'aria-label': text, onchange: (e) => edit(key, e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))) }));
-  const held = !effects && selected && isHeld(selected), freeform = !(effects && coversFrame(selected || {}));
-  const actors = S.speakers.filter((speaker) => speaker.charId);
-  const holdWith = (hand) => change(() => { if (!hand) { delete selected.attach; if (selected.rotation === -90) selected.rotation = 0; return; } if (!isHeld(selected) && !selected.rotation) selected.rotation = -90; selected.attach = { key: selected.attach?.key && actors.some((a) => a.key === selected.attach.key) ? selected.attach.key : actors[0].key, hand }; });
-  const holdBlock = effects || !selected ? [] : [h('div', { class: 'card flat prop-hold' }, h('h4', {}, '🤚 Hold in hand'),
-    h('div', { class: 'seg', role: 'group', 'aria-label': 'Where the prop stays' }, [[null, 'On stage'], ['L', 'Left hand'], ['R', 'Right hand']].map(([hand, text]) => h('button', { type: 'button', disabled: !!hand && !actors.length, class: (hand ? selected.attach?.hand === hand && held : !held) ? 'on' : '', onclick: () => { holdWith(hand); redrawPanel(); } }, text))),
-    !actors.length ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Place a character first, then the prop will attach to its hand.') : null,
-    held && actors.length > 1 ? h('label', { class: 'prop-time' }, h('span', {}, 'In which character\'s hand'), h('select', { 'aria-label': 'Character', onchange: (e) => change(() => { selected.attach = { ...selected.attach, key: e.target.value }; }) }, actors.map((a) => h('option', { value: a.key, selected: a.key === selected.attach.key }, a.name)))) : null,
-    ...(held ? [range('grip.x', 'Pakad point · left / right', 0, 1, 0.01, selected.grip?.x ?? .5, percent, (v) => change(() => { selected.grip = { ...(selected.grip || { x: .5, y: .5 }), x: v }; })), range('grip.y', 'Pakad point · up / down', 0, 1, 0.01, selected.grip?.y ?? .5, percent, (v) => change(() => { selected.grip = { ...(selected.grip || { x: .5, y: .5 }), y: v }; })),
-      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.follow !== false, onchange: (e) => edit('follow', e.target.checked ? undefined : false) }), 'Rotate with the hand')] : []))];
-  // props keep the proportions of their picture: "Size" scales width and height together; "Original size" returns to the real size of the picture
-  if (selected && !effects && selected.blob && !selected.natW && !sizingProps.has(selected.id)) {
-    sizingProps.add(selected.id);                                  // a prop saved before this was known: read its picture size once
-    imageSize(selected.blob).then((size) => { selected.natW = size.w; selected.natH = size.h; dbPut('props', selected); if (S.tab === 'props') redrawPanel(); }).catch(() => {});
-  }
-  const sizeControls = () => {
-    if (!selected.natW) return h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Reading the picture size…');
-    const aspect = aspectOf(S.aspect), real = actualPropSize(selected.natW, selected.natH, aspect, { fit: false }), now = selected.w / real.w;
-    const out = h('b', {}, percent(now));
-    const apply = (scale) => change(() => { selected.w = +Math.min(1.5, Math.max(0.02, real.w * scale)).toFixed(4); selected.h = +Math.min(1.5, Math.max(0.02, real.h * scale)).toFixed(4); });
-    return h('div', { class: 'prop-size' },
-      h('label', { class: 'studio-prop-range' }, h('span', {}, 'Size (keeps the shape)', out), h('input', { type: 'range', min: 0.1, max: 3, step: 0.01, value: Math.min(3, Math.max(0.1, now)), 'aria-label': 'Size of the prop, 100% is the real size of the picture', oninput: (e) => { apply(Number(e.target.value)); out.textContent = percent(Number(e.target.value)); }, onchange: () => redrawPanel() })),
-      h('button', { class: 'btn sm', type: 'button', title: 'Show the picture at its real size', onclick: () => { change(() => Object.assign(selected, actualPropSize(selected.natW, selected.natH, aspect))); redrawPanel(); } }, '↺ Original size'));
-  };
-  const editor = !selected ? null : h('div', { class: 'card flat studio-prop-editor' }, h('h3', {}, selected.name),
-    range('opacity', 'Opacity', 0.05, 1, 0.01, 1),
-    ...(effects ? [h('div', { class: 'seg', role: 'group', 'aria-label': 'Blend mode' }, [['normal', 'Normal'], ['add', 'Glow'], ['screen', 'Screen']].map(([value, text]) => h('button', { type: 'button', class: (selected.blend || 'normal') === value ? 'on' : '', onclick: () => { edit('blend', value); redrawPanel(); } }, text))),
-      freeform ? h('button', { class: 'btn sm', type: 'button', onclick: () => { change(() => Object.assign(selected, { x: .5, y: .5, w: 1, h: 1, rotation: 0 })); redrawPanel(); } }, 'Stretch to fill the frame') : null] : []),
-    ...holdBlock,
-    ...(freeform ? [...(held ? [] : [range('x', 'Position · left / right', 0, 1, 0.01, .5), range('y', 'Position · top / bottom', 0, 1, 0.01, .66)]), ...(effects ? [] : [sizeControls()]), range('w', 'Width', 0.04, effects ? 1 : 1.5, 0.01, .18), range('h', 'Height', 0.04, effects ? 1 : 1.5, 0.01, .18), range('rotation', 'Rotation', -180, 180, 1, 0, (v) => `${Math.round(v)}°`)] : []),
-    ...(selected.sheet ? [range('sheet', 'Animation speed', 1, 60, 1, selected.sheet.fps, (v) => `${Math.round(v)} fps`, (v) => change(() => { selected.sheet = { ...selected.sheet, fps: v }; }))] : []),
-    ...(effects ? [] : [h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.behind === true, onchange: (e) => edit('behind', e.target.checked ? true : undefined) }), 'Place behind the character')]),
-    h('div', { class: 'prop-times' }, seconds('start', 'Dikhe: shuru (s)'), seconds('end', 'Dikhe: khatam (s)')),
-    h('button', { class: 'btn sm', type: 'button', style: 'color:#b91c1c;border-color:#fecaca', onclick: async () => { await dbDel('props', selected.id); S.props = S.props.filter((p) => p.id !== selected.id); S.selectedPropId = null; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel(); } }, `Remove ${effects ? 'effect' : 'prop'}`));
+  // one picture is added once: tapping it again selects the copy that is already in the scene. Eye = show / hide it, ✕ = take it out of the scene
+  const inScene = (asset) => S.props.find((p) => p.assetId === asset.id);
+  const own = effects ? [] : S.props.filter((p) => !isEffect(p) && !p.assetId && p.blob);
+  const pick = (p) => { S.selectedPropId = p.id; S.sel = null; S.dirty = true; drawTabs(); updateSel(); };
+  const removeProp = async (p) => { await dbDel('props', p.id); S.props = S.props.filter((x) => x.id !== p.id); if (S.selectedPropId === p.id) S.selectedPropId = null; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel(); drawTimeline(); };
+  const toggleProp = (p) => { p.visible = p.visible === false; stage.setProps(S.props); S.dirty = true; dbPut('props', p); drawTabs(); };
+  const controls = (p) => ({ on: p.id === S.selectedPropId, viewing: p.visible !== false, onview: () => toggleProp(p), onremove: () => removeProp(p) });
+  const tileOf = (asset) => { const locked = assetLocked(asset), p = inScene(asset); return tile({ src: asset.thumb, icon: glyph, name: asset.name, locked, title: locked ? `Paid accounts only: ${asset.name}` : p ? `Already in the scene: tap to select it` : `${effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'} · ` : ''}Add to scene: ${asset.name}`,
+    onclick: () => (locked ? lockHint() : p ? pick(p) : addLibraryProp(asset)), ...(p ? controls(p) : {}) }); };
+  const ownTile = (p) => tile({ src: URL.createObjectURL(p.blob), name: p.name, title: `${p.name} (tap to select it)`, onclick: () => pick(p), ...controls(p) });
   const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset, { key: holder.key, hand: 'R' })) },
     locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : (asset.category || 'Hand prop'))); };
   const handBlock = !handAssets.length ? [] : [h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Hand props'),
-    holder ? h('p', { class: 'sub studio-help' }, `Tap a prop to put it in ${holder.name}'s right hand. You can switch the hand below once it is placed.`)
+    holder ? h('p', { class: 'sub studio-help' }, `Tap a prop to put it in ${holder.name}'s right hand.`)
       : h('p', { class: 'sub studio-help' }, 'Select a character on the stage to see the hand props. They go straight into that character\'s hand.'),
     holder ? h('div', { class: 'studio-shared-grid' }, handAssets.map(handCard)) : null)];
   return h('div', { class: 'list' },
     ...handBlock,
     h('div', { class: 'card flat' }, h('h2', {}, label),
-      h('p', { class: 'sub studio-help' }, effects ? 'Tap an effect to apply it to the whole scene (rain, sparkle, light…). Change the look with opacity and blend, and optionally show it for only a few seconds.' : 'Tap a prop to place it in the scene. Drag it on the stage to move it; change its size, rotation and when it shows from here.'),
+      h('p', { class: 'sub studio-help' }, effects ? 'Tap an effect to apply it to the whole scene. Tap it again to select it, eye to hide it, ✕ to remove it.' : 'Tap a picture to add it once. Tap it again to select it, eye to hide it, ✕ to remove it. Move and resize it on the stage.'),
       categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
-      h('div', { class: 'tile-grid' }, effects ? null : tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => ownFile.click() }), shown.map(tileOf)),
-      !shown.length ? h('p', { class: 'sub studio-library-empty' }, assets.length ? 'There is nothing in this category.' : `No shared ${label.toLowerCase()} have been published yet. They are added from the "Props & Effects" tab in the admin panel.`) : null,
-      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', title: 'See what the admin has newly published', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new')), ownFile),
-    onStage.length ? h('div', { class: 'card flat' }, h('h3', {}, `In scene (${onStage.length})`), h('div', { class: 'lib-onstage' }, onStage.map((prop) => h('div', { class: `lib-row${prop.id === S.selectedPropId ? ' on' : ''}` },
-      h('button', { type: 'button', class: 'lib-pick', onclick: () => { S.selectedPropId = prop.id; S.sel = null; redrawPanel(); updateSel(); S.dirty = true; } }, h('span', {}, glyph), h('b', {}, prop.name)),
-      h('button', { type: 'button', class: 'ib', title: prop.visible === false ? 'Show' : 'Hide', 'aria-label': prop.visible === false ? 'Show the prop' : 'Hide the prop', 'aria-pressed': String(prop.visible !== false), onclick: () => { prop.visible = prop.visible === false; stage.setProps(S.props); S.dirty = true; dbPut('props', prop); redrawPanel(); } }, icon(prop.visible === false ? 'eye-off' : 'eye')))))) : null,
-    editor);
+      h('div', { class: 'tile-grid' }, effects ? null : tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => ownFile.click() }), own.map(ownTile), shown.map(tileOf)),
+      !shown.length && !own.length ? h('p', { class: 'sub studio-library-empty' }, assets.length ? 'There is nothing in this category.' : `No shared ${label.toLowerCase()} have been published yet. They are added from the "Props & Effects" tab in the admin panel.`) : null,
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', title: 'See what the admin has newly published', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new')), ownFile));
 }
 
 /** backgrounds made in the Background Generator (kept in the account's database): one click copies the picture into this project and uses it */
@@ -3048,24 +3007,18 @@ function tabCanvas() {
     S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: r.name, onclick: () => pickBg(r), onremove: () => removeBg(r), ...(S.bgAtTime ? {} : { viewing: S.bgId === r.id, onview: () => pickBg(S.bgId === r.id ? null : r) }) })),
     shared('background').map(sharedTile));
   generatedTiles(pickBg, mine);
-  const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })));
-  const selBg = bgOf(), bgCard = (() => {
-    if (!selBg) return h('div', { class: 'card flat' }, h('h2', {}, 'Move and resize'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Select the background on the timeline (or press the button) to move and resize it right on the canvas.'),
-      S.bgId || stage.bg.preset !== 0 ? h('button', { class: 'btn sm', type: 'button', onclick: () => { takeBaseBackground(); drawTabs(); } }, 'Edit the background on the canvas') : null);
-    const xf = bgXf(selBg), out = h('output', {}, `${Math.round(xf.s * 100)}%`);
-    const range = h('input', { type: 'range', min: 20, max: 400, step: 1, value: Math.round(xf.s * 100), 'aria-label': 'Background size', oninput: (e) => { xf.s = clampBgScale(+e.target.value / 100); out.textContent = `${Math.round(xf.s * 100)}%`; pushBg(selBg); } });
-    syncBgSize = () => { range.value = Math.round(xf.s * 100); out.textContent = `${Math.round(xf.s * 100)}%`; };
-    return h('div', { class: 'card flat' }, h('h2', {}, 'Move and resize'),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'On the canvas: drag the picture to move it. Drag a corner, pinch with two fingers, or use the mouse wheel to resize.'),
-      h('label', { class: 'cb-n', style: 'display:flex;align-items:center;gap:8px' }, 'Size', range, out),
-      h('button', { class: 'btn sm', type: 'button', style: 'margin-top:8px', onclick: () => { selBg.xf = null; stage.setBgXf(S.bgClips.indexOf(selBg), null); S.dirty = true; updateBgSel(); drawTabs(); } }, '↺ Original size and position'));
-  })();
+  // plain colours: small round swatches, the last one opens the colour picker so the user can make any colour of their own
+  const solidPng = (hex) => new Promise((resolve) => { const c = document.createElement('canvas'); c.width = 32; c.height = 18; const g = c.getContext('2d'); g.fillStyle = hex; g.fillRect(0, 0, 32, 18); c.toBlob(resolve, 'image/png'); });
+  const sw = h('div', { class: 'bg-swatches' }, BACKGROUNDS.map((b, i) => h('button', { type: 'button', title: b.name, 'aria-label': b.name, class: `bg-swatch${stage.bg.preset === i && !S.bgId ? ' on' : ''}`, style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })),
+    h('label', { class: 'bg-swatch custom', title: 'Make your own colour' }, h('input', { type: 'color', value: '#3b82f6', 'aria-label': 'Make your own colour', onchange: async (e) => {
+      try { const hex = e.target.value, blob = await solidPng(hex), rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: `Colour ${hex}`, blob }; await dbPut('backgrounds', rec); S.myBgs.push(rec); await pickBg(rec); }
+      catch (er) { toast(`Could not make the colour: ${friendlyError(er)}`); }
+    } }), '+'));
   return h('div', { class: 'list' },
-    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Tap + to add a picture from your device, or choose one below. Backgrounds sit behind characters and props.'), mine, file),
-    bgCard,
+    h('div', { class: 'card flat bg-colours' }, h('h2', {}, 'Plain colours'), sw),
+    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Tap + to add a picture from your device, or choose one below. Eye = show / hide, ✕ = delete.'), mine, file),
     h('div', { class: 'card flat' }, h('h2', {}, 'Where should the background be applied?'), seg([[0, 'Whole scene'], [1, 'On the timeline (from the playhead)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `The background you choose will be added to the timeline at the playhead (${fmt(player.time)}). Add as many as you like, and drag the edges to resize.` : 'The background you choose will stay behind for the whole scene.')),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Plain colours'), sw));
+      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `The background you choose will be added to the timeline at the playhead (${fmt(player.time)}).` : 'The background you choose will stay behind for the whole scene.')));
 }
 
 /** export size for the chosen orientation + quality */
