@@ -2,11 +2,11 @@ import { h, logo } from './dom.js';
 import { loadCatalog, libraryCharacters, cdn } from './catalog.js';
 import { deleteStudioAsset, listStudioAssets, saveStudioAsset, saveStudioAnimation, setAssetAccess } from './studio-assets.js';
 
-export async function assetsView({ user, home, back, toast }) {
+export async function assetsView({ user, home, back, toast, openCharacters }) {
   const root = h('div', { class: 'sh admin-assets' });
   const tabs = h('div', { class: 'admin-assets-tabs', role: 'tablist', 'aria-label': 'Studio asset types' });
   const content = h('main', { class: 'admin-assets-content' });
-  const state = { type: 'character', assets: [], chars: [], previews: new Map(), loading: false };
+  const state = { type: 'background', assets: [], chars: [], previews: new Map(), loading: false };
   let fileInput;
   const ACCESS_LABEL = { paid: 'Paid accounts only', free: 'Free for everyone' };
   const newAccess = { value: 'paid' };                                          // what a new upload gets
@@ -30,18 +30,13 @@ export async function assetsView({ user, home, back, toast }) {
 
   function drawTabs() {
     tabs.replaceChildren(...[
-      ['character', '🎭 Add Character'], ['background', '🖼 Add Background'], ['prop', '🧸 Add Props'], ['animation', '🎬 Add Animation'],
-    ].map(([key, label]) => h('button', { class: `admin-assets-tab ${state.type === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.type === key, onclick: () => { state.type = key; draw(); } }, label)));
+      ['background', '🖼 Add Background'], ['prop', '🧸 Add Props'], ['animation', '🎬 Add Animation'],
+    ].map(([key, label]) => h('button', { class: `admin-assets-tab ${state.type === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.type === key, onclick: () => { state.type = key; draw(); } }, label)),
+      // characters are uploaded as a ZIP in their own admin section
+      ...(openCharacters ? [h('button', { class: 'admin-assets-tab', type: 'button', title: 'Upload a character ZIP', onclick: openCharacters }, '🎭 Characters →')] : []));
   }
   function draw() {
     drawTabs();
-    if (state.type === 'character') {
-      content.replaceChildren(
-        h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'CHARACTER LIBRARY'), h('h1', {}, 'Add Character'), h('p', {}, 'These are the characters available to Animator Studio and Character Editor. Use Studio Controls to adjust their animations and layers.')),
-        state.chars.length ? h('div', { class: 'admin-assets-grid' }, state.chars.map((c) => h('article', { class: 'admin-asset-card' }, c.thumb ? h('img', { src: cdn(c.thumb), alt: c.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '🎭'), h('div', { class: 'admin-asset-copy' }, h('b', {}, c.name), h('small', {}, `${c.poses.length} poses · available in both studios`))))) : h('p', { class: 'admin-assets-empty' }, 'Loading the character catalog…'),
-        h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'));
-      return;
-    }
     if (state.type === 'animation') { drawAnimations(); return; }
     const kind = assetType(), label = kind === 'background' ? 'Backgrounds' : 'Props';
     const records = state.assets.filter((a) => a.type === kind);
@@ -115,13 +110,17 @@ export async function assetsView({ user, home, back, toast }) {
     finally { state.loading = false; state.progress = ''; draw(); }
   } });
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin · Studio Assets'), h('span', { class: 'sp' }), h('button', { class: 'btn', type: 'button', onclick: back }, 'Back to Admin')), tabs, content);
-  try {
-    await loadCatalog();
-    const entries = libraryCharacters().filter((e) => e.template);
-    state.chars = [...new Map(entries.map((e) => [e.charBase, { name: e.name, thumb: e.thumbnail, poses: entries.filter((x) => x.charBase === e.charBase) }])).values()];
-    state.assets = await listStudioAssets();
-  } catch (error) { toast(`Could not load the studio library: ${error.message}`); }
-  state.loading = false; draw();
+  draw();
+  // the page is shown at once; the library and the character list (needed by the Add Animation tab) load side by side
+  state.loading = true;
+  Promise.all([
+    listStudioAssets().then((list) => { state.assets = list; }),
+    loadCatalog().then(() => {
+      const entries = libraryCharacters().filter((e) => e.template);
+      state.chars = [...new Map(entries.map((e) => [e.charBase, { name: e.name, thumb: e.thumbnail, poses: entries.filter((x) => x.charBase === e.charBase) }])).values()];
+    }).catch(() => { /* the animation tab shows what it has */ }),
+  ]).catch((error) => toast(`Could not load the studio library: ${error.message}`))
+    .finally(() => { state.loading = false; if (root.isConnected) draw(); });
   root.dispose = () => state.previews.forEach((url) => URL.revokeObjectURL(url));
   return root;
 }

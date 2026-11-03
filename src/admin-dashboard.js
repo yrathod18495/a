@@ -29,6 +29,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
     }
   }
   const goOverview = () => show('Overview', overview);
+  const openCharacters = () => import('./admin-characters.js').then(m => m.charactersView({ home, toast, back: goOverview }));
   const navItems = [
     ['Overview', overview],
     ['Users', () => import('./security-view.js').then(m => m.securityView({ home: goOverview, toast }))],
@@ -37,8 +38,8 @@ export function dashboardView({ user, home, toast, openStudio }) {
     ['Studio Controls', openStudio],
     ['Find Project', () => import('./admin-find-project.js').then(m => m.findProjectView({ user, back: goOverview, toast }))],
     ['Props & Effects', () => import('./admin-props-effects.js').then(m => m.propsEffectsView({ home, toast, back: goOverview }))],
-    ['Add Assets', () => import('./admin-assets.js').then(m => m.assetsView({ user, home, toast, back: goOverview }))],
-    ['Characters', () => import('./admin-characters.js').then(m => m.charactersView({ home, toast, back: goOverview }))],
+    ['Add Assets', () => import('./admin-assets.js').then(m => m.assetsView({ user, home, toast, back: goOverview, openCharacters: () => show('Characters', openCharacters) }))],
+    ['Characters', openCharacters],
     ['Affiliates', () => import('./admin-affiliates.js').then(m => m.affiliatesView({ user, toast, back: goOverview }))],
   ];
   const ICONS = {

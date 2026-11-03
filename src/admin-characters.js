@@ -183,6 +183,6 @@ export async function charactersView({ back, home, toast }) {
 
   root.append(h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sh-crumb' }, 'Admin · Characters'), h('span', { class: 'sp' }), h('button', { class: 'btn', type: 'button', onclick: back }, 'Back to Admin')), content);
   draw();
-  await refresh();
+  refresh();                                   // the page is shown at once; the saved characters fill in when the server answers
   return root;
 }

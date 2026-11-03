@@ -45,3 +45,21 @@ test('the back buttons inside admin sections return to the Overview', async ({ p
   await expect(page.locator('.admin-console-tab.active')).toHaveText('Live Chat');
   await expect(page.locator('.admin-console-host > *')).toHaveCount(1);
 });
+
+test('Add Assets opens at once (it no longer waits for the old character catalog), has no "Add Character" tab, and a button leads to the Characters section', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await console_(page);
+  // a slow server must not hold the page back
+  await page.route('**/api/studio-assets', async (r) => { await new Promise((res) => setTimeout(res, 3000)); await r.fulfill({ json: { assets: [], characters: [] } }); });
+  const tabs = page.locator('.admin-console-tab');
+  const started = Date.now();
+  await tabs.filter({ hasText: /^Add Assets$/ }).click();
+  await expect(page.locator('.admin-assets-tab').first()).toBeVisible({ timeout: 1500 });
+  expect(Date.now() - started).toBeLessThan(1500);
+  await expect(page.locator('.admin-assets-tab')).toHaveText(['🖼 Add Background', '🧸 Add Props', '🎬 Add Animation', '🎭 Characters →']);
+  await expect(page.getByText('Loading the character catalog')).toHaveCount(0);
+  await page.locator('.admin-assets-tab', { hasText: 'Characters →' }).click();
+  await expect(page.locator('.admin-console-tab.active')).toHaveText('Characters');
+  await expect(page.getByRole('heading', { name: 'Characters', level: 1 })).toBeVisible({ timeout: 1500 });          // also shown before the saved list arrives
+  expect(errors).toEqual([]);
+});
