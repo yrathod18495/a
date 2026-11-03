@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 
+const NONE = `export const CONTACT_LINKS = {}; export function contactChannels() { return []; }`;
 const LINKS = `export const CONTACT_LINKS = { telegram: { group: 'https://t.me/+AbCdEfGh12', personal: 'https://t.me/twelve_help' }, whatsapp: { group: '', personal: 'https://wa.me/919876543210' } };
   const ALLOWED = { telegram: /^https:\\/\\/t\\.me\\/[A-Za-z0-9_+/-]{3,80}$/, whatsapp: /^https:\\/\\/wa\\.me\\/\\d{8,15}$/ };
   export function contactChannels(links = CONTACT_LINKS) { return ['telegram', 'whatsapp'].map((key) => ({ key, label: key === 'telegram' ? 'Telegram' : 'WhatsApp', options: ['group', 'personal'].map((kind) => ({ kind, label: kind === 'group' ? 'Join our group' : 'Message us directly', url: links[key][kind] })).filter((o) => ALLOWED[key].test(o.url)) })).filter((c) => c.options.length); }`;
 
 async function open(page, hash, { links = false } = {}) {
   await page.setViewportSize({ width: 1280, height: 800 });
-  if (links) await page.route('**/shared/contact-links.js*', (r) => r.fulfill({ contentType: 'text/javascript', body: LINKS }));
+  await page.route('**/shared/contact-links.js*', (r) => r.fulfill({ contentType: 'text/javascript', body: links ? LINKS : NONE }));
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
   await page.route('**/api/chat', (r) => r.fulfill({ json: { messages: [], revision: 0 } }));

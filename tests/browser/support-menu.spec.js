@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 
+const NONE = `export const CONTACT_LINKS = {}; export function contactChannels() { return []; }`;
 const LINKS = `export const CONTACT_LINKS = { telegram: { group: 'https://t.me/+AbCdEfGh12', personal: 'https://t.me/twelve_help' }, whatsapp: { group: 'https://chat.whatsapp.com/AbCdEfGhIj1234', personal: '' } };
   const ALLOWED = { telegram: /^https:\\/\\/t\\.me\\/[A-Za-z0-9_+/-]{3,80}$/, whatsapp: /^https:\\/\\/(chat\\.whatsapp\\.com\\/[A-Za-z0-9]{10,40}|wa\\.me\\/\\d{8,15})$/ };
   export function contactChannels(links = CONTACT_LINKS) { return ['telegram', 'whatsapp'].map((key) => ({ key, label: key === 'telegram' ? 'Telegram' : 'WhatsApp', options: ['group', 'personal'].map((kind) => ({ kind, label: kind === 'group' ? 'Join our group' : 'Message us directly', url: links[key][kind] })).filter((o) => ALLOWED[key].test(o.url)) })).filter((c) => c.options.length); }`;
 
 async function home(page, withLinks) {
   await page.setViewportSize({ width: 1280, height: 800 });
-  if (withLinks) await page.route('**/shared/contact-links.js*', (r) => r.fulfill({ contentType: 'text/javascript', body: LINKS }));
+  await page.route('**/shared/contact-links.js*', (r) => r.fulfill({ contentType: 'text/javascript', body: withLinks ? LINKS : NONE }));
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
   await page.route('**/api/chat', (r) => r.fulfill({ json: { messages: [], revision: 0, unreadUser: false } }));
@@ -63,4 +64,22 @@ test('with no Telegram / WhatsApp links set, the button opens the live chat dire
   await page.locator('.support-launch').click();
   await expect(page.locator('.support-panel')).toBeVisible();
   await expect(page.locator('.support-menu')).toBeHidden();
+});
+
+test('with the links set in the project: Telegram (group and personal) and Live chat are offered, WhatsApp is not shown yet', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
+  await page.route('**/api/chat', (r) => r.fulfill({ json: { messages: [], revision: 0 } }));
+  await page.goto('/?debug#/hub');
+  await page.evaluate(async () => { const { chatWidget } = await import('/src/chat-widget.js'); document.body.append(chatWidget({ uid: 'support-user-123456' }, () => {})); });
+  await page.locator('.support-launch').click();
+  const menu = page.locator('.support-menu');
+  await expect(menu.locator('.support-menu-item b')).toHaveText(['Telegram', 'Live chat']);
+  await menu.getByRole('menuitem', { name: /Telegram/ }).click();
+  expect(await menu.locator('.support-menu-subs:not([hidden]) a').evaluateAll((els) => els.map((a) => a.href))).toEqual(['https://t.me/+IojB6qb0_Y8xMGVl', 'https://t.me/twelvelabs_official']);
+  // the help page offers the same
+  await page.evaluate(() => { location.hash = '#/help'; });
+  await expect(page.locator('.help-card.telegram').getByRole('link')).toHaveText(['Join our group', 'Message us directly']);
+  await expect(page.locator('.help-card.whatsapp')).toHaveCount(0);
 });

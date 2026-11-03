@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CONTACT_LINKS, contactChannels } from '../shared/contact-links.js';
 
 test('with no links set there is nothing to choose from (the button opens the live chat directly)', () => {
-  assert.deepEqual(contactChannels(CONTACT_LINKS), []);
+  assert.deepEqual(contactChannels({ telegram: { group: '', personal: '' }, whatsapp: { group: '', personal: '' } }), []);
   assert.deepEqual(contactChannels({}), []);
   assert.deepEqual(contactChannels(null), []);
 });
@@ -20,4 +20,10 @@ test('a channel with only one link has one option, and one with none is left out
 test('anything that is not a normal Telegram / WhatsApp link is refused', () => {
   const bad = ['http://t.me/abc123', 'https://evil.example/t.me/abc123', 'javascript:alert(1)', 'https://t.me/', 'https://t.me/a b', 'https://wa.me/abc', 'https://wa.me/12', 'https://chat.whatsapp.com/', 'https://t.me.evil.com/abc123'];
   for (const url of bad) assert.deepEqual(contactChannels({ telegram: { group: url, personal: url }, whatsapp: { group: url, personal: url } }), [], url);
+});
+
+test('the links that are set in the project are valid: Telegram group and personal, WhatsApp not added yet', () => {
+  const channels = contactChannels(CONTACT_LINKS);
+  assert.deepEqual(channels.map((c) => c.key), ['telegram']);
+  assert.deepEqual(channels[0].options.map((o) => [o.kind, o.url]), [['group', 'https://t.me/+IojB6qb0_Y8xMGVl'], ['personal', 'https://t.me/twelvelabs_official']]);
 });

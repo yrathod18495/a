@@ -6,7 +6,7 @@
 //   whatsapp.group     a group invite link, e.g. https://chat.whatsapp.com/AbCdEfGh123
 //   whatsapp.personal  your number with country code and no plus or spaces, e.g. https://wa.me/919876543210
 export const CONTACT_LINKS = Object.freeze({
-  telegram: Object.freeze({ group: '', personal: '' }),
+  telegram: Object.freeze({ group: 'https://t.me/+IojB6qb0_Y8xMGVl', personal: 'https://t.me/twelvelabs_official' }),
   whatsapp: Object.freeze({ group: '', personal: '' }),
 });
 
