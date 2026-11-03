@@ -102,14 +102,14 @@ export async function storeCharacter({ manifest, files, gifs = new Map(), gifsDo
   for (const [viewId, blob] of thumbs) jobs.push(add(`${viewId}:thumb`, blob, 'thumb.webp'));
   await Promise.all(jobs);                                       // hashes of all these files are worked out side by side
   // phase 1: the database files and the pictures go up now, side by side (the GIFs may still be in the making)
-  let done = 0; const total = small.length + r2.size + (withAnimations ? manifest.views.reduce((n, v) => n + v.animations.length, 0) : 0), tick = (what) => progress(`${what} ${++done} / ${total}…`, done, total);
+  let done = 0; const total = small.length + r2.size + manifest.views.reduce((n, v) => n + v.animations.length, 0), tick = (what) => progress(`${what} ${++done} / ${total}…`, done, total);
   const putSmall = pool(small, async (f) => { await call({ action: 'putFile', sha: f.sha, gz: await gzipBase64(f.blob) }); tick('Saving files'); });
   const putFirstPictures = r2.size ? uploadAssets(owner(), r2).then(() => { done += r2.size; progress(`Pictures uploaded (${r2.size})`, done, total); }) : Promise.resolve();
   const phase1 = Promise.all([putSmall, putFirstPictures]);
   phase1.catch(() => {});                                        // reported below, when it is waited for
   // phase 2: the GIFs, as soon as they exist
   const late = new Map();
-  if (withAnimations) {
+  {                                                              // every character has its own previews, also when it shares the animations of a category
     if (gifsDone) await gifsDone;
     const gifJobs = [];
     for (const v of manifest.views) for (const a of v.animations) gifJobs.push((async () => { const gif = await gifs.get(`${v.id}/${a.name}`); if (gif) await add(`${v.id}:gif:${a.name}`, gif, 'preview.gif', late); })());
@@ -119,10 +119,10 @@ export async function storeCharacter({ manifest, files, gifs = new Map(), gifsDo
   await Promise.all([phase1, phase2]);
   progress('Saving the character…', total, total);
   const record = { character: { id: manifest.character.id, name: manifest.character.name, thumb: refs.get('thumb') || null, views: {} }, category: { id: manifest.category.id, name: manifest.category.name } };
-  for (const v of manifest.views) record.character.views[v.id] = { label: v.label, ...(refs.get(`${v.id}:thumb`) ? { thumb: refs.get(`${v.id}:thumb`) } : {}), skeleton: refs.get(`${v.id}:skeleton`), textures: v.textures.map((_, i) => ({ json: refs.get(`${v.id}:tex${i}`), page: refs.get(`${v.id}:page${i}`) })) };
+  for (const v of manifest.views) record.character.views[v.id] = { label: v.label, ...(refs.get(`${v.id}:thumb`) ? { thumb: refs.get(`${v.id}:thumb`) } : {}), gifs: Object.fromEntries(v.animations.filter((a) => refs.get(`${v.id}:gif:${a.name}`)).map((a) => [a.name, refs.get(`${v.id}:gif:${a.name}`)])), skeleton: refs.get(`${v.id}:skeleton`), textures: v.textures.map((_, i) => ({ json: refs.get(`${v.id}:tex${i}`), page: refs.get(`${v.id}:page${i}`) })) };
   if (withAnimations) {
     record.category.views = {};
-    for (const v of manifest.views) record.category.views[v.id] = { animations: v.animations.map((a) => ({ name: a.name, label: a.label, group: a.group, layer: a.layer, length: a.length, file: refs.get(`${v.id}:anim:${a.name}`), gif: refs.get(`${v.id}:gif:${a.name}`) || null, gifName: a.gifName })) };
+    for (const v of manifest.views) record.category.views[v.id] = { animations: v.animations.map((a) => ({ name: a.name, label: a.label, group: a.group, layer: a.layer, length: a.length, file: refs.get(`${v.id}:anim:${a.name}`), gif: null, gifName: a.gifName })) };
   }
   return call({ action: 'commit', ...record });
 }

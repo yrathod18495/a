@@ -51,3 +51,14 @@ test('the Maya package made by scripts/character-zip.mjs passes the check', asyn
   assert.deepEqual(m.views.map((v) => v.id), ['f34', 'fr', 'sd', 'bk']);
   assert.equal(m.views.reduce((n, v) => n + v.animations.length, 0), 88);
 });
+
+test('preview GIFs belong to each character view (not shared through the category), and are removed with the character', () => {
+  const sha = (c) => c.repeat(64), ref = (c) => ({ r2: sha(c), size: 5000 });
+  const base = (gifs) => ({ character: { id: 'maya', name: 'Maya', views: { f34: { label: '3/4 Front', skeleton: { db: sha('a') }, textures: [{ json: { db: sha('b') }, page: ref('c') }], ...(gifs ? { gifs } : {}) } } }, category: { id: 'female', name: 'Female' } });
+  const { character } = cleanRecord(base({ walk: ref('d'), talk: ref('e') }));
+  assert.deepEqual(Object.keys(character.views.f34.gifs), ['walk', 'talk']); assert.equal(character.views.f34.gifs.walk.r2, sha('d'));
+  assert.ok(refsOf(character).some((f) => f.sha === sha('d') && f.where === 'r2') && refsOf(character).some((f) => f.sha === sha('e')));       // listed, so deleting the character removes them
+  assert.equal(cleanRecord(base(null)).character.views.f34.gifs, undefined);                                                            // older uploads have none here
+  assert.throws(() => cleanRecord(base({ walk: { r2: 'nothex', size: 1 } })), /preview of walk is not a valid file/);
+  assert.throws(() => cleanRecord(base({ '': ref('d') })), /preview name is not valid/);
+});

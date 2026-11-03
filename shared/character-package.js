@@ -59,7 +59,8 @@ export function checkManifest(m, files = null) {
 
 /* ---- the stored record ----
    A file reference is { db: <sha256> } (in the database) or { r2: <sha256>, size } (in R2); both carry the sha so the browser can cache it.
-   character: { id, name, category, views: { <view>: { label, skeleton: ref, textures: [{ json: ref, page: ref }] } }, thumb: ref|null, owner, createdAt }
+   character: { id, name, category, views: { <view>: { label, skeleton: ref, textures: [{ json: ref, page: ref }], thumb?: ref, gifs?: { <animation name>: ref } } }, thumb: ref|null, owner, createdAt }
+   (the GIF previews belong to each character view: two characters that share the animations still show their own look; older uploads have them in the category animations instead)
    category:  { id, name, views: { <view>: { animations: [{ name, label, group, layer, length, file: ref, gif: ref|null, gifName }] } }, owner, createdAt } */
 const isRef = (r) => !!r && typeof r === 'object' && ((isSha(r.db) && !('r2' in r)) || (isSha(r.r2) && Number.isSafeInteger(r.size) && r.size > 0 && !('db' in r)));
 export const refSha = (r) => r?.db || r?.r2 || null;
@@ -77,7 +78,10 @@ export function cleanRecord(input) {
   for (const [vid, v] of views) {
     if (!isId(vid)) bad('A view id is not valid.');
     if (!Array.isArray(v.textures) || !v.textures.length || v.textures.length > MAX_TEXTURES) bad(`View ${vid}: 1 to ${MAX_TEXTURES} textures are needed.`);
-    character.views[vid] = { label: String(v.label || VIEW_LABELS[vid] || vid).slice(0, 40), ...(v.thumb ? { thumb: ref(v.thumb, `View ${vid} thumbnail`) } : {}), skeleton: ref(v.skeleton, `View ${vid} skeleton`), textures: v.textures.map((t, i) => ({ json: ref(t.json, `View ${vid} texture ${i}`), page: ref(t.page, `View ${vid} picture ${i}`) })) };
+    const gifs = {};
+    for (const [name, r] of Object.entries(v.gifs || {})) { if (typeof name !== 'string' || !name || name.length > 80) bad(`View ${vid}: a preview name is not valid.`); gifs[name] = ref(r, `The preview of ${name}`); }
+    if (Object.keys(gifs).length > MAX_ANIMATIONS) bad(`View ${vid}: too many previews.`);
+    character.views[vid] = { label: String(v.label || VIEW_LABELS[vid] || vid).slice(0, 40), ...(v.thumb ? { thumb: ref(v.thumb, `View ${vid} thumbnail`) } : {}), ...(Object.keys(gifs).length ? { gifs } : {}), skeleton: ref(v.skeleton, `View ${vid} skeleton`), textures: v.textures.map((t, i) => ({ json: ref(t.json, `View ${vid} texture ${i}`), page: ref(t.page, `View ${vid} picture ${i}`) })) };
   }
   let category = null;
   if (g.views) {
@@ -99,6 +103,7 @@ export function refsOf(record) {
   const out = [], add = (r) => { if (r && refSha(r)) out.push({ sha: refSha(r), where: r.db ? 'db' : 'r2', size: r.size || 0 }); };
   for (const v of Object.values(record?.views || {})) {
     add(v.skeleton); add(v.thumb); for (const t of v.textures || []) { add(t.json); add(t.page); }
+    for (const g of Object.values(v.gifs || {})) add(g);
     for (const a of v.animations || []) { add(a.file); add(a.gif); }
   }
   add(record?.thumb);

@@ -59,7 +59,7 @@ export async function fetchLibraryCharacter(entry) {
   if (!entry?.template) throw new Error('This character template is no longer available.');
   if (entry.template.cloud) {
     const { character, view } = entry.template, { ske, tex } = await loadCloudView(character, view);
-    const rig = rigInfo(ske, { templateId: entry.id, toonChar: entry.charBase, cloudAnims: character.animations?.[view]?.animations || [], category: character.category });
+    const rig = rigInfo(ske, { templateId: entry.id, toonChar: entry.charBase, cloudAnims: (character.animations?.[view]?.animations || []).map((a) => ({ ...a, gif: character.views?.[view]?.gifs?.[a.name] || a.gif })), category: character.category });          // this character's own preview first, an older upload's category preview otherwise
     return { skins: null, id: `lib:${entry.id}`, name: entry.name, pose: entry.pose, patternId: entry.patternId, lib: true, thumbnail: entry.thumbnail, ske, tex, rig, anims: [] };
   }
   const a = entry.template, load = async () => {

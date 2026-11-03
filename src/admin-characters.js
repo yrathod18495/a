@@ -167,7 +167,7 @@ export async function charactersView({ back, home, toast }) {
       const gifs = new Map(), thumbs = new Map();
       let thumb = null;
       const q = GIF_QUALITY[st.gifQuality] || GIF_QUALITY[480], small = new Stage({ maxTex: 2048 }); small.setSize('1:1', q.size); small.fullView = false; let gifBytes = 0;
-      const total = st.withAnimations ? views().reduce((n, v) => n + v.animations.length, 0) : 0; let made = 0, uploading = '';
+      const total = views().reduce((n, v) => n + v.animations.length, 0); let made = 0, uploading = '';   // every character gets its own previews, also when it uses a category's saved animations
       const report = () => say(total ? `Making the animation previews ${made} / ${total}${uploading ? ` · ${uploading}` : ''}` : (uploading || 'Saving…'), total ? (made / total) * 0.8 : 0.5);
       // 1) a picture of every view (quick)
       for (const v of views()) {
@@ -186,7 +186,7 @@ export async function charactersView({ back, home, toast }) {
         const flight = [];
         for (const v of views()) {
           const def = await viewDef(pkg, v); await small.loadCharacter(def); small.setSize('1:1', q.size);
-          if (st.withAnimations) for (const a of v.animations) {
+          for (const a of v.animations) {
             made++; report();
             const frames = await renderGifFrames(small, def, a.name, await animOf(pkg, a), a.length, q);
             const job = encodeGifBlob(frames, q).then((blob) => { gifBytes += blob.size; return blob; });
@@ -232,7 +232,7 @@ export async function charactersView({ back, home, toast }) {
     return h('section', { class: 'admin-panel-card admin-characters-preview' },
       h('div', { class: 'admin-characters-head' }, h('div', {}, h('h2', {}, m.character.name), h('small', {}, `Category: ${m.category.name} · ${views().length} views · ${totalAnims} animations · ${mb(pkg.bytes)}`))),
       charExists ? h('p', { class: 'admin-characters-note' }, `A character with the id "${m.character.id}" already exists. Done will replace it (its old files are removed).`) : null,
-      catExists ? h('div', { class: 'admin-characters-choices' }, choice(false, `Use the saved "${m.category.name}" animations`, 'This character gets the same animations and previews as the others in this category. The animations in this ZIP are not uploaded.'), choice(true, 'Replace them with the animations in this ZIP', 'Every character of this category gets the new animations.')) : null,
+      catExists ? h('div', { class: 'admin-characters-choices' }, choice(false, `Use the saved "${m.category.name}" animations`, 'This character uses the same animation files as the others in this category (they are not uploaded again). It still gets its own preview GIFs, made from this character.'), choice(true, 'Replace them with the animations in this ZIP', 'Every character of this category gets the new animations.')) : null,
       h('div', { class: 'admin-characters-views', role: 'group', 'aria-label': 'View' }, ...views().map((v, i) => h('button', { class: `btn sm ${i === st.view ? 'pri' : ''}`, type: 'button', 'aria-pressed': String(i === st.view), disabled: st.busy, onclick: () => { st.view = i; st.index = 0; draw(); show(); } }, v.label || v.id))),
       h('div', { class: 'admin-characters-stage' }, stage.out),
       info,

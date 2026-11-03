@@ -68,7 +68,8 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   const rec = server.commits.at(-1);
   expect(Object.keys(rec.character.views)).toEqual(['f34', 'fr', 'sd', 'bk']);
   expect(Object.values(rec.category.views).reduce((n, v) => n + v.animations.length, 0)).toBe(88);
-  expect(Object.values(rec.category.views).every((v) => v.animations.every((a) => a.file?.db && a.gif?.r2))).toBe(true);   // animations in the database, every GIF in R2
+  expect(Object.values(rec.category.views).every((v) => v.animations.every((a) => a.file?.db && a.gif === null))).toBe(true);     // animations in the database, shared by the category
+  expect(Object.values(rec.character.views).every((v) => Object.keys(v.gifs).length === rec.category.views[Object.keys(rec.character.views).find((k) => rec.character.views[k] === v)].animations.length && Object.values(v.gifs).every((g) => g.r2))).toBe(true);   // every GIF is the character's own, in R2
   expect(Object.values(rec.character.views).every((v) => v.skeleton.db && v.textures.every((t) => t.json.db && t.page.r2))).toBe(true);
   expect(rec.character.thumb.r2).toBeTruthy();
   expect(Object.values(rec.character.views).every((v) => v.thumb?.r2)).toBe(true);                        // every view has its own picture
@@ -77,7 +78,7 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   // 4 skeletons + 4 atlas files + 88 animations went to the database; a file that is exactly the same in two views is stored once
   const dbFiles = new Set([...Object.values(rec.character.views).flatMap((v) => [v.skeleton.db, ...v.textures.map((t) => t.json.db)]), ...Object.values(rec.category.views).flatMap((v) => v.animations.map((a) => a.file.db))]);
   expect(server.putFiles).toBe(dbFiles.size); expect(dbFiles.size).toBeGreaterThan(80); expect(dbFiles.size).toBeLessThanOrEqual(96);
-  const gif = server.r2.get(rec.category.views.f34.animations[1].gif.r2);
+  const gif = server.r2.get(rec.character.views.f34.gifs[rec.category.views.f34.animations[1].name].r2);
   expect(gif.subarray(0, 6).toString()).toBe('GIF89a'); expect(gif.readUInt16LE(6)).toBe(128); expect(gif.length).toBeLessThan(150 * 1024);
   // the saved list
   await expect(page.locator('.admin-character-card')).toHaveCount(1);
