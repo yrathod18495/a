@@ -29,7 +29,7 @@ export function pointAt(pts, s) {
 }
 
 /**
- * Movement keyframes for a path: {pts, start, dur, face (turn to the walking direction), smooth (slow start / end instead of even speed), flipBase}.
+ * Movement keyframes for a path: {pts, start, dur, smooth (slow start / end instead of even speed), flipBase}.
  * `mul` keeps the character's current size. Keys use even easing between them, so the speed along the line stays steady.
  */
 export function pathKeys(path, mul = 1, idPrefix = 'p') {
@@ -37,14 +37,9 @@ export function pathKeys(path, mul = 1, idPrefix = 'p') {
   if (pts.length < 2 || !(path.dur > 0)) return [];
   const count = Math.min(60, Math.max(4, Math.ceil(path.dur * 6))), keys = [];
   const ease = (u) => (path.smooth ? u * u * (3 - 2 * u) : u);
-  let flip = !!path.flipBase;
+  const flip = !!path.flipBase;                       // a path never turns the character: it keeps the way it faces (the Mirror button changes that)
   for (let i = 0; i <= count; i++) {
     const u = i / count, p = pointAt(pts, ease(u));
-    if (path.face) {
-      // the facing follows where the path goes over a stretch (not point by point), and only changes for a clear left / right move, so the character does not keep turning on a wobbly line
-      const a = pointAt(pts, Math.max(0, ease(u) - 0.08)), b = pointAt(pts, Math.min(1, ease(u) + 0.08)), dx = b.x - a.x;
-      if (Math.abs(dx) > 0.02) flip = path.faceLeft ? dx > 0 : dx < 0;
-    }
     keys.push({ id: `${idPrefix}${i}`, pathKey: true, t: +(path.start + path.dur * u).toFixed(3), x: +p.x.toFixed(4), y: +p.y.toFixed(4), mul, flip, ease: 'linear' });
   }
   return keys;

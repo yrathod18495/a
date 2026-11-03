@@ -1910,7 +1910,7 @@ function startPathDraw(s) {
     const clean = thin(pts, 0.006), now = charNow(s.key);
     if (clean.length < 2 || pathLength(clean) < 0.03) { pts = null; line.setAttribute('points', ''); toast('The line is too short. Please draw a slightly longer line.'); return; }
     const old = S.paths[s.key];
-    S.paths[s.key] = { pts: clean, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), face: old?.face ?? true, smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
+    S.paths[s.key] = { pts: clean, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
     stopPathDraw(); applyPath(s.key); player.seek(Math.min(player.total, S.paths[s.key].start)); drawTabs();
   };
   const key = (e) => { if (e.key === 'Escape') { stopPathDraw(); drawTabs(); } };
@@ -1928,7 +1928,7 @@ function pathCard(s) {
       path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; S.pathEdit = false; applyPath(s.key); drawTabs(); } }, '🗑 Remove path') : null),
     path && S.pathEdit ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Drag the yellow dots to change the path. Double-click the line to add a point, double-click a point to remove it.') : null,
     path && !S.pathDraw ? [path.clipId ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'The path is on the same timeline row as its animation: move or stretch that animation clip and the path follows.') : num('Start (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), path.clipId ? null : num('Duration (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
-      tog('↔ Turn to face the direction of travel', 'face'), tog('🐢 Slow at start / end', 'smooth')] : null);
+      tog('🐢 Slow at start / end', 'smooth')] : null);
 }
 
 /* ---------- camera keyframes ---------- */

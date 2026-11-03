@@ -25,9 +25,9 @@ test('keys run from start to end, start and end on the line, even speed, size ke
   assert.deepEqual(pathKeys({ pts: [line[0]], start: 0, dur: 3 }), []);
 });
 
-test('the character turns to the walking direction when asked', () => {
+test('a path leaves the way the character faces unchanged', () => {
   const left = [{ x: 0.8, y: 0.3 }, { x: 0.2, y: 0.3 }];
-  assert.ok(pathKeys({ pts: left, start: 0, dur: 3, face: true }).every((k) => k.flip === true));
+  assert.ok(pathKeys({ pts: left, start: 0, dur: 3, face: true }).every((k) => k.flip === false));
   const right = [{ x: 0.2, y: 0.3 }, { x: 0.8, y: 0.3 }];
   assert.ok(pathKeys({ pts: right, start: 0, dur: 3, face: true }).every((k) => k.flip === false));
   assert.ok(pathKeys({ pts: left, start: 0, dur: 3, face: false }).every((k) => k.flip === false));
@@ -42,13 +42,10 @@ test('simplify keeps the ends and the shape with few points; insertAt finds the 
   assert.equal(hit.index, 2); assert.ok(Math.abs(hit.point.x - 0.5) < 1e-9 && Math.abs(hit.point.y - 0.4) < 1e-9);
 });
 
-test('facing: a wobbly line that goes to the right does not make the character turn back and forth', () => {
-  // goes right, with small left-right wiggles on the way
-  const pts = [{ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.2 }, { x: 0.29, y: 0.3 }, { x: 0.5, y: 0.3 }, { x: 0.49, y: 0.2 }, { x: 0.9, y: 0.2 }];
-  const keys = pathKeys({ pts, start: 0, dur: 6, face: true, flipBase: false }, 1, 'w');
-  const turns = keys.filter((k, i) => i && k.flip !== keys[i - 1].flip).length;
-  assert.ok(turns <= 1, `turned ${turns} times`);
-  assert.equal(keys.at(-1).flip, false);                                    // it ends facing the way it travelled (right)
-  const back = pathKeys({ pts: [{ x: 0.9, y: 0.2 }, { x: 0.1, y: 0.2 }], start: 0, dur: 4, face: true, flipBase: false }, 1, 'b');
-  assert.equal(back.at(-1).flip, true);                                      // a path to the left turns the character once
+test('facing: a path never turns the character (left, right or wobbly)', () => {
+  const wobble = [{ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.2 }, { x: 0.29, y: 0.3 }, { x: 0.5, y: 0.3 }, { x: 0.49, y: 0.2 }, { x: 0.9, y: 0.2 }];
+  for (const pts of [wobble, [...wobble].reverse()]) {
+    assert.ok(pathKeys({ pts, start: 0, dur: 6, face: true, flipBase: false }, 1, 'w').every((k) => k.flip === false));      // even an old path saved with "face" does not flip
+    assert.ok(pathKeys({ pts, start: 0, dur: 6, flipBase: true }, 1, 'w').every((k) => k.flip === true));                  // it keeps the way the character already faces
+  }
 });
