@@ -1,6 +1,7 @@
 import { h } from './dom.js';
 import { apiCall } from './session.js';
 import { contactChannels } from '../shared/contact-links.js';
+import { SUPPORT, supportStatus, statusText, hoursRows } from '../shared/support-info.js';
 
 const ICONS = {
   chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z',
@@ -32,7 +33,7 @@ export function chatWidget(user, onLogin = () => {}) {
   input.rows = 1; input.addEventListener('input', grow);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e); } });
   const panel = h('section', { class: 'support-panel', 'aria-label': 'Support chat', hidden: true },
-    h('header', { class: 'support-head' }, h('span', { class: 'support-mark' }, '12', h('i', { class: 'support-online', 'aria-hidden': 'true' })), h('div', { class: 'support-who' }, h('b', {}, 'Live support'), h('small', {}, 'Typically replies within a few hours')),
+    h('header', { class: 'support-head' }, h('span', { class: 'support-mark' }, '12', h('i', { class: 'support-online', 'aria-hidden': 'true' })), h('div', { class: 'support-who' }, h('b', {}, 'Live support'), h('small', {}, `Replies within ${SUPPORT.replyWindow}`)),
       expandBtn, h('button', { class: 'support-close', 'aria-label': 'Minimise chat', title: 'Minimise', onclick: close }, icon('min')), h('button', { class: 'support-close', 'aria-label': 'Close chat', title: 'Close', onclick: close }, icon('close'))),
     guest, list, chips, state, h('form', { class: 'support-form', hidden: !user, onsubmit: send }, input, h('button', { class: 'support-send', type: 'submit', 'aria-label': 'Send message' }, icon('send'))));
   const sendButton = panel.querySelector('.support-send');
@@ -57,7 +58,8 @@ export function chatWidget(user, onLogin = () => {}) {
       const item = row(channel.key, channel.label, 'Group or personal chat', (e) => { const row_ = e.currentTarget.closest('.support-menu-row'), opening = subs.hidden; menu.querySelectorAll('.support-menu-subs').forEach((x) => { x.hidden = true; }); menu.querySelectorAll('.support-menu-item[aria-expanded]').forEach((b) => b.setAttribute('aria-expanded', 'false')); subs.hidden = !opening; e.currentTarget.setAttribute('aria-expanded', String(opening)); row_.classList.toggle('open', opening); }, subs);
       return item;
     });
-    menu.replaceChildren(h('p', { class: 'support-menu-title' }, 'How would you like to reach us?'), ...rows, row('live', 'Live chat', 'Talk to our team here', chooseLive));
+    menu.replaceChildren(h('p', { class: 'support-menu-title' }, 'How would you like to reach us?'), ...rows, row('live', 'Live chat', 'Talk to our team here', chooseLive),
+      h('p', { class: 'support-menu-note' }, `Reply within ${SUPPORT.replyWindow} in office hours. `, h('a', { href: '#/help', onclick: () => closeMenu() }, 'See office hours')));
   };
   const placeMenu = () => {
     const rect = fab.getBoundingClientRect(), below = rect.top < 280;
@@ -135,7 +137,7 @@ export function chatWidget(user, onLogin = () => {}) {
     finally { loading = false; }
   }
   function render(messages) {
-    if (!messages.length) { list.replaceChildren(h('div', { class: 'support-empty' }, h('span', { class: 'support-empty-icon' }, icon('chat')), h('b', {}, 'How can we help?'), h('p', {}, 'Send us a message and the team will reply here.'))); return; }
+    if (!messages.length) { list.replaceChildren(h('div', { class: 'support-empty' }, h('span', { class: 'support-empty-icon' }, icon('chat')), h('b', {}, 'How can we help?'), h('p', {}, 'Send us a message and the team will reply here.'), h('p', { class: 'support-hours-note' }, `You will get a reply within ${SUPPORT.replyWindow} during office hours (${hoursRows().filter((r) => r.time !== 'Closed').map((r) => `${r.days}, ${r.time}`).join('; ')} ${SUPPORT.zoneLabel.split(' ')[0]}). ${statusText(supportStatus())}`))); return; }
     chips.hidden = !user || messages.length > 0;
     let lastDay = '';
     list.replaceChildren(...messages.flatMap(m => { const day = new Date(m.createdAt).toDateString(), sep = day !== lastDay ? [h('div', { class: 'support-day' }, h('span', {}, day === new Date().toDateString() ? 'Today' : new Date(m.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short' })))] : []; lastDay = day; return [...sep, bubble(m)]; }));
@@ -160,6 +162,9 @@ export function chatWidget(user, onLogin = () => {}) {
   function close() { open = false; panel.hidden = true; toggle.setAttribute('aria-expanded', 'false'); clearInterval(timer); }
   const onVisibility = () => { if (!document.hidden && open) load(); };
   document.addEventListener('visibilitychange', onVisibility);
-  root.dispose = () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility); };
+  // the Help and support page's "Start live chat" button
+  const onOpenRequest = () => { closeMenu(); if (!open) flip(); };
+  document.addEventListener('open-live-chat', onOpenRequest);
+  root.dispose = () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility); document.removeEventListener('open-live-chat', onOpenRequest); };
   return root;
 }

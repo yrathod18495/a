@@ -941,3 +941,28 @@ dialog.credit-history-window::backdrop{background:#0009;backdrop-filter:blur(2px
 .chw-empty{display:grid;justify-items:center;gap:6px;padding:22px 8px;text-align:center}.chw-empty p{margin:0;font-size:13px;color:var(--mute)}
 .chw-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--edge,#34363c)}
 .chw-foot .btn{text-decoration:none}
+
+/* Help and support page */
+.help-main{display:grid;gap:22px;max-width:860px;margin:0 auto;padding:26px 18px 60px}
+.help-hero h1{margin:0 0 6px;font-size:30px}
+.help-status{display:inline-flex;align-items:center;gap:8px;margin:10px 0 0;padding:7px 14px;border-radius:99px;font-size:13.5px;font-weight:600;border:1px solid var(--edge,#34363c);background:var(--card1,#1d1e22)}
+.help-status i{width:9px;height:9px;border-radius:50%;background:#8a8f99}
+.help-status.open i{background:#35c27d;box-shadow:0 0 0 4px #35c27d33}.help-status.closed i{background:#e8b93c}
+.help-reply{padding:16px 18px;border:1px solid color-mix(in srgb,var(--acc,#8b7bff) 40%,var(--edge,#34363c));border-radius:18px;background:color-mix(in srgb,var(--acc,#8b7bff) 9%,var(--card1,#1d1e22))}
+.help-reply b{font-size:16px}.help-reply p{margin:4px 0 0;color:var(--mute);font-size:14px}
+.help-main h2{margin:0 0 10px;font-size:18px}
+.help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.help-card{display:grid;gap:10px;align-content:start;padding:16px;border:1px solid var(--edge,#34363c);border-radius:18px;background:var(--card1,#1d1e22)}
+.help-badge{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:var(--acc,#8b7bff)}
+.help-badge svg{width:24px;height:24px;fill:#fff}.help-card.chat .help-badge svg{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.help-card.telegram .help-badge{background:#229ed9}.help-card.whatsapp .help-badge{background:#25d366}
+.help-card h3{margin:0;font-size:16px}.help-card p{margin:4px 0 0;font-size:13.5px;color:var(--mute)}
+.help-actions{display:flex;flex-wrap:wrap;gap:8px}.help-actions .btn{text-decoration:none}
+.help-admin-note{margin:10px 0 0;font-size:12.5px;color:var(--mute)}
+.help-hours table{width:100%;border-collapse:collapse;border:1px solid var(--edge,#34363c);border-radius:14px;overflow:hidden;background:var(--card1,#1d1e22)}
+.help-hours th,.help-hours td{padding:11px 14px;text-align:left;font-size:14px;border-bottom:1px solid var(--edge,#34363c)}.help-hours tr:last-child th,.help-hours tr:last-child td{border-bottom:0}
+.help-hours td{text-align:right;font-variant-numeric:tabular-nums}.help-zone{margin:8px 2px 0;font-size:12.5px;color:var(--mute)}
+.help-tips ul{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px}
+.help-coins{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px dashed var(--edge,#34363c);border-radius:16px}.help-coins p{margin:0;font-size:13.5px;color:var(--mute)}
+.support-menu-note{margin:6px 8px 2px;font-size:11.5px;color:var(--mute)}.support-menu-note a{color:var(--acc,#8b7bff)}
+.support-hours-note{margin:8px 0 0!important;font-size:12px;color:var(--mute)}

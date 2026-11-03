@@ -74,12 +74,12 @@ syncThemeColor();
 // installable app: the worker only makes the site installable, it never keeps copies
 if ('serviceWorker' in navigator && import.meta.env.PROD) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}), { once: true });
 
-/* The live chat button: signed-in creators see it on every page; visitors who are signed out and admins see it on the home page.
+/* The live chat button: signed-in creators see it on every page; visitors who are signed out and admins see it on the home page and the help page.
    It is decided again on every page change (not only at sign-in), so it is there when a visitor comes back to the home page from the login page. */
 let widgetFor = null;
 async function syncSupportWidget() {
   if (!ready || DEBUG) return;
-  const home = (location.hash || '#/') === '#/', show = user ? (role !== 'admin' || home) : home, who = user ? user.uid : 'guest';
+  const hash = location.hash || '#/', home = hash === '#/' || hash === '#/help', show = user ? (role !== 'admin' || home) : home, who = user ? user.uid : 'guest';
   const existing = document.querySelector('.support-widget');
   if (!show) { existing?.dispose?.(); existing?.remove(); widgetFor = null; return; }
   if (existing && widgetFor === who) return;
@@ -171,6 +171,10 @@ async function renderRoute() {
     return;
   }
   $app.hidden = true; $shell.hidden = false; window.scrollTo(0, 0);
+  if (hash === '#/help') {
+    const [{ helpView }, { CONTACT_LINKS }] = await Promise.all([import('./help-page.js'), import('../shared/contact-links.js')]);
+    $shell.replaceChildren(helpView({ home: () => go(user ? '#/hub' : '#/'), isAdmin: role === 'admin', links: CONTACT_LINKS, openChat: () => document.dispatchEvent(new CustomEvent('open-live-chat')) })); return;
+  }
   if (hash === '#/background-generator') {
     const m = await import('./bg-generator.js'); $app.hidden = true; $shell.hidden = false; $shell.replaceChildren(await m.view({ user, home: () => go('#/hub'), toast })); return;
   }
@@ -196,7 +200,7 @@ const RAIL_ICONS = {
   help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.1',
 };
 const railIcon = (name) => { const e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 24 24'); e.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', RAIL_ICONS[name]); e.append(path); return e; };
-const RAIL_PAGES = ['#/hub', '#/toons', '#/characters', '#/credits', '#/affiliate-dashboard'];
+const RAIL_PAGES = ['#/hub', '#/toons', '#/characters', '#/credits', '#/affiliate-dashboard', '#/help'];
 let rail = null, railOpen = false;
 function syncPhoneNav() {
   const parts = (location.hash || '#/').split('/'), hash = parts.slice(0, 2).join('/'), inProject = (hash === '#/toons' || hash === '#/characters') && parts[2];
@@ -217,7 +221,7 @@ function syncPhoneNav() {
       item('#/credits', 'coins', 'Coins'),
       item('#/affiliate-dashboard', 'earn', 'Earn with us'),
       ...(role === 'admin' ? [item('#/admin', 'admin', 'Admin panel')] : []),
-      h('div', { class: 'rail-foot' }, item(null, 'help', 'Help and support', () => document.querySelector('.support-launch')?.click()))));
+      h('div', { class: 'rail-foot' }, item('#/help', 'help', 'Help and support'))));
   rail?.replaceWith(next); if (!rail) document.body.append(next); rail = next;
   const bar = $shell.querySelector(':scope > .sh > header');
   if (bar && !bar.querySelector('.hdr-burger')) bar.prepend(h('button', { type: 'button', class: 'hdr-burger', 'aria-label': 'Open menu', onclick: () => setRail(!railOpen) }, railIcon('menu')));
