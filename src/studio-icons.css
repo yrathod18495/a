@@ -303,3 +303,13 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 .exp-pop-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--card2);font-size:12px;color:var(--mute)}
 .exp-pop-info b{display:block;margin-top:2px;font-size:14px;color:var(--text)}
 .exp-pop-go{width:100%;padding:13px;font-size:15px;margin-top:4px}
+
+/* phone: while a clip is selected, its Start / Length / Delete bar gets its own row (it used to push the buttons off the screen) */
+@media(max-width:860px){
+  #app .ws .tltools:has(.clipbar:not([hidden])){flex-wrap:wrap}
+  #app .ws .tltools .clipbar{flex:1 0 100%;order:4;margin:0;max-width:100%;overflow-x:auto;border-left:0;border-top:1px solid var(--line)}
+}
+@media(max-width:860px){
+  #app .ws .tltools .edittools{gap:3px}
+  #app .ws .tltools .edit-btn{min-width:0;flex:1 1 0;padding:3px 2px}
+}
