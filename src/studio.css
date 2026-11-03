@@ -60,16 +60,18 @@ body:has(#app:not([hidden])){overflow:hidden}
 .animation-count{font-size:10px;color:var(--mute)}
 .animation-list{flex:1;min-height:80px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .animation-window{position:relative}
-.animation-row{position:absolute;left:0;right:0;display:flex;align-items:center;gap:4px;height:60px;border:1px solid var(--line);border-radius:9px;background:var(--card2);overflow:hidden}
-.animation-row.on{border-color:var(--acc);box-shadow:inset 3px 0 var(--acc)}
-.animation-apply{display:flex;align-items:center;gap:9px;flex:1;min-width:0;height:100%;padding:8px;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer}
+/* animation cards: a big picture, the length on top, the name on a bar below (two columns; the rows are placed by src/main.js) */
+.animation-row{position:absolute;display:block;border:1px solid var(--line);border-radius:12px;background:var(--card2);overflow:hidden}
+.animation-row.on{border-color:var(--acc);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 45%,transparent)}
+.animation-apply{position:relative;display:block;width:100%;height:100%;padding:0;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer}
 .animation-apply:disabled{opacity:.5;cursor:wait}
-.animation-thumb{display:grid;place-items:center;width:46px;height:46px;flex:none;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--acc);font-size:13px;overflow:hidden}
-.animation-thumb img{width:100%;height:100%;object-fit:cover}
-.animation-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
-.animation-copy b{font-size:12px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
-.animation-copy small{color:var(--mute);font-size:10px}
-.animation-check{flex:none;color:var(--acc);font-size:16px}
+.animation-thumb{position:absolute;inset:0 0 38px 0;display:grid;place-items:center;background:linear-gradient(180deg,#26282d,#1b1c20);color:var(--acc);font-size:30px;overflow:hidden}
+.animation-thumb img{width:100%;height:100%;object-fit:contain;object-position:center bottom}
+.animation-len{position:absolute;top:7px;right:8px;z-index:1;padding:2px 7px;border-radius:99px;background:#0009;color:#fff;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+.animation-copy{position:absolute;left:0;right:0;bottom:0;height:38px;display:flex;align-items:center;gap:8px;padding:0 10px;background:#101114e6}
+.animation-copy b{flex:1;min-width:0;font-size:13px;color:#fff;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.animation-check{flex:none;color:var(--acc);font-size:16px;font-weight:700}
+.animation-preview{position:absolute;top:6px;left:6px;z-index:2}
 .sheet:has(.ab){height:min(620px,85dvh);display:flex;flex-direction:column}
 .sheet:has(.ab)>div:not(.row){display:flex;flex-direction:column;flex:1;min-height:0}
 #app .ws .hdr-tools{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
@@ -287,7 +289,7 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .tear-eye-handle[hidden],#app .tear-handles[hidden]{display:none}
 
 .tclip.bg{background:#1d1e22;border:2px solid #3a3c43;color:#c4bcff;font-size:11px;cursor:pointer}
-.animation-thumb canvas{width:100%;height:100%;display:block}
+.animation-thumb canvas{width:100%;height:100%;display:block;object-fit:contain}
 /* props & effects library */
 #app .studio-shared-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
 #app .lib-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;text-align:center}

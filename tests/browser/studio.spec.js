@@ -54,7 +54,7 @@ test('animation rows are virtualized; selection, playback, editor zoom and reset
   expect(await page.locator('.animation-row').count()).toBeLessThan(largest.n);
   const list = page.getByLabel('Animation results'); const filterY = (await category.boundingBox()).y;
   await list.evaluate(e => { e.scrollTop = e.scrollHeight; });
-  await expect.poll(() => page.locator('.animation-row').last().evaluate(e => parseFloat(e.style.top))).toBe((largest.n - 1) * 64);
+  await expect.poll(() => page.locator('.animation-row').last().evaluate(e => parseFloat(e.style.top))).toBe(await page.locator('.animation-window').evaluate((w, n) => Math.floor((n - 1) / Number(w.dataset.cols)) * Number(w.dataset.row), largest.n));
   expect((await category.boundingBox()).y).toBe(filterY);
   await page.getByLabel('Search animations').fill('walk');
   await page.locator('.animation-apply').first().click();

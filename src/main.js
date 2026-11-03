@@ -330,29 +330,37 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     const current = cats.find(c => c.key === cat);
     const list = (q.trim() ? cats : [current]).flatMap(c => c.animations.map(a => ({ ...a, cat: c }))).filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase()));
     const viewport = h('div', { class: 'animation-list', tabindex: '0', 'aria-label': 'Animation results' });
-    const windowEl = h('div', { class: 'animation-window', style: `height:${list.length * 64}px` });
+    // a grid of big cards (preview picture, length on top, name below): two columns, three when the panel is wide; only the visible rows are drawn
+    const GAP = 8, CARD = 176, ROW = CARD + GAP;
+    const colsNow = () => ((viewport.clientWidth || 360) >= 560 ? 3 : 2);
+    let cols = colsNow();
+    const windowEl = h('div', { class: 'animation-window' });
+    const sizeWindow = () => { windowEl.style.height = `${Math.ceil(list.length / cols) * ROW}px`; windowEl.dataset.cols = String(cols); windowEl.dataset.row = String(ROW); };
+    sizeWindow();
     viewport.append(windowEl);
     let start = -1, end = -1;
     const paint = () => {
-      const nextStart = Math.max(0, Math.floor(viewport.scrollTop / 64) - 4);
-      const nextEnd = Math.min(list.length, nextStart + Math.ceil((viewport.clientHeight || 640) / 64) + 9);
+      const c = colsNow(); if (c !== cols) { cols = c; start = end = -1; sizeWindow(); }
+      const firstRow = Math.max(0, Math.floor(viewport.scrollTop / ROW) - 1), rows = Math.ceil((viewport.clientHeight || 640) / ROW) + 3;
+      const nextStart = firstRow * cols, nextEnd = Math.min(list.length, nextStart + rows * cols);
       if (nextStart === start && nextEnd === end) return;
       start = nextStart; end = nextEnd;
       windowEl.replaceChildren(...list.slice(start, end).map((a, offset) => {
-        const chosen = sameRef(selectedRef(), a.ref);
+        const chosen = sameRef(selectedRef(), a.ref), index = start + offset, col = index % cols, hasGif = !!a.poster;
         const apply = h('button', { class: 'animation-apply', 'aria-pressed': String(!!chosen), title: `Apply ${a.name}`, onclick: async () => {
           apply.disabled = true;
           try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
           catch (error) { toast(`Could not apply the animation: ${error.message}`); apply.disabled = false; }
-        } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, a.poster ? posterImg(a.poster) : '▶'),
-        h('span', { class: 'animation-copy' }, h('b', {}, a.name), h('small', {}, `${a.cat.layer || a.cat.name}${a.length ? ` · ${Number(a.length).toFixed(1)} s` : ''}`)), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+'));
-        const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${(start + offset) * 64}px` }, apply);
-        if (!a.cat.overlay && a.ref.source !== 'mode') {
+        } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, hasGif ? posterImg(a.poster) : '▶'),
+        a.length ? h('span', { class: 'animation-len' }, `${Number(a.length).toFixed(2)} s`) : null,
+        h('span', { class: 'animation-copy', title: a.cat.layer || a.cat.name }, h('b', {}, a.name), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+')));
+        const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${Math.floor(index / cols) * ROW}px;left:calc(${col} * (100% + ${GAP}px) / ${cols});width:calc((100% - ${(cols - 1) * GAP}px) / ${cols});height:${CARD}px` }, apply);
+        if (!a.cat.overlay && a.ref.source !== 'mode' && !hasGif) {          // a card that has its own looping picture keeps it; the others play live when the pointer rests on them
           const thumb = () => row.querySelector('.animation-thumb');
           row.addEventListener('pointerenter', () => thumbPlay.start(thumb(), def, a)); row.addEventListener('pointerleave', thumbPlay.stop);
           apply.addEventListener('focus', () => thumbPlay.start(thumb(), def, a)); apply.addEventListener('blur', thumbPlay.stop);
         }
-        if (a.preview) row.append(h('button', { class: 'ib', title: `Preview ${a.name}`, onclick: () => {
+        if (a.preview) row.append(h('button', { class: 'ib animation-preview', title: `Preview ${a.name}`, onclick: () => {
           activePreview?.pause(); const video = h('video', { src: assetUrl(a.preview), controls: true, muted: true, playsinline: true, preload: 'none', style: 'max-width:100%' });
           activePreview = video; modal(a.name, video, () => video.pause()); video.play().catch(() => {});
         } }, '▷'));
