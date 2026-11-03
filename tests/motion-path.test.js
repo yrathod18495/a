@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pathLength, thin, pointAt, pathKeys, simplify, insertAt, anchorPath } from '../shared/motion-path.js';
+import { pathLength, thin, pointAt, pathKeys, simplify, insertAt, anchorPath, depthScale, DEPTH_DEFAULT } from '../shared/motion-path.js';
 
 const line = [{ x: 0.1, y: 0.2 }, { x: 0.5, y: 0.2 }, { x: 0.5, y: 0.6 }];
 
@@ -59,4 +59,15 @@ test('a path starts where the character stands (even half below the frame) and k
   const keys = pathKeys({ pts: p, start: 0, dur: 3, smooth: false, flipBase: false }, 1, 'a');
   assert.ok(Math.abs(keys[0].x - 0.4) < 1e-3 && Math.abs(keys[0].y + 0.1) < 1e-3);
   assert.deepEqual(anchorPath(drawn, null), drawn);                          // unknown position: as drawn
+});
+
+test('perspective: walking towards the camera (down the picture) makes the character bigger, walking away smaller', () => {
+  const toward = pathKeys({ pts: [{ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.2 }], start: 0, dur: 3, depth: DEPTH_DEFAULT }, 1, 't'), away = pathKeys({ pts: [{ x: 0.5, y: 0.2 }, { x: 0.5, y: 0.5 }], start: 0, dur: 3, depth: DEPTH_DEFAULT }, 1, 'a');
+  assert.equal(toward[0].mul, 1); assert.ok(toward.at(-1).mul > 1.4 && toward.at(-1).mul < 1.8);          // starts at its own size, ends bigger
+  assert.ok(away.at(-1).mul < 0.7 && away.at(-1).mul > 0.5);                                              // ends smaller
+  assert.ok(toward.every((k, i) => !i || k.mul >= toward[i - 1].mul));                                    // grows steadily
+  const flat = pathKeys({ pts: [{ x: 0.1, y: 0.3 }, { x: 0.9, y: 0.3 }], start: 0, dur: 3, depth: DEPTH_DEFAULT }, 1, 'f');
+  assert.ok(flat.every((k) => k.mul === 1));                                                              // a level walk keeps the size
+  assert.ok(pathKeys({ pts: [{ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.2 }], start: 0, dur: 3 }, 1, 'o').every((k) => k.mul === 1));   // off by default (older paths)
+  assert.equal(depthScale({ depth: 1.6, pts: [{ x: 0, y: 0.9 }] }, { x: 0, y: -2 }), 3);                  // never more than 3x
 });

@@ -32,6 +32,12 @@ export function pointAt(pts, s) {
  * Movement keyframes for a path: {pts, start, dur, smooth (slow start / end instead of even speed), flipBase}.
  * `mul` keeps the character's current size. Keys use even easing between them, so the speed along the line stays steady.
  */
+/** perspective: walking down the picture (towards the camera) makes the character bigger, walking up (away) makes it smaller. `path.depth` is the strength (0 / missing = off). */
+export const DEPTH_DEFAULT = 1.6;
+export const depthScale = (path, p) => {
+  const k = path.depth || 0, y0 = path.pts?.[0]?.y;
+  return k && y0 != null ? Math.min(3, Math.max(0.3, Math.exp(k * (y0 - p.y)))) : 1;           // y counts from the bottom: a lower y is nearer to the camera
+};
 export function pathKeys(path, mul = 1, idPrefix = 'p') {
   const pts = path.pts || [];
   if (pts.length < 2 || !(path.dur > 0)) return [];
@@ -40,7 +46,7 @@ export function pathKeys(path, mul = 1, idPrefix = 'p') {
   const flip = !!path.flipBase;                       // a path never turns the character: it keeps the way it faces (the Mirror button changes that)
   for (let i = 0; i <= count; i++) {
     const u = i / count, p = pointAt(pts, ease(u));
-    keys.push({ id: `${idPrefix}${i}`, pathKey: true, t: +(path.start + path.dur * u).toFixed(3), x: +p.x.toFixed(4), y: +p.y.toFixed(4), mul, flip, ease: 'linear' });
+    keys.push({ id: `${idPrefix}${i}`, pathKey: true, t: +(path.start + path.dur * u).toFixed(3), x: +p.x.toFixed(4), y: +p.y.toFixed(4), mul: +(mul * depthScale(path, p)).toFixed(4), flip, ease: 'linear' });
   }
   return keys;
 }

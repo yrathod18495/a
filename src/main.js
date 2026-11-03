@@ -34,7 +34,7 @@ import { authorizeExport, finishExport, ExportLimitError, currentPlan, refreshPl
 import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
-import { thin, pathLength, pathKeys, simplify, insertAt, anchorPath } from '../shared/motion-path.js';
+import { thin, pathLength, pathKeys, simplify, insertAt, anchorPath, DEPTH_DEFAULT } from '../shared/motion-path.js';
 import { resizeClip, contentLength, snap as snapTo, snapDelta, MIN_CLIP } from '../shared/timeline-edit.js';
 import { presetKeys, withPreset, PRESETS as CAM_PRESETS } from '../shared/camera-presets.js';
 import { saveLabel } from '../shared/save-time.js';
@@ -1513,6 +1513,7 @@ function drawClipBar() {
     
     arrows('Move', () => m.start, (v) => { m.start = Math.max(0, +v.toFixed(2)); }, () => setTimeout(commitClips, 0)), arrows('Length', () => m.dur, (v) => { m.dur = Math.max(0.2, +v.toFixed(2)); }, () => setTimeout(commitClips, 0)),
     btn('⇄ Replace', () => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); }), 'Pick another animation for this clip'),
+    m.kind === 'body' ? h('button', { type: 'button', class: 'btn sm walk-to', title: 'Choose where this walk ends: tap the place on the stage', onclick: () => startWalkTo(s, m) }, icon('move'), h('span', {}, 'Walk to')) : null,
     btn('🗑 Delete', deleteSelected, 'Remove this animation: the character goes back to idle'),
     btn('✕', () => { S.mclip = null; drawTimeline(); }, 'Close'));
 }
@@ -1916,11 +1917,41 @@ function startPathDraw(s) {
     const clean = anchorPath(drawn, now);
     if (clean.length < 2 || pathLength(clean) < 0.03) { pts = null; line.setAttribute('points', ''); toast('The line is too short. Please draw a slightly longer line.'); return; }
     const old = S.paths[s.key];
-    S.paths[s.key] = { pts: clean, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
+    S.paths[s.key] = { pts: clean, depth: old?.depth ?? DEPTH_DEFAULT, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
     stopPathDraw(); applyPath(s.key); player.seek(Math.min(player.total, S.paths[s.key].start)); drawTabs();
   };
   const key = (e) => { if (e.key === 'Escape') { stopPathDraw(); drawTabs(); } };
   layer.addEventListener('pointerdown', down); layer.addEventListener('pointermove', move); layer.addEventListener('pointerup', up); window.addEventListener('keydown', key);
+  S.pathDraw = { key: s.key, cleanup: () => { layer.remove(); window.removeEventListener('keydown', key); } };
+  drawTabs();
+}
+/** "Walk to": the simple way to say where a walk goes. Press on the stage where the character should end up (or drag there): it walks in a straight line from where it stands now, for as long as the clip lasts. */
+function startWalkTo(s, clip) {
+  if (S.exporting || !wrapEl) return;
+  const now = charNow(s.key);
+  if (!now) { toast('Please select the character first.'); return; }
+  stopPathDraw(); removePathView(); S.pathEdit = false; player.pause();
+  const layer = h('div', { class: 'pathdraw', title: 'Tap where the character should walk to' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<g class="ghosts"></g><polyline points=""/>';
+  const ghostBox = h('div', { class: 'pathghosts', 'aria-hidden': 'true' });
+  layer.append(ghostBox, svg, h('span', { class: 'pathhint' }, `📍 Tap where ${s.name} should walk to · Esc = cancel`));
+  wrapEl.append(layer);
+  const line = svg.querySelector('polyline:not(.trail)'), ghosts = svg.querySelector('.ghosts');
+  const at = (e) => { const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); return { x: Math.min(1.2, Math.max(-0.2, p.x)), y: Math.min(1.2, Math.max(-0.2, p.y)) }; };
+  const show = (end) => { const pts = [{ x: now.x, y: now.y }, end]; line.setAttribute('points', penLine(pts)); ghosts.innerHTML = pathTrail(pts); ghostBox.replaceChildren(...pathGhostImgs(pts, s.key)); };
+  let down = false;
+  const onDown = (e) => { e.preventDefault(); e.stopPropagation(); layer.setPointerCapture(e.pointerId); down = true; show(at(e)); };
+  const onMove = (e) => { if (down) show(at(e)); };
+  const onUp = (e) => {
+    if (!down) return; down = false;
+    const end = at(e);
+    if (Math.hypot(end.x - now.x, end.y - now.y) < 0.03) { line.setAttribute('points', ''); ghosts.innerHTML = ''; ghostBox.replaceChildren(); toast('Please tap a little further away from the character.'); return; }
+    const old = S.paths[s.key];
+    S.paths[s.key] = { pts: [{ x: now.x, y: now.y }, end], depth: old?.depth ?? DEPTH_DEFAULT, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), smooth: old?.smooth ?? false, flipBase: !!now.flip, mul: now.mul };
+    stopPathDraw(); applyPath(s.key); player.seek(Math.min(player.total, S.paths[s.key].start)); drawTabs();
+  };
+  const key = (e) => { if (e.key === 'Escape') { stopPathDraw(); drawTabs(); } };
+  layer.addEventListener('pointerdown', onDown); layer.addEventListener('pointermove', onMove); layer.addEventListener('pointerup', onUp); window.addEventListener('keydown', key);
   S.pathDraw = { key: s.key, cleanup: () => { layer.remove(); window.removeEventListener('keydown', key); } };
   drawTabs();
 }
@@ -1934,6 +1965,7 @@ function pathCard(s) {
       path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; S.pathEdit = false; applyPath(s.key); drawTabs(); } }, '🗑 Remove path') : null),
     path && S.pathEdit ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Drag the yellow dots to change the path. Double-click the line to add a point, double-click a point to remove it.') : null,
     path && !S.pathDraw ? [path.clipId ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'The character moves along the line for as long as its animation clip lasts (the animation keeps playing, e.g. walk). Stretch the clip on the timeline to make the walk longer; the path follows.') : num('Start (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), path.clipId ? null : num('Duration (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
+      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: (path.depth || 0) > 0, onchange: (e) => { path.depth = e.target.checked ? DEPTH_DEFAULT : 0; applyPath(s.key); } }), 'Bigger when it comes closer, smaller when it goes far'),
       tog('🐢 Slow at start / end', 'smooth')] : null);
 }
 
@@ -3587,7 +3619,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, drawCharBar, hideSelBar, updatePathView, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startWalkTo, drawCharBar, hideSelBar, updatePathView, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

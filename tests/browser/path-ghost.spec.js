@@ -105,3 +105,34 @@ test('an older path (made before paths followed their clip) takes the animation 
   });
   expect(r.clipId).toBe('walk1'); expect(r.dur).toBe(6); expect(r.last).toBeCloseTo(6.5, 2);          // the movement ends exactly when the walk ends
 });
+
+test('Walk to: tap where the walk ends; the path is a straight line from the character, tied to the clip, with perspective', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 860 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('WalkTo');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
+  if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();
+  await page.evaluate(() => {
+    const { S, stage, startWalkTo } = window.__toon;
+    S.characters.push({ id: 'fake', name: 'Fake', rig: {} });
+    const sp = { key: 'fake1', name: 'Fake', color: '#c06', charId: 'fake' }; S.speakers.push(sp); S.order.push('fake1');
+    const W = stage.W, H = stage.H;
+    stage.layers.push({ key: 'fake1', box: { x0: 0, x1: 10, y0: 0, y1: 10 }, visible: true, anim: new Set(), anchor: { x: W * 0.2, y: H * 0.6 }, mul: 1 });   // feet at 20% from the left, 40% from the bottom
+    S.manual.fake1 = [{ id: 'walk1', kind: 'body', ref: { name: 'walk' }, start: 1, dur: 4, off: 0 }];
+    startWalkTo(sp, S.manual.fake1[0]);
+  });
+  const box = await page.locator('.pathdraw').boundingBox();
+  await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.9);               // lower right: further right and nearer the camera
+  const r = await page.evaluate(() => ({ path: window.__toon.S.paths.fake1, keys: window.__toon.S.charKeys.fake1 }));
+  expect(r.path.pts.length).toBe(2); expect(r.path.clipId).toBe('walk1'); expect(r.path.start).toBe(1); expect(r.path.dur).toBe(4);
+  expect(r.path.pts[0].x).toBeCloseTo(0.2, 2); expect(r.path.pts[0].y).toBeCloseTo(0.4, 2);       // it starts where the character stands
+  expect(r.path.pts[1].x).toBeGreaterThan(0.7); expect(r.path.pts[1].y).toBeLessThan(0.2);          // and ends where it was tapped
+  expect(r.keys.at(-1).mul).toBeGreaterThan(1.3);                                                  // nearer the camera: bigger at the end
+  expect(r.keys[0].mul).toBe(1);
+  expect(r.keys.at(-1).t).toBeCloseTo(5, 2);
+  await expect(page.locator('.pathdraw')).toHaveCount(0);
+});
