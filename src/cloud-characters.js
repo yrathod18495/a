@@ -75,9 +75,9 @@ async function gzipBase64(blob) {
 }
 /**
  * Stores a checked package and saves the character. `files`: Map path -> Blob (from the ZIP); `gifs`: Map `${view}/${animation}` -> Blob;
- * `thumb`: Blob; `withAnimations`: false = use the existing category's animations. `progress(text, done, total)` is called as it goes.
+ * `thumb`: Blob (the character's picture); `thumbs`: Map view id -> Blob (one picture per view); `withAnimations`: false = use the existing category's animations. `progress(text, done, total)` is called as it goes.
  */
-export async function storeCharacter({ manifest, files, gifs = new Map(), thumb = null, withAnimations = true, progress = () => {} }) {
+export async function storeCharacter({ manifest, files, gifs = new Map(), thumb = null, thumbs = new Map(), withAnimations = true, progress = () => {} }) {
   const refs = new Map(), r2 = new Map(), small = [];
   const add = async (key, blob, path) => {
     const sha = await hashBlob(blob);
@@ -98,12 +98,13 @@ export async function storeCharacter({ manifest, files, gifs = new Map(), thumb 
     }
   }
   if (thumb) await add('thumb', thumb, 'thumb.webp');
+  for (const [viewId, blob] of thumbs) await add(`${viewId}:thumb`, blob, 'thumb.webp');
   const total = small.length + r2.size; let done = 0;
   for (const f of small) { progress(`Saving files ${++done} / ${total}…`, done, total); await call({ action: 'putFile', sha: f.sha, gz: await gzipBase64(f.blob) }); }
   if (r2.size) { progress(`Uploading pictures (${r2.size})…`, done, total); await uploadAssets(owner(), r2); done += r2.size; }
   progress('Saving the character…', total, total);
   const record = { character: { id: manifest.character.id, name: manifest.character.name, thumb: refs.get('thumb') || null, views: {} }, category: { id: manifest.category.id, name: manifest.category.name } };
-  for (const v of manifest.views) record.character.views[v.id] = { label: v.label, skeleton: refs.get(`${v.id}:skeleton`), textures: v.textures.map((_, i) => ({ json: refs.get(`${v.id}:tex${i}`), page: refs.get(`${v.id}:page${i}`) })) };
+  for (const v of manifest.views) record.character.views[v.id] = { label: v.label, ...(refs.get(`${v.id}:thumb`) ? { thumb: refs.get(`${v.id}:thumb`) } : {}), skeleton: refs.get(`${v.id}:skeleton`), textures: v.textures.map((_, i) => ({ json: refs.get(`${v.id}:tex${i}`), page: refs.get(`${v.id}:page${i}`) })) };
   if (withAnimations) {
     record.category.views = {};
     for (const v of manifest.views) record.category.views[v.id] = { animations: v.animations.map((a) => ({ name: a.name, label: a.label, group: a.group, layer: a.layer, length: a.length, file: refs.get(`${v.id}:anim:${a.name}`), gif: refs.get(`${v.id}:gif:${a.name}`) || null, gifName: a.gifName })) };

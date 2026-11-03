@@ -70,7 +70,9 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   expect(Object.values(rec.category.views).every((v) => v.animations.every((a) => a.file?.db && a.gif?.r2))).toBe(true);   // animations in the database, every GIF in R2
   expect(Object.values(rec.character.views).every((v) => v.skeleton.db && v.textures.every((t) => t.json.db && t.page.r2))).toBe(true);
   expect(rec.character.thumb.r2).toBeTruthy();
-  expect(server.puts).toBe(4 + 88 + 1);                       // 4 texture pages + 88 GIFs + the thumbnail went to R2
+  expect(Object.values(rec.character.views).every((v) => v.thumb?.r2)).toBe(true);                        // every view has its own picture
+  expect(new Set(Object.values(rec.character.views).map((v) => v.thumb.r2)).size).toBe(4);               // and they are four different pictures
+  expect(server.puts).toBe(4 + 88 + 4);                       // 4 texture pages + 88 GIFs + 4 view pictures (the character's own picture is the 3/4 one) went to R2
   // 4 skeletons + 4 atlas files + 88 animations went to the database; a file that is exactly the same in two views is stored once
   const dbFiles = new Set([...Object.values(rec.character.views).flatMap((v) => [v.skeleton.db, ...v.textures.map((t) => t.json.db)]), ...Object.values(rec.category.views).flatMap((v) => v.animations.map((a) => a.file.db))]);
   expect(server.putFiles).toBe(dbFiles.size); expect(dbFiles.size).toBeGreaterThan(80); expect(dbFiles.size).toBeLessThanOrEqual(96);
@@ -79,7 +81,7 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   // the saved list
   await expect(page.locator('.admin-character-card')).toHaveCount(1);
   await expect(page.locator('.admin-character-card')).toContainText('3/4 Front, Front, Side, Back · 88 animations');
-  await expect.poll(() => page.locator('.admin-character-thumb img').evaluate((i) => i.naturalWidth)).toBe(256);
+  await expect.poll(() => page.locator('.admin-character-thumb img').evaluate((i) => [i.naturalWidth, i.naturalHeight])).toEqual([200, 320]);
   // delete
   page.once('dialog', (d) => d.accept());
   await page.locator('.admin-character-card').getByRole('button', { name: 'Delete' }).click();
@@ -126,6 +128,12 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click();
   await expect(page.locator('.cp-poses .pose')).toHaveCount(4);
   await expect(page.locator('.cp-poses .pose small')).toHaveText(['3/4 Front', 'Front', 'Side', 'Back']);
+  // each pose card has its own picture, drawn as a portrait with the character filling it
+  const pics = await page.locator('.cp-poses .pose img').evaluateAll((imgs) => imgs.map((i) => [i.src, i.naturalWidth, i.naturalHeight]));
+  expect(new Set(pics.map((p) => p[0])).size).toBe(4); expect(pics.every((p) => p[1] === 200 && p[2] === 320)).toBe(true);
+  const pixels = await Promise.all((await page.locator('.cp-poses .pose img').all()).map((img) => img.evaluate(async (el) => { const c = document.createElement('canvas'); c.width = 40; c.height = 64; const g = c.getContext('2d'); g.drawImage(el, 0, 0, 40, 64); const d = g.getImageData(0, 0, 40, 64).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1000003; return h; })));
+  expect(new Set(pixels).size).toBe(4);                                                                   // different views really look different
+  await expect(page.locator('.cp-card:not(.pose) .cp-img img')).toHaveCount(1);
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
   // the animation list: Maya's categories, each animation with its GIF

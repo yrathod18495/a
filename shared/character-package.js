@@ -77,7 +77,7 @@ export function cleanRecord(input) {
   for (const [vid, v] of views) {
     if (!isId(vid)) bad('A view id is not valid.');
     if (!Array.isArray(v.textures) || !v.textures.length || v.textures.length > MAX_TEXTURES) bad(`View ${vid}: 1 to ${MAX_TEXTURES} textures are needed.`);
-    character.views[vid] = { label: String(v.label || VIEW_LABELS[vid] || vid).slice(0, 40), skeleton: ref(v.skeleton, `View ${vid} skeleton`), textures: v.textures.map((t, i) => ({ json: ref(t.json, `View ${vid} texture ${i}`), page: ref(t.page, `View ${vid} picture ${i}`) })) };
+    character.views[vid] = { label: String(v.label || VIEW_LABELS[vid] || vid).slice(0, 40), ...(v.thumb ? { thumb: ref(v.thumb, `View ${vid} thumbnail`) } : {}), skeleton: ref(v.skeleton, `View ${vid} skeleton`), textures: v.textures.map((t, i) => ({ json: ref(t.json, `View ${vid} texture ${i}`), page: ref(t.page, `View ${vid} picture ${i}`) })) };
   }
   let category = null;
   if (g.views) {
@@ -98,7 +98,7 @@ export function cleanRecord(input) {
 export function refsOf(record) {
   const out = [], add = (r) => { if (r && refSha(r)) out.push({ sha: refSha(r), where: r.db ? 'db' : 'r2', size: r.size || 0 }); };
   for (const v of Object.values(record?.views || {})) {
-    add(v.skeleton); for (const t of v.textures || []) { add(t.json); add(t.page); }
+    add(v.skeleton); add(v.thumb); for (const t of v.textures || []) { add(t.json); add(t.page); }
     for (const a of v.animations || []) { add(a.file); add(a.gif); }
   }
   add(record?.thumb);

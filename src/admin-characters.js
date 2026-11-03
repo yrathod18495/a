@@ -31,6 +31,29 @@ async function viewDef(pkg, v) {
 const animOf = async (pkg, a) => { const j = JSON.parse(await pkg.files.get(a.file).text()); return j && j.bone ? j : Object.values(j)[0]; };
 const layerFor = (def, name, anim, length) => ({ key: 'c', charId: def.id, skins: null, swap: null, anims: name ? { [name]: anim } : {}, clips: name ? [{ id: 'a', kind: 'body', name, start: 0, dur: length, off: 0 }] : [], present: null, flip: false, xf: null, mask: null, maskKeys: [], maskFollow: '', slot: 0, visible: true, keys: [] });
 
+/**
+ * A portrait picture of the character as one view shows it: the character is drawn on its own, found by comparing with the empty
+ * background, cut tight (5:8, like the picker cards) and saved as a small WebP.
+ */
+export async function viewThumbnail(stage, def, { size = 512, width = 200, height = 320 } = {}) {
+  stage.setSize('1:1', size);
+  const grab = () => { const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(stage.out, 0, 0, size, size); return { c, data: g.getImageData(0, 0, size, size).data }; };
+  stage.setLayers([]); stage.render(0, 0, [], []); const empty = grab();
+  stage.setLayers([layerFor(def, null, null, 1)]); stage.render(0, 0, [], []); const full = grab();
+  let x0 = size, y0 = size, x1 = -1, y1 = -1;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const i = (y * size + x) * 4;
+    if (Math.abs(full.data[i] - empty.data[i]) + Math.abs(full.data[i + 1] - empty.data[i + 1]) + Math.abs(full.data[i + 2] - empty.data[i + 2]) > 36) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  if (x1 < 0) { x0 = 0; y0 = 0; x1 = size - 1; y1 = size - 1; }
+  const pad = Math.round(size * 0.03); x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+  let w = x1 - x0 + 1, h2 = y1 - y0 + 1; const ratio = width / height;       // widen or heighten the box to 5:8, around the character's centre
+  if (w / h2 < ratio) w = Math.round(h2 * ratio); else h2 = Math.round(w / ratio);
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, out = document.createElement('canvas'); out.width = width; out.height = height;
+  out.getContext('2d').drawImage(full.c, cx - w / 2, cy - h2 / 2, w, h2, 0, 0, width, height);
+  return new Promise((resolve) => out.toBlob(resolve, 'image/webp', 0.82));
+}
+
 /** one looping GIF of an animation, small and light (it only shows what the animation does) */
 export async function animationGif(stage, def, name, anim, length, opts = GIF) {
   stage.setLayers([layerFor(def, name, anim, length)]);
@@ -115,13 +138,15 @@ export async function charactersView({ back, home, toast }) {
     st.busy = true; stop(); draw();
     const say = (text, value) => { status.textContent = text; bar.hidden = false; if (value != null) bar.value = value; };
     try {
-      const gifs = new Map();
+      const gifs = new Map(), thumbs = new Map();
       let thumb = null;
       const small = new Stage({ maxTex: 2048 }); small.setSize('1:1', GIF.size); small.fullView = false;
       const total = views().reduce((n, v) => n + v.animations.length, 0); let made = 0;
       for (const v of views()) {
         const def = await viewDef(pkg, v); await small.loadCharacter(def);
-        if (!thumb) { small.setLayers([layerFor(def, null, null, 1)]); small.render(0, 0, [], []); const c = document.createElement('canvas'); c.width = c.height = 256; c.getContext('2d').drawImage(small.out, 0, 0, 256, 256); thumb = await new Promise((r) => c.toBlob(r, 'image/webp', 0.8)); }
+        const picture = await viewThumbnail(small, def); thumbs.set(v.id, picture);          // each view gets its own picture
+        if (!thumb || v.id === 'f34') thumb = picture;
+        small.setSize('1:1', GIF.size);
         if (st.withAnimations) for (const a of v.animations) {
           say(`Making the animation previews ${++made} / ${total} (${a.label || a.name})…`, made / total * 0.4);
           gifs.set(`${v.id}/${a.name}`, await animationGif(small, def, a.name, await animOf(pkg, a), a.length));
@@ -129,7 +154,7 @@ export async function charactersView({ back, home, toast }) {
         }
         small.unload(def.id);
       }
-      const result = await storeCharacter({ manifest: pkg.manifest, files: pkg.files, gifs, thumb, withAnimations: st.withAnimations, progress: (text, d, t) => say(text, 0.4 + (t ? d / t : 1) * 0.6) });
+      const result = await storeCharacter({ manifest: pkg.manifest, files: pkg.files, gifs, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => say(text, 0.4 + (t ? d / t : 1) * 0.6) });
       toast(`${pkg.manifest.character.name} is saved${result.categoryCreated ? ` with a new category "${pkg.manifest.category.name}"` : ''}. Creators can use the character now.`);
       st.pkg = null; status.textContent = 'Saved.'; bar.hidden = true;
       await refresh();

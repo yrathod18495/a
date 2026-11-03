@@ -33,6 +33,11 @@ test('a record is cleaned: only known fields, valid file references, and every f
   const { character, category } = cleanRecord(rec);
   assert.equal(character.extra, undefined); assert.equal(category.views.f34.animations[0].layer, 'body'); assert.equal(category.views.f34.animations[0].gifName, 'walk_female.gif');
   assert.deepEqual(refsOf(character).map((r) => r.where), ['db', 'db', 'r2', 'r2']);
+  // a picture for each view is kept and counted as a file of the character (so Delete removes it too)
+  const withViewThumb = cleanRecord({ ...rec, character: { ...rec.character, views: { f34: { ...rec.character.views.f34, thumb: { r2: sha('9'), size: 7 } } } } });
+  assert.deepEqual(withViewThumb.character.views.f34.thumb, { r2: sha('9'), size: 7 });
+  assert.deepEqual(refsOf(withViewThumb.character).filter((r) => r.sha === sha('9')).map((r) => [r.where, r.size]), [['r2', 7]]);
+  assert.throws(() => cleanRecord({ ...rec, character: { ...rec.character, views: { f34: { ...rec.character.views.f34, thumb: { r2: 'x' } } } } }), /thumbnail is not a valid file/);
   assert.deepEqual(refsOf(category).map((r) => [r.where, r.size]), [['db', 0], ['r2', 3]]);
   assert.throws(() => cleanRecord({ ...rec, character: { ...rec.character, views: { f34: { ...rec.character.views.f34, skeleton: { db: 'x' } } } } }), /skeleton is not a valid file/);
   assert.throws(() => cleanRecord({ ...rec, character: { ...rec.character, views: { f34: { ...rec.character.views.f34, skeleton: { db: sha('a'), r2: sha('a') } } } } }), /not a valid file/);

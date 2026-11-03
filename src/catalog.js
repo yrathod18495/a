@@ -42,7 +42,10 @@ export async function loadCatalog() {
     const entries = list.flatMap((c) => Object.entries(c.views || {}).map(([view, v]) => ({ id: `ch-${c.id}-${view}`, name: c.name, pose: v.label, patternId: 'rig', charBase: c.id, thumbnail: '', paid: false,
       template: { cloud: true, character: c, view, pose: VIEW_POSE[view] || view } })));
     library.push(...entries);
-    for (const c of list) if (c.thumb) pictureUrl(c.thumb).then((u) => { for (const e of entries) if (e.charBase === c.id) e.thumbnail = u; }).catch(() => { /* the card shows no picture */ });
+    // each pose shows its own picture (older uploads only have one picture for the whole character: it is used for every pose);
+    // the pictures are small and kept by the browser, so the cards are drawn with them (waiting at most a few seconds)
+    const pictures = entries.map((e) => { const ref = e.template.character.views[e.template.view]?.thumb || e.template.character.thumb; return ref ? pictureUrl(ref).then((u) => { e.thumbnail = u; }).catch(() => { /* the card shows no picture */ }) : null; });
+    return Promise.race([Promise.all(pictures.filter(Boolean)), new Promise((resolve) => setTimeout(resolve, 4000))]);
   }).catch((e) => { console.warn('Uploaded characters are not available:', e.message); });
   await Promise.all([rulesTask, managedTask, libraryTask, cloudTask]);
   if (library.length) libraryProblem = '';
