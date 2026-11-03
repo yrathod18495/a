@@ -152,6 +152,8 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   expect(await page.evaluate(() => window.__toon.stage.layers.length)).toBe(0);                          // ... nothing is applied before Next
   await page.locator('.cp-next').click();                                                               // Next on the last page confirms
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => [...window.__toon.stage.layers[0].anim])).toEqual(expect.arrayContaining([expect.stringMatching(/stand/)]));      // a character that was just added stands (idle), it does not play a random animation
   // the animation list: Maya's categories, each animation with its GIF
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Animations', exact: true }).click();
   const cats = await page.evaluate(async () => { const { categoriesFor } = await import('/src/catalog.js'); const l = window.__toon.stage.layers[0]; const def = [...window.__toon.stage.assets.values()][0].def; return categoriesFor(def.rig).map((c) => [c.name, c.animations.length]); });

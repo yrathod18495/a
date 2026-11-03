@@ -181,6 +181,11 @@ export function modePools(rig) {
     idle: pick(/idle/i),
   };
 }
+/** the plain standing animation a character plays when nothing else is chosen ("stand" / "idle"), never a random pick from the idle list */
+export function idleRef(rig) {
+  const pool = modePools(rig).idle, name = (a) => String(a.ref?.name || '');
+  return (pool.find((a) => /^(idle|stand)\b/i.test(name(a))) || pool.find((a) => /stand|idle/i.test(name(a))) || pool[0])?.ref ?? null;
+}
 /** the "Modes" category shown first in the animation list */
 export function modeEntries(rig) {
   const cats = categoriesFor(rig).filter((c) => !c.overlay), all = cats.flatMap((c) => c.animations);

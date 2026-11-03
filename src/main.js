@@ -23,7 +23,7 @@ import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as db
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
-import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS, cloudRef } from './catalog.js';
+import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, fetchLibraryCharacter, cdn, modePools, idleRef, modeEntries, MODE_REFS, cloudRef } from './catalog.js';
 import { pictureUrl } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
@@ -395,7 +395,7 @@ function defaultAnims(def) {
   const pools = modePools(def.rig);
   return {
     talk: pools.talk.length ? MODE_REFS.speaker : pools.idle[0]?.ref ?? null,        // the speaker: mix of all talking animations
-    idle: pools.hands.length || pools.idle.length ? MODE_REFS.listener : null,        // everybody else: standing, hands held, a little life
+    idle: idleRef(def.rig) ?? (pools.hands.length || pools.idle.length ? MODE_REFS.listener : null),        // everybody else (and a character that was just added): the plain idle animation, not a random pick
   };
 }
 /** small seeded random generator, so the same project always plays the same mix */
