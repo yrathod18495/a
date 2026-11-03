@@ -45,6 +45,10 @@ test('admin: the Overview page has a Background Generator card switch that saves
     document.body.append(await m.view({ user: { uid: 'u1', email: 'admin@example.com', displayName: 'Admin' }, home() {}, toast(text) { (window.__toasts ||= []).push(text); } }));
   });
   await page.locator('.admin-console-tab', { hasText: 'Overview' }).click();            // the "Access and visibility" switches are on the Overview page
+  // the rows have room on both sides: text and switches do not touch the edge of the card (they looked cut off before)
+  const gaps = await page.evaluate(() => { const c = document.querySelector('.admin-maint').getBoundingClientRect(); return [...document.querySelectorAll('.admin-maint-row')].map((row) => ({ left: row.querySelector('h2').getBoundingClientRect().left - c.left, right: c.right - row.querySelector('.admin-switch').getBoundingClientRect().right })); });
+  expect(gaps.length).toBe(4);
+  for (const gap of gaps) { expect(gap.left).toBeGreaterThanOrEqual(12); expect(gap.right).toBeGreaterThanOrEqual(12); }
   const toggle = page.getByRole('switch', { name: 'Background Generator card' });
   await expect(toggle).toBeVisible();
   await expect(toggle).toHaveAttribute('aria-checked', 'true');

@@ -725,7 +725,7 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .credit-promo-row{display:flex;gap:8px}.credit-promo-input{flex:1;min-width:0;height:42px;padding:0 14px;border:1px solid var(--edge);border-radius:12px;background:var(--fill);color:var(--ink);font:600 14px system-ui;text-transform:uppercase;letter-spacing:.06em}
 .credit-promo-input::placeholder{text-transform:none;letter-spacing:0;font-weight:500;color:var(--mute)}
 .credit-promo-state{display:block;margin-top:6px;min-height:0;font-size:12.5px;color:var(--mute)}.credit-promo-state.ok{color:#4fd69c}.credit-promo-state.bad{color:var(--danger)}
-.admin-maint .admin-maint-row{padding:12px 0;border-top:1px solid var(--edge)}.admin-maint .admin-maint-row:first-of-type{border-top:0}
+.admin-maint .admin-maint-row{padding:14px 17px;border-top:1px solid var(--edge)}.admin-maint .admin-maint-row:first-of-type{border-top:0}
 .admin-maint .admin-maint-row h2{font-size:16px;margin:0 0 2px}
 .admin-switch.on.good{background:#2fae7b;border-color:#2fae7b}
 
@@ -976,3 +976,4 @@ dialog.credit-history-window::backdrop{background:#0009;backdrop-filter:blur(2px
 .studio-shared-card.locked{cursor:not-allowed}
 .studio-shared-card.locked img,.studio-shared-card.locked>span:not(.lock-badge){opacity:.45;filter:grayscale(.6)}
 .lock-badge{position:absolute;top:6px;right:6px;z-index:1;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700;line-height:1.2;background:#1d1e22e6;color:#f2cf6a;border:1px solid #e8b93c88}
+@media(max-width:520px){.admin-maint .admin-maint-row{padding:12px 13px;gap:12px}}
