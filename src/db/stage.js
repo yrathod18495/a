@@ -487,7 +487,8 @@ export class Stage {
     r.begin(W, H, { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
     r.setMask(null, W, H);
     const bx = this.bgXf;
-    if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh); }
+    if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, 0, 0, W, H, 0.4);          // a shrunk or moved background: the rest of the frame shows a dimmed copy of it (never black)
+      r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh); }
     else r.quad(this.bgTex, 0, 0, W, H);
     this.drawProps(t, true);                               // props placed behind the characters
     const list = [];
