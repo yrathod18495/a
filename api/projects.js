@@ -5,6 +5,7 @@ import { services } from '../server/firebase-admin.js';
 import { kv } from '../server/rtdb.js';
 import { AccessError, nextRevision } from '../server/security-policy.js';
 import { cleanSummary } from '../shared/project-summary.js';
+import { notifyNewProject } from '../server/telegram.js';
 import { confirmAssets, objectExists, deleteKey, stateKey, getUrl, isHash, MAX_PROJECT_ASSETS } from '../server/r2-storage.js';
 const idOK = v => typeof v === 'string' && /^[a-zA-Z0-9_-]{6,128}$/.test(v);
 const KEEP_ACTIVITY = 10;
@@ -26,8 +27,11 @@ export default async function handler(req, res) {
       // claims the short ID the instant a project is created, well before its first real cloud save — so support can find it (owner, kind)
       // even mid-edit; commit() below re-claims the same entry on every save, which is harmless (same uid, same value)
       if (!idOK(b.id) || !['animation', 'character'].includes(b.kind)) throw new AccessError('invalid_project', 'The project details are not valid.', 400);
-      const claim = await store.transact(`projectIndex/${b.id}`, (seen) => (seen && seen.uid !== uid) ? undefined : { uid, kind: b.kind });
+      let existed = true;
+      const claim = await store.transact(`projectIndex/${b.id}`, (seen) => { existed = !!seen; return (seen && seen.uid !== uid) ? undefined : { uid, kind: b.kind }; });
       if (!claim.committed) throw new AccessError('id_taken', 'This project ID already belongs to another account. Please create the project again.', 409);
+      // the first claim of an ID is a brand-new project: tell the owner on Telegram (once; a repeated register of the same ID says nothing)
+      if (!existed) await notifyNewProject({ id: b.id, kind: b.kind, name: typeof b.name === 'string' ? b.name : '', owner: { name: who.claims.name, email: who.claims.email } });
       return send(res, 200, { ok: true });
     }
     if (b.action === 'adminLookup') {

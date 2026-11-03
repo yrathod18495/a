@@ -59,3 +59,25 @@ test('only the last ten saves are kept in the activity list; a blocked owner can
  assert.deepEqual([(await node()).deleted,(await node()).stateOp],[true,null]);
  assert.equal([...objects.keys()].some(k=>k.includes('/p/'+id+'/')),false);
 });
+
+test('a brand-new project tells the owner on Telegram once; registering it again, or a refused ID, says nothing',async()=>{
+ const messages=[],realFetch=globalThis.fetch;
+ process.env.TELEGRAM_BOT_TOKEN='123:TOKEN';process.env.TELEGRAM_CHAT_ID='-100555';
+ globalThis.fetch=async(url,init)=>{if(String(url).startsWith('https://api.telegram.org/'))messages.push([String(url),JSON.parse(init.body)]);return {ok:true,status:200};};
+ try{
+  const reg={action:'register',id:'502674123',kind:'animation',name:'My first film'};
+  assert.equal((await call(reg)).statusCode,200);
+  assert.equal(messages.length,1);assert.equal(messages[0][0],'https://api.telegram.org/bot123:TOKEN/sendMessage');assert.equal(messages[0][1].chat_id,'-100555');
+  assert.match(messages[0][1].text,/My first film/);assert.match(messages[0][1].text,/502674123/);assert.match(messages[0][1].text,/Animator Studio/);
+  assert.equal((await call(reg)).statusCode,200);assert.equal(messages.length,1);                           // the same project again: no second message
+  assert.equal((await call({...reg,id:'502674124',kind:'character',name:'Hero'})).statusCode,200);assert.equal(messages.length,2);assert.match(messages[1][1].text,/Character Editor/);
+  await rtdb.ref('projectIndex/777000111').set({uid:'someone-else',kind:'animation'});
+  assert.equal((await call({...reg,id:'777000111'})).statusCode,409);assert.equal(messages.length,2);        // an ID of another account: refused, nothing sent
+  // the bot is not set up: registering still works and nothing is sent
+  delete process.env.TELEGRAM_BOT_TOKEN;
+  assert.equal((await call({...reg,id:'502674125'})).statusCode,200);assert.equal(messages.length,2);
+  // Telegram is down: the project is still registered
+  process.env.TELEGRAM_BOT_TOKEN='123:TOKEN';globalThis.fetch=async()=>{throw new Error('offline');};
+  assert.equal((await call({...reg,id:'502674126'})).statusCode,200);
+ }finally{globalThis.fetch=realFetch;delete process.env.TELEGRAM_BOT_TOKEN;delete process.env.TELEGRAM_CHAT_ID;}
+});
