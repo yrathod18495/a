@@ -48,7 +48,9 @@ export function bindAnimation(p, name, a) {
   if (ffd.length) out.ffd = ffd;
   if (a.zOrder) {
     const frame = a.zOrder.frame.map((f) => {
-      const z = []; for (const [sl, off] of f.zOrderByName) { const i = p.slotIndex.get(sl); if (i != null) z.push(i, off); }
+      // DragonBones reads the pairs in slot order (like Spine); pairs that come in another order would make its parser loop forever
+      const pairs = []; for (const [sl, off] of f.zOrderByName) { const i = p.slotIndex.get(sl); if (i != null) pairs.push([i, off]); }
+      const z = pairs.sort((a, b) => a[0] - b[0]).flat();
       return z.length ? { duration: f.duration, zOrder: z } : { duration: f.duration };
     });
     out.zOrder = { frame };

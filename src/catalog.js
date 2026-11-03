@@ -7,8 +7,10 @@ import { rigInfo, dirOf } from './db/info.js';
 import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
 import { assetAddress } from '../shared/library-url.js';
+import { listCloudCharacters, loadCloudView, getJson, pictureUrl } from './cloud-characters.js';
 
 const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: optional address of a CDN that serves the library files
+const VIEW_POSE = { f34: 'front-side', fr: 'front', sd: 'side', bk: 'back' };          // the picker orders poses by these names
 let library = [], adAnims = null, managedAnimations = [], libraryProblem = '';
 /** why the character list is empty, in simple Hinglish ('' when it loaded) */
 export const libraryStatus = () => libraryProblem;
@@ -34,7 +36,16 @@ export async function loadCatalog() {
     console.warn('12toons data failed to load', e);
     libraryProblem = 'The character library could not be loaded. Check your internet and reload the page; if it still fails, please contact support.';
   });
-  await Promise.all([rulesTask, managedTask, libraryTask]);
+  // the bundled library is gone for good; when the admin's uploaded characters are there, its absence is not a problem
+  // characters the admin uploaded (Admin -> Characters): one entry per view, files come from the database / R2 and are cached by the browser
+  const cloudTask = listCloudCharacters().then((list) => {
+    const entries = list.flatMap((c) => Object.entries(c.views || {}).map(([view, v]) => ({ id: `ch-${c.id}-${view}`, name: c.name, pose: v.label, patternId: 'rig', charBase: c.id, thumbnail: '', paid: false,
+      template: { cloud: true, character: c, view, pose: VIEW_POSE[view] || view } })));
+    library.push(...entries);
+    for (const c of list) if (c.thumb) pictureUrl(c.thumb).then((u) => { for (const e of entries) if (e.charBase === c.id) e.thumbnail = u; }).catch(() => { /* the card shows no picture */ });
+  }).catch((e) => { console.warn('Uploaded characters are not available:', e.message); });
+  await Promise.all([rulesTask, managedTask, libraryTask, cloudTask]);
+  if (library.length) libraryProblem = '';
 }
 export const libraryCharacters = () => library;
 export const cdn = (p) => url(p);
@@ -43,6 +54,11 @@ export const cdn = (p) => url(p);
 export async function fetchLibraryCharacter(entry) {
   const ok = (r) => { if (!r.ok) throw new Error(`The file did not load (code ${r.status}): ${r.url}`); return r; };
   if (!entry?.template) throw new Error('This character template is no longer available.');
+  if (entry.template.cloud) {
+    const { character, view } = entry.template, { ske, tex } = await loadCloudView(character, view);
+    const rig = rigInfo(ske, { templateId: entry.id, toonChar: entry.charBase, cloudAnims: character.animations?.[view]?.animations || [], category: character.category });
+    return { skins: null, id: `lib:${entry.id}`, name: entry.name, pose: entry.pose, patternId: entry.patternId, lib: true, thumbnail: entry.thumbnail, ske, tex, rig, anims: [] };
+  }
   const a = entry.template, load = async () => {
     const [ske, texJsons] = await Promise.all([fetch(url(a.ske)).then(ok).then((r) => r.json()), Promise.all(a.tex.map((u) => fetch(url(u)).then(ok).then((r) => r.json())))]);
     const blobs = await Promise.all(texJsons.map((t, i) => fetch(url(dirOf(a.tex[i]) + t.imagePath)).then(ok).then((r) => r.blob())));
@@ -115,7 +131,21 @@ function embeddedCategories(rig) {
     cat('hand', 'Arms & hands (layer)', all.filter((a) => a.kind === 'hand'), true, 'hand'), cat('legs', 'Legs (layer)', all.filter((a) => a.kind === 'legs'), true, 'legs'),
     cat('face', 'Face expressions (layer)', all.filter((a) => a.kind === 'face'), true, 'face')].filter((x) => x.animations.length);
 }
+/* ---- uploaded characters: the category's animations, grouped like the others; the poster is the animation's GIF ---- */
+export const cloudFile = (ref) => (ref?.db ? `cloud:db:${ref.db}` : ref?.r2 ? `cloud:r2:${ref.r2}:${ref.size}` : null);
+export const cloudRef = (file) => { const [, where, sha, size] = String(file).split(':'); return where === 'db' ? { db: sha } : { r2: sha, size: Number(size) }; };
+function cloudCategories(rig) {
+  const all = rig.cloudAnims.map((a) => ({ ...a, label: a.label || a.name }));
+  const mk = (a) => ({ ref: { source: 'lib', id: `${rig.category}:${a.name}`, name: a.label, file: cloudFile(a.file), overlay: a.layer === 'hand', layer: a.layer === 'hand' ? 'hand' : undefined }, name: a.label, length: a.length, poster: a.gif ? cloudFile(a.gif) : undefined });
+  const body = all.filter((a) => a.layer !== 'hand'), pick = (re) => body.filter((a) => re.test(a.name));
+  const talk = pick(/talk|speak|explain/i), idle = pick(/stand|idle|bored|yawn|think|sad|fed_up|sleep/i).filter((a) => !talk.includes(a)), move = pick(/walk|run|dance|swim|jump|kick|punch/i).filter((a) => !talk.includes(a) && !idle.includes(a));
+  const rest = body.filter((a) => ![...talk, ...idle, ...move].includes(a));
+  const cat = (key, name, list, overlay = false, layer) => ({ key: `cloud:${key}`, name, overlay, layer, animations: list.map(mk) });
+  return [cat('talk', 'Talking', talk), cat('idle', 'Idle', idle), cat('move', 'Walk / run / dance', move), cat('body', 'Body animations', rest),
+    cat('hand', 'Arms & hands (layer)', all.filter((a) => a.layer === 'hand'), true, 'hand')].filter((c) => c.animations.length);
+}
 function allCategories(rig) {
+  if (rig?.cloudAnims) return cloudCategories(rig);
   const bundled = String(rig?.toonPattern || '').startsWith('ad:') ? adCategories(rig.toonPattern.slice(3)) : rig?.animList?.length ? embeddedCategories(rig) : [];
   const clips = managedAnimations.filter(asset => asset.target === rig?.templateId);
   const labels = { body: 'Body', hand: 'Arms & hands', legs: 'Legs', face: 'Face' };
@@ -126,6 +156,7 @@ function allCategories(rig) {
 
 const cache = new AssetCache();
 export function fetchAnimation(file) {
+  if (file.startsWith('cloud:')) return cache.load(file, () => getJson(cloudRef(file)).then((j) => (j && j.bone ? j : Object.values(j)[0])));
   if (file.startsWith('managed:')) return cache.load(file, () => loadStudioAnimation(file.slice(8)));
   return cache.load(file, () => fetch(url(file), { signal: AbortSignal.timeout(20000) })
     .then(r => { if (!r.ok) throw new Error(`The animation did not load (code ${r.status}).`); return r.json(); })

@@ -23,7 +23,8 @@ import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as db
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
-import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS } from './catalog.js';
+import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, fetchLibraryCharacter, cdn, modePools, modeEntries, MODE_REFS, cloudRef } from './catalog.js';
+import { pictureUrl } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
@@ -202,6 +203,13 @@ function defaultBody(def) {
   return null;
 }
 const animKey = (r) => (r.source === 'lib' ? `a${r.id}` : r.source === 'custom' ? `c${r.id}` : r.name);
+/** the small picture of an animation in the list; an uploaded character's GIF is downloaded once and kept by the browser */
+function posterImg(poster) {
+  if (!String(poster).startsWith('cloud:')) return h('img', { src: assetUrl(poster), alt: '', loading: 'lazy', decoding: 'async' });
+  const img = h('img', { alt: '', decoding: 'async' });
+  pictureUrl(cloudRef(poster)).then((u) => { img.src = u; }).catch(() => { img.remove(); });
+  return img;
+}
 async function animJson(def, r) {
   if (r.source === 'lib') return fetchAnimation(r.file);
   if (r.source === 'custom') return (await dbGet('animations', r.id))?.json; // Read-only playback for older projects.
@@ -336,7 +344,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
           apply.disabled = true;
           try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
           catch (error) { toast(`Could not apply the animation: ${error.message}`); apply.disabled = false; }
-        } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, a.poster ? h('img', { src: assetUrl(a.poster), alt: '', loading: 'lazy', decoding: 'async' }) : '▶'),
+        } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, a.poster ? posterImg(a.poster) : '▶'),
         h('span', { class: 'animation-copy' }, h('b', {}, a.name), h('small', {}, `${a.cat.layer || a.cat.name}${a.length ? ` · ${Number(a.length).toFixed(1)} s` : ''}`)), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+'));
         const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${(start + offset) * 64}px` }, apply);
         if (!a.cat.overlay && a.ref.source !== 'mode') {

@@ -8,6 +8,7 @@ import { AccessError } from '../server/security-policy.js';
 import { cleanAssetMeta } from '../shared/studio-effects.js';
 import { lockedFor, LOCKABLE_TYPES, PAID_MESSAGE } from '../shared/asset-access.js';
 import { effectiveTier } from '../server/entitlements.js';
+import { characterAction, CHARACTER_BODY_MAX } from '../server/characters-api.js';
 
 // The bundled character library (public/12toons) was removed, so no built-in rig is a valid animation target any more.
 // Importing that deleted file crashed this whole function (props, backgrounds, effects and the library list all failed).
@@ -19,7 +20,11 @@ let libraryCache = null;
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
-    const b = await bodyOf(req, 16_000), isAdminAction = ['save', 'delete', 'update'].includes(b.action);
+    // characters uploaded by the admin share this function (a Vercel Hobby plan allows 12); their files may be up to 600 KB, everything else stays small
+    const b = await bodyOf(req, CHARACTER_BODY_MAX);
+    if (typeof b.action === 'string' && b.action.startsWith('character:')) return characterAction(req, res, { ...b, action: b.action.slice(10) });
+    if (JSON.stringify(b).length > 16_000) throw new AccessError('too_large', 'The request is too large.', 413);
+    const isAdminAction = ['save', 'delete', 'update'].includes(b.action);
     const who = await access(req, { write: isAdminAction, admin: isAdminAction });
     if (!who.admin && await maintenanceOn()) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     const store = kv(services());
