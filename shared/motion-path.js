@@ -76,3 +76,9 @@ export function insertAt(pts, p) {
   }
   return { index: best.i, point: best.q, distance: best.d };
 }
+
+/** the drawn line moved so that it starts exactly where the character stands now (same shape, same distance); with no known position it stays as drawn */
+export function anchorPath(pts, at) {
+  if (!at || !pts?.length) return pts || [];
+  return pts.map((p) => ({ x: +(p.x + at.x - pts[0].x).toFixed(4), y: +(p.y + at.y - pts[0].y).toFixed(4) }));
+}

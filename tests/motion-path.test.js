@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pathLength, thin, pointAt, pathKeys, simplify, insertAt } from '../shared/motion-path.js';
+import { pathLength, thin, pointAt, pathKeys, simplify, insertAt, anchorPath } from '../shared/motion-path.js';
 
 const line = [{ x: 0.1, y: 0.2 }, { x: 0.5, y: 0.2 }, { x: 0.5, y: 0.6 }];
 
@@ -48,4 +48,15 @@ test('facing: a path never turns the character (left, right or wobbly)', () => {
     assert.ok(pathKeys({ pts, start: 0, dur: 6, face: true, flipBase: false }, 1, 'w').every((k) => k.flip === false));      // even an old path saved with "face" does not flip
     assert.ok(pathKeys({ pts, start: 0, dur: 6, flipBase: true }, 1, 'w').every((k) => k.flip === true));                  // it keeps the way the character already faces
   }
+});
+
+test('a path starts where the character stands (even half below the frame) and keeps its drawn shape', () => {
+  const drawn = [{ x: 0.2, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.8, y: 0.6 }];
+  const at = { x: 0.4, y: -0.1 };                                            // feet below the bottom edge: the character is only half in the picture
+  const p = anchorPath(drawn, at);
+  assert.deepEqual(p[0], at);                                                // starts exactly there: no jump
+  assert.ok(Math.abs((p[2].x - p[0].x) - 0.6) < 1e-9 && Math.abs((p[2].y - p[0].y) - 0.1) < 1e-9);   // same distance and direction as drawn
+  const keys = pathKeys({ pts: p, start: 0, dur: 3, smooth: false, flipBase: false }, 1, 'a');
+  assert.ok(Math.abs(keys[0].x - 0.4) < 1e-3 && Math.abs(keys[0].y + 0.1) < 1e-3);
+  assert.deepEqual(anchorPath(drawn, null), drawn);                          // unknown position: as drawn
 });

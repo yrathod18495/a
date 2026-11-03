@@ -34,7 +34,7 @@ import { authorizeExport, finishExport, ExportLimitError, currentPlan, refreshPl
 import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
-import { thin, pathLength, pathKeys, simplify, insertAt } from '../shared/motion-path.js';
+import { thin, pathLength, pathKeys, simplify, insertAt, anchorPath } from '../shared/motion-path.js';
 import { resizeClip, contentLength, snap as snapTo, snapDelta, MIN_CLIP } from '../shared/timeline-edit.js';
 import { presetKeys, withPreset, PRESETS as CAM_PRESETS } from '../shared/camera-presets.js';
 import { saveLabel } from '../shared/save-time.js';
@@ -1194,7 +1194,11 @@ const snap = (v) => Math.round(v * 20) / 20;
     Change the clip on the timeline (move it, stretch it) and the path follows; delete the clip and the path goes with it. */
 function syncPaths() {
   for (const [key, path] of Object.entries(S.paths || {})) {
-    if (!path.clipId) continue;
+    if (!path.clipId) {                                   // a path made before paths followed their clip: it takes the animation that plays where the path starts, so the animation lasts the whole way
+      const m = (S.manual[key] || []).find((x) => x.kind === 'body' && path.start >= x.start - 0.05 && path.start < x.start + x.dur);
+      if (m) { path.clipId = m.id; path.start = +m.start.toFixed(2); path.dur = Math.max(0.5, +m.dur.toFixed(2)); applyPath(key); }
+      continue;
+    }
     const m = (S.manual[key] || []).find((x) => x.id === path.clipId);
     if (!m) { delete S.paths[key]; applyPath(key); continue; }
     if (Math.abs(path.start - m.start) > 0.005 || Math.abs(path.dur - m.dur) > 0.005) { path.start = +m.start.toFixed(2); path.dur = Math.max(0.5, +m.dur.toFixed(2)); applyPath(key); }
@@ -1907,7 +1911,9 @@ function startPathDraw(s) {
   const move = (e) => { if (!pts) return; pts.push(at(e)); line.setAttribute('points', penLine(pts)); ghosts.innerHTML = pathTrail(pts); if (!ghostFrame) ghostFrame = requestAnimationFrame(() => { ghostFrame = 0; ghostBox.replaceChildren(...pathGhostImgs(pts, s.key)); }); };
   const up = () => {
     if (!pts) return;
-    const clean = thin(pts, 0.006), now = charNow(s.key);
+    const drawn = thin(pts, 0.006), now = charNow(s.key);
+    // the path starts where the character stands now and keeps the shape that was drawn: a character placed half below the frame stays that way, it only moves by the drawn distance
+    const clean = anchorPath(drawn, now);
     if (clean.length < 2 || pathLength(clean) < 0.03) { pts = null; line.setAttribute('points', ''); toast('The line is too short. Please draw a slightly longer line.'); return; }
     const old = S.paths[s.key];
     S.paths[s.key] = { pts: clean, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), smooth: old?.smooth ?? false, flipBase: !!now?.flip, mul: now?.mul ?? 1 };
@@ -1927,7 +1933,7 @@ function pathCard(s) {
       path ? h('button', { class: `btn${S.pathEdit ? ' pri' : ''}`, onclick: () => { S.pathEdit = !S.pathEdit; if (S.pathEdit) path.pts = simplify(path.pts, 14); applyPath(s.key); drawTabs(); } }, S.pathEdit ? '✔ Points done' : '✎ Edit points') : null,
       path ? h('button', { class: 'btn', onclick: () => { delete S.paths[s.key]; S.pathEdit = false; applyPath(s.key); drawTabs(); } }, '🗑 Remove path') : null),
     path && S.pathEdit ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'Drag the yellow dots to change the path. Double-click the line to add a point, double-click a point to remove it.') : null,
-    path && !S.pathDraw ? [path.clipId ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'The path is on the same timeline row as its animation: move or stretch that animation clip and the path follows.') : num('Start (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), path.clipId ? null : num('Duration (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
+    path && !S.pathDraw ? [path.clipId ? h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 0' }, 'The character moves along the line for as long as its animation clip lasts (the animation keeps playing, e.g. walk). Stretch the clip on the timeline to make the walk longer; the path follows.') : num('Start (s)', () => path.start, (v) => { path.start = +v.toFixed(2); }), path.clipId ? null : num('Duration (s)', () => path.dur, (v) => { path.dur = Math.max(0.5, +v.toFixed(2)); }),
       tog('🐢 Slow at start / end', 'smooth')] : null);
 }
 

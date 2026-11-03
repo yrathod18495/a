@@ -83,3 +83,25 @@ test('resizing a character that has keyframes / a path keeps it smaller everywhe
   for (const m of r.muls) expect(m).toBeCloseTo(0.5, 2);                    // every keyframe of the movement is smaller
   expect(r.pathMul).toBeCloseTo(0.5, 2); expect(r.now).toBeCloseTo(0.5, 2);
 });
+
+test('an older path (made before paths followed their clip) takes the animation that plays at its start, so the walk lasts the whole way', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 860 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Legacy');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
+  const r = await page.evaluate(() => {
+    const { S, stage, commitClips } = window.__toon;
+    S.characters.push({ id: 'fake', name: 'Fake', rig: {} });
+    S.speakers.push({ key: 'fake1', name: 'Fake', color: '#c06', charId: 'fake' }); S.order.push('fake1');
+    stage.layers.push({ key: 'fake1', box: { x0: 0, x1: 10, y0: 0, y1: 10 }, visible: true, anim: new Set(), anchor: { x: 100, y: 100 }, mul: 1 });
+    S.manual.fake1 = [{ id: 'walk1', kind: 'body', ref: { name: 'walk' }, start: 0.5, dur: 6, off: 0 }];
+    S.paths.fake1 = { pts: [{ x: 0.1, y: 0.2 }, { x: 0.9, y: 0.2 }], start: 0.5, dur: 12, face: true, smooth: false, mul: 1 };     // the path lasted 12 s but the walk only 6 s: the walk used to stop (idle) halfway
+    commitClips();
+    return { ...S.paths.fake1, last: S.charKeys.fake1.at(-1).t };
+  });
+  expect(r.clipId).toBe('walk1'); expect(r.dur).toBe(6); expect(r.last).toBeCloseTo(6.5, 2);          // the movement ends exactly when the walk ends
+});
