@@ -2,7 +2,8 @@
 // Builds the character upload ZIP for the admin panel ("Characters" tab) from a character page made by our older HTML tool.
 // Everything inside the ZIP is DragonBones data (CLAUDE.md): the Spine step in between happens only here, offline.
 //
-//   node scripts/character-zip.mjs <page.html> <out.zip> --character maya --name Maya --category female --category-name "Female"
+//   node scripts/character-zip.mjs <page.html> <out.zip> --character maya --name Maya --category female --category-name "Female" [--source <character id inside the page>]
+//   (--source is the character's name inside the page when it differs from the new character's id, e.g. --character roshan --source william)
 //
 // ZIP layout (format "12toons-character", version 1):
 //   manifest.json                                   what is inside (below)
@@ -22,13 +23,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 const [, , htmlPath, zipPath, ...rest] = process.argv;
 const opt = (name, fallback) => { const i = rest.indexOf(`--${name}`); return i >= 0 ? rest[i + 1] : fallback; };
 if (!htmlPath || !zipPath) { console.error('Usage: node scripts/character-zip.mjs <page.html> <out.zip> --character maya --name Maya --category female --category-name Female'); process.exit(1); }
-const character = opt('character', 'maya'), name = opt('name', character[0].toUpperCase() + character.slice(1));
+const character = opt('character', 'maya'), source = opt('source', character), name = opt('name', character[0].toUpperCase() + character.slice(1));
 const category = opt('category', character), categoryName = opt('category-name', name), fps = Number(opt('fps', 30));
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
 const work = mkdtempSync(join(tmpdir(), 'character-zip-'));
 try {
-  execFileSync('node', [join(here, 'character-html-to-spine.mjs'), htmlPath, join(work, 'spine'), '--character', character], { stdio: 'inherit' });
+  execFileSync('node', [join(here, 'character-html-to-spine.mjs'), htmlPath, join(work, 'spine'), '--character', source], { stdio: 'inherit' });
   const summary = JSON.parse(readFileSync(join(work, 'spine', 'summary.json'), 'utf8'));
   const zip = new JSZip(), views = [];
   for (const v of summary) {

@@ -10,6 +10,7 @@ From a character page made by our older HTML tool (the rig, pictures and animati
 node scripts/character-zip.mjs maya_1.html maya.zip --character maya --name Maya --category female --category-name Female
 ```
 
+- `--source <id>` is the character's name inside the page when it differs from the new character's id (e.g. `--character roshan --source william`).
 - Needs Node and Python 3 with Pillow (`pip install pillow`).
 - What it does: reads the page's data (no page code runs except its two animation-finishing functions, in a sandbox), writes a temporary Spine skeleton + atlas per view, converts them with `scripts/spine_to_dragonbones.py`, and packs only DragonBones files into the ZIP. The Spine files are deleted afterwards.
 - `--category` is the rig family. A second character with the **same category id and the same bone names** (new face / outfit, same skeleton) uses the category's animations and GIF previews: in the admin screen choose "Use the saved … animations".

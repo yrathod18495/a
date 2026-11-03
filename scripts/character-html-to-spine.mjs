@@ -34,7 +34,8 @@ function literalEnd(s, i) {
   return -1;
 }
 function constant(name) {
-  const m = new RegExp(`(?:^|[;\\s])const\\s+${name}\\s*=\\s*`).exec(html);
+  // `const NAME = ...` or, when the page declares several constants in one statement, `, NAME = ...` (e.g. `const NEWP=[...],NEWIMG={...}`)
+  const m = new RegExp(`(?:^|[;\\s])const\\s+${name}\\s*=\\s*`).exec(html) || new RegExp(`\\]\\s*,\\s*${name}\\s*=\\s*(?=[\\[{])`).exec(html) || new RegExp(`\\}\\s*,\\s*${name}\\s*=\\s*(?=[\\[{])`).exec(html);
   if (!m) return undefined;
   const start = m.index + m[0].length, end = literalEnd(html, start);
   if (end < 0) throw new Error(`${name}: the value could not be read`);
