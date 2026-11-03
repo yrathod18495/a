@@ -2852,6 +2852,14 @@ async function addOwnProps(files) {
     }
   } catch (e) { toast(`Could not add the prop: ${friendlyError(e)}`); }
 }
+/** one picture tile of the Props / Effects / Background lists (same look as the animation cards): a picture with its name underneath; `add` makes the dashed "+" tile */
+function tile({ src, icon = '🖼', name, on, locked, add, cover, title, onclick, onremove }) {
+  return h('button', { type: 'button', class: `tile${add ? ' add' : ''}${on ? ' on' : ''}${locked ? ' locked' : ''}${cover ? ' cover' : ''}`, title: title || name, 'aria-disabled': locked ? 'true' : undefined, onclick },
+    locked ? lockBadge() : null,
+    h('span', { class: 'tile-pic' }, add ? h('span', { class: 'tile-plus' }, '+') : src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : icon),
+    h('span', { class: 'tile-name' }, h('b', {}, name)),
+    onremove ? h('span', { class: 'x', role: 'button', 'aria-label': `Delete ${name}`, title: 'Delete', onclick: (e) => { e.stopPropagation(); onremove(); } }, '✕') : null);
+}
 function libraryTab(kind) {
   if (!libraryTab.checked) { libraryTab.checked = true; refreshShared().then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'effects')) redrawPanel(); }); }
   const effects = kind === 'effect', label = effects ? 'Effects' : 'Props', icon = effects ? '💫' : '🧸';
@@ -2868,6 +2876,7 @@ function libraryTab(kind) {
     locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, icon), h('b', {}, asset.name),
     h('small', {}, locked ? 'Paid accounts only' : effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'}` : (asset.category || 'Shared library'))); };
+  const tileOf = (asset) => { const locked = assetLocked(asset); return tile({ src: asset.thumb, icon, name: asset.name, locked, title: locked ? `Paid accounts only: ${asset.name}` : `${effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'} · ` : ''}Add to scene: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset)) }); };
   const ownFile = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; await addOwnProps(files); } });
   const onStage = S.props.filter((prop) => (isEffect(prop) ? 'effect' : 'prop') === kind);
   const selected = onStage.find((prop) => prop.id === S.selectedPropId);
@@ -2924,8 +2933,9 @@ function libraryTab(kind) {
     h('div', { class: 'card flat' }, h('h2', {}, label),
       h('p', { class: 'sub studio-help' }, effects ? 'Tap an effect to apply it to the whole scene (rain, sparkle, light…). Change the look with opacity and blend, and optionally show it for only a few seconds.' : 'Tap a prop to place it in the scene. Drag it on the stage to move it; change its size, rotation and when it shows from here.'),
       categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
-      shown.length ? h('div', { class: 'studio-shared-grid' }, shown.map(card)) : h('p', { class: 'sub studio-library-empty' }, assets.length ? 'There is nothing in this category.' : `No shared ${label.toLowerCase()} have been published yet. They are added from the "Props & Effects" tab in the admin panel.`),
-      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, effects ? null : h('button', { class: 'btn sm', type: 'button', onclick: () => ownFile.click() }, '＋ Upload your own image'), h('button', { class: 'btn sm', type: 'button', title: 'See what the admin has newly published', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new')), ownFile),
+      h('div', { class: 'tile-grid' }, effects ? null : tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => ownFile.click() }), shown.map(tileOf)),
+      !shown.length ? h('p', { class: 'sub studio-library-empty' }, assets.length ? 'There is nothing in this category.' : `No shared ${label.toLowerCase()} have been published yet. They are added from the "Props & Effects" tab in the admin panel.`) : null,
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', title: 'See what the admin has newly published', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new')), ownFile),
     onStage.length ? h('div', { class: 'card flat' }, h('h3', {}, `In scene (${onStage.length})`), h('div', { class: 'lib-onstage' }, onStage.map((prop) => h('div', { class: `lib-row${prop.id === S.selectedPropId ? ' on' : ''}` },
       h('button', { type: 'button', class: 'lib-pick', onclick: () => { S.selectedPropId = prop.id; S.sel = null; redrawPanel(); updateSel(); S.dirty = true; } }, h('span', {}, icon), h('b', {}, prop.name)),
       h('button', { type: 'button', class: 'ib', title: prop.visible === false ? 'Dikhayein' : 'Chhupayein', 'aria-pressed': String(prop.visible !== false), onclick: () => { prop.visible = prop.visible === false; stage.setProps(S.props); S.dirty = true; dbPut('props', prop); redrawPanel(); } }, prop.visible === false ? '🚫' : '👁'))))) : null,
@@ -2933,23 +2943,21 @@ function libraryTab(kind) {
 }
 
 /** backgrounds made in the Background Generator (kept in the account's database): one click copies the picture into this project and uses it */
-function generatedCard(pick) {
-  const box = h('div', { class: 'bggrid' });
+function generatedTiles(pick, grid) {
   const owner = projectContext()?.uid;
-  if (!owner) return null;
+  if (!owner) return;
   listBgLibrary(owner).then((all) => {
-    box.replaceChildren(...(all.length ? all.map((g) => {
+    grid.append(...all.map((g) => {
       const url = URL.createObjectURL(g.thumb || g.blob);
-      return h('button', { type: 'button', class: `bgc ${S.bgId === `gen-${g.id}` ? 'on' : ''}`, title: `${g.name} · ${g.w} × ${g.h}`, onclick: async () => {
+      return tile({ src: url, name: g.name, cover: true, on: S.bgId === `gen-${g.id}`, title: `${g.name} · ${g.w} × ${g.h} (made in the Background Generator)`, onclick: async () => {
         try {
           let rec = S.myBgs.find((r) => r.id === `gen-${g.id}`);
           if (!rec) { rec = { id: `gen-${g.id}`, name: g.name, blob: g.blob }; await dbPut('backgrounds', rec); S.myBgs.push(rec); }
           await pick(rec);
         } catch (e) { toast(`Could not add the background: ${e.message}`); }
-      } }, h('img', { src: url, alt: g.name, loading: 'lazy', onload: () => URL.revokeObjectURL(url) }), h('small', {}, g.name));
-    }) : [h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Nothing here yet. Create one in the Background Generator on the hub.')]));
-  }).catch(() => box.replaceChildren(h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Your generated backgrounds could not be loaded.')));
-  return h('div', { class: 'card flat' }, h('h2', {}, 'My generated backgrounds'), box);
+      } });
+    }));
+  }).catch(() => { /* the other backgrounds still show */ });
 }
 function tabCanvas() {
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: String(cur()) === String(k) ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', String(items[i][0]) === String(k))); } }, l)));
@@ -2973,15 +2981,20 @@ function tabCanvas() {
       await pickBg(rec);
     } catch (e) { toast(`Could not add the background: ${e.message}`); }
   };
-  const sharedGrid = (type, choose) => shared(type).length ? h('div', { class: 'studio-shared-grid' }, shared(type).map((asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : undefined, onclick: () => (locked ? lockHint() : choose(asset)) }, locked ? lockBadge() : null, asset.thumb ? h('img', { class: 'studio-shared-thumb', src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, type === 'background' ? '🖼' : '🧸'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : 'Shared library · tap to add')); })) : h('p', { class: 'sub studio-library-empty' }, 'No shared items have been added by the admin yet.');
-  const mine = h('div', { class: 'bggrid' },
-    h('button', { class: 'bgc add', onclick: () => file.click() }, h('span', {}, '+'), h('small', {}, 'Add images')),
-    S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },
-      h('img', { src: URL.createObjectURL(r.blob), alt: r.name, loading: 'lazy' }),
-      h('span', { class: 'x', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (S.scenes.some(scene => scene.id !== S.sceneId && (scene.doc?.bgId === r.id || scene.doc?.bgClips?.some((c) => c.bgId === r.id)))) { toast('This background is being used in another scene.'); return; } await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id);
-        const usedOnTimeline = S.bgClips.some((c) => c.bgId === r.id); if (usedOnTimeline) { S.bgClips = S.bgClips.filter((c) => c.bgId !== r.id); if (S.bgSel && !S.bgClips.some((c) => c.id === S.bgSel)) S.bgSel = null; await syncBgClips(); }          // its pieces on the timeline go with it
-        if (S.bgId === r.id) await pickBg(null); else drawTabs();
-        updateTotal(); drawTimeline(); S.dirty = true; } }, '✕'))));
+  const sharedTile = (asset) => { const locked = assetLocked(asset); return tile({ src: asset.thumb, name: asset.name, cover: true, locked, title: locked ? `Paid accounts only: ${asset.name}` : `Shared library · tap to add: ${asset.name}`, onclick: () => (locked ? lockHint() : addSharedBackground(asset)) }); };
+  const removeBg = async (r) => {
+    if (S.scenes.some(scene => scene.id !== S.sceneId && (scene.doc?.bgId === r.id || scene.doc?.bgClips?.some((c) => c.bgId === r.id)))) { toast('This background is being used in another scene.'); return; }
+    await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id);
+    const usedOnTimeline = S.bgClips.some((c) => c.bgId === r.id); if (usedOnTimeline) { S.bgClips = S.bgClips.filter((c) => c.bgId !== r.id); if (S.bgSel && !S.bgClips.some((c) => c.id === S.bgSel)) S.bgSel = null; await syncBgClips(); }          // its pieces on the timeline go with it
+    if (S.bgId === r.id) await pickBg(null); else drawTabs();
+    updateTotal(); drawTimeline(); S.dirty = true;
+  };
+  // one list: "+" first (opens the device's files), then the pictures this project already has, the generated ones and the admin's shared scenes
+  const mine = h('div', { class: 'tile-grid' },
+    tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => file.click() }),
+    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: r.name, onclick: () => pickBg(r), onremove: () => removeBg(r) })),
+    shared('background').map(sharedTile));
+  generatedTiles(pickBg, mine);
   const sw = h('div', { class: 'sw' }, BACKGROUNDS.map((b, i) => h('button', { title: b.name, class: stage.bg.preset === i && !S.bgId ? 'on' : '', style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })));
   const selBg = bgOf(), bgCard = (() => {
     if (!selBg) return h('div', { class: 'card flat' }, h('h2', {}, 'Move and resize'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Select the background on the timeline (or press the button) to move and resize it right on the canvas.'),
@@ -2995,10 +3008,10 @@ function tabCanvas() {
       h('button', { class: 'btn sm', type: 'button', style: 'margin-top:8px', onclick: () => { selBg.xf = null; stage.setBgXf(S.bgClips.indexOf(selBg), null); S.dirty = true; updateBgSel(); drawTabs(); } }, '↺ Original size and position'));
   })();
   return h('div', { class: 'list' },
-    bgCard, generatedCard(pickBg),
+    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Tap + to add a picture from your device, or choose one below. Backgrounds sit behind characters and props.'), mine, file),
+    bgCard,
     h('div', { class: 'card flat' }, h('h2', {}, 'Where should the background be applied?'), seg([[0, 'Whole scene'], [1, 'On the timeline (from the playhead)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
       h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `The background you choose will be added to the timeline at the playhead (${fmt(player.time)}). Add as many as you like, and drag the edges to resize.` : 'The background you choose will stay behind for the whole scene.')),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Choose an admin shared scene or add your own image. Backgrounds sit behind characters and props.'), sharedGrid('background', addSharedBackground), mine, file),
     h('div', { class: 'card flat' }, h('h2', {}, 'Plain colours'), sw));
 }
 
