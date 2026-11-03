@@ -2482,17 +2482,23 @@ function emptyCard() {
     h('p', { class: 'start-note' }, 'Then choose animations in the list on the left, and press Export when you are happy.')));
 }
 /** a character that does not belong to any voice (works without audio) */
-function addManualCharacter() {
+function newManualSpeaker() {
   const n = S.speakers.filter((s) => s.manual).length + 1;
   let key = `actor${n}`; while (S.speakers.some((s) => s.key === key)) key += 'x';
-  const s = { key, name: `Character ${n}`, narrator: false, color: COLORS[S.speakers.length % COLORS.length], charId: null, flip: false, visible: true, manual: true };
-  chooseCharacter(s, async () => {
-    if (!s.charId) { S.speakers = S.speakers.filter((x) => x !== s); S.order = S.order.filter((k) => k !== key); drawTabs(); return; }
-    S.speakers.push(s); S.order.push(key);
-    const b = busy('Loading character…');
-    try { const d = charOf(s); if (d) await stage.loadCharacter(d); S.speakers.filter((x) => x.charId).forEach((x, i) => { if (!x._flipSet) x.flip = i % 2 === 1; }); await applyLayers(); } catch (e) { toast(e.message); }
-    b.done(); S.animFor = key; drawTimeline(); drawLineBox(); drawTabs(); S.dirty = true;
-  });
+  return { key, name: `Character ${n}`, narrator: false, color: COLORS[S.speakers.length % COLORS.length], charId: null, flip: false, visible: true, manual: true };
+}
+/** the chosen character joins the stage (the speaker is only added once it really has a character) */
+async function finishManualCharacter(s) {
+  const key = s.key;
+  if (!s.charId) { S.speakers = S.speakers.filter((x) => x !== s); S.order = S.order.filter((k) => k !== key); drawTabs(); return; }
+  S.speakers.push(s); S.order.push(key);
+  const b = busy('Loading character…');
+  try { const d = charOf(s); if (d) await stage.loadCharacter(d); S.speakers.filter((x) => x.charId).forEach((x, i) => { if (!x._flipSet) x.flip = i % 2 === 1; }); await applyLayers(); } catch (e) { toast(e.message); }
+  b.done(); S.animFor = key; drawTimeline(); drawLineBox(); drawTabs(); S.dirty = true;
+}
+function addManualCharacter() {
+  const s = newManualSpeaker();
+  chooseCharacter(s, () => finishManualCharacter(s));
 }
 /** the Audio tab card for the scene's background music */
 function musicCard() {
@@ -2560,7 +2566,12 @@ function tabChars() {
   const n = rows.length + without.length, collapsed = charsCollapsed();
   const emptyShown = !(S.lines.length > 0 || S.speakers.some((x) => x.charId));      // the empty-stage "Add character" button is also on screen right now
   const toggle = h('button', { type: 'button', class: 'btn sm icon-btn chars-collapse', title: collapsed ? 'Expand the character list' : 'Collapse the character list', 'aria-label': collapsed ? 'Expand the character list' : 'Collapse the character list', 'aria-expanded': String(!collapsed), onclick: () => { setCharsCollapsed(!collapsed); drawTabs(); } }, icon(collapsed ? 'arrow-down' : 'arrow-up'));
-  return h('div', { class: 'list' }, h('button', { class: 'btn ok', 'aria-label': emptyShown ? 'Add a character to the stage' : undefined, onclick: addManualCharacter }, '＋ Add character'),
+  // the Characters tab opens straight on the characters (page 1) and then their poses (page 2): no extra "Add character" step
+  const picker = libraryCharacters().some((e) => e.template)
+    ? characterPicker({ entries: libraryCharacters(), isOn: () => false, steps: true, onPick: (e) => { const sp = newManualSpeaker(); historyAction(async () => { if (await useCharacter(sp, `lib:${e.id}`)) await finishManualCharacter(sp); }); } })
+    : libraryStatus() ? h('p', { class: 'sub', role: 'alert' }, libraryStatus()) : h('p', { class: 'sub' }, 'Loading characters…');
+  return h('div', { class: 'list' }, h('h2', { class: 'chars-pick-title' }, 'Choose a character'), picker,
+    h('button', { class: 'btn sm', type: 'button', 'aria-label': emptyShown ? 'More characters for the stage' : undefined, title: 'Characters from your device or your account', onclick: addManualCharacter }, 'More characters…'),
     h('div', { class: 'chars-head' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0;flex:1' }, `Characters on stage (${n}) — top = in front.`), n ? toggle : null),
     ...(collapsed ? [] : [...rows, ...without]));
 }

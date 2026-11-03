@@ -277,3 +277,11 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .char-bar .cb-close{flex:none;width:48px;display:grid;place-items:center;border:0;border-left:1px solid var(--line);background:transparent;color:var(--text)}
   #app .ws .char-bar .cb-close svg{width:22px;height:22px}
 }
+
+/* phone: the buttons for the selected clip (Split, Copy, Paste, Duplicate, Delete) keep their names */
+@media(max-width:860px){
+  #app .ws .tltools .edittools{flex:1 0 100%;order:5;overflow-x:auto;padding:2px 0;gap:4px}
+  #app .ws .tltools .edit-btn{flex-direction:column;height:auto;min-width:54px;padding:5px 6px;gap:2px;font-size:10.5px;line-height:1.1}
+  #app .ws .tltools .edit-btn svg{width:18px;height:18px}
+  #app .ws .tltools .edit-btn span:not(.ic),#app .ws .tltools:has(.clipbar:not([hidden])) .edit-btn span:not(.ic){display:block !important}
+}

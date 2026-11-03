@@ -124,7 +124,6 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   // page 1: the characters only (no poses below); Prev is off, Next needs a character
   await expect(page.locator('.cp-stepbar .cp-step.on')).toHaveText('1Character');
   await expect(page.locator('.cp-poses')).toHaveCount(0);
