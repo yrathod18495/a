@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 // The real Maya package (made by scripts/character-zip.mjs from the Maya page) is 5 MB, so it is not kept in the repository:
 //   node scripts/character-zip.mjs maya_1.html /tmp/maya.zip --character maya --name Maya --category female --category-name Female
@@ -60,7 +60,8 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   await page.getByRole('button', { name: 'Back', exact: true }).click(); await expect(info).toContainText('1 / 17');
   await expect.poll(drawn).toBeGreaterThan(20);
 
-  // Done: previews, then the upload
+  // Done: previews, then the upload (the small previews keep this long test fast; 480 / 720 px are checked in their own test)
+  await page.getByLabel('Animation preview quality').selectOption('low');
   await page.getByRole('button', { name: 'Done — upload' }).click();
   await expect(page.locator('.admin-characters-status')).toContainText('Making the animation previews', { timeout: 30000 });
   await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 7 * 60 * 1000, intervals: [2000] }).toMatch(/Maya is saved with a new category "Female"/);
@@ -113,6 +114,7 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   await page.goto('/?debug#/hub');
   await page.evaluate(async () => { const { charactersView } = await import('/src/admin-characters.js'); document.querySelector('#shell').replaceChildren(await charactersView({ home() {}, back() {}, toast: (m) => { window.__toast = m; } })); });
   await page.getByLabel('Character ZIP').setInputFiles(ZIP);
+  await page.getByLabel('Animation preview quality').selectOption('low');
   await page.getByRole('button', { name: 'Done — upload' }).click();
   await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 5 * 60 * 1000, intervals: [2000] }).toMatch(/Maya is saved/);
   expect(server.characters.size).toBe(1);
@@ -164,4 +166,30 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   await expect(page.getByTitle('Apply walk', { exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   expect(await page.evaluate(() => [...window.__toon.stage.layers[0].anim].some((n) => /walk/.test(n)))).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test('animation previews can be made at 480 and 720 px (sharper than the small 128 px ones)', async ({ page }) => {
+  test.skip(!existsSync(ZIP), 'the Maya ZIP is not part of the repository');
+  test.setTimeout(4 * 60 * 1000);
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  fakeServer(page);
+  await page.goto('/?debug#/hub');
+  const zip = readFileSync(ZIP);
+  const r = await page.evaluate(async (bytes) => {
+    const m = await import('/src/admin-characters.js'), { Stage } = await import('/src/db/stage.js');
+    const pkg = await m.readCharacterZip(new File([new Uint8Array(bytes)], 'maya.zip')); pkg.stamp = 'q';
+    const view = pkg.manifest.views[0], def = await m.viewDef(pkg, view), a = view.animations.find((x) => /walk/.test(x.name)) || view.animations[0], anim = await m.animOf(pkg, a);
+    const out = {};
+    for (const key of ['low', '480', '720']) {
+      const q = m.GIF_QUALITY[key], stage = new Stage({ maxTex: 2048 }); stage.setSize('1:1', q.size); stage.fullView = false; await stage.loadCharacter(def);
+      const t0 = performance.now(), blob = await m.animationGif(stage, def, a.name, anim, a.length, q), head = new Uint8Array(await blob.slice(0, 10).arrayBuffer());
+      out[key] = { width: head[6] | (head[7] << 8), bytes: blob.size, ms: Math.round(performance.now() - t0), fps: q.fps };
+      stage.unload(def.id);
+    }
+    return out;
+  }, [...zip]);
+  console.log('GIF', JSON.stringify(r));
+  expect(r.low.width).toBe(128); expect(r['480'].width).toBe(480); expect(r['720'].width).toBe(720);
+  expect(r['480'].bytes).toBeGreaterThan(r.low.bytes); expect(r['720'].bytes).toBeGreaterThan(r['480'].bytes);
+  expect(r['720'].bytes).toBeLessThan(15 * 1024 * 1024);                                     // still a sane size for one animation
 });

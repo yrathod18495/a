@@ -58,3 +58,28 @@ test('a path follows its animation clip: same start and length, and it goes when
   expect(r.last).toBeCloseTo(7.5, 2);                                       // its keyframes end exactly where the clip ends
   expect(r.gone).toBe(true); expect(r.keysGone).toBe(true);
 });
+
+test('resizing a character that has keyframes / a path keeps it smaller everywhere (not only at the playhead)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 860 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Size');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
+  const r = await page.evaluate(() => {
+    const { S, stage, player, saveXf } = window.__toon;
+    S.speakers.push({ key: 'fake1', name: 'Fake', color: '#c06', charId: 'fake' }); S.order.push('fake1');
+    const layer = { key: 'fake1', box: { x0: 0, x1: 10, y0: 0, y1: 10 }, visible: true, anim: new Set(), anchor: { x: 100, y: 100 }, mul: 1 };
+    stage.layers.push(layer);
+    S.charKeys.fake1 = [0, 1, 2, 3].map((i) => ({ id: `k${i}`, t: i, x: 0.2 + i * 0.2, y: 0.2, mul: 1, ease: 'linear', pathKey: true }));
+    S.paths.fake1 = { pts: [{ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.2 }], start: 0, dur: 3, mul: 1 };
+    stage.setLayerKeys('fake1', S.charKeys.fake1);
+    player.seek(1.5);
+    layer.mul = 0.5; saveXf(layer);                                         // the user makes the character half the size at 1.5 s
+    return { muls: S.charKeys.fake1.filter((k) => k.pathKey).map((k) => k.mul), pathMul: S.paths.fake1.mul, now: stage.keyChar(S.charKeys.fake1.slice().sort((a, b) => a.t - b.t), 0).mul };
+  });
+  for (const m of r.muls) expect(m).toBeCloseTo(0.5, 2);                    // every keyframe of the movement is smaller
+  expect(r.pathMul).toBeCloseTo(0.5, 2); expect(r.now).toBeCloseTo(0.5, 2);
+});

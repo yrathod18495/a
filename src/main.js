@@ -2363,7 +2363,14 @@ function updateBgSel() {
   Object.assign(bgSelEl.style, { left: `${x0}px`, top: `${y0}px`, width: `${Math.max(0, x1 - x0)}px`, height: `${Math.max(0, y1 - y0)}px` });
 }
 function saveXf(l) {
-  if (S.charKeys[l.key]?.length) { writeCharKey(l); return; }          // with keyframes, moving / resizing edits the keyframe at the playhead
+  const keys = S.charKeys[l.key];
+  if (keys?.length) {
+    // With keyframes (a path, a movement) the character's size belongs to the whole movement, not to one moment: every keyframe is scaled by the same amount,
+    // so a smaller character stays smaller when the playhead moves. The position is a keyframe at the playhead.
+    const was = stage.keyChar(keys.slice().sort((a, b) => a.t - b.t), player.time)?.mul || 1, ratio = (l.mul ?? 1) / was;
+    if (Math.abs(ratio - 1) > 1e-4) { for (const k of keys) k.mul = +Math.max(0.05, (k.mul || 1) * ratio).toFixed(4); if (S.paths[l.key]) S.paths[l.key].mul = +Math.max(0.05, (S.paths[l.key].mul ?? 1) * ratio).toFixed(4); }
+    writeCharKey(l); return;
+  }
   const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf };
 }
 function updateSel() {
@@ -3570,7 +3577,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, drawCharBar, hideSelBar, updatePathView, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, drawCharBar, hideSelBar, updatePathView, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

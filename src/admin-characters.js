@@ -10,7 +10,9 @@ import { checkManifest, gifName } from '../shared/character-package.js';
 import { listCloudCharacters, storeCharacter, deleteCloudCharacter, pictureUrl } from './cloud-characters.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
-const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // small on purpose: it only shows what the animation does
+const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // the small one: it only shows what the animation does
+/** preview quality the admin can pick: size in pixels (the picture is square), frames per second, colours (a GIF has 256 at most). Bigger = sharper, but heavier to store and to show. */
+export const GIF_QUALITY = { low: { label: 'Small · 128 px (light)', ...GIF }, 480: { label: 'Good · 480 px', size: 480, fps: 12, maxSeconds: 4, colors: 256 }, 720: { label: 'Best · 720 px (heaviest)', size: 720, fps: 10, maxSeconds: 4, colors: 256 } };
 const PREVIEW = 420;
 const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
 
@@ -23,12 +25,12 @@ export async function readCharacterZip(file) {
   return { manifest, files, errors: checkManifest(manifest, [...files.keys()]), bytes: file.size };
 }
 /** a DragonBones character the stage can show, for one view of the package */
-async function viewDef(pkg, v) {
+export async function viewDef(pkg, v) {
   const ske = JSON.parse(await pkg.files.get(v.skeleton).text());
   const tex = await Promise.all(v.textures.map(async (t) => { const json = JSON.parse(await pkg.files.get(t).text()); return { json, image: pkg.files.get(t.slice(0, t.lastIndexOf('/') + 1) + json.imagePath) }; }));
   return { id: `upload-${pkg.manifest.character.id}-${v.id}-${pkg.stamp}`, name: pkg.manifest.character.name, ske, tex, rig: rigInfo(ske), anims: [] };
 }
-const animOf = async (pkg, a) => { const j = JSON.parse(await pkg.files.get(a.file).text()); return j && j.bone ? j : Object.values(j)[0]; };
+export const animOf = async (pkg, a) => { const j = JSON.parse(await pkg.files.get(a.file).text()); return j && j.bone ? j : Object.values(j)[0]; };
 const layerFor = (def, name, anim, length) => ({ key: 'c', charId: def.id, skins: null, swap: null, anims: name ? { [name]: anim } : {}, clips: name ? [{ id: 'a', kind: 'body', name, start: 0, dur: length, off: 0 }] : [], present: null, flip: false, xf: null, mask: null, maskKeys: [], maskFollow: '', slot: 0, visible: true, keys: [] });
 
 /**
@@ -73,7 +75,7 @@ export async function animationGif(stage, def, name, anim, length, opts = GIF) {
 export async function charactersView({ back, home, toast }) {
   const root = h('div', { class: 'sh admin-characters' });
   const content = h('main', { class: 'admin-characters-main' });
-  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0 };
+  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '480' };
   const stage = new Stage({ maxTex: 4096 }); stage.setSize('1:1', PREVIEW); stage.fullView = false;
   let raf = 0, last = 0, loadJob = 0;
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
@@ -140,20 +142,21 @@ export async function charactersView({ back, home, toast }) {
     try {
       const gifs = new Map(), thumbs = new Map();
       let thumb = null;
-      const small = new Stage({ maxTex: 2048 }); small.setSize('1:1', GIF.size); small.fullView = false;
+      const q = GIF_QUALITY[st.gifQuality] || GIF_QUALITY[480], small = new Stage({ maxTex: 2048 }); small.setSize('1:1', q.size); small.fullView = false; let gifBytes = 0;
       const total = views().reduce((n, v) => n + v.animations.length, 0); let made = 0;
       for (const v of views()) {
         const def = await viewDef(pkg, v); await small.loadCharacter(def);
         const picture = await viewThumbnail(small, def); thumbs.set(v.id, picture);          // each view gets its own picture
         if (!thumb || v.id === 'f34') thumb = picture;
-        small.setSize('1:1', GIF.size);
+        small.setSize('1:1', q.size);
         if (st.withAnimations) for (const a of v.animations) {
           say(`Making the animation previews ${++made} / ${total} (${a.label || a.name})…`, made / total * 0.4);
-          gifs.set(`${v.id}/${a.name}`, await animationGif(small, def, a.name, await animOf(pkg, a), a.length));
+          const gif = await animationGif(small, def, a.name, await animOf(pkg, a), a.length, q); gifBytes += gif.size; gifs.set(`${v.id}/${a.name}`, gif);
           await new Promise((r) => setTimeout(r, 0));             // let the page breathe between animations
         }
         small.unload(def.id);
       }
+      say(`Previews ready (${(gifBytes / 1048576).toFixed(1)} MB in all). Saving…`, 0.4);
       const result = await storeCharacter({ manifest: pkg.manifest, files: pkg.files, gifs, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => say(text, 0.4 + (t ? d / t : 1) * 0.6) });
       toast(`${pkg.manifest.character.name} is saved${result.categoryCreated ? ` with a new category "${pkg.manifest.category.name}"` : ''}. Creators can use the character now.`);
       st.pkg = null; status.textContent = 'Saved.'; bar.hidden = true;
@@ -198,7 +201,9 @@ export async function charactersView({ back, home, toast }) {
     content.replaceChildren(
       h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'CHARACTER LIBRARY'), h('h1', {}, 'Characters'),
         h('p', {}, 'Upload a character ZIP made with scripts/character-zip.mjs. You can play every animation here before anything is uploaded. Done makes a small preview GIF of each animation and stores the character: the rig and animations in the database, the pictures in R2.')),
-      h('section', { class: 'admin-panel-card admin-characters-upload' }, h('button', { class: 'btn pri', type: 'button', disabled: st.busy, onclick: () => fileInput.click() }, '＋ Choose character ZIP'), fileInput, status),
+      h('section', { class: 'admin-panel-card admin-characters-upload' }, h('button', { class: 'btn pri', type: 'button', disabled: st.busy, onclick: () => fileInput.click() }, '＋ Choose character ZIP'), fileInput,
+        h('label', { class: 'admin-gif-quality' }, h('span', {}, 'Animation preview quality'), h('select', { 'aria-label': 'Animation preview quality', disabled: st.busy, onchange: (e) => { st.gifQuality = e.target.value; } }, Object.entries(GIF_QUALITY).map(([k, v]) => h('option', { value: k, selected: st.gifQuality === k }, v.label)))),
+        h('small', { class: 'admin-gif-note' }, 'Bigger previews look sharper but are heavier: about 1 MB per animation at 480 px and 2 MB at 720 px (a walk cycle; the small 128 px ones are under 0.1 MB), and they take longer to make. The total is shown before saving.'), status),
       previewSection() || h('span'),
       h('section', { class: 'admin-panel-card admin-characters-list' }, h('h2', {}, `Saved characters (${st.list.length})`),
         st.list.length ? h('div', { class: 'admin-characters-grid' }, ...st.list.map(card)) : h('p', { class: 'admin-empty' }, 'No characters yet. Upload the first ZIP above.')),

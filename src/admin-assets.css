@@ -1,0 +1,4 @@
+
+.admin-gif-quality{display:flex;align-items:center;gap:10px;margin:10px 0 2px;flex-wrap:wrap}
+.admin-gif-quality select{padding:6px 10px;border-radius:8px}
+.admin-gif-note{display:block;margin-top:4px;opacity:.75}
