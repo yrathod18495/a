@@ -916,12 +916,12 @@ function placeToolbarGroup(group) {
   popup.style.top = `${Math.max(8, Math.min(top, innerHeight - popup.offsetHeight - 8))}px`;
 }
 // pop-up menus close when you tap anywhere else, and after you pick something inside them
-const POPUPS = '#app :is(.upload-tools,.advanced-tools,.scene-menu,.studio-menu,.save-status)[open]';
+const POPUPS = '#app :is(.upload-tools,.advanced-tools,.scene-menu,.studio-menu,.save-status,.char-more)[open]';
 document.addEventListener('pointerdown', event => {
   for (const group of document.querySelectorAll(POPUPS)) if (!group.contains(event.target)) group.open = false;
 }, true);
 document.addEventListener('click', event => {
-  const inside = event.target.closest?.('.advanced-tools-list button,.scene-menu-items button,.studio-menu button,.studio-menu a');
+  const inside = event.target.closest?.('.advanced-tools-list button,.scene-menu-items button,.studio-menu button,.studio-menu a,.cb-more-list button');
   if (inside) for (const group of document.querySelectorAll(POPUPS)) if (group.contains(inside)) group.open = false;
 }, false);
 window.addEventListener('resize', () => {
@@ -2445,12 +2445,20 @@ function drawCharBar(l) {
   if (charBar.dataset.key === l.key) { for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', S.tab === b.dataset.tab && S.panelOpen); return; }
   charBar.dataset.key = l.key;
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
+  const items = [['anim', 'Animations', 'film'], ['props', 'Hand props', 'package'], ['motion', 'Path', 'move']];
+  const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']];
   charBar.replaceChildren(
     h('div', { class: 'cb-list' },
-      ...[['anim', 'Animations', 'film'], ['props', 'Hand props', 'package'], ['motion', 'Path', 'move'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']].map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
-      btn('flip', 'Mirror', () => mirrorChar(l, s)), btn('rotate', 'Reset', () => resetChar(l, s)),
-      btn('trash', 'Delete', () => removeCharacterFrom(s), { class: 'cb-btn danger', disabled: S.exporting })),
-    h('button', { type: 'button', class: 'cb-close', title: 'Done', 'aria-label': 'Close the character tools', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, icon('x')));
+      ...items.map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
+      btn('flip', 'Mirror', () => mirrorChar(l, s))),
+    // everything else is one tap away in a list (no sideways scrolling to find it)
+    h('details', { class: 'char-more' },
+      h('summary', { title: 'More', 'aria-label': 'More character tools' }, icon('more'), h('span', {}, 'More')),
+      h('div', { class: 'cb-more-list' },
+        ...rest.map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
+        btn('rotate', 'Reset', () => resetChar(l, s)),
+        btn('trash', 'Delete', () => removeCharacterFrom(s), { class: 'cb-btn danger', disabled: S.exporting }),
+        btn('x', 'Done', () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; }, { 'aria-label': 'Close the character tools' }))));
 }
 function drawSelBar(l) {
   const s = S.speakers.find((x) => x.key === l.key);

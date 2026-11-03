@@ -332,3 +332,17 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 
 .tile-search{width:100%;box-sizing:border-box;height:38px;margin:0 0 6px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);font-size:14px}
 .tile[hidden]{display:none !important}
+
+/* the character bar: the main tools stay in view, "More" opens a list with the rest (no sideways scrolling) */
+@media(max-width:860px){
+  #app .ws .char-bar:not([hidden]){overflow:visible}
+  #app .ws .char-bar .cb-list{overflow:visible;gap:2px}
+  #app .ws .char-bar .cb-list .cb-btn{flex:1 1 0;width:auto;min-width:0}
+  #app .ws .char-more{position:relative;flex:none;width:74px;border-left:1px solid var(--line)}
+  #app .ws .char-more>summary{list-style:none;height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--text);font-size:10.5px;font-weight:600;border-radius:0 15px 15px 0}
+  #app .ws .char-more>summary::-webkit-details-marker{display:none}
+  #app .ws .char-more>summary svg{width:22px;height:22px}
+  #app .ws .char-more[open]>summary{background:var(--acc);color:#fff}
+  #app .ws .cb-more-list{position:absolute;right:0;bottom:calc(100% + 8px);z-index:70;display:grid;grid-template-columns:repeat(3,78px);gap:6px;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:0 10px 30px #000a}
+  #app .ws .cb-more-list .cb-btn{flex:none;width:auto;min-height:56px}
+}
