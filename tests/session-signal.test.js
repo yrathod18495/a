@@ -32,3 +32,12 @@ test('a signal that arrives before the listener is returned still signs the devi
 test('the message tells the user plainly what happened', () => {
   assert.match(REPLACED_MESSAGE, /signed in on another device/); assert.match(REPLACED_MESSAGE, /sign in again/);
 });
+
+test('a fresh Google sign-in always starts a new session, even when its token still carries an old session id', async () => {
+  const { needsNewSession } = await import('../shared/session-signal.js');
+  assert.equal(needsNewSession({ claims: {}, signInProvider: 'google.com' }), true);
+  assert.equal(needsNewSession({ claims: { sid: 'old-ended-session' }, signInProvider: 'google.com' }), true);   // the bug: this used to be trusted
+  assert.equal(needsNewSession({ claims: { sid: 'running' }, signInProvider: 'custom' }), false);               // the app's own token after a reload: just check it
+  assert.equal(needsNewSession({ claims: {}, signInProvider: 'custom' }), true);
+  assert.equal(needsNewSession(null), true);
+});

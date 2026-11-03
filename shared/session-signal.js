@@ -17,3 +17,10 @@ export function watchSessionSignal({ uid, sid, subscribe, onReplaced }) {
   if (done) stop();
   return () => { done = true; stop(); };
 }
+
+/**
+ * Does this sign-in need a new session? `token` is what Firebase's getIdTokenResult() gives.
+ * A fresh Google sign-in always does: the account keeps its last session id as a claim, so such a token carries an OLD id that must not be trusted.
+ * Only a token the app got from its own session (a page reload after the custom-token sign-in) already belongs to a session worth checking.
+ */
+export const needsNewSession = (token) => !token?.claims?.sid || token?.signInProvider === 'google.com';

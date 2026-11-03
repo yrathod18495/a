@@ -1,6 +1,7 @@
 // Firebase (login + database). The web config below is public by design (it only names the project);
 // what protects the data are the Firestore rules (firebase/firestore.rules) and the server check in api/r2.js.
 import { initializeApp } from 'firebase/app';
+import { needsNewSession } from '../shared/session-signal.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 
 const env = import.meta.env;
@@ -50,7 +51,7 @@ export const onUser = (cb) => {
         await session.validateSession();cb(user);return;
       }
       const token = await user.getIdTokenResult();
-      if (!token.claims.sid) {
+      if (needsNewSession(token)) {          // a fresh Google sign-in always starts a session (its token may still carry the last, ended, session id)
         const acquired = await session.acquireSession();
         if (auth.currentUser?.uid !== user.uid) return;
         const credential=await signInWithCustomToken(auth, acquired.token);
