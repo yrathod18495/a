@@ -9,6 +9,8 @@ import { Motion, limbsFromArmature } from './motion.js';
 import { HOP, visemeName } from '../lipsync.js';
 import { EFFECT_BLENDS, propActive, sheetUv, isHeld, heldAt, heldPlacement } from '../../shared/studio-effects.js';
 
+/** the tallest a character gets at 100% size, as a share of the canvas height */
+export const CHARACTER_MAX_HEIGHT = 0.75;
 export const ASPECTS = {
   '9:16': { w: 9, h: 16, label: 'Portrait 9:16' },
   '16:9': { w: 16, h: 9, label: 'Landscape 16:9' },
@@ -285,7 +287,7 @@ export class Stage {
     const n = this.layers.length, W = this.W, H = this.H;
     const slotW = W / Math.max(n, 1);
     // one shared auto scale, so characters keep their real relative size (like on the original platform)
-    const fit = (l) => Math.min((slotW * 0.96) / l.bounds.w, (H * 0.9) / l.bounds.h);
+    const fit = (l) => Math.min((slotW * 0.96) / l.bounds.w, (H * CHARACTER_MAX_HEIGHT) / l.bounds.h);          // at 100% size a character is at most 75% of the canvas height
     const auto = Math.min(...this.layers.map(fit));
     this.layers.forEach((l, i) => {
       const b = l.bounds, S = auto * (l.mul ?? 1), dir = l.flip ? -1 : 1;
