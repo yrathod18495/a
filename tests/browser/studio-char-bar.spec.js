@@ -15,7 +15,7 @@ test('phone: a selected character gets named tool buttons over the bottom menu; 
   // the bundled demo characters are not in the repository, so a character entry is made directly: this checks the bar itself (layout, names, close)
   await page.evaluate(() => { const { S, drawCharBar } = window.__toon; S.speakers.push({ key: 'fake1', name: 'Fake', color: '#c06', charId: 'fake' }); drawCharBar({ key: 'fake1' }); });
   const bar = page.locator('.char-bar'); await expect(bar).toBeVisible();
-  await expect(bar.locator('.cb-btn > span:last-child')).toHaveText(['Animations', 'Hand props', 'Move', 'Tears', 'Mask', 'Mirror', 'Reset', 'Delete']);
+  await expect(bar.locator('.cb-btn > span:last-child')).toHaveText(['Animations', 'Hand props', 'Path', 'Tears', 'Mask', 'Mirror', 'Reset', 'Delete']);
   const tabs = await page.locator('.tabs.big').boundingBox(), bb = await bar.boundingBox();
   expect(Math.abs(bb.y - tabs.y)).toBeLessThan(3); expect(bb.x + bb.width).toBeLessThanOrEqual(390.5);
   const row = await page.locator('.char-bar .cb-list').evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth }));

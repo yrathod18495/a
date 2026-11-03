@@ -18,6 +18,9 @@ test('phone: selected clip shows Delete in view and removes the clip', async ({ 
   const edit = await page.locator('.edit-del').boundingBox(); expect(edit.x + edit.width).toBeLessThanOrEqual(390.5);
   const b = await bar.boundingBox(), e = await page.locator('.edittools').boundingBox();
   expect(b.y + b.height).toBeLessThanOrEqual(e.y + 1);                                         // the bar is its own row above the edit buttons
+  // nothing makes the page wider than the phone (the whole studio used to slide sideways)
+  const over = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, vw: innerWidth, ws: document.querySelector('.ws').scrollWidth, wsw: document.querySelector('.ws').clientWidth, wide: [...document.querySelectorAll('.ws *')].filter((e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.right > innerWidth + 1 && !e.closest('.edittools,.clipbar,.cb-list,.tl-scroll,.tl-inner,.scene-tabs,.tabs,.advanced-tools-list,.panel'); }).map((e) => e.className).slice(0, 5) }));
+  expect(over.doc).toBeLessThanOrEqual(over.vw); expect(over.ws).toBeLessThanOrEqual(over.wsw + 1); expect(over.wide).toEqual([]);
   await del.click();
   await expect(page.locator('#app .lane2.bg .tclip.mine')).toHaveCount(0);
   expect(await page.evaluate(() => window.__toon.S.bgClips.length)).toBe(0);

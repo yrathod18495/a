@@ -2389,7 +2389,7 @@ function drawCharBar(l) {
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
   charBar.replaceChildren(
     h('div', { class: 'cb-list' },
-      ...[['anim', 'Animations', 'film'], ['props', 'Hand props', 'package'], ['motion', 'Move', 'move'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']].map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
+      ...[['anim', 'Animations', 'film'], ['props', 'Hand props', 'package'], ['motion', 'Path', 'move'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']].map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
       btn('flip', 'Mirror', () => mirrorChar(l, s)), btn('rotate', 'Reset', () => resetChar(l, s)),
       btn('trash', 'Delete', () => removeCharacterFrom(s), { class: 'cb-btn danger', disabled: S.exporting })),
     h('button', { type: 'button', class: 'cb-close', title: 'Done', 'aria-label': 'Close the character tools', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, icon('x')));
