@@ -30,9 +30,9 @@ window.addEventListener('project-id-changed', e => {
   if (parts[2] === oldId) { parts[2] = newId; history.replaceState(null, '', location.pathname + location.search + parts.join('/')); }
 });
 const $shell = document.getElementById('shell'), $app = document.getElementById('app');
-let features = { animator: true, character: true };
-const applyFeatures = (r) => { if (r?.features) features = { animator: r.features.animator !== false, character: r.features.character !== false }; };
-const featureOn = (hash) => role === 'admin' || (hash === '#/toons' ? features.animator : hash === '#/characters' ? features.character : true);
+let features = { animator: true, character: true, background: true };
+const applyFeatures = (r) => { if (r?.features) features = { animator: r.features.animator !== false, character: r.features.character !== false, background: r.features.background !== false }; };
+const featureOn = (hash) => role === 'admin' || (hash === '#/toons' ? features.animator : hash === '#/characters' ? features.character : hash === '#/background-generator' ? features.background : true);
 let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true; 
 let loadedAnimationProject=null;
 
@@ -146,7 +146,7 @@ async function renderRoute() {
     $app.hidden = true; $shell.hidden = false;
     $shell.replaceChildren(await affiliateDashboardView({ user, home: () => go('#/hub'), apply: () => go('#/affiliates') })); return;
   }
-  if ((hash === '#/toons' || hash === '#/characters') && user && !featureOn(hash)) { go('#/hub'); return; }
+  if ((hash === '#/toons' || hash === '#/characters' || hash === '#/background-generator') && user && !featureOn(hash)) { go('#/hub'); return; }
   if (current === '#/toons' && (hash !== '#/toons' || !projectId || projectId !== loadedAnimationProject)) await studio?.closeStudio();
   const oldView = $shell.firstElementChild;
   await oldView?.flushDraft?.(); oldView?.dispose?.();
@@ -378,9 +378,9 @@ function hubView() {
       h('div', { class: 'sh-tools' },
         ...(featureOn('#/toons') ? [tool('animator', '12toons Animator Studio', 'Turn your script and your voice into animated scenes, then export a video that is ready to share.', '#/toons', 'Launch Animator Studio')] : []),
         ...(featureOn('#/characters') ? [tool('actor', '12toons Character Editor', 'Build custom characters for your animations: recolour parts, upload artwork and choose outfits.', '#/characters', 'Launch Character Editor')] : []),
-        tool('bggen', 'Background Generator', 'Start from a blank 4K canvas, add props, pictures and text, and save backgrounds you can use in the Animator Studio.', '#/background-generator', 'Open Background Generator'),
-        ...(!featureOn('#/toons') && !featureOn('#/characters') ? [h('p', { class: 'sub' }, 'The studios are not available right now. Please check back soon.')] : [])),
-      role === 'admin' && (!features.animator || !features.character) ? h('p', { class: 'sub' }, `Hidden for users: ${[!features.animator && 'Animator Studio', !features.character && 'Character Editor'].filter(Boolean).join(', ')} (you can still see them as admin).`) : null,
+        ...(featureOn('#/background-generator') ? [tool('bggen', 'Background Generator', 'Start from a blank 4K canvas, add props, pictures and text, and save backgrounds you can use in the Animator Studio.', '#/background-generator', 'Open Background Generator')] : []),
+        ...(!featureOn('#/toons') && !featureOn('#/characters') && !featureOn('#/background-generator') ? [h('p', { class: 'sub' }, 'The tools are not available right now. Please check back soon.')] : [])),
+      role === 'admin' && (!features.animator || !features.character || !features.background) ? h('p', { class: 'sub' }, `Hidden for users: ${[!features.animator && 'Animator Studio', !features.character && 'Character Editor', !features.background && 'Background Generator'].filter(Boolean).join(', ')} (you can still see them as admin).`) : null,
       recent,
       cloudLine));
 }

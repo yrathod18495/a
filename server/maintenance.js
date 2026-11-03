@@ -18,8 +18,8 @@ export async function setMaintenance(db, enabled, by) {
   return !!enabled;
 }
 
-// Which studio cards the hub shows. The admin can hide or show each one at any time; both are on until the admin hides one.
-export const FEATURES = ['animator', 'character'];
+// Which tool cards the hub shows (Animator Studio, Character Editor, Background Generator). The admin can hide or show each one at any time; both are on until the admin hides one.
+export const FEATURES = ['animator', 'character', 'background'];
 const featureSeen = new WeakMap();
 export async function getFeatures(db = services().db) {
   const hit = featureSeen.get(db);

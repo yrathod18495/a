@@ -113,8 +113,8 @@ export function dashboardView({ user, home, toast, openStudio }) {
       row('maintenance', 'Maintenance mode', 'ON — visitors see the maintenance page. Admins can still work.', 'OFF — the site is open to everyone.',
         async (on) => (await apiCall('/api/security', { action: 'setMaintenance', enabled: on }, user.uid)).maintenance === true,
         { when: true, text: 'Turn maintenance mode ON? Everyone except admins will be locked out until you turn it off.' });
-      for (const [feature, title] of [['animator', 'Animator Studio card'], ['character', 'Character Editor card']])
-        row(feature, title, 'SHOWN — users see this studio on their dashboard.', 'HIDDEN — users do not see it and cannot open it. Admins still can.',
+      for (const [feature, title] of [['animator', 'Animator Studio card'], ['character', 'Character Editor card'], ['background', 'Background Generator card']])
+        row(feature, title, 'SHOWN — users see this tool on their dashboard.', 'HIDDEN — users do not see it and cannot open it. Admins still can.',
           async (on) => (await apiCall('/api/security', { action: 'setFeature', feature, enabled: on }, user.uid)).features[feature] !== false);
       apiCall('/api/security', { action: 'getMaintenance' }, user.uid).then((r) => { for (const x of rows) x.paint(x.key === 'maintenance' ? r.maintenance === true : r.features?.[x.key] !== false); })
         .catch((e) => { for (const x of rows) x.note.textContent = `Could not read the setting: ${friendlyError(e)}`; });
