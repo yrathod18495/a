@@ -1236,7 +1236,7 @@ function toggleMulti(key) {
 /** a box dragged over empty space on the timeline selects every clip it touches */
 function wireBoxSelect() {
   tlInner.addEventListener('pointerdown', (e) => {
-    if (e.button || S.exporting || e.target.closest('.tclip,.ruler,.phead,button')) return;
+    if (e.button || S.exporting || e.pointerType === 'touch' || e.target.closest('.tclip,.ruler,.phead,button')) return;      // a finger scrolls the timeline; the box is for mouse and pen
     const area = tlInner.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY; let box = null;
     const mv = (ev) => {
       if (!box && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
@@ -1245,13 +1245,15 @@ function wireBoxSelect() {
       Object.assign(box.style, { left: `${x1 - area.left}px`, top: `${y1 - area.top}px`, width: `${w}px`, height: `${hh}px` });
     };
     const up = (ev) => {
-      removeEventListener('pointermove', mv); removeEventListener('pointerup', up);
+      removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', stop);
+      if (ev.type === 'pointercancel') { box?.remove(); return; }
       if (!box) { clearMulti(); return; }
       const r = box.getBoundingClientRect(); box.remove();
       const hits = [...tlInner.querySelectorAll('.tclip[data-key]')].filter((n) => !isKeyLocked(n.dataset.key)).filter((n) => { const b = n.getBoundingClientRect(); return b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; }).map((n) => n.dataset.key);
       if (hits.length >= 2) setMulti(hits); else { clearMulti(); if (hits.length === 1) { const k = hits[0], i = k.indexOf(':'); selectOnly(k.slice(0, i), k.slice(i + 1)); drawTimeline(); } }
     };
-    addEventListener('pointermove', mv); addEventListener('pointerup', up);
+    const stop = (ev) => up(ev);
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', stop);
   });
 }
 /* the same actions as for one clip, for the whole selection */
