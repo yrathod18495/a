@@ -53,3 +53,37 @@ test('an admin marks a prop as a hand prop after uploading it, and can change it
   const published = await call({ ...base, id: 'prop_hammer_123456', type: 'prop', name: 'Hammer', group: 'hand' });
   assert.equal(published.body.asset.group, 'hand');
 });
+
+test('library items are for paid accounts by default; an admin can mark single items free; everybody sees the list but a free account cannot download a paid-only file',async()=>{
+  const id='prop_paid_only_12345',freeId='prop_free_for_all_123';
+  // the visitor account: a normal free user
+  const free='free_visitor_123456789';
+  db.data.set('securityUsers/'+free,{status:'active'});db.data.set('securitySessions/'+free,{sid:'ok',expiresAt:Date.now()+100000,revoked:false});
+  const paid='paid_visitor_123456789';
+  db.data.set('securityUsers/'+paid,{status:'active'});db.data.set('securitySessions/'+paid,{sid:'ok',expiresAt:Date.now()+100000,revoked:false});
+  db.data.set('entitlements/'+paid,{tier:'paid',source:'purchase'});db.data.set('entitlements/'+free,{tier:'free',source:'default'});
+  const asCurrent=async(uid,body)=>{ current=uid; const res=response(); await handler({method:'POST',headers:{authorization:'Bearer test'},body},res); return res; };
+  assert.equal((await call({...base,id,type:'prop',name:'Crown',thumb:'data:image/webp;base64,AAAA'})).body.asset.access,undefined);          // default: nothing stored = paid only
+  assert.equal((await call({...base,id:freeId,type:'prop',name:'Stick',access:'free'})).body.asset.access,'free');                            // marked free when uploaded
+  assert.equal((await call({...base,id:'prop_bad_access_12345',type:'prop',name:'x',access:'everyone'})).statusCode,400);
+  // everybody sees both items, with their pictures
+  const list=await asCurrent(free,{action:'list'});
+  assert.deepEqual(list.body.assets.filter(a=>[id,freeId].includes(a.id)).map(a=>[a.id,a.access??'paid']).sort(),[[freeId,'free'],[id,'paid']]);
+  assert.equal(list.body.assets.find(a=>a.id===id).thumb,'data:image/webp;base64,AAAA');
+  // downloading: free account -> only the free item; paid account and admin -> both
+  const denied=await asCurrent(free,{action:'get',id});assert.equal(denied.statusCode,403);assert.equal(denied.body.code,'paid_only');assert.match(denied.body.error,/paid accounts/);
+  assert.equal((await asCurrent(free,{action:'get',id:freeId})).statusCode,200);
+  assert.equal((await asCurrent(paid,{action:'get',id})).statusCode,200);
+  assert.equal((await asCurrent(admin,{action:'get',id})).statusCode,200);
+  // the admin changes it later
+  assert.equal((await asCurrent(free,{action:'update',id,access:'free'})).statusCode,403);                                                     // a normal account cannot
+  assert.equal((await asCurrent(admin,{action:'update',id,access:'free'})).body.asset.access,'free');
+  assert.equal((await asCurrent(free,{action:'get',id})).statusCode,200);
+  assert.equal((await asCurrent(admin,{action:'update',id,access:'paid'})).body.asset.access,undefined);
+  assert.equal((await asCurrent(free,{action:'get',id})).statusCode,403);
+  assert.equal((await asCurrent(admin,{action:'update',id,access:'maybe'})).statusCode,400);
+  assert.equal((await asCurrent(admin,{action:'update',id})).statusCode,400);
+  assert.equal((await asCurrent(admin,{action:'update',id,group:'hand'})).body.asset.group,'hand');                                            // the prop type still works, and keeps the access
+  assert.equal(db.data.has('x'),false);
+  assert.equal((await asCurrent(admin,{action:'get',id})).statusCode,200);
+});

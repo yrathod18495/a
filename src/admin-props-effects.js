@@ -1,11 +1,12 @@
 // Admin tab "Props & Effects": admins upload props and effects once; every creator sees them in the studio's Props / Effects tabs.
 // Data: studioAssets collection (type 'prop' | 'effect'), files in R2, a tiny thumbnail stored with each record (see shared/studio-effects.js).
 import { h, logo } from './dom.js';
-import { deleteStudioAsset, listStudioAssets, saveStudioAsset, setPropGroup } from './studio-assets.js';
+import { deleteStudioAsset, listStudioAssets, saveStudioAsset, setPropGroup, setAssetAccess } from './studio-assets.js';
 import { cleanAssetMeta } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
 const KINDS = [['prop', '🧸 Props'], ['effect', '💫 Effects']];
+const ACCESS_LABEL = { paid: 'Paid accounts only', free: 'Free for everyone' };
 const GROUP_LABEL = { general: 'General (Props tab)', hand: 'Hand (character toolbox)' };
 const BLEND_LABEL = { normal: 'Normal', add: 'Glow (add)', screen: 'Screen' };
 
@@ -29,6 +30,15 @@ export async function propsEffectsView({ back, home, toast }) {
     catch (e) { toast(`Could not remove it: ${friendlyError(e)}`); }
   }
 
+  async function changeAccess(asset, access, select) {
+    select.disabled = true;
+    try {
+      const saved = await setAssetAccess(asset.id, access);
+      state.assets = state.assets.map((a) => { if (a.id !== asset.id) return a; const { access: _x, ...rest } = a; return saved.access ? { ...rest, access: saved.access } : rest; });
+      toast(`${asset.name} is now ${access === 'free' ? 'free for everyone' : 'for paid accounts only'}.`);
+    } catch (e) { select.value = asset.access === 'free' ? 'free' : 'paid'; toast(`Could not change who can use it: ${friendlyError(e)}`); }
+    finally { select.disabled = false; }
+  }
   async function changeGroup(asset, group, select) {
     select.disabled = true;
     try {
@@ -45,6 +55,7 @@ export async function propsEffectsView({ back, home, toast }) {
     const name = h('input', { type: 'text', maxlength: 100, placeholder: 'Leave blank to use the file name', 'aria-label': 'Name' });
     const category = h('input', { type: 'text', maxlength: 40, list: 'asset-categories', placeholder: effect ? 'e.g. Weather, Light, Magic' : 'e.g. Furniture, Food, Nature', 'aria-label': 'Category' });
     const group = h('select', { 'aria-label': 'Prop type' }, Object.entries(GROUP_LABEL).map(([value, label]) => h('option', { value }, label)));
+    const access = h('select', { 'aria-label': 'Who can use it' }, Object.entries(ACCESS_LABEL).map(([value, label]) => h('option', { value }, label)));
     const datalist = h('datalist', { id: 'asset-categories' }, categories().map((value) => h('option', { value })));
     const field = (label, input, wide = false) => h('label', { class: 'admin-animation-field', style: wide ? 'grid-column:1/-1' : '' }, h('span', {}, label), input);
     const blend = h('select', { 'aria-label': 'Blend mode' }, Object.entries(BLEND_LABEL).map(([value, label]) => h('option', { value }, label)));
@@ -57,7 +68,7 @@ export async function propsEffectsView({ back, home, toast }) {
       event.preventDefault();
       const files = [...(file.files || [])];
       if (!files.length) { toast('Please choose an image file first.'); return; }
-      const meta = { category: category.value.trim() };
+      const meta = { category: category.value.trim(), access: access.value };
       if (!effect) meta.group = group.value;
       if (effect) Object.assign(meta, { blend: blend.value, opacity: Number(opacity.value), placement: placement.value, ...(state.sheet ? { sheet: { cols: Number(cols.value), rows: Number(rows.value), fps: Number(fps.value) } } : {}) });
       try { cleanAssetMeta(state.kind, meta); } catch (error) { toast(error.message); return; }
@@ -71,7 +82,7 @@ export async function propsEffectsView({ back, home, toast }) {
     } },
       field(effect ? 'Effect image / sprite sheet (up to 40 MB)' : 'Prop image(s) (PNG / WebP, up to 40 MB each)', file, true),
       field('Name', name), field('Category', category), datalist,
-      ...(effect ? [] : [field('Prop type', group)]),
+      ...(effect ? [] : [field('Prop type', group)]), field('Who can use it', access),
       ...(effect ? [field('Blend mode', blend), field('Opacity (0.05 – 1)', opacity), field('Placement', placement),
         h('label', { class: 'admin-animation-field' }, h('span', {}, 'This is a sprite sheet (frame-based animation)'), sheetOn),
         ...(state.sheet ? [field('Columns', cols), field('Rows', rows), field('Frames per second', fps)] : [])] : []),
@@ -84,6 +95,8 @@ export async function propsEffectsView({ back, home, toast }) {
       : `${(asset.size / 1024).toFixed(0)} KB`;
     return h('article', { class: 'admin-asset-card' }, asset.thumb ? h('img', { src: asset.thumb, alt: asset.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '◌'),
       h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${asset.category || 'No category'} · ${detail}`),
+        h('select', { class: 'prop-group asset-access', 'aria-label': `Who can use ${asset.name}`, title: 'Everyone sees every item. Free accounts can only add the ones marked free.', onchange: (e) => changeAccess(asset, e.target.value, e.target) },
+          Object.entries(ACCESS_LABEL).map(([value, label]) => h('option', { value, selected: (asset.access === 'free' ? 'free' : 'paid') === value }, label))),
         asset.type === 'prop' ? h('select', { class: 'prop-group', 'aria-label': `Prop type for ${asset.name}`, title: 'General props show in the Props tab. Hand props show in the toolbox of a selected character.', onchange: (e) => changeGroup(asset, e.target.value, e.target) },
           Object.entries(GROUP_LABEL).map(([value, label]) => h('option', { value, selected: (asset.group === 'hand' ? 'hand' : 'general') === value }, label))) : null),
       h('button', { class: 'btn sm', type: 'button', title: `Remove ${asset.name}`, onclick: () => remove(asset) }, 'Remove'));

@@ -48,12 +48,15 @@ export async function saveStudioAsset(type, name, file, meta = {}) {
   forgetList();
   return asset;
 }
-/** change a prop's type after uploading it: 'general' or 'hand' (admin only) */
-export async function setPropGroup(id, group) {
-  const result = await apiCall('/api/studio-assets', { action: 'update', id, group }, uid());
+async function updateStudioAsset(id, patch) {
+  const result = await apiCall('/api/studio-assets', { action: 'update', id, ...patch }, uid());
   forgetList();
   return result.asset;
 }
+/** change a prop's type after uploading it: 'general' or 'hand' (admin only) */
+export const setPropGroup = (id, group) => updateStudioAsset(id, { group });
+/** who may use a library item: 'paid' (the default) or 'free' for everyone (admin only) */
+export const setAssetAccess = (id, access) => updateStudioAsset(id, { access });
 export async function deleteStudioAsset(id) {
   const result = await apiCall('/api/studio-assets', { action: 'delete', id }, uid());
   forgetList();

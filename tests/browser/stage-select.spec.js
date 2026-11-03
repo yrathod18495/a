@@ -52,7 +52,7 @@ test(`${N} voices + ${N} characters + 5 backgrounds + 3 effects: every character
     for (const [id, name, blend] of [['fx-a', 'Sparkle', 'normal'], ['fx-b', 'Glow', 'add'], ['fx-c', 'Dust', 'normal']]) {
       const c = document.createElement('canvas'); c.width = c.height = 4; c.getContext('2d').fillStyle = '#ff00ff'; c.getContext('2d').fillRect(0, 0, 4, 4);
       sharedBlobs.set(id, await new Promise(r => c.toBlob(r, 'image/png')));
-      S.sharedAssets.push({ id, type: 'effect', name, category: 'Magic', blend, opacity: 0.4, placement: 'full', updatedAt: '1' });
+      S.sharedAssets.push({ id, type: 'effect', name, category: 'Magic', access: 'free', blend, opacity: 0.4, placement: 'full', updatedAt: '1' });
     }
   });
 await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await tab(page, 'Effects');

@@ -1,6 +1,6 @@
 import { h, logo } from './dom.js';
 import { loadCatalog, libraryCharacters, cdn } from './catalog.js';
-import { deleteStudioAsset, listStudioAssets, saveStudioAsset, saveStudioAnimation } from './studio-assets.js';
+import { deleteStudioAsset, listStudioAssets, saveStudioAsset, saveStudioAnimation, setAssetAccess } from './studio-assets.js';
 
 export async function assetsView({ user, home, back, toast }) {
   const root = h('div', { class: 'sh admin-assets' });
@@ -8,6 +8,17 @@ export async function assetsView({ user, home, back, toast }) {
   const content = h('main', { class: 'admin-assets-content' });
   const state = { type: 'character', assets: [], chars: [], previews: new Map(), loading: false };
   let fileInput;
+  const ACCESS_LABEL = { paid: 'Paid accounts only', free: 'Free for everyone' };
+  const newAccess = { value: 'paid' };                                          // what a new upload gets
+  async function changeAccess(asset, access, select) {
+    select.disabled = true;
+    try {
+      const saved = await setAssetAccess(asset.id, access);
+      state.assets = state.assets.map((a) => { if (a.id !== asset.id) return a; const { access: _old, ...rest } = a; return saved.access ? { ...rest, access: saved.access } : rest; });
+      toast(`${asset.name} is now ${access === 'free' ? 'free for everyone' : 'for paid accounts only'}.`);
+    } catch (e) { select.value = asset.access === 'free' ? 'free' : 'paid'; toast(`Could not change who can use it: ${e.message}`); }
+    finally { select.disabled = false; }
+  }
   const assetType = () => state.type === 'background' ? 'background' : 'prop';
   const refresh = async () => {
     state.loading = true; draw();
@@ -36,12 +47,12 @@ export async function assetsView({ user, home, back, toast }) {
     const records = state.assets.filter((a) => a.type === kind);
     content.replaceChildren(
       h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, `Add ${label}`), h('p', {}, kind === 'background' ? 'Upload scene images once. Creators can preview and apply them from Animator Studio → Background.' : 'Upload transparent PNG or WebP objects. Creators can add them to the stage, drag them into place, resize and rotate them.')),
-      h('section', { class: 'admin-assets-upload' }, h('div', {}, h('b', {}, `Upload ${kind}s`), h('small', {}, state.progress || 'Image files · up to 40 MB each · pick one or many at once')), h('button', { class: 'btn pri', type: 'button', disabled: state.loading, onclick: openUpload }, state.progress ? 'Uploading…' : '＋ Choose images'), fileInput),
+      h('section', { class: 'admin-assets-upload' }, h('div', {}, h('b', {}, `Upload ${kind}s`), h('small', {}, state.progress || 'Image files · up to 40 MB each · pick one or many at once')), h('label', { class: 'admin-upload-access' }, h('span', {}, 'New uploads'), h('select', { 'aria-label': 'Who can use new uploads', onchange: (e) => { newAccess.value = e.target.value; } }, Object.entries(ACCESS_LABEL).map(([value, label]) => h('option', { value, selected: newAccess.value === value }, label)))), h('button', { class: 'btn pri', type: 'button', disabled: state.loading, onclick: openUpload }, state.progress ? 'Uploading…' : '＋ Choose images'), fileInput),
       state.loading && !records.length ? h('p', { class: 'admin-assets-empty' }, 'Loading assets…') : records.length ? h('div', { class: 'admin-assets-grid' }, records.map((asset) => {
         // the small thumbnail saved with the record is enough for the grid; only older uploads without one download the full file
         const preview = asset.thumb || state.previews.get(asset.id);
         if (!preview) previewAsset(asset).catch((e) => console.warn('Asset preview failed:', e.message));
-        return h('article', { class: 'admin-asset-card' }, preview ? h('img', { src: preview, alt: asset.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '◌'), h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${(asset.size / 1024 / 1024).toFixed(1)} MB · ${new Date(asset.updatedAt).toLocaleDateString()}`)), h('button', { class: 'btn sm', type: 'button', title: `Remove ${asset.name}`, onclick: () => remove(asset) }, 'Remove'));
+        return h('article', { class: 'admin-asset-card' }, preview ? h('img', { src: preview, alt: asset.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '◌'), h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${(asset.size / 1024 / 1024).toFixed(1)} MB · ${new Date(asset.updatedAt).toLocaleDateString()}`), h('select', { class: 'asset-access', 'aria-label': `Who can use ${asset.name}`, title: 'Everyone sees every item. Free accounts can only add the ones marked free.', onchange: (e) => changeAccess(asset, e.target.value, e.target) }, Object.entries(ACCESS_LABEL).map(([value, label]) => h('option', { value, selected: (asset.access === 'free' ? 'free' : 'paid') === value }, label)))), h('button', { class: 'btn sm', type: 'button', title: `Remove ${asset.name}`, onclick: () => remove(asset) }, 'Remove'));
       })) : h('div', { class: 'admin-assets-empty' }, h('span', {}, kind === 'background' ? '🖼' : '🧸'), h('b', {}, `No ${label.toLowerCase()} yet`), h('p', {}, 'Upload the first image and it will appear in the Animator Studio library.')),
       h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'));
   }
@@ -89,7 +100,7 @@ export async function assetsView({ user, home, back, toast }) {
     const worker = async () => {
       for (let file = queue.shift(); file; file = queue.shift()) {
         const name = file.name.replace(/\.[^.]+$/, '').slice(0, 100);
-        try { await saveStudioAsset(type, name, file); }
+        try { await saveStudioAsset(type, name, file, { access: newAccess.value }); }
         catch (error) { failed.push(`${name}: ${error.message}`); }
         done++; state.progress = `Uploading ${done} / ${files.length}…`; draw();
       }

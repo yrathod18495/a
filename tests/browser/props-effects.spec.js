@@ -20,9 +20,9 @@ async function publish(page) {
     sharedBlobs.set('fx-sparkle', await solid('#ff00ff'));
     sharedBlobs.set('fx-glow', await solid('#ff00ff'));
     S.sharedAssets.push(
-      { id: 'prop-chair', type: 'prop', name: 'Chair', category: 'Furniture', thumb: 'data:image/webp;base64,AAAA', updatedAt: '1' },
-      { id: 'fx-sparkle', type: 'effect', name: 'Sparkle', category: 'Magic', blend: 'normal', opacity: 1, placement: 'full', updatedAt: '2' },
-      { id: 'fx-glow', type: 'effect', name: 'Glow', category: 'Light', blend: 'add', opacity: 0.5, placement: 'full', sheet: { cols: 2, rows: 2, fps: 8 }, updatedAt: '3' });
+      { id: 'prop-chair', type: 'prop', name: 'Chair', category: 'Furniture', access: 'free', thumb: 'data:image/webp;base64,AAAA', updatedAt: '1' },
+      { id: 'fx-sparkle', type: 'effect', name: 'Sparkle', category: 'Magic', access: 'free', blend: 'normal', opacity: 1, placement: 'full', updatedAt: '2' },
+      { id: 'fx-glow', type: 'effect', name: 'Glow', category: 'Light', access: 'free', blend: 'add', opacity: 0.5, placement: 'full', sheet: { cols: 2, rows: 2, fps: 8 }, updatedAt: '3' });
   });
 }
 const centerPixel = (page, t = 0) => page.evaluate((t) => {

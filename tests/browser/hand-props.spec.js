@@ -21,8 +21,8 @@ test('hand props stay out of the normal Props list and appear in the toolbox of 
     sharedBlobs.set('prop-chair', await solid('#00ff00'));
     sharedBlobs.set('prop-cup', await solid('#ff0000'));
     S.sharedAssets.push(
-      { id: 'prop-chair', type: 'prop', name: 'Chair', category: 'Furniture', updatedAt: '1' },
-      { id: 'prop-cup', type: 'prop', name: 'Cup', category: 'Kitchen', group: 'hand', updatedAt: '2' });
+      { id: 'prop-chair', type: 'prop', name: 'Chair', category: 'Furniture', access: 'free', updatedAt: '1' },
+      { id: 'prop-cup', type: 'prop', name: 'Cup', category: 'Kitchen', group: 'hand', access: 'free', updatedAt: '2' });
   });
   await page.evaluate(() => window.__toon.openTab('props'));
   // general props are listed as before; the hand prop is not in this list
@@ -52,7 +52,7 @@ test('opening the Hand props tool of a character shows that character\'s hand pr
   await studio(page);
   await page.evaluate(() => {
     const { S } = window.__toon;
-    S.sharedAssets.push({ id: 'prop-cup', type: 'prop', name: 'Cup', category: 'Kitchen', group: 'hand', updatedAt: '2' });
+    S.sharedAssets.push({ id: 'prop-cup', type: 'prop', name: 'Cup', category: 'Kitchen', group: 'hand', access: 'free', updatedAt: '2' });
     S.speakers.push({ key: 'actor2', name: 'Ravi', color: '#00f', charId: 'lib:test', visible: true });
     window.__toon.openCharTool('actor2', 'props');
   });
@@ -68,7 +68,7 @@ test('admin: choose General or Hand when publishing a prop, and change it later 
     window.__calls = [];
     export const listStudioAssets = async () => assets.map((a) => ({ ...a }));
     export const saveStudioAsset = async (type, name, file, meta) => { window.__calls.push(['save', type, name, meta.group]); assets.push({ id: 'p' + (assets.length + 1), type, name, size: 1, ...meta }); return {}; };
-    export const setPropGroup = async (id, group) => { window.__calls.push(['group', id, group]); const a = assets.find((x) => x.id === id); if (group === 'hand') a.group = 'hand'; else delete a.group; return { ...a }; };
+    export const setAssetAccess = async () => ({}); export const setPropGroup = async (id, group) => { window.__calls.push(['group', id, group]); const a = assets.find((x) => x.id === id); if (group === 'hand') a.group = 'hand'; else delete a.group; return { ...a }; };
     export const deleteStudioAsset = async () => {}; export const downloadStudioAsset = async () => {};
   ` }));
   await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));

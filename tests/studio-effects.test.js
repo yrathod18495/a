@@ -98,3 +98,19 @@ test('a prop can be a hand prop; general is the default and is stored as nothing
   assert.equal(isHandAsset({ type: 'effect', group: 'hand' }), false);
   assert.equal(propFromAsset({ id: 'a', type: 'prop', name: 'Cup', group: 'hand' }, 'b', 'p').group, 'hand');
 });
+
+test('"who can use it": paid accounts only unless marked free; only free is stored; anything else is refused', async () => {
+  const { cleanAssetMeta } = await import('../shared/studio-effects.js');
+  const { isFreeAsset, lockedFor, PAID_MESSAGE } = await import('../shared/asset-access.js');
+  assert.deepEqual(cleanAssetMeta('prop', { access: 'free' }), { access: 'free' });
+  assert.deepEqual(cleanAssetMeta('prop', { access: 'paid' }), {});
+  assert.deepEqual(cleanAssetMeta('background', { access: 'free', category: 'Sky' }), { category: 'Sky', access: 'free' });
+  assert.equal(cleanAssetMeta('effect', { access: 'free' }).access, 'free');
+  assert.throws(() => cleanAssetMeta('prop', { access: 'everyone' }), /Paid only or Free for everyone/);
+  assert.equal(isFreeAsset({ access: 'free' }), true); assert.equal(isFreeAsset({}), false); assert.equal(isFreeAsset(null), false);
+  // free account: locked unless marked free; paid account and admin (counted as paid): never locked; animations are not affected
+  for (const type of ['prop', 'effect', 'background']) { assert.equal(lockedFor({ type }, 'free'), true); assert.equal(lockedFor({ type, access: 'free' }, 'free'), false); assert.equal(lockedFor({ type }, 'paid'), false); }
+  assert.equal(lockedFor({ type: 'animation' }, 'free'), false);
+  assert.equal(lockedFor(undefined, 'free'), false);
+  assert.match(PAID_MESSAGE, /paid accounts/); assert.match(PAID_MESSAGE, /Buy Coins/);
+});

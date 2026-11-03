@@ -6,6 +6,8 @@ import { configured, confirmAssets, readAssetText, signDownloads } from '../serv
 import { kv } from '../server/rtdb.js';
 import { AccessError } from '../server/security-policy.js';
 import { cleanAssetMeta } from '../shared/studio-effects.js';
+import { lockedFor, LOCKABLE_TYPES, PAID_MESSAGE } from '../shared/asset-access.js';
+import { effectiveTier } from '../server/entitlements.js';
 
 // The bundled character library (public/12toons) was removed, so no built-in rig is a valid animation target any more.
 // Importing that deleted file crashed this whole function (props, backgrounds, effects and the library list all failed).
@@ -54,13 +56,18 @@ export default async function handler(req, res) {
     }
 
     if (b.action === 'update') {
-      // the admin changes a prop's type (General / Hand) after uploading it
+      // the admin changes a library item after uploading it: a prop's type (General / Hand) and/or who may use it (Paid only / Free for everyone)
       if (!idOK(b.id)) throw new AccessError('invalid_asset', 'The asset is not valid.', 400);
       const existing = await store.get(`studioAssets/${b.id}`);
-      if (!existing || existing.type !== 'prop') throw new AccessError('not_found', 'Prop not found.', 404);
-      let meta; try { meta = cleanAssetMeta('prop', { group: b.group }); } catch (error) { throw new AccessError(error.code || 'invalid_asset', error.message, 400); }
-      const { group: _old, ...rest } = existing;
-      const asset = { ...rest, ...(meta.group ? { group: meta.group } : {}), updatedAt: new Date().toISOString() };
+      if (!existing || !LOCKABLE_TYPES.includes(existing.type)) throw new AccessError('not_found', 'Library item not found.', 404);
+      if (b.group === undefined && b.access === undefined) throw new AccessError('invalid_asset', 'There is nothing to change.', 400);
+      const change = {};
+      try {
+        if (b.group !== undefined) { if (existing.type !== 'prop') throw Object.assign(new Error('Only props have a type.'), { code: 'invalid_asset' }); change.group = cleanAssetMeta('prop', { group: b.group }).group || null; }
+        if (b.access !== undefined) change.access = cleanAssetMeta(existing.type, { access: b.access }).access || null;
+      } catch (error) { throw new AccessError(error.code || 'invalid_asset', error.message, 400); }
+      const asset = { ...existing, updatedAt: new Date().toISOString() };
+      for (const [key, value] of Object.entries(change)) { if (value) asset[key] = value; else delete asset[key]; }
       await store.set(`studioAssets/${b.id}`, asset);
       libraryCache = null;
       return send(res, 200, { asset });
@@ -87,6 +94,8 @@ export default async function handler(req, res) {
       if (!idOK(b.id)) throw new AccessError('invalid_asset', 'The asset is not valid.', 400);
       const asset = await store.get(`studioAssets/${b.id}`);
       if (!asset?.enabled) throw new AccessError('not_found', 'Asset not found.', 404);
+      // paid-only items (the default) can be seen by everyone but only downloaded by paid accounts and admins; the check is here, not just in the screen
+      if (lockedFor(asset, await effectiveTier(services().db, who))) throw new AccessError('paid_only', PAID_MESSAGE, 403);
       // the browser downloads the file straight from R2 with this short-lived link
       const hash = asset.key.slice(7), urls = await signDownloads(asset.ownerUid, [hash]);
       return send(res, 200, { url: urls[hash], size: asset.size, type: asset.mime });

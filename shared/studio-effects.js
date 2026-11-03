@@ -8,6 +8,7 @@ export const ASSET_CATEGORY_MAX = 40;
 export const THUMB_MAX_CHARS = 9000;
 export const THUMB_PATTERN = /^data:image\/(?:webp|png|jpeg);base64,[A-Za-z0-9+/=]+$/;
 
+import { ACCESS_VALUES } from './asset-access.js';
 const bad = (message) => Object.assign(new Error(message), { status: 400, code: 'invalid_effect' });
 const num = (value, min, max, fallback) => { const n = Number(value); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback; };
 
@@ -19,6 +20,11 @@ export function cleanAssetMeta(type, input = {}) {
   const meta = {};
   const category = String(input.category ?? '').trim().slice(0, ASSET_CATEGORY_MAX);
   if (category) meta.category = category;
+  // who may use the item: paid accounts only unless it is marked free; "paid" is the default and is stored as nothing
+  if (input.access != null && input.access !== '') {
+    if (!ACCESS_VALUES.includes(input.access)) throw bad('The access setting is not valid. Please choose Paid only or Free for everyone.');
+    if (input.access === 'free') meta.access = 'free';
+  }
   if (input.thumb != null && input.thumb !== '') {
     if (typeof input.thumb !== 'string' || input.thumb.length > THUMB_MAX_CHARS || !THUMB_PATTERN.test(input.thumb)) throw bad('The thumbnail is not valid. Please upload the image again.');
     meta.thumb = input.thumb;

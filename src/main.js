@@ -12,6 +12,7 @@ import './studio-icons.css';
 import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark, swipeAway } from './dom.js';
 import { creditsBadge } from './credits-badge.js';
+import { lockedFor, PAID_MESSAGE } from '../shared/asset-access.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
@@ -2794,6 +2795,12 @@ function tabAi() {
 
 /* ---- props & effects: the library admins publish (props, effects) plus the user's own pictures ---- */
 const sizingProps = new Set();                    // props whose picture size is being read
+/** paid-only library items (the default) are shown to everyone but only paid accounts and admins can add them; the server checks this too */
+let planAsked = false;
+const assetLocked = (asset) => lockedFor(asset, currentPlan().tier);
+const lockHint = () => { toast(PAID_MESSAGE); };
+function askPlan() { if (planAsked) return; planAsked = true; refreshPlan().then(() => { if (['props', 'effects', 'canvas'].includes(S.tab)) redrawPanel(); }).catch(() => {}); }
+const lockBadge = () => h('span', { class: 'lock-badge' }, '🔒 Paid');
 const sharedBlobs = new Map();                    // library asset id -> its file, so each file is downloaded once per tab
 const libraryFilter = { prop: 'all', effect: 'all' };
 /** pick up what admins published since this tab loaded (the list is cached for a few minutes; the button forces a fresh read) */
@@ -2848,9 +2855,11 @@ function libraryTab(kind) {
   if (libraryFilter[kind] !== 'all' && !categories.includes(libraryFilter[kind])) libraryFilter[kind] = 'all';
   const shown = assets.filter((asset) => libraryFilter[kind] === 'all' || (asset.category || 'Other') === libraryFilter[kind]);
   const chip = (value, text) => h('button', { type: 'button', class: `btn sm ${libraryFilter[kind] === value ? 'pri' : ''}`, 'aria-pressed': String(libraryFilter[kind] === value), onclick: () => { libraryFilter[kind] = value; redrawPanel(); } }, text);
-  const card = (asset) => h('button', { class: 'studio-shared-card lib-card', type: 'button', title: `Add to scene: ${asset.name}`, onclick: () => addLibraryProp(asset) },
+  askPlan();
+  const card = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Add to scene: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset)) },
+    locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, icon), h('b', {}, asset.name),
-    h('small', {}, effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'}` : (asset.category || 'Shared library')));
+    h('small', {}, locked ? 'Paid accounts only' : effects ? `${asset.sheet ? 'Animated' : 'Still'} · ${asset.blend || 'normal'}` : (asset.category || 'Shared library'))); };
   const ownFile = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; await addOwnProps(files); } });
   const onStage = S.props.filter((prop) => (isEffect(prop) ? 'effect' : 'prop') === kind);
   const selected = onStage.find((prop) => prop.id === S.selectedPropId);
@@ -2895,8 +2904,9 @@ function libraryTab(kind) {
     ...(effects ? [] : [h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: selected.behind === true, onchange: (e) => edit('behind', e.target.checked ? true : undefined) }), 'Place behind the character')]),
     h('div', { class: 'prop-times' }, seconds('start', 'Dikhe: shuru (s)'), seconds('end', 'Dikhe: khatam (s)')),
     h('button', { class: 'btn sm', type: 'button', style: 'color:#b91c1c;border-color:#fecaca', onclick: async () => { await dbDel('props', selected.id); S.props = S.props.filter((p) => p.id !== selected.id); S.selectedPropId = null; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel(); } }, `Remove ${effects ? 'effect' : 'prop'}`));
-  const handCard = (asset) => h('button', { class: 'studio-shared-card lib-card hand-card', type: 'button', title: `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => addLibraryProp(asset, { key: holder.key, hand: 'R' }) },
-    asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, asset.category || 'Hand prop'));
+  const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset, { key: holder.key, hand: 'R' })) },
+    locked ? lockBadge() : null,
+    asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : (asset.category || 'Hand prop'))); };
   const handBlock = !handAssets.length ? [] : [h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Hand props'),
     holder ? h('p', { class: 'sub studio-help' }, `Tap a prop to put it in ${holder.name}'s right hand. You can switch the hand below once it is placed.`)
       : h('p', { class: 'sub studio-help' }, 'Select a character on the stage to see the hand props. They go straight into that character\'s hand.'),
@@ -2945,6 +2955,7 @@ function tabCanvas() {
   };
   const pickBg = async (rec, preset) => {
     if (S.bgAtTime) return addBgClip(rec, preset ?? stage.bg.preset); S.bgId = rec?.id ?? null; await stage.setBackgroundImage(rec?.blob ?? null); S.dirty = true; drawTabs(); };
+  askPlan();
   const shared = (type) => S.sharedAssets.filter((asset) => asset.type === type);
   const addSharedBackground = async (asset) => {
     try {
@@ -2954,7 +2965,7 @@ function tabCanvas() {
       await pickBg(rec);
     } catch (e) { toast(`Could not add the background: ${e.message}`); }
   };
-  const sharedGrid = (type, choose) => shared(type).length ? h('div', { class: 'studio-shared-grid' }, shared(type).map((asset) => h('button', { class: 'studio-shared-card', type: 'button', onclick: () => choose(asset) }, asset.thumb ? h('img', { class: 'studio-shared-thumb', src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, type === 'background' ? '🖼' : '🧸'), h('b', {}, asset.name), h('small', {}, 'Shared library · tap to add')))) : h('p', { class: 'sub studio-library-empty' }, 'No shared items have been added by the admin yet.');
+  const sharedGrid = (type, choose) => shared(type).length ? h('div', { class: 'studio-shared-grid' }, shared(type).map((asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : undefined, onclick: () => (locked ? lockHint() : choose(asset)) }, locked ? lockBadge() : null, asset.thumb ? h('img', { class: 'studio-shared-thumb', src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, type === 'background' ? '🖼' : '🧸'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : 'Shared library · tap to add')); })) : h('p', { class: 'sub studio-library-empty' }, 'No shared items have been added by the admin yet.');
   const mine = h('div', { class: 'bggrid' },
     h('button', { class: 'bgc add', onclick: () => file.click() }, h('span', {}, '+'), h('small', {}, 'Add images')),
     S.myBgs.map((r) => h('button', { class: `bgc ${S.bgId === r.id ? 'on' : ''}`, onclick: () => pickBg(r) },
