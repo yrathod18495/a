@@ -1525,8 +1525,8 @@ function drawClipBar() {
     
     arrows('Move', () => m.start, (v) => { m.start = Math.max(0, +v.toFixed(2)); }, () => setTimeout(commitClips, 0)), arrows('Length', () => m.dur, (v) => { m.dur = Math.max(0.2, +v.toFixed(2)); }, () => setTimeout(commitClips, 0)),
     btn('⇄ Replace', () => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); }), 'Pick another animation for this clip'),
-    m.kind === 'body' ? h('button', { type: 'button', class: 'btn sm walk-to', title: 'Path: drag the character\'s shadow to where it should go', onclick: () => startPathShadow(s) }, icon('route'), h('span', {}, 'Path')) : null,
-    S.paths[s.key]?.clipId === m.id ? h('button', { type: 'button', class: 'btn sm path-remove', title: 'Remove the path of this animation', onclick: () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); } }, icon('x'), h('span', {}, 'Path')) : null,
+    ...(m.kind === 'body' ? [h('button', { type: 'button', class: 'btn sm walk-to', title: 'Path: drag the character\'s shadow to where it should go', onclick: () => startPathShadow(s) }, icon('route'), h('span', {}, 'Path')) ] : []),
+    ...(S.paths[s.key]?.clipId === m.id ? [h('button', { type: 'button', class: 'btn sm path-remove', title: 'Remove the path of this animation', onclick: () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); } }, icon('x'), h('span', {}, 'Path')) ] : []),
     btn('🗑 Delete', deleteSelected, 'Remove this animation: the character goes back to idle'),
     btn('✕', () => { S.mclip = null; drawTimeline(); }, 'Close'));
 }
