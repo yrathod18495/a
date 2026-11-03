@@ -776,8 +776,8 @@ function viewStudio() {
   const zoom = (f) => { const left = tlScroll.scrollLeft / S.pps; S.pps = Math.min(300, Math.max(4, S.pps * f)); drawTimeline(); tlScroll.scrollLeft = left * S.pps; };
   const fit = fitTimeline;
   const tools = h('div', { class: 'tltools' },
-    tlUndo = h('button', { class: 'btn sm icon-btn tl-hist', 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, icon('undo')),
-    tlRedo = h('button', { class: 'btn sm icon-btn tl-hist', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo')),
+    tlUndo = h('button', { class: 'btn sm icon-btn tl-hist', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, icon('undo')),
+    tlRedo = h('button', { class: 'btn sm icon-btn tl-hist', 'data-history-control': true, 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo')),
     h('b', { class: 'timeline-title' }, 'Timeline'),
     h('button', { class: 'btn sm icon-btn', title: 'Zoom out timeline', 'aria-label': 'Zoom out timeline', onclick: () => zoom(1 / 1.5) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Zoom in timeline', 'aria-label': 'Zoom in timeline', onclick: () => zoom(1.5) }, icon('zoom-in')),
     h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')),
