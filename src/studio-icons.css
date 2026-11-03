@@ -258,3 +258,7 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .studio,#app .ws:has(.panel:not(.open)) .studio{grid-template-rows:var(--prev-h,minmax(150px,min(58vh,calc((100vw - 32px) / var(--ratio,1.7778) + 100px)))) 0 minmax(170px,1fr) 52px}
   #app .ws[data-tl=big] .studio,#app .ws[data-tl=big]:has(.panel:not(.open)) .studio{grid-template-rows:minmax(110px,26vh) 0 minmax(170px,1fr) 52px}
 }
+
+/* stretching a clip: it turns light and dotted while you drag, and a dotted frame marks where it was; both go away when you let go */
+#app .tclip.resizing,.tclip.resizing{opacity:.5 !important;outline:2px dashed #fff;outline-offset:-3px;filter:saturate(.6)}
+.tclip-ghost{position:absolute;top:4px;bottom:4px;z-index:2;box-sizing:border-box;border:2px dashed #ffffffcc;border-radius:8px;background:#ffffff14;pointer-events:none}

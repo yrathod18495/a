@@ -1341,13 +1341,16 @@ function dragItem(e, mode, el, io) {
   if (e.shiftKey && io.key) { if (!isKeyLocked(io.key)) toggleMulti(io.key); else lockedToast(); return; }                                // Shift + click adds the clip to (or removes it from) the selection
   const group = mode === 'move' && io.key && multi.size >= 2 && multi.has(io.key) ? multiResolve() : null;       // dragging a selected clip moves the whole selection
   if (!group) io.select?.();
-  const x0 = e.clientX, from = io.get(), pps = S.pps, groupFrom = group?.map((m) => m.get()); let moved = false, raf = 0;
+  const x0 = e.clientX, from = io.get(), pps = S.pps, groupFrom = group?.map((m) => m.get()); let moved = false, raf = 0, ghost = null;
   el.setPointerCapture?.(e.pointerId);
   const exclude = group ? group.map((m) => m.id) : [io.id];
   const points = snapOn() ? snapPoints(exclude) : [];
   const gStart = group ? Math.min(...groupFrom.map((f) => f.start)) : 0, gEnd = group ? Math.max(...groupFrom.map((f) => f.start + f.dur)) : 0;
   const mv = (ev) => {
     if (Math.abs(ev.clientX - x0) > 2) moved = true;
+    if (moved && !ghost && !group && mode !== 'move' && el.parentNode) {                                 // while stretching: the clip turns light and dotted, a dotted frame stays where it was
+      ghost = h('div', { class: 'tclip-ghost', style: `left:${el.offsetLeft}px;width:${el.offsetWidth}px` }); el.parentNode.append(ghost); el.classList.add('resizing');
+    }
     let delta = (ev.clientX - x0) / pps, at = null;
     const box = group ? { start: gStart, dur: gEnd - gStart } : from;
     if (points.length && !ev.altKey) ({ delta, at } = snapDelta({ mode, start: box.start, dur: box.dur, delta, points, within: 8 / pps }));          // hold Alt to move freely
@@ -1367,7 +1370,7 @@ function dragItem(e, mode, el, io) {
     const done = io.after?.(); if (done?.then) await done; commitClips();
   };
   const up = () => {
-    showSnapLine(null); el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+    showSnapLine(null); ghost?.remove(); el.classList.remove('resizing'); el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
     if (!moved) { if (group) { clearMulti(); io.select?.(); } drawClipBar(); return; }                 // a plain click on a selected clip selects just that one
     finish();
   };
