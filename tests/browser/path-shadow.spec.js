@@ -1,37 +1,5 @@
 import { test, expect } from '@playwright/test';
 // Drawing / editing a path shows a blurred trail and faint character outlines along it; the real line stays the one that is edited.
-test('path preview: blurred trail and ghost outlines while drawing and editing', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 860 });
-  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
-  await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
-  await page.goto('/?debug&workers=0#/toons');
-  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Create a project' }).fill('Path');
-  await page.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
-  // the bundled characters are not in the repository: a layer with a box stands in, the path code only needs its key and size
-  await page.evaluate(async () => {
-    const { S, stage } = window.__toon;
-    const c = document.createElement('canvas'); c.width = 20; c.height = 32; const g = c.getContext('2d'); g.fillStyle = '#c06'; g.fillRect(4, 0, 12, 32);
-    S.characters.push({ id: 'fake', name: 'Fake', thumb: c.toDataURL() });
-    S.speakers.push({ key: 'fake1', name: 'Fake', color: '#c06', charId: 'fake' }); S.order.push('fake1');
-    stage.layers.push({ key: 'fake1', box: { x0: 100, x1: 220, y0: 100, y1: 400 }, visible: true });
-    S.tab = 'motion'; S.motionFor = 'fake1';
-    S.paths.fake1 = { pts: [{ x: 0.2, y: 0.2 }, { x: 0.5, y: 0.3 }, { x: 0.8, y: 0.2 }], start: 0, dur: 3, face: true, smooth: false, mul: 1 };
-    S.pathEdit = true; window.__toon.updatePathView(true);
-  });
-  await expect(page.locator('.pathview .trail')).toHaveCount(1);                       // the soft trail
-  await expect(page.locator('.pathghosts img.pathghost')).toHaveCount(6);              // the character itself (its picture), start ... end - not boxes
-  await expect(page.locator('.pathview .ghost, .pathview rect')).toHaveCount(0);
-  expect(await page.locator('.pathghost').first().evaluate((e) => getComputedStyle(e).filter)).toContain('blur');
-  const o = await page.locator('.pathghost').evaluateAll((els) => els.map((e) => +getComputedStyle(e).opacity)); expect(o[5]).toBeGreaterThan(o[0]);
-  await expect(page.locator('.pathview polyline:not(.trail)')).toHaveCount(1);          // the line that is edited is still one line
-  await expect(page.locator('.pathpt')).toHaveCount(3);
-  // leaving the edit mode: only the plain line
-  await page.evaluate(() => { window.__toon.S.pathEdit = false; window.__toon.updatePathView(true); });
-  await expect(page.locator('.pathghost')).toHaveCount(0);
-});
-
 test('a path follows its animation clip: same start and length, and it goes when the clip is deleted', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 860 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
@@ -106,33 +74,63 @@ test('an older path (made before paths followed their clip) takes the animation 
   expect(r.clipId).toBe('walk1'); expect(r.dur).toBe(6); expect(r.last).toBeCloseTo(6.5, 2);          // the movement ends exactly when the walk ends
 });
 
-test('Walk to: tap where the walk ends; the path is a straight line from the character, tied to the clip, with perspective', async ({ page }) => {
+const studio = async (page) => {
   await page.setViewportSize({ width: 390, height: 860 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Create a project' }).fill('WalkTo');
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Shadow');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();
   await page.evaluate(() => {
-    const { S, stage, startWalkTo } = window.__toon;
-    S.characters.push({ id: 'fake', name: 'Fake', rig: {} });
+    const { S, stage } = window.__toon;
+    const c = document.createElement('canvas'); c.width = 20; c.height = 32; const g = c.getContext('2d'); g.fillStyle = '#c06'; g.fillRect(4, 0, 12, 32);
+    S.characters.push({ id: 'fake', name: 'Fake', rig: {}, thumb: c.toDataURL() });
     const sp = { key: 'fake1', name: 'Fake', color: '#c06', charId: 'fake' }; S.speakers.push(sp); S.order.push('fake1');
-    const W = stage.W, H = stage.H;
-    stage.layers.push({ key: 'fake1', box: { x0: 0, x1: 10, y0: 0, y1: 10 }, visible: true, anim: new Set(), anchor: { x: W * 0.2, y: H * 0.6 }, mul: 1 });   // feet at 20% from the left, 40% from the bottom
+    stage.layers.push({ key: 'fake1', box: { x0: 100, x1: 190, y0: 100, y1: 330 }, visible: true, anim: new Set(), anchor: { x: stage.W * 0.2, y: stage.H * 0.6 }, mul: 1 });      // feet at 20% from the left, 40% from the bottom
     S.manual.fake1 = [{ id: 'walk1', kind: 'body', ref: { name: 'walk' }, start: 1, dur: 4, off: 0 }];
-    startWalkTo(sp, S.manual.fake1[0]);
+    window.__toon.drawTimeline();
   });
-  const box = await page.locator('.pathdraw').boundingBox();
-  await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.9);               // lower right: further right and nearer the camera
+};
+
+test('Path: a faint shadow of the character is dragged to where it should go; the path starts at the character and ends at the shadow', async ({ page }) => {
+  await studio(page);
+  await page.evaluate(() => window.__toon.startPathShadow(window.__toon.S.speakers.find((x) => x.key === 'fake1')));
+  const shadow = page.locator('.pathshadow'); await expect(shadow).toHaveCount(1);
+  expect(await shadow.evaluate((e) => +getComputedStyle(e).opacity)).toBeLessThan(0.5);               // only a shadow: faded
+  expect(await shadow.evaluate((e) => e.tagName)).toBe('IMG');                                        // the character's own picture
+  await expect(page.locator('.pflag.stage')).toHaveCount(2);                                         // A and B
+  const box = await page.locator('.pathshadow-layer').boundingBox();
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5); await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.8, { steps: 5 }); await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.9, { steps: 5 });
+  const mid = await page.locator('.pathshadow').boundingBox();                                       // the shadow follows the finger
+  expect(Math.abs(mid.x + mid.width / 2 - (box.x + box.width * 0.8))).toBeLessThan(box.width * 0.03);
+  await page.mouse.up();
+  await expect(page.locator('.pathshadow-layer')).toHaveCount(0);
   const r = await page.evaluate(() => ({ path: window.__toon.S.paths.fake1, keys: window.__toon.S.charKeys.fake1 }));
   expect(r.path.pts.length).toBe(2); expect(r.path.clipId).toBe('walk1'); expect(r.path.start).toBe(1); expect(r.path.dur).toBe(4);
-  expect(r.path.pts[0].x).toBeCloseTo(0.2, 2); expect(r.path.pts[0].y).toBeCloseTo(0.4, 2);       // it starts where the character stands
-  expect(r.path.pts[1].x).toBeGreaterThan(0.7); expect(r.path.pts[1].y).toBeLessThan(0.2);          // and ends where it was tapped
-  expect(r.keys.at(-1).mul).toBeGreaterThan(1.3);                                                  // nearer the camera: bigger at the end
-  expect(r.keys[0].mul).toBe(1);
-  expect(r.keys.at(-1).t).toBeCloseTo(5, 2);
-  await expect(page.locator('.pathdraw')).toHaveCount(0);
+  expect(r.path.pts[0].x).toBeCloseTo(0.2, 2); expect(r.path.pts[0].y).toBeCloseTo(0.4, 2);            // A: where the character stands
+  expect(r.path.pts[1].x).toBeGreaterThan(0.7); expect(r.path.pts[1].y).toBeLessThan(0.2);              // B: where the shadow was left
+  expect(r.keys.at(-1).t).toBeCloseTo(5, 2); expect(r.keys[0].mul).toBe(1); expect(r.keys.at(-1).mul).toBeGreaterThan(1.3);   // nearer the camera: bigger at the end
+});
+
+test('Path flags on the layer: A and B sit on the animation clip and dragging one changes the time (the clip and the path follow)', async ({ page }) => {
+  await studio(page);
+  await page.evaluate(() => {
+    const { S, commitClips } = window.__toon;
+    S.paths.fake1 = { pts: [{ x: 0.2, y: 0.4 }, { x: 0.8, y: 0.4 }], clipId: 'walk1', start: 1, dur: 4, depth: 0, mul: 1 };
+    commitClips();
+  });
+  const a = page.locator('.lane2 .pflag.a'), b = page.locator('.lane2 .pflag.b');
+  await expect(a).toHaveCount(1); await expect(b).toHaveCount(1);
+  const pps = await page.evaluate(() => window.__toon.S.pps), lane = await page.locator('.lane2.char').first().boundingBox(), fa = await a.boundingBox();
+  expect(fa.height).toBeLessThanOrEqual(24);                                                          // small, like a flag stuck on the layer
+  expect(Math.abs(fa.x - (lane.x + 1 * pps))).toBeLessThan(6);
+  const bb = await b.boundingBox(), y = bb.y + 6, x = bb.x + 1;
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 60, y, { steps: 6 }); await page.mouse.up();
+  const r = await page.evaluate(() => ({ clip: window.__toon.S.manual.fake1[0], path: window.__toon.S.paths.fake1 }));
+  expect(r.clip.dur).toBeGreaterThan(4.3); expect(r.path.dur).toBeCloseTo(r.clip.dur, 1); expect(r.path.start).toBe(1);   // B moved later: the walk and the path are longer
+  await expect(page.locator('.lane2 .pflag')).toHaveCount(2);
 });

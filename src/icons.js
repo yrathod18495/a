@@ -44,6 +44,7 @@ const P = {
   swap: '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
   'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   'chevron-up': '<path d="m6 15 6-6 6 6"/>',
+  route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
   sword: '<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/>',
   shapes: '<rect x="3" y="13" width="8" height="8" rx="1"/><circle cx="17.5" cy="6.5" r="3.5"/><path d="m14 21 3.5-7 3.5 7z"/>',
   'chevron-left': '<path d="m15 6-6 6 6 6"/>',
