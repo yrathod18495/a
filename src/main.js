@@ -1631,6 +1631,29 @@ function drawCropNav() {
       h('button', { type: 'button', class: 'cb-close', 'aria-label': 'Cancel the crop', title: 'Cancel', onclick: () => cd.cancel() }, icon('x')),
       h('button', { type: 'button', class: 'cb-close crop-ok', 'aria-label': 'Apply the crop', title: 'Apply', onclick: () => cd.done() }, icon('check'))));
 }
+/** Edit of a prop / object: size, turn, see-through, a glow look, in front of or behind the characters */
+function openPropEdit(pr) {
+  if (!pr) return;
+  if (propLockedNow(pr)) { lockedToast(); return; }
+  pr.w0 ??= pr.w; pr.h0 ??= pr.h;          // the size it was placed with: 100 % is that size
+  const save = () => { S.dirty = true; dbPut('props', pr); stage.setProps(S.props); updateSel(); drawTimeline(); };
+  const slider = (label, min, max, get, set, unit = '%') => {
+    const out = h('b', { class: 'pe-val' }, `${Math.round(get())}${unit}`);
+    const input = h('input', { type: 'range', min, max, step: 1, value: Math.round(get()), 'aria-label': label, oninput: (e) => { set(+e.target.value); out.textContent = `${e.target.value}${unit}`; S.dirty = true; updateSel(); }, onchange: save });
+    return { el: h('label', { class: 'cb-field pe-row' }, h('span', {}, label, ' ', out), input), input, out, get };
+  };
+  const size = slider('Size', 10, 400, () => (pr.w / (pr.w0 || pr.w)) * 100, (v) => { const k = v / 100; pr.w = +(pr.w0 * k).toFixed(4); pr.h = +(pr.h0 * k).toFixed(4); });
+  const turn = slider('Turn', -180, 180, () => pr.rotation || 0, (v) => { pr.rotation = v; }, '°');
+  const see = slider('Opacity', 10, 100, () => (pr.opacity ?? 1) * 100, (v) => { pr.opacity = +(v / 100).toFixed(2); });
+  const looks = [['normal', 'Normal'], ['add', 'Glow'], ['screen', 'Soft light']];
+  const chips = h('div', { class: 'bg-fx-row' }, looks.map(([id, text]) => h('button', { type: 'button', class: `btn sm${(pr.blend || 'normal') === id ? ' pri' : ''}`, 'data-look': id, 'aria-pressed': String((pr.blend || 'normal') === id), onclick: () => { pr.blend = id === 'normal' ? undefined : id; if (!pr.blend) delete pr.blend; chips.querySelectorAll('button').forEach((b) => { const on = b.dataset.look === id; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', String(on)); }); save(); } }, text)));
+  const behind = h('input', { type: 'checkbox', checked: !!pr.behind, 'aria-label': 'Behind the characters', onchange: (e) => { pr.behind = e.target.checked; if (!pr.behind) delete pr.behind; save(); } });
+  const reset = () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = 0; delete pr.opacity; delete pr.blend; delete pr.behind; for (const r of [size, turn, see]) { r.input.value = Math.round(r.get()); r.out.textContent = `${Math.round(r.get())}${r === turn ? '°' : '%'}`; } chips.querySelectorAll('button').forEach((b) => { const on = b.dataset.look === 'normal'; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', String(on)); }); behind.checked = false; save(); };
+  let close;
+  close = modal(`Edit · ${pr.name}`, h('div', { class: 'prop-edit' }, size.el, turn.el, see.el, h('h3', { style: 'margin:10px 0 6px' }, 'Look'), chips,
+    h('label', { class: 'row', style: 'gap:8px;margin-top:12px;align-items:center' }, behind, h('span', {}, 'Behind the characters')),
+    h('div', { class: 'row', style: 'margin-top:14px;gap:8px' }, h('button', { type: 'button', class: 'btn sm', onclick: reset }, 'Reset'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'btn sm pri', onclick: () => close() }, 'Done'))));
+}
 /** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
 function replaceBg(c) {
   if (!c) return;
@@ -1692,14 +1715,15 @@ function drawClipNav() {
       ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
-      ...(kind !== 'bg' && kind !== 'clip' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
+      ...(kind === 'prop' ? [btn('pencil', 'Edit', () => openPropEdit(it.pr), { title: 'Size, turn, opacity, glow, in front of or behind the characters' })] : []),
+      ...(kind !== 'bg' && kind !== 'clip' && kind !== 'prop' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
       btn('trash', 'Delete', deleteSelected, { class: 'cb-btn danger' })),
     h('details', { class: 'char-more' },
       h('summary', { title: 'More', 'aria-label': 'More clip tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
         ...(canNudge ? [nudge('Move', 'start'), nudge('Length', 'dur')] : []),
         btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard }),          // Prev / Next are already in the row above the timeline
-        ...(kind === 'bg' || kind === 'clip' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
+        ...(kind === 'bg' || kind === 'clip' || kind === 'prop' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
         ...(['clip', 'bg', 'prop'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),

@@ -62,3 +62,25 @@ test('holding the Move / Length arrows repeats and speeds up (a single tap is on
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(1600); await page.mouse.up();
   expect(await page.evaluate(() => window.__toon.S.bgClips[0].start)).toBeGreaterThan(0.9);          // held: it kept going, and faster after a second
 });
+
+test('a prop has an Edit button: size, turn, opacity, glow and behind-the-characters; a locked prop refuses', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => { const T = window.__toon; T.S.bgSel = null; T.S.propSel = 'p1'; T.drawClipBar(); });
+  const nav = page.locator('.clip-nav');
+  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Edit', 'Delete']);
+  await nav.getByRole('button', { name: 'Edit' }).click();
+  const sheet = page.locator('.modal'); await expect(sheet).toBeVisible();
+  const w0 = await page.evaluate(() => window.__toon.S.props[0].w);
+  const set = (label, v) => sheet.locator(`input[aria-label="${label}"]`).evaluate((el, val) => { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, v);
+  await set('Size', 50); expect(await page.evaluate(() => window.__toon.S.props[0].w)).toBeCloseTo(w0 * 0.5, 3);          // the lamp gets smaller
+  await set('Size', 200); expect(await page.evaluate(() => window.__toon.S.props[0].w)).toBeCloseTo(w0 * 2, 3);          // and bigger
+  await set('Turn', 30); await set('Opacity', 60);
+  await sheet.locator('[data-look="add"]').click(); await sheet.getByLabel('Behind the characters').check();
+  expect(await page.evaluate(() => { const p = window.__toon.S.props[0]; return [p.rotation, p.opacity, p.blend, p.behind]; })).toEqual([30, 0.6, 'add', true]);
+  await sheet.getByRole('button', { name: 'Reset' }).click();
+  expect(await page.evaluate(() => { const p = window.__toon.S.props[0]; return [p.w, p.rotation, p.opacity, p.blend, p.behind]; })).toEqual([w0, 0, undefined, undefined, undefined]);
+  await sheet.getByRole('button', { name: 'Done' }).click(); await expect(sheet).toHaveCount(0);
+  // a locked prop cannot be edited
+  await page.evaluate(() => { window.__toon.S.locks = { 'prop:p1': true }; window.__toon.drawClipBar(); });
+  await nav.getByRole('button', { name: 'Edit' }).click(); await expect(page.locator('.modal')).toHaveCount(0);
+});
