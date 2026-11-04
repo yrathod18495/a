@@ -2805,6 +2805,29 @@ function libraryFor(def) {
 }
 /** check the model's answer against the real characters / library and put it into the project */
 /** L = {id, speaker, dur}; returns how many animation ids of the answer were unknown */
+/** the AI says who walks from where to where: it becomes the character's own walk clip for this line, with one path (two places) on it */
+function applyMoves(L, moves, libs) {
+  let dropped = 0;
+  for (const s of S.speakers.filter((x) => x.charId)) {          // an earlier AI walk of this line is replaced, never doubled
+    const old = (S.manual[s.key] || []).filter((m) => m.ai === L.id);
+    for (const m of old) { S.manual[s.key] = S.manual[s.key].filter((x) => x !== m); if (S.paths[s.key]?.clipId === m.id) { delete S.paths[s.key]; applyPath(s.key); } }
+  }
+  if (!moves || typeof moves !== 'object' || L.start == null) return 0;
+  const num = (v, lo, hi, d) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, +v)) : d), clean = (p, d) => ({ x: +num(p?.x, -0.3, 1.3, d.x).toFixed(3), y: +num(p?.y, 0, 1, d.y).toFixed(3) });
+  for (const [key, mv] of Object.entries(moves)) {
+    const s = S.speakers.find((x) => x.charId && x.key === String(key).toLowerCase()), ref = s && libs.get(s.key)?.byId.get(String(mv?.anim));
+    if (!s || !ref) { dropped++; continue; }
+    if (ref.layer && ref.layer !== 'body') { dropped++; continue; }
+    const now = charNow(s.key), A = clean(mv.from, { x: now?.x ?? 0.3, y: now?.y ?? 0.1 }), B = clean(mv.to, { x: A.x + 0.3, y: A.y });
+    if (Math.hypot(B.x - A.x, B.y - A.y) < 0.03) continue;
+    const m = { id: uid(), kind: 'body', ref: { ...ref }, start: +L.start.toFixed(2), dur: Math.max(0.5, +L.dur.toFixed(2)), off: 0, ai: L.id };
+    (S.manual[s.key] ||= []).push(m);
+    if (typeof mv.flip === 'boolean') { s.flip = mv.flip; s._flipSet = true; const lay = stage.layers.find((x) => x.key === s.key); if (lay) lay.flip = s.flip; }
+    S.paths[s.key] = { pts: [A, B], depth: DEPTH_DEFAULT, clipId: m.id, start: m.start, dur: m.dur, smooth: false, flipBase: !!s.flip, mul: now?.mul ?? 1 };
+    applyPath(s.key);
+  }
+  return dropped;
+}
 function applyDirection(L, res, libs) {
   let dropped = 0;
   const onStage = S.speakers.filter((s) => s.charId);
@@ -2826,6 +2849,7 @@ function applyDirection(L, res, libs) {
       if (ref && (ref.layer || 'face') === kind) o[kind] = { ...ref };
     }
   }
+  dropped += applyMoves(L, res.move, libs);
   const type = ['wide', 'medium', 'close'].includes(res.shot?.type) ? res.shot.type : 'wide';
   S.shots.set(L.id, { type, focus: want.has(res.shot?.focus) ? res.shot.focus : 'auto' });
   return dropped;
@@ -2851,8 +2875,8 @@ async function runDirector(lines) {
         previous: lineBrief(player.clips[i - 1]), current: { index: i + 1, ...lineBrief(L) }, next: lineBrief(player.clips[i + 1]),
         characters, animations: first.animations, expressions: first.expressions, previous_direction: prevDir,
       }, ctrl.signal);
-      applyDirection({ id: L.id, speaker: L.speaker, dur: L.end - L.start }, res, libs);
-      prevDir = { shot: S.shots.get(L.id), in_frame: onStage.filter((s) => castOf(L.id, s.key).in).map((s) => s.key), actions: res.actions, reason: res.reason };
+      applyDirection({ id: L.id, speaker: L.speaker, dur: L.end - L.start, start: L.start }, res, libs);
+      prevDir = { shot: S.shots.get(L.id), in_frame: onStage.filter((s) => castOf(L.id, s.key).in).map((s) => s.key), actions: res.actions, move: res.move, reason: res.reason };
       await applyLayers(); drawLineBox(); drawTimeline();
     }
     toast('AI direction applied — press Play, or Undo (↶) to go back.');
@@ -2920,7 +2944,7 @@ async function importDirectionFile(file) {
   for (const e of entries) {
     const l = list[(+e.line || 0) - 1];
     if (!l) continue;
-    dropped += applyDirection({ id: l.id, speaker: l.speaker, dur: l.dur }, e, libs); applied++;
+    dropped += applyDirection({ id: l.id, speaker: l.speaker, dur: l.dur, start: lineById(l.id)?.start }, e, libs); applied++;
   }
   S.dirty = true;
   if (S.step === 3) { const b = busy('Applying the direction…'); try { await applyLayers(); drawLineBox(); drawTimeline(); } catch (e) { toast(`Could not apply it: ${e.message}`); } finally { b.done(); } }
@@ -3632,7 +3656,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, applyMoves, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
