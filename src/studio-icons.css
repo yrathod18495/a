@@ -438,3 +438,23 @@ body.path-mode .lane2 .pflag:not(.stage){pointer-events:auto}
 .bg-fx{display:inline-flex;align-items:center;gap:7px}
 .bg-fx .fx-dot{width:12px;height:12px;border-radius:50%;border:1px solid #fff6;display:inline-block}
 .bg-delete{display:inline-flex;align-items:center;gap:6px;color:#ff8f8f}
+/* crop mode: a box with handles over the picture (like cropping a photo), the ratios sit in the bottom bar */
+.crop-layer{position:absolute;inset:0;z-index:30;touch-action:none;cursor:crosshair}
+.crop-box{position:absolute;border:2px solid #fff;box-shadow:0 0 0 4000px #000b;box-sizing:border-box;cursor:move}
+.crop-grid{position:absolute;inset:0;pointer-events:none;background:linear-gradient(#fff3,#fff3) 33.33% 0/1px 100% no-repeat,linear-gradient(#fff3,#fff3) 66.66% 0/1px 100% no-repeat,linear-gradient(#fff3,#fff3) 0 33.33%/100% 1px no-repeat,linear-gradient(#fff3,#fff3) 0 66.66%/100% 1px no-repeat}
+.crop-h{position:absolute;display:block;background:#fff;border-radius:2px;touch-action:none}
+.crop-h::before{content:'';position:absolute;inset:-14px}
+.crop-h.ch-tl,.crop-h.ch-tr,.crop-h.ch-bl,.crop-h.ch-br{width:20px;height:20px;background:transparent;border:0}
+.crop-h.ch-tl{left:-3px;top:-3px;border-top:4px solid #fff;border-left:4px solid #fff;border-radius:2px 0 0 0}
+.crop-h.ch-tr{right:-3px;top:-3px;border-top:4px solid #fff;border-right:4px solid #fff;border-radius:0 2px 0 0}
+.crop-h.ch-bl{left:-3px;bottom:-3px;border-bottom:4px solid #fff;border-left:4px solid #fff;border-radius:0 0 0 2px}
+.crop-h.ch-br{right:-3px;bottom:-3px;border-bottom:4px solid #fff;border-right:4px solid #fff;border-radius:0 0 2px 0}
+.crop-h.ch-t,.crop-h.ch-b{left:50%;width:30px;height:5px;margin-left:-15px}.crop-h.ch-t{top:-3px}.crop-h.ch-b{bottom:-3px}
+.crop-h.ch-l,.crop-h.ch-r{top:50%;height:30px;width:5px;margin-top:-15px}.crop-h.ch-l{left:-3px}.crop-h.ch-r{right:-3px}
+.crop-layer.ratio-locked .ch-t,.crop-layer.ratio-locked .ch-b,.crop-layer.ratio-locked .ch-l,.crop-layer.ratio-locked .ch-r{display:none}
+.crop-size{position:absolute;left:50%;top:6px;transform:translateX(-50%);padding:3px 10px;border-radius:99px;background:#000a;color:#fff;font-size:12px;font-weight:650;pointer-events:none}
+.crop-ico{display:grid;place-items:center;height:22px}
+.crop-ico .ratio{display:block;border:2px solid currentColor;border-radius:3px}
+.crop-ico .r1-1{width:18px;height:18px}.crop-ico .r4-5{width:16px;height:20px}.crop-ico .r9-16{width:13px;height:22px}.crop-ico .rorig{width:22px;height:13px}
+.clip-nav .crop-actions{display:flex;align-items:stretch}
+.clip-nav .crop-ok{background:var(--acc);color:#fff}

@@ -1555,22 +1555,81 @@ function nudgeSelected(which, delta) {
 const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
 const clearClipSelection = () => { S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
 /** phone: what you can do with the selected clip (Split, Copy, Duplicate, Path, Delete and a More list) sits in the bottom bar, in place of the menu, instead of rows at the top */
-/** Crop of a background clip: zoom into the picture and choose which part stays in the frame */
+/** Crop of a background clip, like cropping a photo: a box with handles on the picture, ratios below (Free, Original, 1:1, 4:5, 9:16), a tick to apply. The kept part fills the frame (zoomed, never stretched). */
+const CROP_RATIOS = [['free', 'Free', null], ['orig', 'Original', 'orig'], ['1:1', '1:1', 1], ['4:5', '4:5', 4 / 5], ['9:16', '9:16', 9 / 16]];
 function openBgCrop(c) {
-  if (!c) return;
+  if (!c || !wrapEl) return;
   if (isKeyLocked(keyOf('bg', c.id))) { lockedToast(); return; }
-  const xf = bgXf(c), range = () => Math.max(0, (xf.s - 1) / 2);
-  const zoom = h('input', { type: 'range', min: 100, max: 300, value: Math.round(Math.max(1, xf.s) * 100), 'aria-label': 'Zoom' });
-  const px = h('input', { type: 'range', min: -100, max: 100, value: 0, 'aria-label': 'Left / right' }), py = h('input', { type: 'range', min: -100, max: 100, value: 0, 'aria-label': 'Up / down' });
-  const sync = () => { const r = range(); px.value = r ? Math.round(xf.x / r * 100) : 0; py.value = r ? Math.round(xf.y / r * 100) : 0; px.disabled = py.disabled = !r; };
-  const apply = () => { const r = range(); xf.x = +(px.value / 100 * r).toFixed(4); xf.y = +(py.value / 100 * r).toFixed(4); pushBg(c); };
-  zoom.addEventListener('input', () => { xf.s = clampBgScale(Math.max(1, zoom.value / 100)); const r = range(); xf.x = Math.max(-r, Math.min(r, xf.x)); xf.y = Math.max(-r, Math.min(r, xf.y)); sync(); pushBg(c); });
-  px.addEventListener('input', apply); py.addEventListener('input', apply);
+  stopPathDraw(); S.cropDraw?.cancel(); setOverflow(false); player.pause();
+  const xf = bgXf(c), start = { s: xf.s, x: xf.x, y: xf.y }, frameAspect = stage.W / stage.H, MIN = 0.12;
   if (xf.s < 1) { xf.s = 1; xf.x = xf.y = 0; pushBg(c); }
-  sync();
-  const row = (label, input) => h('label', { class: 'cb-field' }, h('span', {}, label), input);
-  const close = modal('Crop background', h('div', {}, row('Zoom', zoom), row('Left / right', px), row('Up / down', py),
-    h('div', { class: 'row', style: 'margin-top:10px;gap:8px' }, h('button', { type: 'button', class: 'btn sm', onclick: () => { xf.s = 1; xf.x = xf.y = 0; zoom.value = 100; sync(); pushBg(c); } }, 'Reset'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'btn sm pri', onclick: () => close() }, 'Done'))));
+  let B = { x0: 0.04, y0: 0.04, x1: 0.96, y1: 0.96 }, ratio = null;
+  const handles = ['tl', 't', 'tr', 'r', 'br', 'b', 'bl', 'l'].map((k) => h('i', { class: `crop-h ch-${k}`, 'data-h': k }));
+  const box = h('div', { class: 'crop-box' }, h('i', { class: 'crop-grid' }), ...handles);
+  const layer = h('div', { class: 'crop-layer' }, box, h('span', { class: 'crop-size' }));
+  wrapEl.append(layer);
+  const sizeEl = layer.querySelector('.crop-size');
+  const paint = () => {
+    Object.assign(box.style, { left: `${B.x0 * 100}%`, top: `${B.y0 * 100}%`, width: `${(B.x1 - B.x0) * 100}%`, height: `${(B.y1 - B.y0) * 100}%` });
+    sizeEl.textContent = `${Math.round((B.x1 - B.x0) * 100)}% × ${Math.round((B.y1 - B.y0) * 100)}%`;
+    layer.classList.toggle('ratio-locked', ratio != null);
+  };
+  const ratioValue = () => (ratio === 'orig' ? frameAspect : ratio);
+  const hOf = (w, r) => w * frameAspect / r;          // height (frame fractions) of a box of width w with pixel ratio r
+  const setRatio = (r) => {
+    ratio = r; const rv = ratioValue();
+    if (rv != null) {
+      const cx = (B.x0 + B.x1) / 2, cy = (B.y0 + B.y1) / 2; let w = Math.min(0.92, B.x1 - B.x0), hh = hOf(w, rv);
+      if (hh > 0.92) { hh = 0.92; w = hh * rv / frameAspect; }
+      B = { x0: cx - w / 2, x1: cx + w / 2, y0: cy - hh / 2, y1: cy + hh / 2 };
+      const dx = Math.max(0, -B.x0) - Math.max(0, B.x1 - 1), dy = Math.max(0, -B.y0) - Math.max(0, B.y1 - 1);
+      B = { x0: B.x0 + dx, x1: B.x1 + dx, y0: B.y0 + dy, y1: B.y1 + dy };
+    }
+    paint(); drawClipNav();
+  };
+  let drag = null;
+  const at = (e) => { const r = layer.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
+  layer.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation(); const k = e.target.dataset?.h || (box.contains(e.target) ? 'move' : null); if (!k) return;
+    layer.setPointerCapture(e.pointerId); drag = { k, p0: at(e), B0: { ...B } };
+  });
+  layer.addEventListener('pointermove', (e) => {
+    if (!drag) return; const p = at(e), dx = p.x - drag.p0.x, dy = p.y - drag.p0.y, b = drag.B0, rv = ratioValue(), clamp = (v) => Math.min(1, Math.max(0, v));
+    if (drag.k === 'move') { const w = b.x1 - b.x0, hh = b.y1 - b.y0, x0 = Math.min(1 - w, Math.max(0, b.x0 + dx)), y0 = Math.min(1 - hh, Math.max(0, b.y0 + dy)); B = { x0, y0, x1: x0 + w, y1: y0 + hh }; paint(); return; }
+    let { x0, y0, x1, y1 } = b;
+    if (drag.k.includes('l')) x0 = Math.min(x1 - MIN, clamp(b.x0 + dx)); if (drag.k.includes('r')) x1 = Math.max(x0 + MIN, clamp(b.x1 + dx));
+    if (drag.k.includes('t')) y0 = Math.min(y1 - MIN, clamp(b.y0 + dy)); if (drag.k.includes('b')) y1 = Math.max(y0 + MIN, clamp(b.y1 + dy));
+    if (rv != null && drag.k.length === 2) {          // a corner with a ratio: the width follows the finger, the height follows the ratio, the opposite corner stays
+      let w = x1 - x0, hh = hOf(w, rv); const left = drag.k.includes('l'), top = drag.k.includes('t');
+      const room = top ? b.y1 : 1 - b.y0; if (hh > room) { hh = room; w = hh * rv / frameAspect; }
+      if (w < MIN) { w = MIN; hh = hOf(w, rv); }
+      x0 = left ? b.x1 - w : b.x0; x1 = left ? b.x1 : b.x0 + w; y0 = top ? b.y1 - hh : b.y0; y1 = top ? b.y1 : b.y0 + hh;
+    }
+    B = { x0, y0, x1, y1 }; paint();
+  });
+  for (const type of ['pointerup', 'pointercancel']) layer.addEventListener(type, () => { drag = null; });
+  const key = (e) => { if (e.key === 'Escape') S.cropDraw?.cancel(); };
+  window.addEventListener('keydown', key);
+  const close = () => { layer.remove(); window.removeEventListener('keydown', key); S.cropDraw = null; drawClipNav(); };
+  const done = () => {
+    const bw = B.x1 - B.x0, bh = B.y1 - B.y0, cx = (B.x0 + B.x1) / 2, cy = (B.y0 + B.y1) / 2, cur = bgXf(c);
+    const s2 = clampBgScale(cur.s * Math.max(1 / bw, 1 / bh)), k = s2 / cur.s, r = Math.max(0, (s2 - 1) / 2);
+    cur.x = +Math.max(-r, Math.min(r, k * (cur.x - (cx - 0.5)))).toFixed(4); cur.y = +Math.max(-r, Math.min(r, k * (cur.y - (cy - 0.5)))).toFixed(4); cur.s = s2;
+    pushBg(c); close(); S.dirty = true; commitClips();
+  };
+  const cancel = () => { xf.s = start.s; xf.x = start.x; xf.y = start.y; pushBg(c); close(); };
+  const reset = () => { B = { x0: 0.04, y0: 0.04, x1: 0.96, y1: 0.96 }; ratio = null; const cur = bgXf(c); cur.s = 1; cur.x = cur.y = 0; pushBg(c); paint(); drawClipNav(); };
+  S.cropDraw = { id: c.id, done, cancel, reset, setRatio, get ratio() { return ratio === null ? 'free' : CROP_RATIOS.find((r) => r[2] === ratio)?.[0]; } };
+  paint(); drawClipNav();
+}
+function drawCropNav() {
+  const cd = S.cropDraw, sig = `crop|${cd.id}|${cd.ratio}`;
+  clipNav.hidden = false; if (clipNav.dataset.sig === sig) return; clipNav.dataset.sig = sig;
+  const chip = (id, text, val) => h('button', { type: 'button', class: `cb-btn${cd.ratio === id ? ' on' : ''}`, 'data-ratio': id, 'aria-pressed': String(cd.ratio === id), onclick: () => cd.setRatio(val) }, h('span', { class: 'crop-ico' }, id === 'free' ? icon('maximize') : h('b', { class: `ratio r${id.replace(':', '-')}` })), h('span', {}, text));
+  clipNav.replaceChildren(h('div', { class: 'cb-list' }, CROP_RATIOS.map(([id, text, val]) => chip(id, text, val))),
+    h('div', { class: 'crop-actions' }, h('button', { type: 'button', class: 'cb-close', 'aria-label': 'Reset the crop', title: 'Reset', onclick: () => cd.reset() }, icon('rotate')),
+      h('button', { type: 'button', class: 'cb-close', 'aria-label': 'Cancel the crop', title: 'Cancel', onclick: () => cd.cancel() }, icon('x')),
+      h('button', { type: 'button', class: 'cb-close crop-ok', 'aria-label': 'Apply the crop', title: 'Apply', onclick: () => cd.done() }, icon('check'))));
 }
 /** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
 function replaceBg(c) {
@@ -1615,6 +1674,7 @@ function toggleItemLock() {
 function drawClipNav() {
   if (!clipNav) return;
   if (S.pathDraw) { drawPathNav(); return; }
+  if (S.cropDraw) { drawCropNav(); return; }
   const many = multi.size >= 2, it = selectedItem();
   if (!it && !many) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }
   const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop'].includes(kind);

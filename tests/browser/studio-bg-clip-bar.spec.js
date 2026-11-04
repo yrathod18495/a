@@ -14,13 +14,22 @@ test('phone: a background clip has Objects, Crop and Replace in the bottom bar (
   // Objects opens the props (stone, tree ...)
   await nav.getByRole('button', { name: 'Objects' }).click();
   expect(await page.evaluate(() => window.__toon.S.tab)).toBe('props');
-  // Crop: the zoom slider crops into the picture
+  // Crop: a box with handles on the picture, ratios in the bar, a tick applies it (the kept part fills the frame)
   await nav.getByRole('button', { name: 'Crop' }).click();
-  await expect(page.getByRole('heading', { name: 'Crop background' })).toBeVisible();
-  await page.evaluate(() => { const z = document.querySelector('.modal input[aria-label="Zoom"]'); z.value = 200; z.dispatchEvent(new Event('input', { bubbles: true })); });
-  expect(await page.evaluate(() => window.__toon.S.bgClips[0].xf.s)).toBe(2);
-  await page.getByRole('button', { name: 'Reset' }).click(); expect(await page.evaluate(() => window.__toon.S.bgClips[0].xf.s)).toBe(1);
-  await page.locator('.modal').getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('.crop-box')).toBeVisible(); await expect(page.locator('.crop-h')).toHaveCount(8);
+  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Free', 'Original', '1:1', '4:5', '9:16']);
+  const lb = await page.locator('.crop-layer').boundingBox(), hb = await page.locator('.crop-h.ch-tl').boundingBox();
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await page.mouse.down(); await page.mouse.move(lb.x + lb.width * 0.4, lb.y + lb.height * 0.4, { steps: 6 }); await page.mouse.up();
+  await nav.getByRole('button', { name: 'Apply the crop' }).click();
+  await expect(page.locator('.crop-layer')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__toon.S.bgClips[0].xf.s)).toBeGreaterThan(1.3);          // zoomed into the kept part
+  // 1:1 locks the shape; Cancel puts everything back
+  await nav.getByRole('button', { name: 'Crop' }).click(); await nav.getByRole('button', { name: '1:1' }).click();
+  const bx = await page.locator('.crop-box').boundingBox(), fr = await page.locator('.stagewrap canvas').boundingBox();
+  expect(Math.abs(bx.width / bx.height - 1)).toBeLessThan(0.06);
+  const before = await page.evaluate(() => window.__toon.S.bgClips[0].xf.s);
+  await nav.getByRole('button', { name: 'Cancel the crop' }).click();
+  expect(await page.evaluate(() => window.__toon.S.bgClips[0].xf.s)).toBe(before);
   // Duplicate is still in More
   await nav.locator('.char-more summary').click(); await expect(nav.locator('.cb-more-list').getByRole('button', { name: 'Duplicate' })).toBeVisible();
 });
