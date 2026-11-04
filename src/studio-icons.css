@@ -413,3 +413,13 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .tltools .edit-btn span:not(.ic){display:none !important}
   #app .ws .tltools .edit-btn{flex:0 0 auto;width:36px;min-width:0;height:32px;padding:0}
 }
+.pathshadow-layer .pathbar{position:absolute;left:50%;top:6px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;max-width:96%;padding:6px 8px;border-radius:14px;background:#101114e6;z-index:5;pointer-events:auto;touch-action:manipulation}
+.pathshadow-layer .pathbar .pathhint{position:static;transform:none;max-width:none;padding:0 4px;background:none;white-space:nowrap;font-size:11.5px;line-height:1.25}
+.pathshadow-layer .pathbar .btn{flex:none;min-height:34px;padding:0 12px}
+.lane2 .pflag:not(.stage)::before{left:-20px;top:-8px;width:40px;height:42px}          /* the A / B flags: an even bigger area for a finger */
+.lane2 .pflag .pf-cloth{height:15px;font-size:10px;line-height:15px;padding:0 6px 0 3px}
+.lane2 .pflag .pf-cloth svg{width:10px;height:10px}
+#app .ws .char-bar .cb-btn,#app .ws .clip-nav .cb-btn{color:var(--text)}
+#app .ws .char-bar .cb-btn svg,#app .ws .clip-nav .cb-btn svg{color:var(--ink)}
+#app .ws .char-bar .cb-btn.danger,#app .ws .clip-nav .cb-btn.danger{color:#ff8f8f}
+#app .ws .char-bar .cb-btn.on,#app .ws .clip-nav .cb-btn.on{color:#fff}

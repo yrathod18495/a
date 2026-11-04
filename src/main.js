@@ -1940,25 +1940,33 @@ function startPathShadow(s) {
   if (s.flip) shadow.style.setProperty('--flip', '-1');
   const flag = (which) => h('i', { class: `pflag stage ${which}` }, which.toUpperCase());
   const flagA = flag('a'), flagB = flag('b');
-  layer.append(svg, shadow, flagA, flagB, h('span', { class: 'pathhint' }, `Drag the shadow to where ${s.name} should go · Esc = cancel`));
+  const bar = h('div', { class: 'pathbar' }, h('span', { class: 'pathhint' }, `Drag the shadow, then press Done`),
+    h('button', { type: 'button', class: 'btn sm', onclick: () => { stopPathDraw(); drawTabs(); } }, 'Cancel'), h('button', { type: 'button', class: 'btn sm pri', onclick: () => finish() }, 'Done'));
+  for (const type of ['pointerdown', 'pointerup', 'pointermove', 'click']) bar.addEventListener(type, (e) => e.stopPropagation());          // the buttons are not part of the drawing area
+  layer.append(svg, shadow, flagA, flagB, bar);
   wrapEl.append(layer);
   const line = svg.querySelector('polyline');
-  const at = (e) => { const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); return { x: Math.min(1.3, Math.max(-0.3, p.x)), y: Math.min(1.3, Math.max(-0.5, p.y)) }; };
+  const at = (e) => { const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); return { x: Math.min(1.8, Math.max(-0.8, p.x)), y: Math.min(1.3, Math.max(-0.5, p.y)) }; };          // far enough outside the frame for the character to walk out of the picture
   const place = (el, p) => { const q = toScreen(p); el.style.left = `${q.x * 100}%`; el.style.top = `${q.y * 100}%`; };
   let B = old?.pts?.at(-1) ? { x: old.pts.at(-1).x, y: old.pts.at(-1).y } : { x: Math.min(1.1, A.x + 0.22), y: A.y };
   const show = () => { place(shadow, B); place(flagA, A); place(flagB, B); line.setAttribute('points', penLine([A, B])); };
   show();
-  let down = false;
-  const onDown = (e) => { e.preventDefault(); e.stopPropagation(); layer.setPointerCapture(e.pointerId); down = true; B = at(e); show(); };
-  const onMove = (e) => { if (down) { B = at(e); show(); } };
-  const onUp = (e) => {
-    if (!down) return; down = false; B = at(e); show();
-    if (Math.hypot(B.x - A.x, B.y - A.y) < 0.03) { toast('Please drag the shadow a little further from the character.'); return; }
-    S.paths[s.key] = { pts: [A, B], depth: old?.depth ?? DEPTH_DEFAULT, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), smooth: old?.smooth ?? false, flipBase: !!(now?.flip ?? old?.flipBase), mul: old?.mul ?? now?.mul ?? 1 };
-    stopPathDraw(); applyPath(s.key); player.seek(Math.min(player.total, S.paths[s.key].start)); drawTabs(); drawTimeline();
+  let down = false, grab = { x: 0, y: 0 };
+  // a touch near the shadow takes it where it is (no jump); a touch somewhere else puts the shadow there. Lifting the finger does not finish: press Done.
+  const onDown = (e) => {
+    e.preventDefault(); e.stopPropagation(); layer.setPointerCapture(e.pointerId); down = true;
+    const p = at(e), near = Math.hypot((p.x - B.x) * stage.W, (p.y - B.y) * stage.H) < Math.max(60, stage.H * 0.35);
+    grab = near ? { x: B.x - p.x, y: B.y - p.y } : { x: 0, y: 0 }; B = { x: p.x + grab.x, y: p.y + grab.y }; show();
   };
+  const onMove = (e) => { if (down) { const p = at(e); B = { x: p.x + grab.x, y: p.y + grab.y }; show(); } };
+  const onUp = () => { down = false; };
+  function finish() {
+    if (Math.hypot(B.x - A.x, B.y - A.y) < 0.03) { toast('Please drag the shadow a little further from the character.'); return; }
+    S.paths[s.key] = { pts: [A, { x: +B.x.toFixed(4), y: +B.y.toFixed(4) }], depth: old?.depth ?? DEPTH_DEFAULT, clipId: clip.id, start: +clip.start.toFixed(2), dur: Math.max(0.5, +clip.dur.toFixed(2)), smooth: old?.smooth ?? false, flipBase: !!(now?.flip ?? old?.flipBase), mul: old?.mul ?? now?.mul ?? 1 };
+    stopPathDraw(); applyPath(s.key); player.seek(Math.min(player.total, S.paths[s.key].start)); drawTabs(); drawTimeline();
+  }
   const key = (e) => { if (e.key === 'Escape') { stopPathDraw(); drawTabs(); } };
-  layer.addEventListener('pointerdown', onDown); layer.addEventListener('pointermove', onMove); layer.addEventListener('pointerup', onUp); window.addEventListener('keydown', key);
+  layer.addEventListener('pointerdown', onDown); layer.addEventListener('pointermove', onMove); layer.addEventListener('pointerup', onUp); layer.addEventListener('pointercancel', onUp); window.addEventListener('keydown', key);
   S.pathDraw = { key: s.key, cleanup: () => { layer.remove(); window.removeEventListener('keydown', key); } };
 }
 /** the two small flags on a character's animation clip (A = where the path starts in time, B = where it ends): drag one to change the time, like a keyframe */

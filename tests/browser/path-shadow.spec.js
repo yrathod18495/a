@@ -102,12 +102,20 @@ test('Path: a faint shadow of the character is dragged to where it should go; th
   expect(await shadow.evaluate((e) => +getComputedStyle(e).opacity)).toBeLessThan(0.5);               // only a shadow: faded
   expect(await shadow.evaluate((e) => e.tagName)).toBe('IMG');                                        // the character's own picture
   await expect(page.locator('.pflag.stage')).toHaveCount(2);                                         // A and B
-  const box = await page.locator('.pathshadow-layer').boundingBox();
-  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5); await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.8, { steps: 5 }); await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.9, { steps: 5 });
-  const mid = await page.locator('.pathshadow').boundingBox();                                       // the shadow follows the finger
-  expect(Math.abs(mid.x + mid.width / 2 - (box.x + box.width * 0.8))).toBeLessThan(box.width * 0.03);
+  const box = await page.locator('.pathshadow-layer').boundingBox(), s0 = await page.locator('.pathshadow').boundingBox();
+  const fx = s0.x + s0.width / 2, fy = s0.y + s0.height * 0.5, dx = box.width * 0.25, dy = box.height * 0.3;
+  await page.mouse.move(fx, fy); await page.mouse.down();
+  await page.mouse.move(fx + dx / 2, fy + dy / 2, { steps: 5 }); await page.mouse.move(fx + dx, fy + dy, { steps: 5 });
+  const mid = await page.locator('.pathshadow').boundingBox();                                       // the shadow follows the finger (by the same distance)
+  expect(Math.abs(mid.x + mid.width / 2 - (fx + dx))).toBeLessThan(box.width * 0.03);
   await page.mouse.up();
+  await expect(page.locator('.pathshadow-layer')).toHaveCount(1);                                    // lifting the finger does not finish
+  expect(await page.evaluate(() => window.__toon.S.paths.fake1)).toBeUndefined();
+  // a second drag takes the shadow where it is (no jump to the finger) and it can go out of the picture
+  const sb = await page.locator('.pathshadow').boundingBox(), gx = sb.x + sb.width / 2, gy = sb.y + sb.height * 0.6;
+  await page.mouse.move(gx + 20, gy); await page.mouse.down(); await page.mouse.move(gx + 50, gy, { steps: 3 }); await page.mouse.up();
+  const sb2 = await page.locator('.pathshadow').boundingBox(); expect(Math.abs(sb2.x + sb2.width / 2 - (gx + 30))).toBeLessThan(8);          // moved by the finger's 30 px, it did not jump to the finger
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.locator('.pathshadow-layer')).toHaveCount(0);
   const r = await page.evaluate(() => ({ path: window.__toon.S.paths.fake1, keys: window.__toon.S.charKeys.fake1 }));
   expect(r.path.pts.length).toBe(2); expect(r.path.clipId).toBe('walk1'); expect(r.path.start).toBe(1); expect(r.path.dur).toBe(4);
