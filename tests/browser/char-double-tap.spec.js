@@ -67,10 +67,12 @@ test('double tap on a character brings it back to 100% inside the frame, and Und
   expect((await state()).mul).toBeCloseTo(1.4, 1);
   await page.getByRole('button', { name: 'Redo' }).first().click(); await page.waitForTimeout(800);
   expect((await state()).mul).toBe(1);
-  // a character that is out of the picture only shows handles stuck to the edge: a tap on one brings it back (100%, inside the frame)
+  // a character that is out of the picture only shows handles stuck to the edge: a double tap on one brings it back (100%, inside the frame)
   await page.evaluate(() => { const t = window.__toon, l = t.stage.layers[0]; l.axf = 1.6; l.ayf = 0.1; l.mul = 1.4; t.saveXf(l); t.stage.layout(); t.S.sel = l.key; t.S.dirty = true; });
   await page.waitForTimeout(800);
   const pinned = page.locator('.stagewrap > .hd.pinned:not([hidden])').first(); await expect(pinned).toBeVisible();
-  const pb = await pinned.boundingBox(); await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2); await page.waitForTimeout(700);
+  const pb = await pinned.boundingBox(); await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2); await page.waitForTimeout(900);
+  expect((await state()).axf).toBeGreaterThan(1.2);          // one tap changes nothing
+  await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2); await page.waitForTimeout(120); await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2); await page.waitForTimeout(700);
   const back = await state(); expect(back.mul).toBe(1); expect(back.axf).toBeGreaterThan(0.05); expect(back.axf).toBeLessThan(0.95);
 });

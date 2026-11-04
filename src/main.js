@@ -2395,8 +2395,11 @@ function mountStage() {
     saveXf(l); stage.layout(); updateSel(); S.dirty = true;
   });
   const end = async (e) => { pointers.delete(e?.pointerId); if (drag?.mode === 'bg') { if (!pointers.size || drag.pinch) { drag = null; S.dirty = true; } return; } if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag?.mode === 'scale' && drag.tap?.pinned && e?.type === 'pointerup' && performance.now() - drag.tap.t < 600 && Math.hypot(e.clientX - drag.tap.x, e.clientY - drag.tap.y) < 8) {
-      // a tap (not a drag) on a handle that is stuck to the edge of the picture = the character is out of the frame: bring it back, 100%, inside
-      const lay = stage.layers.find((x) => x.key === drag.tap.key); drag = null; if (lay) { historyAction(() => fitCharInFrame(lay)); updateSel(); } return;
+      // a DOUBLE tap on a handle that is stuck to the edge of the picture = the character is out of the frame: bring it back, 100%, inside (a single tap does nothing)
+      const lay = stage.layers.find((x) => x.key === drag.tap.key), tap = { x: e.clientX, y: e.clientY, key: drag.tap.key, t: performance.now() }; drag = null;
+      const twice = lastHandleTap && lastHandleTap.key === tap.key && tap.t - lastHandleTap.t < 450 && Math.hypot(tap.x - lastHandleTap.x, tap.y - lastHandleTap.y) < 40;
+      lastHandleTap = twice ? null : tap;
+      if (lay && twice) { historyAction(() => fitCharInFrame(lay)); updateSel(); } return;
     }
     if (drag && S.tab === 'motion') drawTabs(); drag = null; };
   wrapEl.addEventListener('pointerup', end); wrapEl.addEventListener('pointercancel', end);
@@ -2506,7 +2509,7 @@ function selectChar(key) {
   updateSel(); drawLineBox(); S.dirty = true;
 }
 /** two quick taps on the same character */
-let lastTap = { key: null, t: 0, x: 0, y: 0 };
+let lastTap = { key: null, t: 0, x: 0, y: 0 }, lastHandleTap = null;
 function doubleTapOn(l, e) {
   const now = performance.now(), hit = lastTap.key === l.key && now - lastTap.t < 380 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 28;
   lastTap = hit ? { key: null, t: 0, x: 0, y: 0 } : { key: l.key, t: now, x: e.clientX, y: e.clientY };
