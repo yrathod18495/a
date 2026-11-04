@@ -1960,7 +1960,7 @@ function startPathShadow(s) {
   const flagA = flag('a'), flagB = flag('b');
   const bar = h('div', { class: 'pathbar' }, h('span', { class: 'pathhint' }, 'Drag the shadow box, then press Done'),
     h('button', { type: 'button', class: 'btn sm pb-desk', onclick: () => cancel() }, 'Cancel'), h('button', { type: 'button', class: 'btn sm pri pb-desk', onclick: () => finish() }, 'Done'));          // on a phone these two are in the bottom bar
-  const arrow = h('button', { type: 'button', class: 'path-arrow', hidden: true, 'aria-label': 'Bring the shadow back into the picture', title: 'Bring the shadow back into the picture', onclick: () => bringBack() }, icon('arrow-right'));
+  const arrow = h('button', { type: 'button', class: 'path-arrow', hidden: true, 'aria-label': 'Bring the shadow back into the picture', title: 'Bring the shadow back into the picture', onclick: () => bringBack() }, icon('undo'));
   for (const type of ['pointerdown', 'pointerup', 'pointermove', 'click']) arrow.addEventListener(type, (e) => e.stopPropagation());
   for (const type of ['pointerdown', 'pointerup', 'pointermove', 'click']) bar.addEventListener(type, (e) => e.stopPropagation());
   layer.append(svg, shadow, flagA, flagB, bar, arrow);
@@ -1979,7 +1979,7 @@ function startPathShadow(s) {
       arrow.hidden = !out;
       if (out) {
         const cx = sr.left + sr.width / 2 - lr.left, cy = sr.top + sr.height / 2 - lr.top, ax = Math.min(lr.width - 28, Math.max(28, cx)), ay = Math.min(lr.height - 28, Math.max(28, cy));
-        Object.assign(arrow.style, { left: `${ax}px`, top: `${ay}px`, transform: `translate(-50%,-50%) rotate(${Math.atan2(cy - ay, cx - ax) * 180 / Math.PI}deg)` });
+        Object.assign(arrow.style, { left: `${ax}px`, top: `${ay}px`, transform: 'translate(-50%,-50%)' }); arrow.style.setProperty('--flipx', cx < lr.width / 2 ? '-1' : '1');          // the u-turn arrow points back into the picture from either side
       }
     }
   };
