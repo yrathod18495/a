@@ -251,11 +251,12 @@ header{gap:10px}
 
 /* handles live on the picture itself and are clamped inside it */
 .selbox .hd{display:none}
-.stagewrap > .hd{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);background:#1d1e22;border:2px solid #45484f;border-radius:7px;pointer-events:auto;touch-action:none;z-index:3;cursor:nwse-resize}
+.stagewrap > .hd{position:absolute;width:16px;height:16px;transform:translate(-50%,-50%);background:#1d1e22;border:2px solid #45484f;border-radius:7px;pointer-events:auto;touch-action:none;z-index:3;cursor:nwse-resize}
 .stagewrap > .hd[hidden]{display:none}
 .stagewrap > .hd.h-tr,.stagewrap > .hd.h-bl{cursor:nesw-resize}
 .stagewrap > .hd.pinned{border-color:#a597ff;background:#2e3036}
-@media (pointer:coarse){.stagewrap > .hd{width:32px;height:32px}}
+@media (pointer:coarse){.stagewrap > .hd{width:20px;height:20px}}
+.stagewrap > .hd::before{content:'';position:absolute;inset:-12px}          /* the handle looks small but the finger still finds it */
 .selbar .pct{font-size:12px;color:var(--mute);min-width:42px;text-align:right}
 
 .ailines{display:flex;flex-direction:column;gap:8px;margin-top:10px;max-height:46vh;overflow:auto}

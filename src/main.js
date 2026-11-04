@@ -2342,7 +2342,8 @@ function mountStage() {
       drag = { mode: 'scale', A: { x: corners[opp][0], y: corners[opp][1] }, C: { x: c[0], y: c[1] }, a0: { ...l.anchor }, mul0: l.mul ?? 1 };
     } else {
       l = stage.camZoom <= 1.02 ? stage.hitLayers(p)[0] : null;      // the character really under the mouse (its drawn shape), not just the biggest box
-      S.sel = l?.key ?? null; if (l || !bgc) dropItemSelection();          // the clip tools close when a character is touched, or when empty space is (a selected background is moved instead)
+      S.sel = l?.key ?? null;
+      if (l && doubleTapOn(l, e)) { drag = null; S.sel = l.key; historyAction(() => fitCharInFrame(l)); updateSel(); return; }          // double tap / double click: the character comes back to 100% inside the frame if (l || !bgc) dropItemSelection();          // the clip tools close when a character is touched, or when empty space is (a selected background is moved instead)
       if (l) drag = { mode: 'move', p0: p, a0: { ...l.anchor } };
       else if (bgc && stage.camZoom <= 1.02) { const xf = bgXf(bgc); drag = { mode: 'bg', kind: 'move', c: bgc, p0: { x: e.clientX, y: e.clientY }, x0: xf.x, y0: xf.y }; }          // nothing else under the finger: it moves the selected background
       updateSel(); S.dirty = true;
@@ -2499,6 +2500,19 @@ function selectChar(key) {
   const l = stage.layers.find((x) => x.key === key);
   if (l && l.shown === false && l.present?.length) { const t = Math.min(...l.present.map((x) => x.start)); if (Number.isFinite(t)) { player.seek(t); toast(`${sOf(key)?.name || 'Character'} was not in frame at this time, so the playhead was moved to its earlier shot.`); } }
   updateSel(); drawLineBox(); S.dirty = true;
+}
+/** two quick taps on the same character */
+let lastTap = { key: null, t: 0, x: 0, y: 0 };
+function doubleTapOn(l, e) {
+  const now = performance.now(), hit = lastTap.key === l.key && now - lastTap.t < 380 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 28;
+  lastTap = hit ? { key: null, t: 0, x: 0, y: 0 } : { key: l.key, t: now, x: e.clientX, y: e.clientY };
+  return hit;
+}
+/** size 100% and back to its own place inside the frame (a character that was dragged out of the picture or made huge / tiny) */
+function fitCharInFrame(l) {
+  l.mul = 1; l.axf = l.ayf = null; stage.layout();
+  l.axf = l.anchor.x / stage.W; l.ayf = (stage.H - l.anchor.y) / stage.H;
+  saveXf(l); stage.layout(); S.dirty = true;
 }
 function hideSelBar() { if (selBar) selBar.hidden = true; if (charBar) { charBar.hidden = true; charBar.dataset.key = ''; } }
 const mirrorChar = (l, s) => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; };
