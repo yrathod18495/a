@@ -429,7 +429,7 @@ export class Stage {
   /** camera for time t: the user's keyframes if there are any, else the shot of the current audio line (it glides to the next line's shot just before that line starts) */
   cameraAt(plan, t, real = false) {
     if (this.userCam) return this.userCam;
-    if (this.overflow && !real) return (this.overCam ||= { zoom: 1 / 1.25, cx: this.W / 2, cy: this.H / 2 });          // editor only: look at a larger area, so what sticks out of the frame is visible
+    if (this.overflow && !real) return (this.overCam ||= { zoom: 1 / 1.3, cx: this.W / 2, cy: this.H / 2 });          // editor only: look at a larger area, so what sticks out of the frame is visible
     if (this.fullView && !real) return { zoom: 1, cx: this.W / 2, cy: this.H / 2 };
     if (this.camKeys?.length) return this.keyCam(t);
     if (!plan?.length) return this.shotCam(null);
@@ -487,7 +487,7 @@ export class Stage {
     const free = this.userCam === cam || cam === this.overCam, cx = free ? cam.cx : Math.min(W - vw / 2, Math.max(vw / 2, cam.cx)), cy = free ? cam.cy : Math.min(H - vh / 2, Math.max(vh / 2, cam.cy));
     this.view = { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh };      // the part of the canvas on screen (the editor maps pen lines through it)
     r.begin(W, H, { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
-    r.setMask(null, W, H);
+    r.setMask(this.overflow ? { enabled: true, shape: 'rect', x: 0, y: 0, w: 1, h: 1 } : null, W, H);          // outside the frame (editor only) the wallpaper is not drawn, only the characters
     const bx = this.bgXf;
     if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, 0, 0, W, H, 0.4);          // a shrunk or moved background: the rest of the frame shows a dimmed copy of it (never black)
       r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh); }
