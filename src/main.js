@@ -1096,6 +1096,7 @@ function drawTimeline() {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
     kinds.forEach((kind, i) => {
       const ln = h('div', { class: 'lane2 char', style: `height:${LH}px;--track-color:${s.color}` });
+      ln.addEventListener('click', (e) => { if (e.target === ln) selectChar(s.key); });          // empty space on the character's row too
       // many tiny automatic clips in a row (one per spoken sound) would be unreadable: three or more are drawn as one block
       const autos = plan.clips.filter((x) => x.kind === kind && !x.manual).sort((a, b) => a.start - b.start), tiny = (c) => c.dur * pps < 44, items = [];
       for (let k = 0; k < autos.length;) {
@@ -1108,7 +1109,7 @@ function drawTimeline() {
         if (item.group) {
           const first = item.group[0], last = item.group.at(-1), names = item.group.map((x) => (nameOf.get(x.name) || x.name).replace(/^Listener · /, ''));
           const el = h('div', { class: `tclip ${kind} auto`, title: `${s.name} · ${names.length} automatic clips: ${names.join(', ')}`, style: `left:${first.start * pps}px;width:${Math.max(6, (last.start + last.dur - first.start) * pps)}px` }, h('span', { class: 'tn' }, `${s.name} · ${names.length} clips`));
-          el.addEventListener('click', () => { const L = lineAt(first.start + 0.01); if (L && player.clips.length) selectLine(L.id); });
+          el.addEventListener('click', () => { const L = lineAt(first.start + 0.01); if (L && player.clips.length) selectLine(L.id); selectChar(s.key); });
           ln.append(el); continue;
         }
         const c = item.c;
@@ -1116,7 +1117,7 @@ function drawTimeline() {
         const ref = plan.refs.find((r) => animKey(r) === c.name), soloBody = c.id.startsWith('solo:body') && S.solo[s.key]?.bodyLen > 0;
         const pickable = !!ref && (soloBody || !c.id.startsWith('solo:')), lz = pickable && h('i', { class: 'lz' }), rz = pickable && h('i', { class: 'rz' });
         const el = h('div', { class: `tclip ${kind} auto`, title: `${s.name} · ${name}${pickable ? ' — drag to move, drag an edge to resize' : ' (automatic)'}`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz || null, h('span', { class: 'tn' }, `${s.name} · ${name}`), rz || null);
-        el.addEventListener('click', () => { const L = lineAt(c.start + 0.01); if (L && player.clips.length) selectLine(L.id); });
+        el.addEventListener('click', () => { const L = lineAt(c.start + 0.01); if (L && player.clips.length) selectLine(L.id); selectChar(s.key); });          // tapping a character's row selects the character
         if (pickable) el.addEventListener('pointerdown', (e) => {
           const mode = e.target === rz ? 'right' : e.target === lz ? 'left' : 'move';
           // an automatic clip (from the voice, or the animation picked without audio) becomes the user's own clip the first time it is dragged
@@ -1308,7 +1309,7 @@ function toggleMulti(key) {
 function wireBoxSelect() {
   // a tap on empty space in the timeline leaves the selected clip / character: the bottom bar is the normal menu again
   tlInner.addEventListener('click', (e) => {
-    if (S.exporting || e.target.closest('.tclip,.ruler,.phead,.pflag,button,input,.kf,.dia')) return;
+    if (S.exporting || e.target.closest('.tclip,.ruler,.phead,.pflag,button,input,.kf,.dia,.lane2.char')) return;
     const had = dropItemSelection();
     if (S.sel) { S.sel = null; updateSel(); S.dirty = true; } else if (had) updateSel();
   });
