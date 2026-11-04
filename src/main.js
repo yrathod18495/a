@@ -3308,7 +3308,7 @@ function tabExport() {
   const m = seg(multi ? [['fast', '⚡ Fast render']] : [['fast', '⚡ Fast render'], ['live', '⏺ Record live']], () => multi ? 'fast' : S.expMethod, (v) => { S.expMethod = v; });
   const fm = seg([['webm', 'WebM · smaller, sharper'], ['mp4', 'MP4 · plays everywhere']], () => S.format, (v) => { S.format = v; });
   const lv = seg([['std', 'Standard'], ['high', 'High'], ['max', 'Maximum']], () => S.level, (v) => { S.level = v; });
-  const f = seg([[24, '24 fps'], [30, '30 fps · smooth'], [60, '60 fps · extra smooth']], () => S.fps, (v) => { S.fps = v; });
+  const f = seg([[24, '24 fps'], [30, '30 fps · smooth'], [60, '60 fps · extra smooth'], [90, '90 fps · for 90 Hz screens']], () => S.fps, (v) => { S.fps = v; });
   const cScenes = h('div', { class: 'card flat' }, h('h2', {}, 'Scenes'), h('select', { 'aria-label': 'Export scenes', onchange: e => { S.exportScope = e.target.value; redrawPanel(); } }, h('option', { value: 'all', selected: S.exportScope === 'all' }, `All scenes (${S.scenes.length})`), h('option', { value: 'current', selected: S.exportScope === 'current' }, 'Current scene only')), h('p', { class: 'sub' }, 'All scenes join in tab order with Fast render, using the current scene’s aspect ratio. Live recording is available for the current scene.'));
   const cNoAudio = !hasAudio ? h('div', { class: 'card flat' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, `🔇 No audio added — this video will be ${duration.toFixed(1)} seconds long and silent. Add audio any time.`)) : null;
   const cMethod = h('div', { class: 'card flat' }, h('h2', {}, 'Method'), m,
@@ -3358,16 +3358,21 @@ function openExportPopup() {
   const duration = sequencePlan(scenes, sceneAudio).at(-1)?.end || player.total, sound = scenes.some((sc) => sc.doc.lines?.length) || scenes.some((sc) => sc.doc.music && !sc.doc.music.muted);
   const info = h('div', { class: 'exp-pop-info' });
   const chips = (items, cur, set) => { const box = h('div', { class: 'seg exp-pop-seg' }); const draw = () => box.replaceChildren(...items.map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); draw(); refresh(); } }, label))); draw(); return box; };
+  let supportToken = 0;
   const refresh = () => {
+    // this device may not be able to make every size / fps (90 fps at 4K, for example): the Render button says so instead of failing later
+    const mine = ++supportToken, { W: sw, H: sh } = sizeFor();
+    canExportOffline(sw, sh, S.fps, 'mp4', !sound).then((ok) => { if (mine !== supportToken) return; render.disabled = !ok && !!window.VideoEncoder; note.hidden = ok || !window.VideoEncoder; }).catch(() => {});
     const { W, H } = sizeFor(), mbps = bitrateFor(W, H, S.level, 'mp4') / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: sound, ratio: sizeRatio('mp4') });
     const eta = estimateSeconds({ duration, pixels: W * H, fps: S.fps, live: false, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
     info.replaceChildren(h('div', {}, 'Estimated size', h('b', {}, `about ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)), h('div', {}, 'Picture', h('b', {}, `${W}×${H}`)), h('div', {}, 'Length', h('b', {}, `${duration.toFixed(1)} s`)), h('div', {}, 'Time to render', h('b', {}, `about ${prettyTime(eta.seconds)}`)));
   };
+  const note = h('p', { class: 'sub exp-pop-note', role: 'alert', hidden: true }, 'This device cannot make a video with this picture size and frames per second. Please choose a lower quality or fewer frames per second.');
   const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { close(); doExport(); } }, 'Render');
   const close = modal('Export video', h('div', { class: 'exp-pop' },
     h('h3', {}, 'Quality'), chips([[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; }),
-    h('h3', {}, 'Frames per second'), chips([[24, '24'], [30, '30'], [60, '60']], () => S.fps, (v) => { S.fps = v; }),
-    info, render));
+    h('h3', {}, 'Frames per second'), chips([[24, '24'], [30, '30'], [60, '60'], [90, '90']], () => S.fps, (v) => { S.fps = v; }),
+    info, note, render));
   refresh();
 }
 /** everything the render workers need to draw the video (a snapshot of the scene), for a picture of W × H */

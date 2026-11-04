@@ -20,7 +20,7 @@ const SR = 48000;
 async function pickCodecs(W, H, bitrate, FPS, format = 'webm', silent = false) {
   if (!window.VideoEncoder || !window.VideoFrame || (!silent && (!window.AudioEncoder || !window.AudioData))) return null;
   const vp9 = [['vp9', 'vp09.00.40.08'], ['vp9', 'vp09.00.41.08'], ['vp9', 'vp09.00.50.08']];
-  const avc = [['avc', 'avc1.640028'], ['avc', 'avc1.4d0028'], ['avc', 'avc1.42E028'], ['avc', 'avc1.640032'], ['avc', 'avc1.640033']];
+  const avc = [['avc', 'avc1.640028'], ['avc', 'avc1.4d0028'], ['avc', 'avc1.42E028'], ['avc', 'avc1.640032'], ['avc', 'avc1.640033'], ['avc', 'avc1.640034']];          // levels 4.0 ... 5.2: the high ones carry 90 fps at 1080p and 60 fps at 4K
   const tryOrder = format === 'webm' ? [['webm', vp9], ['mp4', [...avc, ...vp9]]] : [['mp4', [...avc, ...vp9]]];
   for (const [fmt, vlist] of tryOrder) {
     let video = null;

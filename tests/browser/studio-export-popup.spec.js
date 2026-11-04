@@ -19,7 +19,8 @@ test('Download opens the export box (no direct render); quality changes the esti
   const mb = (t) => parseFloat(t.match(/[\d.]+/)[0]);
   expect(mb(big)).toBeGreaterThan(mb(small));
   expect(await page.evaluate(() => window.__toon.S.fps)).toBe(30);                    // always opens on 30 fps
-  await expect(box.getByRole('button', { name: '60', exact: true })).toBeVisible();     // and 60 fps is there for the smoothest video
+  await expect(box.getByRole('button', { name: '60', exact: true })).toBeVisible();
+  await expect(box.getByRole('button', { name: '90', exact: true })).toBeVisible();     // and 60 fps is there for the smoothest video
   await expect(box.getByRole('button', { name: '360p', exact: true })).toHaveCount(0); await expect(box.getByRole('button', { name: '2K', exact: true })).toBeVisible();          // no 360p, there is 2K
   await expect(box.getByRole('button', { name: '12', exact: true })).toHaveCount(0); await expect(box.getByRole('button', { name: '15', exact: true })).toHaveCount(0);          // no 12 / 15 fps
   await box.getByRole('button', { name: '24', exact: true }).click();
@@ -32,4 +33,22 @@ test('Download opens the export box (no direct render); quality changes the esti
   await page.getByRole('button', { name: 'Export', exact: true }).first().click();
   await page.locator('.exp-pop-go').click(); await expect(page.locator('.exp-pop')).toHaveCount(0); await page.waitForTimeout(800);
   expect(errors).toEqual([]);
+});
+
+test('90 fps: when this device cannot encode it, Render is off and a plain message says why', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Fps');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
+  await page.evaluate(() => { const real = VideoEncoder.isConfigSupported.bind(VideoEncoder); VideoEncoder.isConfigSupported = async (c) => (c.framerate > 60 ? { supported: false } : real(c)); });
+  await page.getByRole('button', { name: 'Export', exact: true }).first().click();
+  const box = page.locator('.exp-pop'); await expect(box).toBeVisible();
+  await box.getByRole('button', { name: '90', exact: true }).click();
+  expect(await page.evaluate(() => window.__toon.S.fps)).toBe(90);
+  await expect(box.locator('.exp-pop-note')).toBeVisible(); await expect(box.locator('.exp-pop-go')).toBeDisabled();
+  await box.getByRole('button', { name: '60', exact: true }).click();
+  await expect(box.locator('.exp-pop-note')).toBeHidden(); await expect(box.locator('.exp-pop-go')).toBeEnabled();
 });
