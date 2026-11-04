@@ -754,7 +754,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['props', 'Objects', 'log'], ['effects', 'Effects', 'zap'], ['export', 'Export', 'download']];
+const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['effects', 'Effects', 'zap'], ['export', 'Export', 'download']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri icon-btn play-btn', title: 'Play (Space)', 'aria-label': 'Play', onclick: togglePlay }, icon('play'));
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -983,15 +983,15 @@ function drawTabs() {
     const railBtn = (key, step) => { const [, text, ic] = byKey[key], active = S.tab === key; return h('button', { type: 'button', class: `rail-btn${active ? ' on' : ''}${step && done[key] ? ' done' : ''}`, 'aria-pressed': String(active), onclick: () => { S.tab = key; S.panelOpen = true; drawTabs(); S.dirty = true; dockShow('panel'); } },
       h('span', { class: 'rb-ico', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'rb-label' }, text), step ? h('span', { class: 'rb-step', 'aria-hidden': 'true' }, done[key] ? '✓' : String(step)) : null); };
     tabsEl.replaceChildren(h('div', { class: 'rail-title' }, 'Start here'), railBtn('audio', 1), railBtn('chars', 2), railBtn('anim', 3),
-      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'props'].map((key) => railBtn(key)),
+      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props'].map((key) => railBtn(key)),
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
       h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
   } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), upload,
-    ...['chars', 'anim', 'props', 'canvas'].map(key => button(byKey[key])), more);
+    h('div', { class: 'tabs-scroll' }, ...['chars', 'anim', 'handprops', 'props', 'canvas'].map(key => button(byKey[key]))), more);          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
+    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   S.dirty = true; syncLayoutUi();
@@ -1698,7 +1698,7 @@ function drawClipNav() {
       h('summary', { title: 'More', 'aria-label': 'More clip tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
         ...(canNudge ? [nudge('Move', 'start'), nudge('Length', 'dur')] : []),
-        btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard }), btn('skip-back', 'Prev', () => jumpEdge(-1)), btn('skip-forward', 'Next', () => jumpEdge(1)),
+        btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard }),          // Prev / Next are already in the row above the timeline
         ...(kind === 'bg' || kind === 'clip' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
         ...(['clip', 'bg', 'prop'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
@@ -2645,7 +2645,7 @@ function updateSel() {
   if (selToolsEl) updateSelTools(l, b, k, cw, ch);
 }
 /** a small floating toolbox over the selected character, for the tools that act on one character — tap a button to jump straight into that tool */
-const SEL_TOOLS = [['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask'], ['motion', 'Move', 'move'], ['props', 'Props', 'sword']];
+const SEL_TOOLS = [['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask'], ['motion', 'Move', 'move'], ['handprops', 'Props', 'sword']];
 function openCharTool(key, tab) {
   const s = sOf(key); if (!s) return;
   S.sel = key; S.animFor = key; if (tab === 'tears') S.tearFor = key; if (tab === 'motion') S.motionFor = key;
@@ -2703,7 +2703,7 @@ function drawCharBar(l) {
   }
   charBar.dataset.key = l.key; queueMicrotask(() => { markCharBar(l); for (const inp of charBar.querySelectorAll('.cb-size')) inp.disabled = charLockedNow(l.key); });
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
-  const items = [['anim', 'Animations', 'film'], ['props', 'Props', 'sword'], ['motion', 'Path', 'route']];
+  const items = [['anim', 'Animations', 'film'], ['handprops', 'Props', 'sword'], ['motion', 'Path', 'route']];
   const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']];
   charBar.replaceChildren(
     h('div', { class: 'cb-list' },
@@ -3261,8 +3261,8 @@ function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, 
     onview ? h('span', { class: `eye${viewing ? ' on' : ''}`, role: 'button', 'aria-label': viewing ? `Hide ${name}` : `Show ${name}`, title: viewing ? 'Showing: tap to hide' : 'Hidden: tap to show', onclick: (e) => { e.stopPropagation(); onview(); } }, icon(viewing ? 'eye' : 'eye-off')) : null,
     onremove ? h('span', { class: 'x', role: 'button', 'aria-label': `Delete ${name}`, title: 'Delete', onclick: (e) => { e.stopPropagation(); onremove(); } }, '✕') : null);
 }
-function libraryTab(kind) {
-  if (!libraryTab.checked) { libraryTab.checked = true; refreshShared().then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'effects')) redrawPanel(); }); }
+function libraryTab(kind, group = 'general') {
+  if (!libraryTab.checked) { libraryTab.checked = true; refreshShared().then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'handprops' || S.tab === 'effects')) redrawPanel(); }); }
   const effects = kind === 'effect', label = effects ? 'Effects' : 'Objects', glyph = effects ? '💫' : '🪵';
   const typed = S.sharedAssets.filter((asset) => asset.type === kind);
   const assets = kind === 'prop' ? typed.filter((asset) => !isHandAsset(asset)) : typed;          // hand props are listed in the toolbox of a selected character
@@ -3288,12 +3288,14 @@ function libraryTab(kind) {
   const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset, { key: holder.key, hand: 'R' })) },
     locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : (asset.category || 'Hand prop'))); };
-  const handBlock = !handAssets.length ? [] : [h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Props'),
-    holder ? h('p', { class: 'sub studio-help' }, `Tap a prop to put it in ${holder.name}'s right hand.`)
-      : h('p', { class: 'sub studio-help' }, 'Select a character on the stage to see the hand props. They go straight into that character\'s hand.'),
-    holder ? h('div', { class: 'studio-shared-grid' }, handAssets.map(handCard)) : null)];
+  if (group === 'hand') {          // Props: what a character can use (knife, bat, bag ...); Objects (stone, well, tree ...) make the scene
+    return h('div', { class: 'list' }, h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Props'),
+      !handAssets.length ? h('p', { class: 'sub studio-library-empty' }, 'No props have been published yet. They are added from Add Assets → Add Props in the admin panel.')
+        : holder ? h('div', {}, h('p', { class: 'sub studio-help' }, `Tap a prop to put it in ${holder.name}'s right hand.`), h('div', { class: 'studio-shared-grid' }, handAssets.map(handCard)))
+          : h('p', { class: 'sub studio-help' }, 'Select a character on the stage first. The prop you tap goes straight into that character\'s hand.'),
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:8px' }, h('button', { class: 'btn sm', type: 'button', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new'))));
+  }
   return h('div', { class: 'list' },
-    ...handBlock,
     h('div', { class: 'card flat' }, h('h2', {}, label),
       categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
       tileSearch(grid, label.toLowerCase()), grid,

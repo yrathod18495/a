@@ -24,9 +24,10 @@ test('phone: the selected clip\'s tools are in the bottom bar, nothing is left a
   expect(edits).toEqual(['prev', 'next', 'paste', 'del']);                                              // only the ones that need no selection stay at the top
   const tabs = await page.locator('.tabs.big').boundingBox(), bb = await nav.boundingBox();
   expect(Math.abs(bb.y - tabs.y)).toBeLessThan(3); expect(bb.x + bb.width).toBeLessThanOrEqual(390.5);       // it takes the place of the bottom menu
-  // More: Move / Length arrows, Paste, Prev, Next, Done
+  // More: Move / Length arrows, Paste, Duplicate, Lock, Done (no Prev / Next: they are in the row above the timeline)
   await nav.locator('.char-more summary').click();
   const list = nav.locator('.cb-more-list'); await expect(list).toBeVisible();
+  await expect(list.getByRole('button', { name: 'Prev', exact: true })).toHaveCount(0); await expect(list.getByRole('button', { name: 'Next', exact: true })).toHaveCount(0);
   const before = await page.evaluate(() => ({ ...window.__toon.S.bgClips[0] }));
   await list.getByRole('button', { name: 'Move later' }).click(); await page.waitForTimeout(200);
   await list.getByRole('button', { name: 'Longer' }).click(); await page.waitForTimeout(200);

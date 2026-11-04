@@ -41,16 +41,18 @@ test('the "..." menu opens inside the screen', async ({ page }) => {
   expect(panel.x).toBeGreaterThanOrEqual(0); expect(panel.x + panel.width).toBeLessThanOrEqual(360); await expect(page.getByRole('button', { name: /Reset this project/ })).toBeVisible();
 });
 
-test('the bottom bar: Upload, Characters, Animations, Props, Background, Advanced; Export is the last item of Advanced', async ({ page }) => {
+test('the bottom bar: Upload, Characters, Animations, Props, Objects, Background, Advanced (the middle scrolls sideways); Export is the last item of Advanced', async ({ page }) => {
   await phone(page, 390);
   const bar = page.locator('#app .tabs.big');
-  const items = await bar.evaluate((el) => [...el.children].filter((c) => c.tagName === 'BUTTON' || c.tagName === 'DETAILS').map((c) => ({ label: c.tagName === 'DETAILS' ? c.querySelector('summary').textContent.trim() : c.textContent.trim(), left: c.getBoundingClientRect().left, right: c.getBoundingClientRect().right })));
-  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Objects', 'Background', 'Advanced']);
-  const barBox = await bar.boundingBox();
-  for (const i of items) { expect(i.left).toBeGreaterThanOrEqual(barBox.x - 1); expect(i.right).toBeLessThanOrEqual(barBox.x + barBox.width + 1); }     // all six are on screen
+  const items = await bar.evaluate((el) => [...el.querySelectorAll(':scope > button, :scope > details, :scope > .tabs-scroll > button')].map((c) => ({ label: c.tagName === 'DETAILS' ? c.querySelector('summary').textContent.trim() : c.textContent.trim() })));
+  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Props', 'Objects', 'Background', 'Advanced']);
+  const barBox = await bar.boundingBox(), sc = await bar.locator('.tabs-scroll').evaluate((e) => ({ scrolls: e.scrollWidth > e.clientWidth, x: getComputedStyle(e).overflowX }));
+  expect(sc.x).toBe('auto');                                                                    // the middle slides sideways
+  for (const label of ['Upload', 'Advanced']) { const b = await bar.getByText(label, { exact: true }).first().boundingBox(); expect(b.x).toBeGreaterThanOrEqual(barBox.x - 1); expect(b.x + b.width).toBeLessThanOrEqual(barBox.x + barBox.width + 1); }          // the two ends always stay on screen
   await expect(bar.getByRole('button', { name: 'Export', exact: true })).toHaveCount(0);                                                                     // no Export button in the bar itself
   const tab = () => page.evaluate(() => window.__toon.S.tab);
   await bar.getByRole('button', { name: 'Upload' }).click(); expect(await tab()).toBe('audio');
+  await bar.getByRole('button', { name: 'Props', exact: true }).click(); expect(await tab()).toBe('handprops'); await expect(page.locator('.panel')).toContainText('Props');
   await bar.getByRole('button', { name: 'Objects' }).click(); expect(await tab()).toBe('props'); await expect(page.locator('.panel')).toContainText('Objects');
   await bar.getByRole('button', { name: 'Background' }).click(); expect(await tab()).toBe('canvas');
   await bar.getByRole('button', { name: 'Characters' }).click(); expect(await tab()).toBe('chars');

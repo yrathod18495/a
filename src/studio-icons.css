@@ -458,3 +458,9 @@ body.path-mode .lane2 .pflag:not(.stage){pointer-events:auto}
 .crop-ico .r1-1{width:18px;height:18px}.crop-ico .r4-5{width:16px;height:20px}.crop-ico .r9-16{width:13px;height:22px}.crop-ico .rorig{width:22px;height:13px}
 .clip-nav .crop-actions{display:flex;align-items:stretch}
 .clip-nav .crop-ok{background:var(--acc);color:#fff}
+/* the bottom bar on a phone: Upload and Advanced stay at the ends, the middle slides sideways */
+@media (max-width:860px){
+  #app .ws .tabs.big .tabs-scroll{flex:1 1 0;min-width:0;display:flex;align-items:stretch;gap:2px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-snap-type:x proximity}
+  #app .ws .tabs.big .tabs-scroll::-webkit-scrollbar{display:none}
+  #app .ws .tabs.big .tabs-scroll>button{flex:0 0 66px;width:66px;min-width:0;scroll-snap-align:start}
+}
