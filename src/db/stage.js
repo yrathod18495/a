@@ -429,7 +429,7 @@ export class Stage {
   /** camera for time t: the user's keyframes if there are any, else the shot of the current audio line (it glides to the next line's shot just before that line starts) */
   cameraAt(plan, t, real = false) {
     if (this.userCam) return this.userCam;
-    if (this.overflow && !real) return (this.overCam ||= { zoom: 1 / 1.25, cx: this.W / 2, cy: this.H / 2 });          // editor only: look at a larger area, so what sticks out of the frame is visible
+    if (this.overflow && !real) return (this.overCam ||= { zoom: 1 / 1.5, cx: this.W / 2, cy: this.H / 2 });          // editor only: look at a larger area, so what sticks out of the frame is visible
     if (this.fullView && !real) return { zoom: 1, cx: this.W / 2, cy: this.H / 2 };
     if (this.camKeys?.length) return this.keyCam(t);
     if (!plan?.length) return this.shotCam(null);

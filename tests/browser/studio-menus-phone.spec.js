@@ -10,12 +10,12 @@ async function open(page, width) {
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();
 }
-test('phone: Play is the first button of the timeline tools row; on a wide screen it is back in the player controls', async ({ page }) => {
+test('phone: Play is in the scene row; on a wide screen it is back in the player controls', async ({ page }) => {
   await open(page, 390);
-  await expect(page.locator('.tltools .play-btn')).toHaveCount(1); await expect(page.locator('.controls .play-btn')).toHaveCount(0);
-  await expect(page.locator('.tltools > :first-child')).toHaveClass(/play-btn/);
+  await expect(page.locator('.scene-row .play-btn')).toHaveCount(1); await expect(page.locator('.controls .play-btn')).toHaveCount(0);
+  const p = await page.locator('.scene-row .play-btn').boundingBox(), t = await page.locator('.scene-tabs').boundingBox(); expect(p.x).toBeGreaterThanOrEqual(t.x);
   await page.setViewportSize({ width: 1366, height: 860 }); await page.waitForTimeout(300);
-  await expect(page.locator('.controls .play-btn')).toHaveCount(1); await expect(page.locator('.tltools .play-btn')).toHaveCount(0);
+  await expect(page.locator('.controls .play-btn')).toHaveCount(1); await expect(page.locator('.scene-row .play-btn')).toHaveCount(0);
 });
 test('phone: pop-up menus close when you tap elsewhere or pick something', async ({ page }) => {
   await open(page, 390);
