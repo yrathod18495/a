@@ -15,7 +15,7 @@ import { access, send, failure } from './access.js';
 import { kv } from './rtdb.js';
 import { AccessError } from './security-policy.js';
 import { configured, confirmAssets, signDownloads, deleteKey, assetKey } from './r2-storage.js';
-import { cleanRecord, refsOf, isSha, isId, DB_MAX_BYTES } from '../shared/character-package.js';
+import { cleanRecord, refsOf, isSha, isId, isGroup, DB_MAX_BYTES } from '../shared/character-package.js';
 
 const MAX_FILES_PER_CALL = 60;
 const bad = (code, message, status = 400) => new AccessError(code, message, status);
@@ -63,7 +63,7 @@ export const CHARACTER_BODY_MAX = 600 * 1024;
 /** one character action; `b` is the request body with its action name without the "character:" prefix */
 export async function characterAction(req, res, b) {
   try {
-    const adminAction = ['putFile', 'commit', 'delete'].includes(b.action);
+    const adminAction = ['putFile', 'commit', 'delete', 'update'].includes(b.action);
     const who = await access(req, { admin: adminAction, write: adminAction, cache: !adminAction });
     if (!who.admin && await maintenanceOn()) throw bad('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     const store = kv(services());
@@ -125,6 +125,23 @@ export async function characterAction(req, res, b) {
       // what the replaced character / category used and nobody uses now is removed
       const removed = await sweep(store, [...(old ? refsOf(old) : []), ...(oldCategory ? refsOf(oldCategory) : [])], state);
       return send(res, 200, { ok: true, character: state.characters[character.id], replaced: !!old, categoryCreated: !!category && !oldCategory, removedFiles: removed });
+    }
+
+    if (b.action === 'update') {                                  // the admin renames a character or changes its group (Male / Female / Boy / Girl)
+      if (!isId(b.id)) throw bad('invalid_character', 'The character is not valid.');
+      const c = await store.get(`characters/${b.id}`);
+      if (!c) throw bad('not_found', 'This character does not exist any more.', 404);
+      const next = { ...c };
+      if (b.name !== undefined) {
+        const name = typeof b.name === 'string' ? b.name.trim() : '';
+        if (!name || name.length > 60) throw bad('invalid_name', 'The name must be 1 to 60 characters.');
+        next.name = name;
+      }
+      if (b.group !== undefined) { if (!isGroup(b.group)) throw bad('invalid_group', 'The group must be Male, Female, Boy or Girl.'); next.group = b.group; }
+      next.updatedAt = Date.now();
+      await store.set(`characters/${b.id}`, next);
+      const { owner, ...visible } = next;
+      return send(res, 200, { ok: true, character: visible });
     }
 
     if (b.action === 'delete') {

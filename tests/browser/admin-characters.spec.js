@@ -17,6 +17,7 @@ function fakeServer(page) {
     if (b.action === 'putFile') { s.putFiles++; s.db.set(b.sha, b.gz); return route.fulfill({ json: { ok: true } }); }
     if (b.action === 'files') return route.fulfill({ json: { db: Object.fromEntries(b.refs.filter((r) => r.db).map((r) => [r.db, s.db.get(r.db)])), r2: Object.fromEntries(b.refs.filter((r) => r.r2).map((r) => [r.r2, `https://r2.fake/get/${r.r2}`])) } });
     if (b.action === 'commit') { s.commits.push(b); if (b.category.views) s.categories.set(b.category.id, b.category); s.characters.set(b.character.id, { ...b.character, category: b.category.id }); return route.fulfill({ json: { ok: true, categoryCreated: !!b.category.views } }); }
+    if (b.action === 'update') { const c = s.characters.get(b.id); if (!c) return route.fulfill({ status: 404, json: { error: 'missing' } }); if (b.name !== undefined) c.name = String(b.name).trim(); if (b.group !== undefined) c.group = b.group; return route.fulfill({ json: { ok: true, character: c } }); }
     if (b.action === 'delete') { const c = s.characters.get(b.id); s.characters.delete(b.id); if (![...s.characters.values()].some((x) => x.category === c.category)) s.categories.delete(c.category); return route.fulfill({ json: { ok: true, removedFiles: 9 } }); }
     return route.fulfill({ status: 400, json: { error: 'unknown' } });
   });
@@ -83,6 +84,13 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   expect(Object.values(rec.character.views).every((v) => v.previewType === 'mp4')).toBe(true);
   // the saved list
   await expect(page.locator('.admin-character-card')).toHaveCount(1);
+  // the admin changes the name and the group of the saved character
+  page.once('dialog', (d) => d.accept('Maya Devi'));
+  await page.locator('.admin-character-card').getByRole('button', { name: 'Rename' }).click();
+  await expect(page.locator('.admin-character-card b')).toHaveText('Maya Devi');
+  expect([...server.characters.values()][0].name).toBe('Maya Devi');
+  await page.locator('.admin-character-card select.admin-character-group').selectOption('girl');
+  await expect.poll(() => [...server.characters.values()][0].group).toBe('girl');
   await expect(page.locator('.admin-character-card')).toContainText('3/4 Front, Front, Side, Back · 88 animations');
   await expect.poll(() => page.locator('.admin-character-thumb img').evaluate((i) => [i.naturalWidth, i.naturalHeight])).toEqual([200, 320]);
   // delete
@@ -129,7 +137,7 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
   // page 1: the characters only (no poses below); Prev is off, Next needs a character
-  await expect(page.locator('.cp-stepbar .cp-step.on')).toHaveText('1Character');
+  await expect(page.locator('.cp-page-characters')).toBeVisible(); await expect(page.locator('.cp-kind.on')).toHaveText('Female');          // Maya is a Female character (guessed from her category)
   await expect(page.locator('.cp-poses')).toHaveCount(0);
   await expect(page.locator('.cp-prev')).toBeDisabled(); await expect(page.locator('.cp-next')).toBeDisabled();
   await expect(page.locator('.cp-card:not(.pose) .cp-img img')).toHaveCount(1);
@@ -137,7 +145,7 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   await expect(page.locator('.cp-poses')).toHaveCount(0); await expect(page.locator('.cp-next')).toBeEnabled();
   await page.locator('.cp-next').click();
   // page 2: the chosen character on top, then its poses; Prev goes back, Next confirms
-  await expect(page.locator('.cp-stepbar .cp-step.on')).toHaveText('2Pose');
+  await expect(page.locator('.cp-page-poses')).toBeVisible();
   await expect(page.locator('.cp-chosen')).toContainText('Maya');
   await expect(page.locator('.cp-poses .pose')).toHaveCount(4);
   await expect(page.locator('.cp-poses .pose small')).toHaveText(['3/4 Front', 'Front', 'Side', 'Back']);
@@ -147,7 +155,7 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   expect(new Set(pics.map((p) => p[0])).size).toBe(4); expect(pics.every((p) => p[1] === 200 && p[2] === 320)).toBe(true);
   const pixels = await Promise.all((await page.locator('.cp-poses .pose img').all()).map((img) => img.evaluate(async (el) => { const c = document.createElement('canvas'); c.width = 40; c.height = 64; const g = c.getContext('2d'); g.drawImage(el, 0, 0, 40, 64); const d = g.getImageData(0, 0, 40, 64).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1000003; return h; })));
   expect(new Set(pixels).size).toBe(4);                                                                   // different views really look different
-  await page.locator('.cp-prev').click(); await expect(page.locator('.cp-stepbar .cp-step.on')).toHaveText('1Character'); await expect(page.locator('.cp-card.on')).toContainText('Maya');
+  await page.locator('.cp-prev').click(); await expect(page.locator('.cp-page-characters')).toBeVisible(); await expect(page.locator('.cp-card.on')).toContainText('Maya');
   await page.locator('.cp-next').click();
   await page.locator('.cp-poses .pose').nth(1).click(); await expect(page.locator('.cp-poses .pose.on small')).toHaveText('Front');   // choosing a pose only marks it ...
   expect(await page.evaluate(() => window.__toon.stage.layers.length)).toBe(0);                          // ... nothing is applied before Next

@@ -7,8 +7,8 @@ import { canEncodePreview, encodeMp4 } from './previewVideo.js';
 import { h, logo } from './dom.js';
 import { Stage } from './db/stage.js';
 import { rigInfo } from './db/info.js';
-import { checkManifest, gifName } from '../shared/character-package.js';
-import { listCloudCharacters, storeCharacter, deleteCloudCharacter, pictureUrl } from './cloud-characters.js';
+import { checkManifest, gifName, CHARACTER_GROUPS, groupOf } from '../shared/character-package.js';
+import { listCloudCharacters, storeCharacter, deleteCloudCharacter, updateCloudCharacter, pictureUrl } from './cloud-characters.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
 const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // the small one: it only shows what the animation does
@@ -103,7 +103,7 @@ export async function animationGif(stage, def, name, anim, length, opts = GIF) {
 export async function charactersView({ back, home, toast }) {
   const root = h('div', { class: 'sh admin-characters' });
   const content = h('main', { class: 'admin-characters-main' });
-  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '480' };
+  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '480', name: '', group: 'male' };
   const stage = new Stage({ maxTex: 4096 }); stage.setSize('1:1', PREVIEW); stage.fullView = false;
   let raf = 0, last = 0, loadJob = 0;
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
@@ -125,6 +125,9 @@ export async function charactersView({ back, home, toast }) {
       Object.assign(st, { pkg, view: 0, index: 0, playing: true, defs: new Map(), anims: new Map(), time: 0 });
       const existing = st.list.find((c) => c.category === pkg.manifest?.category?.id);
       st.withAnimations = !existing;               // a category that is already saved keeps its animations unless the admin chooses to replace them
+      const known = st.list.find((c) => c.id === pkg.manifest?.character?.id);
+      st.name = known?.name || pkg.manifest?.character?.name || '';           // the admin can change the name and the group before Done
+      st.group = groupOf(known || { category: pkg.manifest?.category?.id, name: pkg.manifest?.character?.name }, pkg.manifest?.category?.name);
       status.textContent = pkg.errors.length ? '' : `${pkg.fileName} is ready. Look at the animations, then press Done.`;
       draw(); if (!pkg.errors.length) await show();
     } catch (e) { status.textContent = `This ZIP could not be read: ${friendlyError(e)}`; st.pkg = null; draw(); }
@@ -183,7 +186,7 @@ export async function charactersView({ back, home, toast }) {
       // 2) saving starts now: the rig, the animations and the pictures go up while the GIFs are still being made
       let finishGifs, failGifs;
       const gifsDone = new Promise((resolve, reject) => { finishGifs = resolve; failGifs = reject; });
-      const stored = storeCharacter({ manifest: pkg.manifest, files: pkg.files, gifs, gifsDone, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => { uploading = text; report(); if (!total) bar.value = t ? d / t : 1; } });
+      const stored = storeCharacter({ manifest: pkg.manifest, files: pkg.files, name: st.name.trim() || pkg.manifest.character.name, group: st.group, gifs, gifsDone, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => { uploading = text; report(); if (!total) bar.value = t ? d / t : 1; } });
       stored.catch(() => {});                                  // a failure is shown below
       // 3) the GIFs: drawn here one after another, encoded by workers side by side
       try {
@@ -219,13 +222,29 @@ export async function charactersView({ back, home, toast }) {
     catch (e) { toast(`Could not delete ${c.name}: ${friendlyError(e)}`); }
   }
 
+  async function rename(c) {
+    const name = prompt('New name for this character (1 to 60 characters):', c.name);
+    if (name === null || name.trim() === c.name) return;
+    try { await updateCloudCharacter(c.id, { name }); toast(`Renamed to "${name.trim()}".`); await refresh(); }
+    catch (e) { toast(`Could not rename ${c.name}: ${friendlyError(e)}`); }
+  }
+  async function regroup(c, select) {
+    select.disabled = true;
+    try { await updateCloudCharacter(c.id, { group: select.value }); toast(`${c.name} is now in "${CHARACTER_GROUPS.find(([id]) => id === select.value)?.[1]}".`); c.group = select.value; }
+    catch (e) { select.value = groupOf(c, c.categoryName); toast(`Could not change the group: ${friendlyError(e)}`); }
+    finally { select.disabled = false; }
+  }
   function card(c) {
     const img = h('img', { alt: '', loading: 'lazy' });
     if (c.thumb) pictureUrl(c.thumb).then((u) => { img.src = u; }).catch(() => {});
     const views = Object.values(c.views || {}).map((v) => v.label).join(', '), anims = Object.values(c.animations || {}).reduce((n, v) => n + (v.animations?.length || 0), 0);
     return h('article', { class: 'admin-character-card' }, h('div', { class: 'admin-character-thumb' }, img),
-      h('div', { class: 'admin-character-copy' }, h('b', {}, c.name), h('small', {}, `Category: ${c.categoryName}`), h('small', {}, `${views} · ${anims} animations`)),
-      h('button', { class: 'btn sm danger', type: 'button', disabled: st.busy, onclick: () => remove(c) }, 'Delete'));
+      h('div', { class: 'admin-character-copy' }, h('b', {}, c.name), h('small', {}, `Category: ${c.categoryName}`), h('small', {}, `${views} · ${anims} animations`),
+        h('select', { class: 'admin-character-group', 'aria-label': `Group of ${c.name}`, title: 'The group the creators find this character in', disabled: st.busy, onchange: (e) => regroup(c, e.target) },
+          CHARACTER_GROUPS.map(([id, label]) => h('option', { value: id, selected: groupOf(c, c.categoryName) === id }, label)))),
+      h('div', { class: 'admin-character-actions' },
+        h('button', { class: 'btn sm', type: 'button', disabled: st.busy, onclick: () => rename(c) }, 'Rename'),
+        h('button', { class: 'btn sm danger', type: 'button', disabled: st.busy, onclick: () => remove(c) }, 'Delete')));
   }
   function previewSection() {
     const pkg = st.pkg; if (!pkg) return null;
@@ -235,6 +254,9 @@ export async function charactersView({ back, home, toast }) {
     const choice = (value, label, note) => h('label', { class: 'admin-characters-choice' }, h('input', { type: 'radio', name: 'anims', checked: st.withAnimations === value, disabled: st.busy, onchange: () => { st.withAnimations = value; } }), h('span', {}, h('b', {}, label), h('small', {}, note)));
     return h('section', { class: 'admin-panel-card admin-characters-preview' },
       h('div', { class: 'admin-characters-head' }, h('div', {}, h('h2', {}, m.character.name), h('small', {}, `Category: ${m.category.name} · ${views().length} views · ${totalAnims} animations · ${mb(pkg.bytes)}`))),
+      h('div', { class: 'admin-characters-meta' },
+        h('label', {}, h('span', {}, 'Name shown to creators'), h('input', { type: 'text', maxlength: 60, value: st.name, disabled: st.busy, 'aria-label': 'Character name', oninput: (e) => { st.name = e.target.value; } })),
+        h('label', {}, h('span', {}, 'Group'), h('select', { 'aria-label': 'Character group', disabled: st.busy, onchange: (e) => { st.group = e.target.value; } }, CHARACTER_GROUPS.map(([id, label]) => h('option', { value: id, selected: st.group === id }, label))))),
       charExists ? h('p', { class: 'admin-characters-note' }, `A character with the id "${m.character.id}" already exists. Done will replace it (its old files are removed).`) : null,
       catExists ? h('div', { class: 'admin-characters-choices' }, choice(false, `Use the saved "${m.category.name}" animations`, 'This character uses the same animation files as the others in this category (they are not uploaded again). It still gets its own preview GIFs, made from this character.'), choice(true, 'Replace them with the animations in this ZIP', 'Every character of this category gets the new animations.')) : null,
       h('div', { class: 'admin-characters-views', role: 'group', 'aria-label': 'View' }, ...views().map((v, i) => h('button', { class: `btn sm ${i === st.view ? 'pri' : ''}`, type: 'button', 'aria-pressed': String(i === st.view), disabled: st.busy, onclick: () => { st.view = i; st.index = 0; draw(); show(); } }, v.label || v.id))),

@@ -972,3 +972,12 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .cp-hint{margin:0 0 6px}
 .cp-chosen{margin:0 0 8px;padding:6px 10px;gap:10px}.cp-chosen-img{width:34px;height:44px}.cp-chosen b{font-size:14px}
 .cp-nav{margin-top:10px;padding:8px 0 0}.cp-nav .btn{min-width:96px;padding:8px 14px}
+
+/* picker: the four kinds as small tabs, smaller texts */
+.cp-kinds{display:flex;gap:6px;margin:0 0 8px;overflow-x:auto;scrollbar-width:none}
+.cp-kind{flex:1 1 0;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:99px;background:transparent;color:var(--mute);font:inherit;font-size:12px;font-weight:650;cursor:pointer;white-space:nowrap}
+.cp-kind.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 22%,transparent);color:var(--text)}
+.cp-empty{padding:14px 4px;text-align:center}
+.cp .cp-card>b,.cp .cp-card>small{font-size:12px;padding:5px 9px}
+.cp-chosen small{font-size:10.5px}.cp-chosen b{font-size:13px}
+.cp-nav .btn{font-size:13px}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkManifest, storageOf, gifName, slug, cleanRecord, refsOf, DB_MAX_BYTES } from '../shared/character-package.js';
+import { checkManifest, storageOf, gifName, slug, cleanRecord, refsOf, DB_MAX_BYTES, CHARACTER_GROUPS, groupOf, isGroup } from '../shared/character-package.js';
 
 const sha = (c) => c.repeat(64);
 const manifest = () => ({ format: '12toons-character', version: 1, character: { id: 'maya', name: 'Maya' }, category: { id: 'female', name: 'Female' },
@@ -61,4 +61,20 @@ test('preview GIFs belong to each character view (not shared through the categor
   assert.equal(cleanRecord(base(null)).character.views.f34.gifs, undefined);                                                            // older uploads have none here
   assert.throws(() => cleanRecord(base({ walk: { r2: 'nothex', size: 1 } })), /preview of walk is not a valid file/);
   assert.throws(() => cleanRecord(base({ '': ref('d') })), /preview name is not valid/);
+});
+
+test('character groups: Male / Female / Boy / Girl, chosen by the admin, guessed for older uploads, kept by the record', () => {
+  assert.deepEqual(CHARACTER_GROUPS.map(([id]) => id), ['male', 'female', 'boy', 'girl']);
+  assert.equal(isGroup('boy'), true); assert.equal(isGroup('man'), false);
+  assert.equal(groupOf({ group: 'girl', category: 'male' }), 'girl');                      // what the admin chose wins
+  assert.equal(groupOf({ category: 'female', name: 'Maya' }), 'female');                   // a guess from the category (female contains "male": checked first)
+  assert.equal(groupOf({ category: 'male', name: 'Roshan' }), 'male');
+  assert.equal(groupOf({ category: 'kid_boy', name: 'Chotu' }), 'boy');
+  assert.equal(groupOf({ category: 'girl', name: 'Gudiya' }), 'girl');
+  assert.equal(groupOf({ category: 'x', name: 'Y' }), 'male');                             // unknown: Male
+  const sha = (c) => c.repeat(64), view = { label: 'Front', skeleton: { db: sha('a') }, textures: [{ json: { db: sha('b') }, page: { r2: sha('c'), size: 9 } }] };
+  const base = (group) => ({ character: { id: 'roshan', name: 'Roshan', ...(group ? { group } : {}), views: { fr: view } }, category: { id: 'male', name: 'Male' } });
+  assert.equal(cleanRecord(base('boy')).character.group, 'boy');
+  assert.equal(cleanRecord(base('robot')).character.group, undefined);                     // not one of the four: dropped
+  assert.equal(cleanRecord(base(null)).character.group, undefined);
 });

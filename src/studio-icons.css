@@ -366,3 +366,10 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 .lane2 .pflag .pf-cloth svg{width:8px;height:8px}
 .lane2 .pflag::before{content:"";position:absolute;left:-14px;top:-6px;width:28px;height:34px}      /* a bigger area for a finger */
 .pathshadow-layer .pathhint{position:absolute;top:6px;left:50%;transform:translateX(-50%);max-width:92%;padding:4px 10px;border-radius:99px;background:#101114d9;color:#fff;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+
+/* phone: smaller writing on the timeline clips and flags */
+@media(max-width:860px){
+  #app .ws .tl2 .tclip{font-size:10.5px}
+  #app .ws .tl2 .tclip .tn{font-size:10.5px}
+  #app .ws .tl2 .pflag .pf-cloth{font-size:7.5px}
+}

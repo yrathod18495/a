@@ -11,6 +11,19 @@ export const PACKAGE_VERSION = 1;
 export const DB_MAX_BYTES = 192 * 1024;          // a JSON file up to this size (before compression) is kept in the database
 export const MAX_VIEWS = 8, MAX_ANIMATIONS = 200, MAX_TEXTURES = 8;
 export const PREVIEW_TYPES = Object.freeze(['gif', 'mp4']);          // what the files in a view's `gifs` are: GIF pictures (older uploads) or small MP4 videos
+/** the four kinds of character the picker is sorted by (the admin sets one for each character) */
+export const CHARACTER_GROUPS = Object.freeze([['male', 'Male'], ['female', 'Female'], ['boy', 'Boy'], ['girl', 'Girl']]);
+const GROUP_IDS = CHARACTER_GROUPS.map(([id]) => id);
+export const isGroup = (v) => GROUP_IDS.includes(v);
+/** the group of a stored character: the one the admin chose, else a guess from its category / name (older uploads), else Male */
+export function groupOf(character, categoryName = '') {
+  if (isGroup(character?.group)) return character.group;
+  const text = `${character?.category || ''} ${categoryName} ${character?.name || ''}`.toLowerCase();
+  if (/(^|[^a-z])(girl|daughter)/.test(text)) return 'girl';
+  if (/(^|[^a-z])(boy|son)([^a-z]|$)/.test(text)) return 'boy';
+  if (/female|woman|women|lady|aunty|mother/.test(text)) return 'female';
+  return 'male';
+}
 export const VIEW_LABELS = { f34: '3/4 Front', fr: 'Front', sd: 'Side', bk: 'Back' };
 
 export const slug = (s) => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
@@ -75,7 +88,7 @@ export function cleanRecord(input) {
   if (!isId(g?.id) || typeof g.name !== 'string' || !g.name.trim() || g.name.length > 60) bad('The category id or name is not valid.');
   const views = Object.entries(c.views || {});
   if (!views.length || views.length > MAX_VIEWS) bad(`The character must have 1 to ${MAX_VIEWS} views.`);
-  const character = { id: c.id, name: c.name.trim(), category: g.id, views: {}, thumb: c.thumb ? ref(c.thumb, 'The thumbnail') : null };
+  const character = { id: c.id, name: c.name.trim(), category: g.id, views: {}, thumb: c.thumb ? ref(c.thumb, 'The thumbnail') : null, ...(isGroup(c.group) ? { group: c.group } : {}) };
   for (const [vid, v] of views) {
     if (!isId(vid)) bad('A view id is not valid.');
     if (!Array.isArray(v.textures) || !v.textures.length || v.textures.length > MAX_TEXTURES) bad(`View ${vid}: 1 to ${MAX_TEXTURES} textures are needed.`);

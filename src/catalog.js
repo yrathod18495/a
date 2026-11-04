@@ -7,6 +7,7 @@ import { rigInfo, dirOf } from './db/info.js';
 import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
 import { assetAddress } from '../shared/library-url.js';
+import { groupOf } from '../shared/character-package.js';
 import { listCloudCharacters, loadCloudView, getJson, pictureUrl } from './cloud-characters.js';
 
 const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: optional address of a CDN that serves the library files
@@ -40,7 +41,7 @@ export async function loadCatalog() {
   // characters the admin uploaded (Admin -> Characters): one entry per view, files come from the database / R2 and are cached by the browser
   const cloudTask = listCloudCharacters().then((list) => {
     const entries = list.flatMap((c) => Object.entries(c.views || {}).map(([view, v]) => ({ id: `ch-${c.id}-${view}`, name: c.name, pose: v.label, patternId: 'rig', charBase: c.id, thumbnail: '', paid: false,
-      template: { cloud: true, character: c, view, pose: VIEW_POSE[view] || view } })));
+      group: groupOf(c, c.categoryName), template: { cloud: true, character: c, view, pose: VIEW_POSE[view] || view } })));
     library.push(...entries);
     // each pose shows its own picture (older uploads only have one picture for the whole character: it is used for every pose);
     // the pictures are small and kept by the browser, so the cards are drawn with them (waiting at most a few seconds)

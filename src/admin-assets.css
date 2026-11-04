@@ -5,3 +5,9 @@
 
 /* Add Props / Add Effects show their own page inside the Add Assets page: no second frame around it */
 .admin-assets-content>.admin-embedded{padding:0;margin:0;max-width:none;width:100%}
+
+.admin-characters-meta{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin:10px 0}
+.admin-characters-meta label{display:grid;gap:4px;font-size:12px}.admin-characters-meta input,.admin-characters-meta select{padding:8px 10px;border-radius:8px;font:inherit}
+.admin-character-group{margin-top:6px;padding:5px 8px;border-radius:8px;font-size:12px}
+.admin-character-actions{display:flex;flex-direction:column;gap:6px}
+@media(max-width:520px){.admin-characters-meta{grid-template-columns:1fr}}
