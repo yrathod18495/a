@@ -491,3 +491,6 @@ body.studio-dark #app .ws .tl2 .tclip.sel{border:1.5px solid #fff !important;z-i
   #app .ws .tl2 .tclip .tn{font-size:11.5px;font-weight:650}
 }
 .toast.warn{background:#f5b82e !important;color:#1b1400 !important;border-color:#c98f0a !important;font-weight:650}
+/* the path flags on a character's layer: A at the top of the clip's start, B at the bottom of the clip's end (inside the clip), like a start and a finish */
+.lane2 .pflag.b{top:auto !important;bottom:3px}
+.lane2 .pflag.b .pf-cloth{left:auto;right:1px;top:auto;bottom:0;border-radius:5px 0 0 5px;padding:0 3px 0 6px}
