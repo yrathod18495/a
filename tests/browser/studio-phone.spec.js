@@ -41,14 +41,15 @@ test('the "..." menu opens inside the screen', async ({ page }) => {
   expect(panel.x).toBeGreaterThanOrEqual(0); expect(panel.x + panel.width).toBeLessThanOrEqual(360); await expect(page.getByRole('button', { name: /Reset this project/ })).toBeVisible();
 });
 
-test('the bottom bar: Upload, Characters, Animations, Props, Objects, Background, Advanced (the middle scrolls sideways); Export is the last item of Advanced', async ({ page }) => {
+test('the bottom bar: Upload, Characters, Animations, Props, Objects, Shadow, Background, More (the whole bar scrolls sideways, nothing is pinned); Export is the last item of Advanced', async ({ page }) => {
   await phone(page, 390);
   const bar = page.locator('#app .tabs.big');
-  const items = await bar.evaluate((el) => [...el.querySelectorAll(':scope > button, :scope > details, :scope > .tabs-scroll > button')].map((c) => ({ label: c.tagName === 'DETAILS' ? c.querySelector('summary').textContent.trim() : c.textContent.trim() })));
-  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Props', 'Objects', 'Background', 'Advanced']);
+  const items = await bar.evaluate((el) => [...el.querySelectorAll(':scope > button, :scope > details, :scope > .tabs-scroll > button, :scope > .tabs-scroll > details')].map((c) => ({ label: c.tagName === 'DETAILS' ? c.querySelector('summary').textContent.trim() : c.textContent.trim() })));
+  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Props', 'Objects', 'Shadow', 'Background', 'More']);
   const barBox = await bar.boundingBox(), sc = await bar.locator('.tabs-scroll').evaluate((e) => ({ scrolls: e.scrollWidth > e.clientWidth, x: getComputedStyle(e).overflowX }));
   expect(sc.x).toBe('auto');                                                                    // the middle slides sideways
-  for (const label of ['Upload', 'Advanced']) { const b = await bar.getByText(label, { exact: true }).first().boundingBox(); expect(b.x).toBeGreaterThanOrEqual(barBox.x - 1); expect(b.x + b.width).toBeLessThanOrEqual(barBox.x + barBox.width + 1); }          // the two ends always stay on screen
+  const first = await bar.locator('.tabs-scroll > :first-child').evaluate((e) => e.textContent.trim()), last = await bar.locator('.tabs-scroll > :last-child > summary').evaluate((e) => e.textContent.trim());
+  expect([first, last]).toEqual(['Upload', 'More']);          // Upload is the first item of the sliding bar and More the last; neither is pinned
   await expect(bar.getByRole('button', { name: 'Export', exact: true })).toHaveCount(0);                                                                     // no Export button in the bar itself
   const tab = () => page.evaluate(() => window.__toon.S.tab);
   await bar.getByRole('button', { name: 'Upload' }).click(); expect(await tab()).toBe('audio');
@@ -58,7 +59,7 @@ test('the bottom bar: Upload, Characters, Animations, Props, Objects, Background
   await bar.getByRole('button', { name: 'Characters' }).click(); expect(await tab()).toBe('chars');
   await bar.getByRole('button', { name: 'Animations' }).click(); expect(await tab()).toBe('anim');
   // Advanced ends with Export
-  await bar.locator('summary[title="Advanced tools"]').click();
+  await bar.locator('summary[title="More tools"]').click();
   const names = await bar.locator('.advanced-tools-list button').evaluateAll((b) => b.map((x) => x.title));
   expect(names.at(-1)).toBe('Export'); expect(names).toEqual(['Tears', 'Effects', 'Colour', 'Move', 'Camera', 'Mask', 'AI', 'Export']);
   await bar.locator('.advanced-tools-list button[title="Export"]').click();

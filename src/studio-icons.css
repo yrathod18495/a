@@ -494,3 +494,43 @@ body.studio-dark #app .ws .tl2 .tclip.sel{border:1.5px solid #fff !important;z-i
 /* the path flags on a character's layer: A at the top of the clip's start, B at the bottom of the clip's end (inside the clip), like a start and a finish */
 .lane2 .pflag.b{top:auto !important;bottom:3px}
 .lane2 .pflag.b .pf-cloth{left:auto;right:1px;top:auto;bottom:0;border-radius:5px 0 0 5px;padding:0 3px 0 6px}
+
+/* ---- the whole phone bottom bar slides sideways (Upload first, More last; nothing pinned) ---- */
+@media (max-width:860px){
+  #app .ws .tabs.big .tabs-scroll>button,#app .ws .tabs.big .tabs-scroll>details{flex:0 0 66px;width:66px;min-width:0;scroll-snap-align:start}
+  #app .ws .tabs.big .tabs-scroll>details>summary{min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+}
+
+/* ---- the edit dock: a short panel at the bottom for the live editors; the stage stays fully visible ---- */
+#app .ws .studio{position:relative}
+.edit-dock{position:absolute;left:0;right:0;bottom:0;z-index:75;padding:8px 10px 10px;border:1px solid var(--line);border-radius:16px 16px 0 0;background:var(--card);box-shadow:0 -8px 24px #000a;display:flex;flex-direction:column;gap:7px}
+.edit-dock[hidden]{display:none}
+.edit-dock .ed-head{display:flex;align-items:center;gap:8px;min-height:36px}
+.edit-dock .ed-title{font-size:14px;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.edit-dock .ed-icon{width:40px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text)}
+.edit-dock .ed-icon svg{width:20px;height:20px}
+.edit-dock .ed-ok{background:var(--acc);color:#fff;border-color:transparent}
+.edit-dock .ed-text{min-height:34px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);font-size:12px;font-weight:650}
+.edit-dock .ed-chips,.edit-dock .ed-row,.edit-dock .ed-dirs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.edit-dock .ed-chips::-webkit-scrollbar,.edit-dock .ed-row::-webkit-scrollbar{display:none}
+.edit-dock .ed-chip{flex:0 0 auto;min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:99px;background:var(--card2);color:var(--text);font-size:12.5px;font-weight:650;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.edit-dock .ed-chip b{color:var(--mute);font-weight:700}
+.edit-dock .ed-chip.on{background:var(--acc);border-color:transparent;color:#fff}.edit-dock .ed-chip.on b{color:#fffd}
+.edit-dock .ed-chip.sm{min-height:32px;padding:0 10px}.edit-dock .ed-chip svg{width:16px;height:16px}
+.edit-dock .ed-slide{display:flex;align-items:center;gap:8px}
+.edit-dock .ed-slide input[type=range]{flex:1;min-width:0;height:34px;accent-color:var(--acc)}
+.edit-dock .ed-step{width:40px;height:36px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);font-size:20px;line-height:1}
+.edit-dock .ed-val{min-width:52px;text-align:right;font-size:14px}
+.edit-dock .ed-dir{flex:1 0 38px;min-height:34px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);font-size:16px}
+.edit-dock .ed-dir.on{background:var(--acc);color:#fff;border-color:transparent}
+/* the shadow tab and the shadow layer */
+.sh-list{display:flex;flex-direction:column;gap:6px}
+.sh-row{display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 10px;border:1px solid var(--line);border-radius:12px;background:var(--card2);color:var(--text);text-align:left}
+.sh-thumb{width:38px;height:38px;border-radius:8px;overflow:hidden;display:grid;place-items:center;background:#0003;flex:none}.sh-thumb img{width:100%;height:100%;object-fit:contain}.sh-thumb svg{width:22px;height:22px}
+.sh-name{flex:1;min-width:0;font-weight:650;display:flex;flex-direction:column}.sh-name small{color:var(--mute);font-weight:500}
+.sh-switch{position:relative;width:46px;height:26px;border-radius:99px;background:#555b;flex:none}.sh-switch::after{content:'';position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
+.sh-switch.on{background:var(--acc)}.sh-switch.on::after{left:23px}
+body.studio-dark #app .ws .tl2 .tclip.shadow{--k-fill:#1d1f24;--k-edge:#8b909c;background:repeating-linear-gradient(135deg,#25272d 0 6px,#1b1d22 6px 12px) !important}
+.tclip.shadow .tn svg{width:14px;height:14px;vertical-align:-2px}
+/* messages in the studio: a strip over the scene row, not over the work */
+.toast.in-row{display:flex;align-items:center;min-height:44px;padding:6px 14px;border-radius:12px;font-size:12.5px;line-height:1.25;z-index:120;box-sizing:border-box}

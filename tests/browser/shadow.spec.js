@@ -37,16 +37,44 @@ test('the shadow falls away from the light, to the right, left, toward the viewe
   const off = await shot(page, { on: false, angle: 0, length: 1, soft: 0, opacity: 0.8 });
   expect(off.right).toBeGreaterThan(none.right - 5);
 });
-test('the Edit sheet of a prop has the Shadow controls (direction round the clock, length, softness, darkness, same light for all)', async ({ page }) => {
+test('the shadow editor is a short dock at the bottom: the stage stays fully visible, direction goes all the way round, Shadow is a layer and a tab', async ({ page }) => {
   await open(page);
   const guide = page.locator('.start-close'); if (await guide.count()) await guide.first().click();
+  if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();
   await page.evaluate(() => { const T = window.__toon; T.S.propSel = 'p1'; T.drawClipBar(); });
   await page.locator('.clip-nav').getByRole('button', { name: 'Edit' }).click();
-  const sheet = page.locator('.modal'); await expect(sheet.locator('.sh-body')).toBeHidden();
-  await sheet.getByLabel('Shadow', { exact: true }).check();
-  await expect(sheet.locator('.sh-body')).toBeVisible(); await expect(sheet.locator('.sh-dirs button')).toHaveCount(8);
-  await sheet.locator('.sh-dirs [data-deg="180"]').click();
+  const dock = page.locator('.edit-dock'); await expect(dock).toBeVisible();
+  await dock.getByRole('button', { name: 'Shadow', exact: true }).click();                   // from the prop editor to its shadow
+  await expect(dock.locator('.ed-title')).toContainText('Shadow');
+  const stage = await page.locator('.stagewrap').boundingBox(), d = await dock.boundingBox();
+  expect(d.y).toBeGreaterThanOrEqual(stage.y + stage.height - 2);                              // the dock never covers the stage
+  expect(d.height).toBeLessThan(230);                                                          // and it is short
+  await expect(dock.locator('.ed-chip')).toHaveText([/Direction/, /Length/, /Softness/, /Darkness/]);
+  await expect(dock.locator('.ed-dir')).toHaveCount(8);
+  await dock.locator('.ed-dir[data-deg="180"]').click();
   expect(await page.evaluate(() => window.__toon.S.props[0].shadow)).toMatchObject({ on: true, angle: 180 });
-  await sheet.locator('input[aria-label="Light direction"]').evaluate((el) => { el.value = 300; el.dispatchEvent(new Event('input', { bubbles: true })); });
-  expect(await page.evaluate(() => window.__toon.S.props[0].shadow.angle)).toBe(300);                                // any angle, not only the eight
+  await dock.locator('input[aria-label="Direction"]').evaluate((el) => { el.value = 300; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(await page.evaluate(() => window.__toon.S.props[0].shadow.angle)).toBe(300);          // any angle, not only the eight
+  await dock.getByRole('button', { name: 'Length', exact: false }).click();
+  await dock.locator('input[aria-label="Length"]').evaluate((el) => { el.value = 200; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(await page.evaluate(() => window.__toon.S.props[0].shadow.length)).toBe(2);
+  await dock.getByRole('button', { name: 'Done' }).click(); await expect(dock).toBeHidden();
+  // the shadow is a layer of its own on the timeline, with the shadow icon and its own lock; selecting it gives Edit / Delete
+  const row = page.locator('.lane2.shadow .tclip.shadow'); await expect(row).toHaveCount(1);
+  await expect(page.locator('.rl:has(.lock-layer) svg').first()).toBeVisible();
+  await row.click();
+  const nav = page.locator('.clip-nav'); await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Edit', 'Delete']);
+  await nav.getByRole('button', { name: 'Delete' }).click();
+  expect(await page.evaluate(() => window.__toon.S.props[0].shadow)).toBeUndefined(); await expect(page.locator('.lane2.shadow')).toHaveCount(0);
+});
+test('the Shadow tab lists the scene with a switch each, and is in the sliding bottom bar', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => window.__toon.openTab('shadow'));
+  const row = page.locator('.sh-row', { hasText: 'Box' }); await expect(row).toBeVisible();
+  await row.locator('.sh-switch').click();
+  expect(await page.evaluate(() => window.__toon.S.props[0].shadow?.on)).toBe(true);
+  await row.click();                                                                            // a tap on the row opens its editor
+  await expect(page.locator('.edit-dock')).toBeVisible();
+  const bar = page.locator('#app .tabs.big .tabs-scroll');
+  await expect(bar.getByRole('button', { name: 'Shadow', exact: true })).toHaveCount(1);
 });

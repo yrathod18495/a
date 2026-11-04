@@ -73,7 +73,12 @@ const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}.${String(Math.floor((s % 1) * 10))}`;
-const toast = (msg, kind = '') => { const t = h('div', { class: `toast${kind ? ` ${kind}` : ''}` }, msg); document.body.append(t); swipeAway(t); };
+const toast = (msg, kind = '') => {
+  const t = h('div', { class: `toast${kind ? ` ${kind}` : ''}` }, msg); document.body.append(t); swipeAway(t);
+  // inside the studio a message shows in the scene row (it never covers the buttons you are working with); swipe it away sideways
+  const row = !$app.hidden && document.querySelector('#app .scene-row'), r = row?.getBoundingClientRect();
+  if (r?.width) { document.querySelectorAll('.toast.in-row').forEach((x) => x.remove()); t.classList.add('in-row'); Object.assign(t.style, { left: `${r.left + r.width / 2}px`, top: `${r.top}px`, bottom: 'auto', width: `${r.width}px`, maxWidth: 'none' }); }
+};
 const busy = (msg, onCancel) => {
   const bar = h('i'), txt = h('div', {}, msg), el = h('div', { class: 'busy' }, h('div', { class: 'card' }, txt, h('div', { class: 'bar', style: 'margin:12px 0 0' }, bar),
     onCancel && h('button', { class: 'btn sm', style: 'margin-top:14px', onclick: onCancel }, 'Cancel')));
@@ -393,7 +398,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, clipNav, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
+let editDockEl, bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, clipNav, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -754,7 +759,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['effects', 'Effects', 'zap'], ['export', 'Export', 'download']];
+const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Effects', 'zap'], ['export', 'Export', 'download']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri icon-btn play-btn', title: 'Play (Space)', 'aria-label': 'Play', onclick: togglePlay }, icon('play'));
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -814,7 +819,7 @@ function viewStudio() {
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), overflowBtn(), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, h('div', { class: 'scene-row' }, sceneTabs(), grip), tools, tlBox),
-      h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), clipNav = h('div', { class: 'clip-nav', hidden: true, role: 'toolbar', 'aria-label': 'Selected clip' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
+      h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), clipNav = h('div', { class: 'clip-nav', hidden: true, role: 'toolbar', 'aria-label': 'Selected clip' }), editDockEl = h('div', { class: 'edit-dock', hidden: true, role: 'region', 'aria-label': 'Editor' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
   // phone: the Play button sits in the scene row (one row less); on a wide screen it stays at the start of the player controls
   const phone = matchMedia('(max-width: 860px)'), placePlay = () => {
     const controls = root.querySelector('.controls');
@@ -970,7 +975,7 @@ function drawTabs() {
       if (group.open) { upload.open = false; placeToolbarGroup(group); }
     },
   },
-    h('summary', { title: 'Advanced tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('settings')), h('span', { class: 'sr' }, 'Advanced')),
+    h('summary', { title: 'More tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('settings')), h('span', { class: 'sr' }, 'More')),
     h('div', { class: 'advanced-tools-list' }, ...adv('Look', ['tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai']), ...adv('Finish', ['export'])));
   // phone bar: Upload (the voices), Characters, Animations, Props, Background and Advanced (which ends with Export; Export is also in the header)
   const upload = h('button', { type: 'button', class: S.tab === 'audio' && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === 'audio' && S.panelOpen), title: 'Upload', 'aria-label': 'Upload', onclick: () => {
@@ -983,15 +988,15 @@ function drawTabs() {
     const railBtn = (key, step) => { const [, text, ic] = byKey[key], active = S.tab === key; return h('button', { type: 'button', class: `rail-btn${active ? ' on' : ''}${step && done[key] ? ' done' : ''}`, 'aria-pressed': String(active), onclick: () => { S.tab = key; S.panelOpen = true; drawTabs(); S.dirty = true; dockShow('panel'); } },
       h('span', { class: 'rb-ico', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'rb-label' }, text), step ? h('span', { class: 'rb-step', 'aria-hidden': 'true' }, done[key] ? '✓' : String(step)) : null); };
     tabsEl.replaceChildren(h('div', { class: 'rail-title' }, 'Start here'), railBtn('audio', 1), railBtn('chars', 2), railBtn('anim', 3),
-      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props'].map((key) => railBtn(key)),
+      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props', 'shadow'].map((key) => railBtn(key)),
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
       h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
-  } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), upload,
-    h('div', { class: 'tabs-scroll' }, ...['chars', 'anim', 'handprops', 'props', 'canvas'].map(key => button(byKey[key]))), more);          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
+  } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'),
+    h('div', { class: 'tabs-scroll' }, upload, ...['chars', 'anim', 'handprops', 'props', 'shadow', 'canvas'].map(key => button(byKey[key])), more));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
+    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   S.dirty = true; syncLayoutUi();
@@ -1008,7 +1013,7 @@ function rulerSteps(pps) {
 }
 function selectLine(id, seek = true) {
   if (!id) return;
-  S.lineSel = id; S.mclip = S.bgSel = S.propSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
+  S.lineSel = id; S.mclip = S.bgSel = S.propSel = S.shadowSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
   const L = lineById(id);
   if (seek && L) { player.seek(L.start + 0.01); }
   drawTimeline(); drawLineBox(); drawClipBar(); S.dirty = true;
@@ -1095,6 +1100,12 @@ function drawTimeline() {
     }
     labels.push(h('div', { class: 'rl char', style: 'height:42px' }, h('span', { class: 'lt face' }, isEffect(rowProps[0]) ? 'Effect' : 'Prop'), lockBtn(`prop:${rowProps[0].lane || rowProps[0].id}`, 'this row')));
     lanes.push(h('div', { class: 'lane2 prop', style: 'height:42px' }, ...rowEls));
+  }
+  for (const { id, kind, o, name } of shadowOwners()) {          // each shadow is a layer of its own: select it, lock it, delete it
+    const start = kind === 'prop' ? (o.start || 0) : 0, end = kind === 'prop' ? (o.end ?? player.total) : player.total, key = keyOf('shadow', id), locked = isKeyLocked(key);
+    const clip = h('div', { 'data-key': key, class: `tclip shadow mine ${S.shadowSel === id ? 'sel' : ''}${locked ? ' locked' : ''}`, title: `Shadow · ${name}`, style: `left:${start * pps}px;width:${Math.max(6, (end - start) * pps)}px`, onclick: () => { selectOnly('shadow', id); drawTimeline(); } }, h('span', { class: 'tn' }, icon('shadow'), ` ${name}`));
+    labels.push(h('div', { class: 'rl char', style: 'height:38px' }, h('span', { class: 'lt face' }, icon('shadow'), ' Shadow'), lockBtn(`shadow:${id}`, `the shadow of ${name}`)));
+    lanes.push(h('div', { class: 'lane2 prop shadow', style: 'height:38px' }, clip));
   }
   laneClips.clear();
   const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 56;
@@ -1268,11 +1279,12 @@ const lockKeyOf = (key) => {
   if (kind === 'bg') return 'bg';
   if (kind === 'prop') { const p = S.props.find((x) => x.id === id); return p ? `prop:${p.lane || p.id}` : null; }
   if (kind === 'clip') { const f = findManual(id); return f ? `char:${f.s?.key}` : null; }
+  if (kind === 'shadow') return `shadow:${id}`;
   return null;
 };
 const isLocked = (lock) => !!(lock && S.locks?.[lock]);
 /** one item can be locked on its own too (`locked`): a background clip, a prop or an animation clip; a layer lock (the button on the left of the timeline) locks the whole row */
-const itemLocked = (key) => { const i = key.indexOf(':'), kind = key.slice(0, i), id = key.slice(i + 1); return kind === 'bg' ? !!S.bgClips.find((x) => x.id === id)?.locked : kind === 'prop' ? !!S.props.find((x) => x.id === id)?.locked : kind === 'clip' ? !!findManual(id)?.m?.locked : false; };
+const itemLocked = (key) => { const i = key.indexOf(':'), kind = key.slice(0, i), id = key.slice(i + 1); return kind === 'bg' ? !!S.bgClips.find((x) => x.id === id)?.locked : kind === 'prop' ? !!S.props.find((x) => x.id === id)?.locked : kind === 'clip' ? !!findManual(id)?.m?.locked : kind === 'shadow' ? !!shadowOwnerOf(id)?.o.shadow?.locked : false; };
 const isKeyLocked = (key) => isLocked(lockKeyOf(key)) || itemLocked(key);
 const bgLockedNow = (c) => !!c && (isLocked('bg') || !!c.locked), propLockedNow = (p) => !!p && (isLocked(`prop:${p.lane || p.id}`) || !!p.locked), charLockedNow = (key) => isLocked(`char:${key}`);
 function toggleLock(lock) {
@@ -1307,7 +1319,7 @@ function paintMulti() { tlInner?.querySelectorAll('.tclip[data-key]').forEach((n
 function clearMulti() { if (!multi.size) return; multi.clear(); paintMulti(); updateEditTools(); }
 function setMulti(keys) {
   multi.clear(); for (const k of keys) multi.add(k);
-  if (multi.size >= 2) { S.mclip = S.bgSel = S.propSel = null; S.lineSel = null; tlInner?.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); clipBar && (clipBar.hidden = true); }
+  if (multi.size >= 2) { S.mclip = S.bgSel = S.propSel = S.shadowSel = null; S.lineSel = null; tlInner?.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); clipBar && (clipBar.hidden = true); }
   paintMulti(); updateEditTools(); updateBgSel(); S.dirty = true;
 }
 function toggleMulti(key) {
@@ -1479,7 +1491,7 @@ async function retimeAudio() {
   await prepareStudio({ quiet: true });
   player.seek(Math.min(at, player.total)); S.dirty = true;
 }
-const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
+const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; S.shadowSel = kind === 'shadow' ? id : null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
 function dragClip(e, m, mode, el) {
   dragItem(e, mode === 'size' ? 'right' : mode, el, {
     id: m.id, key: keyOf('clip', m.id), lock: `char:${findManual(m.id)?.s?.key}`,
@@ -1552,8 +1564,8 @@ function nudgeSelected(which, delta) {
   }
 }
 /** true when a clip, background clip, prop or group was selected (and now is not): choosing a character, or tapping empty space, leaves the clip tools */
-const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
-const clearClipSelection = () => { S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
+const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || S.shadowSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = S.shadowSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
+const clearClipSelection = () => { S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = S.shadowSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
 /** phone: what you can do with the selected clip (Split, Copy, Duplicate, Path, Delete and a More list) sits in the bottom bar, in place of the menu, instead of rows at the top */
 /** Crop of a background clip, like cropping a photo: a box with handles on the picture, ratios below (Free, Original, 1:1, 4:5, 9:16), a tick to apply. The kept part fills the frame (zoomed, never stretched). */
 const CROP_RATIOS = [['free', 'Free', null], ['orig', 'Original', 'orig'], ['1:1', '1:1', 1], ['4:5', '4:5', 4 / 5], ['9:16', '9:16', 9 / 16]];
@@ -1631,60 +1643,90 @@ function drawCropNav() {
       h('button', { type: 'button', class: 'cb-close', 'aria-label': 'Cancel the crop', title: 'Cancel', onclick: () => cd.cancel() }, icon('x')),
       h('button', { type: 'button', class: 'cb-close crop-ok', 'aria-label': 'Apply the crop', title: 'Apply', onclick: () => cd.done() }, icon('check'))));
 }
-/** the shadow settings of one prop or character (owner.shadow): on / off, where the light comes from, how long, how soft, how dark */
-const SHADOW_DEFAULT = Object.freeze({ on: true, angle: 35, length: 1, soft: 0.35, opacity: 0.5 });
-function shadowSection(owner, apply) {
-  const sh = () => (owner.shadow ||= { ...SHADOW_DEFAULT, on: false });
-  const sync = () => { if (owner.shadow && !owner.shadow.on) { /* kept for when it is switched on again */ } apply(); };
-  const on = h('input', { type: 'checkbox', checked: !!owner.shadow?.on, 'aria-label': 'Shadow', onchange: (e) => { sh().on = e.target.checked; body.hidden = !e.target.checked; sync(); } });
-  const row = (label, min, max, get, set, unit) => {
-    const out = h('b', { class: 'pe-val' }, `${Math.round(get())}${unit}`);
-    const input = h('input', { type: 'range', min, max, step: 1, value: Math.round(get()), 'aria-label': label, oninput: (e) => { set(+e.target.value); out.textContent = `${e.target.value}${unit}`; apply(); } });
-    return { el: h('label', { class: 'cb-field pe-row' }, h('span', {}, label, ' ', out), input), input, out, get };
+/* ---- the edit dock: a short panel at the bottom for the live editors (a prop's size, a shadow ...). It never covers the stage, so every change is seen while you make it ---- */
+function openEditDock(cfg) {
+  S.editDock?.close();
+  const state = { key: cfg.params[0].key };
+  const head = h('div', { class: 'ed-head' }), chips = h('div', { class: 'ed-chips' }), slide = h('div', { class: 'ed-slide' }), extra = h('div', { class: 'ed-extra' });
+  const param = () => cfg.params.find((q) => q.key === state.key);
+  const show = (q) => `${Math.round(q.get())}${q.unit || ''}`;
+  const drawSlide = () => {
+    const q = param(), val = h('b', { class: 'ed-val' }, show(q));
+    const input = h('input', { type: 'range', min: q.min, max: q.max, step: q.step || 1, value: Math.round(q.get()), 'aria-label': q.label, oninput: (e) => { q.set(+e.target.value); val.textContent = show(q); const chip = chips.querySelector(`[data-k="${q.key}"] b`); if (chip) chip.textContent = show(q); cfg.onChange?.(); } });
+    const step = (d) => { input.value = Math.min(q.max, Math.max(q.min, +input.value + d * (q.step || 1))); input.dispatchEvent(new Event('input', { bubbles: true })); };
+    slide.replaceChildren(holdButton(h('button', { type: 'button', class: 'ed-step', 'aria-label': `${q.label} less` }, '−'), (k) => step(-k)), input, holdButton(h('button', { type: 'button', class: 'ed-step', 'aria-label': `${q.label} more` }, '+'), (k) => step(k)), val);
+    extra.replaceChildren(...(cfg.extras?.(q.key, { redraw: draw }) || []));
   };
-  const angle = row('Light direction', 0, 360, () => sh().angle, (v) => { sh().angle = v; }, '°');
-  const length = row('Length', 10, 250, () => sh().length * 100, (v) => { sh().length = v / 100; }, '%');
-  const soft = row('Softness', 0, 100, () => sh().soft * 100, (v) => { sh().soft = v / 100; }, '');
-  const dark = row('Darkness', 5, 100, () => sh().opacity * 100, (v) => { sh().opacity = v / 100; }, '%');
-  // where the shadow falls, all the way round: 0° = right, 90° = toward you (down), 180° = left, 270° = away (up)
+  const draw = () => {
+    chips.replaceChildren(...cfg.params.map((q) => h('button', { type: 'button', class: `ed-chip${q.key === state.key ? ' on' : ''}`, 'data-k': q.key, 'aria-pressed': String(q.key === state.key), onclick: () => { state.key = q.key; draw(); } }, q.label, ' ', h('b', {}, show(q)))));
+    drawSlide();
+  };
+  const close = () => { editDockEl.hidden = true; editDockEl.replaceChildren(); S.editDock = null; document.body.classList.remove('dock-open'); cfg.onClose?.(); };
+  head.append(h('b', { class: 'ed-title' }, cfg.title), ...(cfg.head?.() || []), h('span', { class: 'sp' }),
+    ...(cfg.onReset ? [h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Reset', title: 'Reset', onclick: () => { cfg.onReset(); draw(); } }, icon('rotate'))] : []),
+    h('button', { type: 'button', class: 'ed-icon ed-ok', 'aria-label': 'Done', title: 'Done', onclick: close }, icon('check')));
+  editDockEl.replaceChildren(head, chips, slide, extra); editDockEl.hidden = false; document.body.classList.add('dock-open');
+  S.editDock = { close, redraw: draw }; draw();
+}
+/** the Shadow tab: every character and object of the scene, with a switch; a tap opens its shadow editor at the bottom */
+function tabShadow() {
+  const items = [...S.speakers.filter((x) => x.charId).map((x) => ({ kind: 'char', o: x, thumb: portraitOf(x) })), ...S.props.filter((p) => !isEffect(p)).map((p) => ({ kind: 'prop', o: p, thumb: null }))];
+  if (!items.length) return h('div', { class: 'list' }, h('p', { class: 'sub' }, 'Add a character or an object first, then give it a shadow here.'));
+  const rows = items.map(({ kind, o, thumb }) => {
+    const on = !!o.shadow?.on, locked = isKeyLocked(keyOf('shadow', shadowId(kind, o)));
+    const sw = h('span', { class: `sh-switch${on ? ' on' : ''}`, role: 'switch', 'aria-checked': String(on), 'aria-label': `Shadow of ${o.name}`, tabindex: 0, onclick: (e) => { e.stopPropagation(); if (locked) { lockedToast(); return; } if (o.shadow?.on) { o.shadow.on = false; applyShadow(kind, o); } else { o.shadow = { ...SHADOW_DEFAULT, ...(o.shadow || {}), on: true }; applyShadow(kind, o); } redrawPanel(); } });
+    return h('button', { type: 'button', class: 'sh-row', onclick: () => { if (locked) { lockedToast(); return; } S.panelOpen = false; drawTabs(); openShadowDock(kind, o); } },
+      h('span', { class: 'sh-thumb' }, thumb ? h('img', { src: thumb, alt: '' }) : icon(kind === 'char' ? 'users' : 'log')), h('span', { class: 'sh-name' }, o.name, h('small', {}, kind === 'char' ? 'Character' : 'Object')), sw);
+  });
+  return h('div', { class: 'list' }, h('div', { class: 'card flat' }, h('h2', {}, 'Shadow'), h('div', { class: 'sh-list' }, ...rows)));
+}
+/** the shadow of one prop, object or character (owner.shadow): where the light comes from, how long, how soft, how dark */
+const SHADOW_DEFAULT = Object.freeze({ on: true, angle: 35, length: 1, soft: 0.35, opacity: 0.5 });
+const shadowId = (kind, o) => (kind === 'char' ? `c:${o.key}` : `p:${o.id}`);
+const shadowOwnerOf = (id) => { const kind = id?.[0] === 'c' ? 'char' : 'prop', ref = id?.slice(2), o = kind === 'char' ? S.speakers.find((x) => x.key === ref) : S.props.find((x) => x.id === ref); return o?.shadow?.on ? { id, kind, o, name: o.name } : null; };
+const shadowOwners = () => [...S.props.filter((p) => p.shadow?.on).map((p) => shadowOwnerOf(shadowId('prop', p))), ...S.speakers.filter((x) => x.charId && x.shadow?.on).map((x) => shadowOwnerOf(shadowId('char', x)))].filter(Boolean);
+function applyShadow(kind, o) {
+  if (kind === 'char') { const l = stage.layers.find((x) => x.key === o.key); if (l) l.shadow = o.shadow?.on ? { ...o.shadow } : null; } else { dbPut('props', o); stage.setProps(S.props); }
+  S.dirty = true; drawTimeline();
+}
+function openShadowDock(kind, o) {
+  if (isKeyLocked(keyOf('shadow', shadowId(kind, o))) || (kind === 'prop' && propLockedNow(o)) || (kind === 'char' && charLockedNow(o.key))) { lockedToast(); return; }
+  const sh = () => (o.shadow ||= { ...SHADOW_DEFAULT });
+  sh().on = true; applyShadow(kind, o);
   const dirs = [[0, '→'], [45, '↘'], [90, '↓'], [135, '↙'], [180, '←'], [225, '↖'], [270, '↑'], [315, '↗']];
-  const dirRow = h('div', { class: 'bg-fx-row sh-dirs' }, dirs.map(([deg, arrow]) => h('button', { type: 'button', class: 'btn sm', 'data-deg': deg, 'aria-label': `Shadow falls ${deg}°`, onclick: () => { sh().angle = deg; angle.input.value = deg; angle.out.textContent = `${deg}°`; apply(); } }, arrow)));
-  const matchAll = h('button', { type: 'button', class: 'btn sm', onclick: () => {
-    const a = sh().angle; let n = 0;
-    for (const o of [...S.props, ...S.speakers]) if (o !== owner && o.shadow?.on) { o.shadow.angle = a; n++; if (o.key) { const l = stage.layers.find((x) => x.key === o.key); if (l) l.shadow = { ...o.shadow }; } else dbPut('props', o); }
-    S.dirty = true; stage.setProps(S.props); toast(n ? `The light is the same for ${n} other shadow${n > 1 ? 's' : ''} now.` : 'There is no other shadow in the scene yet.');
-  } }, 'Same light for all');
-  const body = h('div', { class: 'sh-body', hidden: !owner.shadow?.on }, dirRow, angle.el, length.el, soft.el, dark.el, matchAll);
-  return h('div', { class: 'sh-section' }, h('label', { class: 'row', style: 'gap:8px;align-items:center;margin-top:12px' }, on, h('b', {}, 'Shadow')), body);
+  openEditDock({
+    title: `Shadow · ${o.name}`, onChange: () => applyShadow(kind, o), onClose: () => { drawTimeline(); },
+    params: [
+      { key: 'angle', label: 'Direction', min: 0, max: 360, unit: '°', get: () => sh().angle, set: (v) => { sh().angle = v; } },
+      { key: 'length', label: 'Length', min: 10, max: 250, unit: '%', get: () => sh().length * 100, set: (v) => { sh().length = v / 100; } },
+      { key: 'soft', label: 'Softness', min: 0, max: 100, get: () => sh().soft * 100, set: (v) => { sh().soft = v / 100; } },
+      { key: 'opacity', label: 'Darkness', min: 5, max: 100, unit: '%', get: () => sh().opacity * 100, set: (v) => { sh().opacity = v / 100; } },
+    ],
+    head: () => [h('button', { type: 'button', class: 'ed-text', onclick: () => { const a = sh().angle; let n = 0; for (const x of shadowOwners()) if (x.o !== o) { x.o.shadow.angle = a; applyShadow(x.kind, x.o); n++; } toast(n ? `The light is the same for ${n} other shadow${n > 1 ? 's' : ''} now.` : 'There is no other shadow in the scene yet.'); } }, 'Same light for all')],
+    extras: (key, { redraw }) => key !== 'angle' ? [] : [h('div', { class: 'ed-dirs' }, dirs.map(([deg, arrow]) => h('button', { type: 'button', class: `ed-dir${Math.round(sh().angle) === deg ? ' on' : ''}`, 'data-deg': deg, 'aria-label': `Shadow falls ${deg}°`, onclick: () => { sh().angle = deg; applyShadow(kind, o); redraw(); } }, arrow)))],
+    onReset: () => { Object.assign(sh(), { ...SHADOW_DEFAULT }); applyShadow(kind, o); },
+  });
 }
-/** Shadow of a character (its More list): the same controls, kept on the character */
-function openCharShadow(s) {
-  const apply = () => { const l = stage.layers.find((x) => x.key === s.key); if (l) l.shadow = s.shadow?.on ? { ...s.shadow } : null; S.dirty = true; };
-  let close; close = modal(`Shadow · ${s.name}`, h('div', {}, shadowSection(s, apply), h('div', { class: 'row', style: 'margin-top:14px' }, h('span', { class: 'sp' }), h('button', { type: 'button', class: 'btn sm pri', onclick: () => close() }, 'Done'))));
-}
-/** Edit of a prop / object: size, turn, see-through, a glow look, in front of or behind the characters */
+/** Edit of a prop / object: size, turn, see-through, a glow look, in front of or behind the characters, and its shadow */
 function openPropEdit(pr) {
   if (!pr) return;
   if (propLockedNow(pr)) { lockedToast(); return; }
   pr.w0 ??= pr.w; pr.h0 ??= pr.h;          // the size it was placed with: 100 % is that size
-  const save = () => { S.dirty = true; dbPut('props', pr); stage.setProps(S.props); updateSel(); drawTimeline(); };
-  const slider = (label, min, max, get, set, unit = '%') => {
-    const out = h('b', { class: 'pe-val' }, `${Math.round(get())}${unit}`);
-    const input = h('input', { type: 'range', min, max, step: 1, value: Math.round(get()), 'aria-label': label, oninput: (e) => { set(+e.target.value); out.textContent = `${e.target.value}${unit}`; S.dirty = true; updateSel(); }, onchange: save });
-    return { el: h('label', { class: 'cb-field pe-row' }, h('span', {}, label, ' ', out), input), input, out, get };
-  };
-  const size = slider('Size', 10, 400, () => (pr.w / (pr.w0 || pr.w)) * 100, (v) => { const k = v / 100; pr.w = +(pr.w0 * k).toFixed(4); pr.h = +(pr.h0 * k).toFixed(4); });
-  const turn = slider('Turn', -180, 180, () => pr.rotation || 0, (v) => { pr.rotation = v; }, '°');
-  const see = slider('Opacity', 10, 100, () => (pr.opacity ?? 1) * 100, (v) => { pr.opacity = +(v / 100).toFixed(2); });
+  const save = () => { S.dirty = true; dbPut('props', pr); stage.setProps(S.props); updateSel(); };
   const looks = [['normal', 'Normal'], ['add', 'Glow'], ['screen', 'Soft light']];
-  const chips = h('div', { class: 'bg-fx-row' }, looks.map(([id, text]) => h('button', { type: 'button', class: `btn sm${(pr.blend || 'normal') === id ? ' pri' : ''}`, 'data-look': id, 'aria-pressed': String((pr.blend || 'normal') === id), onclick: () => { pr.blend = id === 'normal' ? undefined : id; if (!pr.blend) delete pr.blend; chips.querySelectorAll('button').forEach((b) => { const on = b.dataset.look === id; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', String(on)); }); save(); } }, text)));
-  const behind = h('input', { type: 'checkbox', checked: !!pr.behind, 'aria-label': 'Behind the characters', onchange: (e) => { pr.behind = e.target.checked; if (!pr.behind) delete pr.behind; save(); } });
-  const reset = () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = 0; delete pr.opacity; delete pr.blend; delete pr.behind; for (const r of [size, turn, see]) { r.input.value = Math.round(r.get()); r.out.textContent = `${Math.round(r.get())}${r === turn ? '°' : '%'}`; } chips.querySelectorAll('button').forEach((b) => { const on = b.dataset.look === 'normal'; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', String(on)); }); behind.checked = false; save(); };
-  let close;
-  close = modal(`Edit · ${pr.name}`, h('div', { class: 'prop-edit' }, size.el, turn.el, see.el, h('h3', { style: 'margin:10px 0 6px' }, 'Look'), chips,
-    h('label', { class: 'row', style: 'gap:8px;margin-top:12px;align-items:center' }, behind, h('span', {}, 'Behind the characters')),
-    shadowSection(pr, () => { S.dirty = true; dbPut('props', pr); }),
-    h('div', { class: 'row', style: 'margin-top:14px;gap:8px' }, h('button', { type: 'button', class: 'btn sm', onclick: reset }, 'Reset'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'btn sm pri', onclick: () => close() }, 'Done'))));
+  openEditDock({
+    title: `Edit · ${pr.name}`, onChange: save, onClose: () => { drawTimeline(); drawClipBar(); },
+    params: [
+      { key: 'size', label: 'Size', min: 10, max: 400, unit: '%', get: () => (pr.w / (pr.w0 || pr.w)) * 100, set: (v) => { const k = v / 100; pr.w = +(pr.w0 * k).toFixed(4); pr.h = +(pr.h0 * k).toFixed(4); } },
+      { key: 'turn', label: 'Turn', min: -180, max: 180, unit: '°', get: () => pr.rotation || 0, set: (v) => { pr.rotation = v; } },
+      { key: 'opacity', label: 'Opacity', min: 10, max: 100, unit: '%', get: () => (pr.opacity ?? 1) * 100, set: (v) => { pr.opacity = +(v / 100).toFixed(2); } },
+    ],
+    extras: (key, { redraw }) => [h('div', { class: 'ed-row' },
+      ...looks.map(([id, text]) => h('button', { type: 'button', class: `ed-chip sm${(pr.blend || 'normal') === id ? ' on' : ''}`, 'data-look': id, 'aria-pressed': String((pr.blend || 'normal') === id), onclick: () => { if (id === 'normal') delete pr.blend; else pr.blend = id; save(); redraw(); } }, text)),
+      h('button', { type: 'button', class: `ed-chip sm${pr.behind ? ' on' : ''}`, 'aria-pressed': String(!!pr.behind), 'aria-label': 'Behind the characters', onclick: () => { if (pr.behind) delete pr.behind; else pr.behind = true; save(); redraw(); } }, 'Behind'),
+      h('button', { type: 'button', class: 'ed-chip sm ed-shadow-btn', 'aria-label': 'Shadow', onclick: () => openShadowDock('prop', pr) }, icon('shadow'), ' Shadow'))],
+    onReset: () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = 0; delete pr.opacity; delete pr.blend; delete pr.behind; save(); },
+  });
 }
 /** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
 function replaceBg(c) {
@@ -1721,7 +1763,7 @@ function holdButton(btn, step) {
 /** lock / unlock the selected item on its own (a background clip, a prop or an animation clip) */
 function toggleItemLock() {
   const it = selectedItem(); if (!it) return;
-  const o = it.kind === 'clip' ? it.f.m : it.kind === 'bg' ? it.bc : it.kind === 'prop' ? it.pr : null; if (!o) return;
+  const o = it.kind === 'clip' ? it.f.m : it.kind === 'bg' ? it.bc : it.kind === 'prop' ? it.pr : it.kind === 'shadow' ? it.sh.o.shadow : null; if (!o) return;
   o.locked = !o.locked; if (!o.locked) delete o.locked;
   if (it.kind === 'prop') dbPut('props', o); S.dirty = true; drawTimeline(); drawClipBar(); updateSel(); updateBgSel();
   toast(o.locked ? 'Locked: it cannot be moved, resized or deleted until you unlock it.' : 'Unlocked.');
@@ -1733,7 +1775,7 @@ function drawClipNav() {
   const many = multi.size >= 2, it = selectedItem();
   if (!it && !many) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }
   const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop'].includes(kind);
-  const itemLockedNow = !many && isKeyLocked(kind === 'clip' ? keyOf('clip', m?.id) : kind === 'bg' ? keyOf('bg', it.bc?.id) : kind === 'prop' ? keyOf('prop', it.pr?.id) : 'x:x'), hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, it?.bc?.id, it?.pr?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath, itemLockedNow].join('|');
+  const itemLockedNow = !many && isKeyLocked(kind === 'clip' ? keyOf('clip', m?.id) : kind === 'bg' ? keyOf('bg', it.bc?.id) : kind === 'prop' ? keyOf('prop', it.pr?.id) : kind === 'shadow' ? keyOf('shadow', it.sh?.id) : 'x:x'), hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, it?.bc?.id, it?.pr?.id, it?.sh?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath, itemLockedNow].join('|');
   clipNav.hidden = false;
   if (clipNav.dataset.sig === sig) return;
   clipNav.dataset.sig = sig;
@@ -1743,20 +1785,20 @@ function drawClipNav() {
     holdButton(h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move later' : 'Longer' }, icon('chevron-right')), (k) => nudgeSelected(which, NUDGE * k)));
   clipNav.replaceChildren(
     h('div', { class: 'cb-list' },
-      btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected),
+      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : [btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected)]),
       ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
       ...(kind === 'prop' ? [btn('pencil', 'Edit', () => openPropEdit(it.pr), { title: 'Size, turn, opacity, glow, in front of or behind the characters' })] : []),
-      ...(kind !== 'bg' && kind !== 'clip' && kind !== 'prop' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
+      ...(kind !== 'bg' && kind !== 'clip' && kind !== 'prop' && kind !== 'shadow' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
       btn('trash', 'Delete', deleteSelected, { class: 'cb-btn danger' })),
     h('details', { class: 'char-more' },
       h('summary', { title: 'More', 'aria-label': 'More clip tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
         ...(canNudge ? [nudge('Move', 'start'), nudge('Length', 'dur')] : []),
-        btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard }),          // Prev / Next are already in the row above the timeline
+        ...(kind === 'shadow' ? [] : [btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard })]),          // Prev / Next are already in the row above the timeline
         ...(kind === 'bg' || kind === 'clip' || kind === 'prop' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
-        ...(['clip', 'bg', 'prop'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
+        ...(['clip', 'bg', 'prop', 'shadow'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
         btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))));
@@ -1798,12 +1840,13 @@ function copySelected() {
 }
 /* ---------- the always-visible edit toolbar: split / copy / paste / duplicate / delete / jump between clips ---------- */
 /** is the one selected item on a locked layer? */
-const selectedLocked = () => { if (multi.size >= 2) return false; if (S.mclip) return isKeyLocked(keyOf('clip', S.mclip)); if (S.bgSel) return isKeyLocked(keyOf('bg', S.bgSel)); if (S.propSel) return isKeyLocked(keyOf('prop', S.propSel)); if (S.lineSel && !S.mclip) return isLocked('audio'); return false; };
+const selectedLocked = () => { if (multi.size >= 2) return false; if (S.mclip) return isKeyLocked(keyOf('clip', S.mclip)); if (S.bgSel) return isKeyLocked(keyOf('bg', S.bgSel)); if (S.propSel) return isKeyLocked(keyOf('prop', S.propSel)); if (S.shadowSel) return isKeyLocked(keyOf('shadow', S.shadowSel)); if (S.lineSel && !S.mclip) return isLocked('audio'); return false; };
 const selectedItem = () => {
   const f = S.mclip && findManual(S.mclip), bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = S.propSel && S.props.find((x) => x.id === S.propSel);
   if (f) return { kind: 'clip', f };
   if (bc) return { kind: 'bg', bc };
   if (pr) return { kind: 'prop', pr };
+  const sh = S.shadowSel && shadowOwnerOf(S.shadowSel); if (sh) return { kind: 'shadow', sh };
   const line = S.lineSel && lineById(S.lineSel);          // nothing else is picked: the audio line under the playhead
   return line ? { kind: 'line', line } : null;
 };
@@ -1821,7 +1864,7 @@ function copyOfLine(src, patch = {}) {
 }
 /** after the audio lines changed: split / duplicate / paste keep the zoom and the playhead; a delete also refreshes the speakers */
 async function lineEdited(selectId, { full = false } = {}) {
-  S.lineSel = selectId; S.mclip = S.bgSel = S.propSel = null;
+  S.lineSel = selectId; S.mclip = S.bgSel = S.propSel = S.shadowSel = null;
   if (full) await afterAudioChange();
   else { await retimeAudio(); drawTimeline(); drawLineBox(); drawTabs(); }
   drawClipBar(); S.dirty = true;
@@ -1887,7 +1930,8 @@ async function deleteSelected() {
   if (it.kind === 'line') { await deleteLine(it.line); return; }
   if (it.kind === 'clip') { it.f.list.splice(it.f.list.indexOf(it.f.m), 1); S.mclip = null; commitClips(); return; }
   if (it.kind === 'bg') { S.bgClips = S.bgClips.filter((x) => x !== it.bc); S.bgSel = null; await syncBgClips(); commitClips(); return; }
-  await dbDel('props', it.pr.id); S.props = S.props.filter((p) => p.id !== it.pr.id); S.propSel = null; await stage.setProps(S.props); S.dirty = true; commitClips();
+  if (it.kind === 'shadow') { const { kind, o } = it.sh; delete o.shadow; S.shadowSel = null; applyShadow(kind, o); drawClipBar(); return; }
+  await dbDel('props', it.pr.id); S.props = S.props.filter((p) => p.id !== it.pr.id); S.propSel = S.shadowSel = null; await stage.setProps(S.props); S.dirty = true; commitClips();
 }
 /** every start / end of a clip on the timeline, sorted: "previous / next edit" jumps between them */
 function clipEdges() {
@@ -1954,7 +1998,7 @@ function rangeBar(bc, pr) {
     arrows('Length', () => (bc ? bc.dur : (pr.end ?? player.total) - (pr.start || 0)), (v) => { if (bc) bc.dur = Math.max(MIN_CLIP, +v.toFixed(2)); else pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }, () => { if (bc) syncBgClips(); else { stage.setProps(S.props); dbPut('props', pr); } setTimeout(commitClips, 0); }),
     ...(bc ? [] : [btn('↔ Whole scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Remove start / end: show through the whole scene')]),
     btn('🗑 Delete', deleteSelected, bc ? 'Remove this background clip' : 'Remove this prop'),
-    btn('✕', () => { S.bgSel = null; S.propSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
+    btn('✕', () => { S.bgSel = null; S.propSel = S.shadowSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
 }
 
 /* ---------- movement keyframes of a character (position, size, facing) ---------- */
@@ -2776,7 +2820,7 @@ function drawCharBar(l) {
           cur.mul = e.target.value / 100; saveXf(cur); stage.layout(); updateSel(); S.dirty = true; charBar.querySelector('.cb-pct').textContent = `${Math.round(cur.mul * 100)}%`;
         } })),
         ...rest.map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
-        btn('sun', 'Shadow', () => openCharShadow(s), { title: 'A shadow on the ground, with the light from any direction' }),
+        btn('shadow', 'Shadow', () => openShadowDock('char', s), { title: 'A shadow on the ground, with the light from any direction' }),
         btn('rotate', 'Reset', () => resetChar(l, s)),
         btn('trash', 'Delete', () => removeCharacterFrom(s), { class: 'cb-btn danger', disabled: S.exporting }),
         btn('x', 'Done', () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; }, { 'aria-label': 'Close the character tools' }))));
@@ -3733,7 +3777,7 @@ async function loadSceneDoc(doc) {
   syncCam(); syncChars();
   if (doc.aspect && doc.aspect !== S.aspect) { S.aspect = doc.aspect; stage.setSize(S.aspect, S.preview); }
   S.bgId = doc.bgId ?? null; stage.bg.preset = doc.bgPreset ?? 0;
-  S.bgClips = JSON.parse(JSON.stringify(doc.bgClips || [])); S.bgSel = null; S.propSel = null;
+  S.bgClips = JSON.parse(JSON.stringify(doc.bgClips || [])); S.bgSel = null; S.propSel = S.shadowSel = null;
   await stage.setBackgroundImage(S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null);
   await syncBgClips();
   await ensureDefs();

@@ -63,24 +63,35 @@ test('holding the Move / Length arrows repeats and speeds up (a single tap is on
   expect(await page.evaluate(() => window.__toon.S.bgClips[0].start)).toBeGreaterThan(0.9);          // held: it kept going, and faster after a second
 });
 
-test('a prop has an Edit button: size, turn, opacity, glow and behind-the-characters; a locked prop refuses', async ({ page }) => {
+test('a prop has an Edit button: size, turn, opacity, glow and behind the characters in a short dock; a locked prop refuses', async ({ page }) => {
   await open(page);
   await page.evaluate(() => { const T = window.__toon; T.S.bgSel = null; T.S.propSel = 'p1'; T.drawClipBar(); });
   const nav = page.locator('.clip-nav');
   await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Edit', 'Delete']);
   await nav.getByRole('button', { name: 'Edit' }).click();
-  const sheet = page.locator('.modal'); await expect(sheet).toBeVisible();
+  const dock = page.locator('.edit-dock'); await expect(dock).toBeVisible();
   const w0 = await page.evaluate(() => window.__toon.S.props[0].w);
-  const set = (label, v) => sheet.locator(`input[aria-label="${label}"]`).evaluate((el, val) => { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, v);
-  await set('Size', 50); expect(await page.evaluate(() => window.__toon.S.props[0].w)).toBeCloseTo(w0 * 0.5, 3);          // the lamp gets smaller
+  const set = (label, v) => dock.locator(`input[aria-label="${label}"]`).evaluate((el, val) => { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); }, v);
+  await set('Size', 50); expect(await page.evaluate(() => window.__toon.S.props[0].w)).toBeCloseTo(w0 * 0.5, 3);          // the lamp gets smaller, live
   await set('Size', 200); expect(await page.evaluate(() => window.__toon.S.props[0].w)).toBeCloseTo(w0 * 2, 3);          // and bigger
-  await set('Turn', 30); await set('Opacity', 60);
-  await sheet.locator('[data-look="add"]').click(); await sheet.getByLabel('Behind the characters').check();
+  await dock.locator('.ed-chip', { hasText: 'Turn' }).click(); await set('Turn', 30);
+  await dock.locator('.ed-chip', { hasText: 'Opacity' }).click(); await set('Opacity', 60);
+  await dock.locator('[data-look="add"]').click(); await dock.getByRole('button', { name: 'Behind the characters' }).click();
   expect(await page.evaluate(() => { const p = window.__toon.S.props[0]; return [p.rotation, p.opacity, p.blend, p.behind]; })).toEqual([30, 0.6, 'add', true]);
-  await sheet.getByRole('button', { name: 'Reset' }).click();
+  await dock.getByRole('button', { name: 'Reset' }).click();
   expect(await page.evaluate(() => { const p = window.__toon.S.props[0]; return [p.w, p.rotation, p.opacity, p.blend, p.behind]; })).toEqual([w0, 0, undefined, undefined, undefined]);
-  await sheet.getByRole('button', { name: 'Done' }).click(); await expect(sheet).toHaveCount(0);
-  // a locked prop cannot be edited
+  await dock.getByRole('button', { name: 'Done' }).click(); await expect(dock).toBeHidden();
   await page.evaluate(() => { window.__toon.S.locks = { 'prop:p1': true }; window.__toon.drawClipBar(); });
-  await nav.getByRole('button', { name: 'Edit' }).click(); await expect(page.locator('.modal')).toHaveCount(0);
+  await nav.getByRole('button', { name: 'Edit' }).click(); await expect(page.locator('.edit-dock')).toBeHidden();
+});
+
+test('a message in the studio shows in the scene row and can be swiped away; it does not cover the bottom bar', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => { window.__toon.S.locks = { bg: true }; window.__toon.S.bgSel = 'bg1'; window.__toon.drawClipBar(); });
+  await page.locator('.clip-nav').getByRole('button', { name: 'Crop' }).click();
+  const t = page.locator('.toast.in-row'); await expect(t).toBeVisible();
+  const row = await page.locator('#app .scene-row').boundingBox(), tb = await t.boundingBox(), nav = await page.locator('.clip-nav').boundingBox();
+  expect(Math.abs(tb.y - row.y)).toBeLessThan(3); expect(tb.y + tb.height).toBeLessThan(nav.y);          // in the scene row, well above the bottom bar
+  await t.evaluate((el) => { el.dispatchEvent(new PointerEvent('pointerdown', { clientX: 100, clientY: 10, pointerId: 1, bubbles: true })); el.dispatchEvent(new PointerEvent('pointermove', { clientX: 330, clientY: 10, pointerId: 1, bubbles: true })); el.dispatchEvent(new PointerEvent('pointerup', { clientX: 330, clientY: 10, pointerId: 1, bubbles: true })); });
+  await expect(t).toHaveCount(0, { timeout: 3000 });
 });
