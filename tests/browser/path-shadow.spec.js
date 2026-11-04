@@ -161,3 +161,13 @@ test('Path shadow: a picture on a dark card becomes a cut-out with a dark outlin
   expect(px.middle[3]).toBe(255); expect(px.middle[0]).toBeGreaterThan(150);          // the figure is there
   expect(px.edge[3]).toBeGreaterThan(200); expect(px.edge[0]).toBeLessThan(40);       // its outline is dark
 });
+
+test('Path: the Path button of the bottom bar is lit while the shadow is placed, and not after', async ({ page }) => {
+  await studio(page);
+  await page.evaluate(() => { const T = window.__toon; T.S.sel = 'fake1'; T.drawCharBar({ key: 'fake1', mul: 1 }); });
+  const path = page.locator('.char-bar [data-tab="motion"]'); await expect(path).not.toHaveClass(/\bon\b/);
+  await page.evaluate(() => window.__toon.startPathShadow(window.__toon.S.speakers.find((x) => x.key === 'fake1')));
+  await expect(path).toHaveClass(/\bon\b/);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(path).not.toHaveClass(/\bon\b/);
+});

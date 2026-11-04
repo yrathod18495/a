@@ -1550,7 +1550,7 @@ function drawClipNav() {
   const many = multi.size >= 2, it = selectedItem();
   if (!it && !many) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }
   const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop'].includes(kind);
-  const hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), sig = [kind, m?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind].join('|');
+  const hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath].join('|');
   clipNav.hidden = false;
   if (clipNav.dataset.sig === sig) return;
   clipNav.dataset.sig = sig;
@@ -1561,7 +1561,7 @@ function drawClipNav() {
   clipNav.replaceChildren(
     h('div', { class: 'cb-list' },
       btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected), btn('layers', 'Duplicate', duplicateSelected),
-      ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s))] : []),
+      ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       btn('trash', 'Delete', deleteSelected, { class: 'cb-btn danger' })),
     h('details', { class: 'char-more' },
       h('summary', { title: 'More', 'aria-label': 'More clip tools' }, icon('more'), h('span', {}, 'More')),
@@ -1916,7 +1916,7 @@ const fromScreen = (fx, fy) => { const v = viewOf(); return { x: (v.x + fx * v.w
 const penLine = (pts) => pts.map((p) => { const q = toScreen(p); return `${(q.x * 100).toFixed(2)},${(q.y * 100).toFixed(2)}`; }).join(' ');
 /** the character's own picture */
 const portraitOf = (s) => { const c = charOf(s), t = c?.thumb || c?.thumbnail || null; return t && !/^(https?:|blob:|data:)/.test(t) ? cdn(t) : t; };
-function stopPathDraw() { S.pathDraw?.cleanup(); S.pathDraw = null; }
+function stopPathDraw() { const had = S.pathDraw; S.pathDraw?.cleanup(); S.pathDraw = null; if (had) { updateSel(); drawClipNav(); } }
 /**
  * Path: a faint shadow of the character appears; drag it to where the character should go. Letting go makes the path:
  * a straight way from where the character stands (flag A) to where the shadow was left (flag B). The time is on the layer: the two flags
@@ -1999,6 +1999,7 @@ function startPathShadow(s) {
   const key = (e) => { if (e.key === 'Escape') { stopPathDraw(); drawTabs(); } };
   layer.addEventListener('pointerdown', onDown); layer.addEventListener('pointermove', onMove); layer.addEventListener('pointerup', onUp); layer.addEventListener('pointercancel', onUp); window.addEventListener('keydown', key);
   S.pathDraw = { key: s.key, cleanup: () => { layer.remove(); window.removeEventListener('keydown', key); } };
+  updateSel(); drawClipNav();          // the Path button is lit while the shadow is being placed
 }
 /** the two small flags on a character's animation clip (A = where the path starts in time, B = where it ends): drag one to change the time, like a keyframe */
 function dragPathFlag(e, m, which, el) {
@@ -2564,16 +2565,18 @@ function hideSelBar() { if (selBar) selBar.hidden = true; if (charBar) { charBar
 const mirrorChar = (l, s) => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; };
 const resetChar = (l, s) => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; };
 /** phone: when a character is selected, a bar with a named button for each thing you can do with it replaces the bottom menu */
+/** the tool you are in is lit: the open tab, or Path while its shadow is being dragged */
+function markCharBar(l) { for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', b.dataset.tab === 'motion' ? S.pathDraw?.key === l.key : S.tab === b.dataset.tab && S.panelOpen && !S.pathDraw); }
 function drawCharBar(l) {
   if (!charBar) return;
   const s = S.speakers.find((x) => x.key === l.key); if (!s) return;
   charBar.hidden = false;
   if (charBar.dataset.key === l.key) {
-    for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', S.tab === b.dataset.tab && S.panelOpen);
+    markCharBar(l);
     const size = charBar.querySelector('.cb-size'), pct = charBar.querySelector('.cb-pct'); if (size && document.activeElement !== size) { size.value = Math.round((l.mul ?? 1) * 100); if (pct) pct.textContent = `${Math.round((l.mul ?? 1) * 100)}%`; }
     return;
   }
-  charBar.dataset.key = l.key;
+  charBar.dataset.key = l.key; queueMicrotask(() => markCharBar(l));
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
   const items = [['anim', 'Animations', 'film'], ['props', 'Hand props', 'sword'], ['motion', 'Path', 'route']];
   const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']];
