@@ -1069,9 +1069,9 @@ function drawTimeline() {
   // the scene background, named like the audio and animation clips
   const bgName = S.bgId ? (S.myBgs.find((r) => r.id === S.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[stage.bg.preset] || BACKGROUNDS[0]).name;
   if (S.bgId || stage.bg.preset !== 0 || S.bgClips.length) {
-    labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('canvas') }, timelineIcon(background?.blob, 'background'), h('span', { class: 'lt' }, 'Background'), lockBtn('bg', 'the background layer'),
+    labels.push(h('div', { class: 'rl audio', style: 'height:48px', onclick: () => openTab('canvas') }, timelineIcon(background?.blob, 'background'), h('span', { class: 'lt' }, 'Background'), lockBtn('bg', 'the background layer'),
       h('button', { type: 'button', class: 'rx delete-layer', title: 'Delete background layer', 'aria-label': 'Delete background layer', disabled: S.exporting, onclick: event => { event.stopPropagation(); return removeBackgroundLayer(); } }, '🗑')));
-    const bgLane = h('div', { class: 'lane2 bg', style: 'height:38px' },
+    const bgLane = h('div', { class: 'lane2 bg', style: 'height:48px' },
       (S.bgId || stage.bg.preset !== 0) && !S.bgClips.some((c) => c.base) ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (whole scene) — click to select, then split, trim or move it`, onpointerdown: (e) => { if (e.button || S.exporting) return; e.preventDefault(); takeBaseBackground(); }, style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
     for (const c of S.bgClips) {
       const nm = (c.bgId ? (S.myBgs.find((r) => r.id === c.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[c.preset] || BACKGROUNDS[0]).name), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
@@ -1093,11 +1093,11 @@ function drawTimeline() {
     el.addEventListener('pointerdown', (e) => dragPropRange(e, prop, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
       rowEls.push(el);
     }
-    labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, isEffect(rowProps[0]) ? 'Effect' : 'Prop'), lockBtn(`prop:${rowProps[0].lane || rowProps[0].id}`, 'this row')));
-    lanes.push(h('div', { class: 'lane2 prop', style: 'height:30px' }, ...rowEls));
+    labels.push(h('div', { class: 'rl char', style: 'height:42px' }, h('span', { class: 'lt face' }, isEffect(rowProps[0]) ? 'Effect' : 'Prop'), lockBtn(`prop:${rowProps[0].lane || rowProps[0].id}`, 'this row')));
+    lanes.push(h('div', { class: 'lane2 prop', style: 'height:42px' }, ...rowEls));
   }
   laneClips.clear();
-  const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 46;
+  const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 56;
   for (const s of S.order.map(sOf).filter((x) => x?.charId && charOf(x))) {
     const plan = layerPlan(s), kinds = ['body', ...LAYER_KINDS.filter((k) => plan.clips.some((c) => c.kind === k) || (S.manual[s.key] || []).some((m) => m.kind === k))], nameOf = new Map(plan.refs.map((r) => [animKey(r), r.name]));
     kinds.forEach((kind, i) => {

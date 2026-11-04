@@ -464,3 +464,29 @@ body.path-mode .lane2 .pflag:not(.stage){pointer-events:auto}
   #app .ws .tabs.big .tabs-scroll::-webkit-scrollbar{display:none}
   #app .ws .tabs.big .tabs-scroll>button{flex:0 0 66px;width:66px;min-width:0;scroll-snap-align:start}
 }
+
+/* ---- timeline layers: taller rows, each kind has its own colour, a thin edge, and a full-height white bar on both sides of the selected clip ---- */
+body.studio-dark #app .ws .tl2 .tclip{--k-fill:#2b3a4a;--k-edge:#6c8aa8;background:var(--k-fill) !important;background-image:none !important;border:1px solid var(--k-edge) !important;border-radius:8px !important;color:#f4f6f8 !important;box-shadow:none !important;filter:none !important;outline:0 !important;--clip-accent:var(--k-edge)}
+body.studio-dark #app .ws .tl2 .tclip.body,body.studio-dark #app .ws .tl2 .tclip:not(.hand):not(.legs):not(.face):not(.bg):not(.prop):not(.fx):not(.voice):not(.music){--k-fill:#0f4f55;--k-edge:#27bfae}
+body.studio-dark #app .ws .tl2 .tclip.face{--k-fill:#4a2f72;--k-edge:#a47be0}
+body.studio-dark #app .ws .tl2 .tclip.hand{--k-fill:#6e4416;--k-edge:#e3a03f}
+body.studio-dark #app .ws .tl2 .tclip.legs{--k-fill:#2a5a2e;--k-edge:#6fcf74}
+body.studio-dark #app .ws .tl2 .tclip.bg{--k-fill:#1c3c78;--k-edge:#5b8def}
+body.studio-dark #app .ws .tl2 .tclip.prop{--k-fill:#6a3b12;--k-edge:#e8893a}
+body.studio-dark #app .ws .tl2 .tclip.fx{--k-fill:#612756;--k-edge:#e06bd0}
+body.studio-dark #app .ws .tl2 .tclip.voice{--k-fill:#1f5a30;--k-edge:#4acb6c}
+body.studio-dark #app .ws .tl2 .tclip.music{--k-fill:#2d4c66;--k-edge:#5aa0cf}
+/* automatic clips (nothing of the user's own yet): a dashed edge on a dark fill */
+body.studio-dark #app .ws .tl2 .tclip.auto{background:#1c1e23 !important;border:1px dashed var(--k-edge) !important}
+/* selected: a slightly brighter thin edge and the two white bars */
+body.studio-dark #app .ws .tl2 .tclip.sel{border:1.5px solid #fff !important;z-index:3}
+#app .ws .tclip .lz,#app .ws .tclip .rz{background:transparent !important}
+#app .ws .tclip .lz::after,#app .ws .tclip .rz::after{display:none !important}
+#app .ws .tclip.sel .lz,#app .ws .tclip.sel .rz{width:9px !important;top:0 !important;bottom:0 !important;background:#fff !important;z-index:2}
+#app .ws .tclip.sel .lz{left:0 !important;border-radius:7px 0 0 7px}
+#app .ws .tclip.sel .rz{right:0 !important;border-radius:0 7px 7px 0}
+#app .ws .tclip.sel .tn{margin-left:8px}
+@media (max-width:860px){
+  #app .ws .tl2 .tclip{top:4px;bottom:4px}
+  #app .ws .tl2 .tclip .tn{font-size:11.5px;font-weight:650}
+}

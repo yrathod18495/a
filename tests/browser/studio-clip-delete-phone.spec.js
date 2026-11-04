@@ -16,7 +16,8 @@ test('phone: the selected clip\'s tools are in the bottom bar, nothing is left a
   await open(page);
   await expect(page.locator('.clip-nav')).toBeHidden();                                          // nothing selected: the normal bottom menu
   await page.locator('#app .lane2.bg .tclip.mine').first().click();
-  expect(await page.locator('#app .lane2.bg .tclip.mine').first().evaluate((e) => getComputedStyle(e).outlineWidth)).toBe('3px');      // the tapped clip looks selected
+  const selStyle = await page.locator('#app .lane2.bg .tclip.mine').first().evaluate((e) => ({ edge: getComputedStyle(e).borderTopColor, bar: getComputedStyle(e.querySelector('.lz')).width, bar2: getComputedStyle(e.querySelector('.rz')).width }));
+  expect(selStyle).toEqual({ edge: 'rgb(255, 255, 255)', bar: '9px', bar2: '9px' });      // the tapped clip looks selected: a thin white edge and a white bar on each side
   const nav = page.locator('.clip-nav'); await expect(nav).toBeVisible();
   await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Objects', 'Crop', 'Replace', 'Delete']);
   await expect(page.locator('.tltools .clipbar')).toBeHidden(); await expect(page.locator('.selbar')).toBeHidden();
