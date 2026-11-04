@@ -1549,8 +1549,34 @@ function nudgeSelected(which, delta) {
 }
 /** true when a clip, background clip, prop or group was selected (and now is not): choosing a character, or tapping empty space, leaves the clip tools */
 const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
-const clearClipSelection = () => { S.mclip = null; S.bgSel = null; S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
+const clearClipSelection = () => { S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
 /** phone: what you can do with the selected clip (Split, Copy, Duplicate, Path, Delete and a More list) sits in the bottom bar, in place of the menu, instead of rows at the top */
+/** Crop of a background clip: zoom into the picture and choose which part stays in the frame */
+function openBgCrop(c) {
+  if (!c) return;
+  const xf = bgXf(c), range = () => Math.max(0, (xf.s - 1) / 2);
+  const zoom = h('input', { type: 'range', min: 100, max: 300, value: Math.round(Math.max(1, xf.s) * 100), 'aria-label': 'Zoom' });
+  const px = h('input', { type: 'range', min: -100, max: 100, value: 0, 'aria-label': 'Left / right' }), py = h('input', { type: 'range', min: -100, max: 100, value: 0, 'aria-label': 'Up / down' });
+  const sync = () => { const r = range(); px.value = r ? Math.round(xf.x / r * 100) : 0; py.value = r ? Math.round(xf.y / r * 100) : 0; px.disabled = py.disabled = !r; };
+  const apply = () => { const r = range(); xf.x = +(px.value / 100 * r).toFixed(4); xf.y = +(py.value / 100 * r).toFixed(4); pushBg(c); };
+  zoom.addEventListener('input', () => { xf.s = clampBgScale(Math.max(1, zoom.value / 100)); const r = range(); xf.x = Math.max(-r, Math.min(r, xf.x)); xf.y = Math.max(-r, Math.min(r, xf.y)); sync(); pushBg(c); });
+  px.addEventListener('input', apply); py.addEventListener('input', apply);
+  if (xf.s < 1) { xf.s = 1; xf.x = xf.y = 0; pushBg(c); }
+  sync();
+  const row = (label, input) => h('label', { class: 'cb-field' }, h('span', {}, label), input);
+  const close = modal('Crop background', h('div', {}, row('Zoom', zoom), row('Left / right', px), row('Up / down', py),
+    h('div', { class: 'row', style: 'margin-top:10px;gap:8px' }, h('button', { type: 'button', class: 'btn sm', onclick: () => { xf.s = 1; xf.x = xf.y = 0; zoom.value = 100; sync(); pushBg(c); } }, 'Reset'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'btn sm pri', onclick: () => close() }, 'Done'))));
+}
+/** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
+function replaceBg(c) {
+  if (!c) return;
+  S.bgReplace = c.id; openTab('canvas'); toast('Pick the new background: it replaces the selected one.');
+}
+async function replaceBgWith(rec, preset) {
+  const c = S.bgClips.find((x) => x.id === S.bgReplace); S.bgReplace = null; if (!c) return false;
+  c.bgId = rec?.id ?? null; c.preset = preset ?? 0; c.xf = null;
+  await syncBgClips(); S.dirty = true; commitClips(); drawTabs(); return true;
+}
 /** the Path tool has its own bottom bar (like a text tool in a video editor): what you can do while the path is being edited */
 function drawPathNav() {
   const key = S.pathDraw.key, has = !!S.paths[key], sig = `path|${key}|${has}`;
@@ -1578,15 +1604,18 @@ function drawClipNav() {
     h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move later' : 'Longer', onclick: () => nudgeSelected(which, NUDGE) }, icon('chevron-right')));
   clipNav.replaceChildren(
     h('div', { class: 'cb-list' },
-      btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected), btn('layers', 'Duplicate', duplicateSelected),
+      btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected),
+      ...(kind === 'bg' ? [btn('package', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
+      ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
+      ...(kind !== 'bg' && kind !== 'clip' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
       btn('trash', 'Delete', deleteSelected, { class: 'cb-btn danger' })),
     h('details', { class: 'char-more' },
       h('summary', { title: 'More', 'aria-label': 'More clip tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
         ...(canNudge ? [nudge('Move', 'start'), nudge('Length', 'dur')] : []),
         btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard }), btn('skip-back', 'Prev', () => jumpEdge(-1)), btn('skip-forward', 'Next', () => jumpEdge(1)),
-        ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
+        ...(kind === 'bg' || kind === 'clip' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
         btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))));
@@ -3199,10 +3228,12 @@ function tabCanvas() {
     S.dirty = true; drawTabs();
   } });
   const addBgClip = async (rec, preset = 0) => {
+    if (S.bgReplace && await replaceBgWith(rec, preset)) return;
     const start = snapTo(Math.min(player.time, Math.max(0, player.total - 1))), c = { id: uid(), bgId: rec?.id ?? null, preset, start, dur: Math.max(1, Math.min(3, snapTo(player.total - start))) };
     S.bgClips.push(c); S.bgSel = c.id; await syncBgClips(); updateTotal(); drawTimeline(); drawTabs();
   };
   const pickBg = async (rec, preset) => {
+    if (S.bgReplace && await replaceBgWith(rec, preset)) return;
     if (S.bgAtTime) return addBgClip(rec, preset ?? stage.bg.preset); S.bgId = rec?.id ?? null; await stage.setBackgroundImage(rec?.blob ?? null); S.dirty = true; drawTabs(); };
   askPlan();
   const shared = (type) => S.sharedAssets.filter((asset) => asset.type === type);

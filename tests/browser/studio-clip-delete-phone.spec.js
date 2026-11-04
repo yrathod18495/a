@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-// Phone: what you can do with the selected clip (Split, Copy, Duplicate, Delete, Path, More) is in the bottom bar; the rows at the top are gone.
+// Phone: what you can do with the selected clip (Split, Copy, Objects, Crop, Replace, Path, Delete, More) is in the bottom bar; the rows at the top are gone.
 async function open(page) {
   await page.setViewportSize({ width: 390, height: 860 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
@@ -18,7 +18,7 @@ test('phone: the selected clip\'s tools are in the bottom bar, nothing is left a
   await page.locator('#app .lane2.bg .tclip.mine').first().click();
   expect(await page.locator('#app .lane2.bg .tclip.mine').first().evaluate((e) => getComputedStyle(e).outlineWidth)).toBe('3px');      // the tapped clip looks selected
   const nav = page.locator('.clip-nav'); await expect(nav).toBeVisible();
-  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Duplicate', 'Delete']);
+  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Objects', 'Crop', 'Replace', 'Delete']);
   await expect(page.locator('.tltools .clipbar')).toBeHidden(); await expect(page.locator('.selbar')).toBeHidden();
   const edits = await page.locator('.tltools .edit-btn:visible').evaluateAll((els) => els.map((e) => e.className.match(/edit-(?!btn)(\w+)/)[1]));
   expect(edits).toEqual(['prev', 'next', 'paste', 'del']);                                              // only the ones that need no selection stay at the top
