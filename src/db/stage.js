@@ -181,7 +181,7 @@ export class Stage {
       const tex = new Map(a.pages);
       for (const [page, key] of Object.entries(s.artworkPages || {})) { const t = this.artworkTextures.get(key); if (t) tex.set(page, t); }
       const bone = (...names) => names.map((n) => arm.getBone(n)).find(Boolean) || null;
-      const layer = { tears: s.tears || null, key: s.key, flip: s.flip, slot: s.slot, visible: s.visible, mask: s.mask || null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', mul: s.xf?.mul ?? 1, axf: s.xf?.axf ?? null, ayf: s.xf?.ayf ?? null, charId: s.charId,
+      const layer = { shadow: s.shadow || null, tears: s.tears || null, key: s.key, flip: s.flip, slot: s.slot, visible: s.visible, mask: s.mask || null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', mul: s.xf?.mul ?? 1, axf: s.xf?.axf ?? null, ayf: s.xf?.ayf ?? null, charId: s.charId,
         hide: new Set(s.hide || []), arm, factory: f, dbName, prep, tex, anim: new Set(arm.armatureData.animationNames), clips: [], present: s.present || null, shown: true, bounds: null, lipOk: new Map(),
         bones: { head: bone('head', 'HEAD'), neck: bone('neck', 'NECK'), upper_body3: bone('upper_body3', 'TORSO3'), upper_body4: bone('upper_body4', 'TORSO2') }, lip: lipSetup(prep), states: [], mat: [1, 0, 0, 1, 0, 0],
         phase: [...s.key].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 1000, 7) / 159 };
@@ -510,6 +510,7 @@ export class Stage {
     if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, 0, 0, W, H, tint.map((v) => v * 0.4));          // a shrunk or moved background: the rest of the frame shows a dimmed copy of it (never black)
       r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh, tint); }
     else r.quad(this.bgTex, 0, 0, W, H, tint);
+    this.drawShadows(th);                                  // cast shadows lie on the ground, under everything else
     this.drawProps(th, true);                               // props placed behind the characters
     const list = [];
     for (const layer of this.layers) layer.tearAnchors = {};
@@ -526,6 +527,35 @@ export class Stage {
   }
 
   /** props and effects: behind = true draws those the user sent behind the characters, otherwise the ones in front (effects always are in front) */
+  /** cast shadows (editor and export): a flat black copy of the picture laid on the ground away from the light, with a soft edge. shadow = { on, angle (0 = to the right, 90 = toward the viewer, 180 = left, 270 = away), length, soft, opacity } */
+  drawShadows(t) {
+    const { r, W, H } = this, SQ = 0.5;          // the ground is seen at an angle, so a shadow that falls toward / away from the viewer is shorter
+    const compose = (A, B) => [A[0] * B[0] + A[2] * B[1], A[1] * B[0] + A[3] * B[1], A[0] * B[2] + A[2] * B[3], A[1] * B[2] + A[3] * B[3], A[0] * B[4] + A[2] * B[5] + A[4], A[1] * B[4] + A[3] * B[5] + A[5]];
+    const spread = (sh) => {          // soft edge: the same shadow a few times, a little apart, each a little see-through
+      const o = Math.min(1, Math.max(0.03, sh.opacity ?? 0.5)), soft = Math.min(1, Math.max(0, sh.soft ?? 0.3));
+      if (soft < 0.05) return { offsets: [[0, 0]], a: o };
+      const rad = soft * 0.035 * H, offsets = [[0, 0]]; for (let i = 0; i < 8; i++) offsets.push([Math.cos(i * Math.PI / 4) * rad, Math.sin(i * Math.PI / 4) * rad]);
+      return { offsets, a: 1 - Math.pow(1 - o, 1 / offsets.length) };
+    };
+    const slant = (sh) => { const L = 0.6 * Math.min(2.5, Math.max(0.1, sh.length ?? 1)), th = (sh.angle ?? 35) * Math.PI / 180; return [L * Math.cos(th), L * (Math.sin(th) * SQ + 0.3 * Math.abs(Math.cos(th)))]; };          // a little depth even when the light is from the side, so the shadow is a band and not a line
+    r.setMask(null, W, H);
+    for (const prop of this.props) {
+      const sh = prop.shadow, tex = this.propTex.get(prop.id);
+      if (!sh?.on || !tex || prop.visible === false || !propActive(prop, t) || isHeld(prop)) continue;
+      const w = Math.max(8, (prop.w || 0.18) * W), h = Math.max(8, (prop.h || 0.18) * H), a = (prop.rotation || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), cx = (prop.x ?? 0.5) * W, cy = (prop.y ?? 0.65) * H;
+      const M = [c, s, -s, c, cx - c * w / 2 + s * h / 2, cy - s * w / 2 - c * h / 2], [kx, ky] = slant(sh), S = [1, 0, -kx, -ky, kx * h, h + ky * h], F = compose(M, S);
+      const [u0, v0, u1, v1] = sheetUv(prop.sheet, t - (prop.start || 0)), { offsets, a: al } = spread(sh);
+      const item = { verts: new Float32Array([0, 0, w, 0, w, h, 0, h]), uvs: new Float32Array([u0, v0, u1, v0, u1, v1, u0, v1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: 1, r: 0, g: 0, b: 0, blend: 0 };
+      for (const [dx, dy] of offsets) r.add(item, tex, [F[0], F[1], F[2], F[3], F[4] + dx, F[5] + dy], al * Math.min(1, Math.max(0, prop.opacity ?? 1)), true);
+    }
+    const list = [];
+    for (const l of this.layers) {
+      const sh = l.shadow; if (!sh?.on || l.visible === false || l.shown === false || !l.mat || !l.anchor) continue;
+      const fy = l.anchor.y, [kx, ky] = slant(sh), S = [1, 0, -kx, -ky, kx * fy, fy + ky * fy], F = compose(S, l.mat), { offsets, a: al } = spread(sh);
+      list.length = 0; this.collect(l, list);
+      for (const [dx, dy] of offsets) for (const it of list) r.add(it, l.tex.get(it.atlas.imagePath) || this.assets.get(l.charId).pages.get(it.atlas.imagePath), [F[0], F[1], F[2], F[3], F[4] + dx, F[5] + dy], al, true);
+    }
+  }
   drawProps(t, behind) {
     const { r, W, H } = this;
     r.setMask(null, W, H);

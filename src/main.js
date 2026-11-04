@@ -564,7 +564,7 @@ async function buildLayerSpecs() {
     // gestures that only move the arms get the idle animation underneath, so head / chest keep moving
     const idleKey = plan.idleRef ? animKey(plan.idleRef) : null, drives = (j) => (j?.bone || []).some((b) => /^(head|pelvis|neck|torso\d*)$/i.test(b.name));
     const clips = plan.clips.filter((c) => anims[c.name]).map((c) => ({ ...c, base: c.kind === 'body' && idleKey && anims[idleKey] && c.name !== idleKey && !drives(anims[c.name]) ? idleKey : undefined }));
-    layers.push({ fit: getFit(s.charId), skins: s.skins ?? def.skins ?? null, key: s.key, charId: s.charId, anims, clips, present: plan.present, flip: s.flip, xf: s.xf ? { ...s.xf } : null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null, tearFacingBack: /\bback\b/i.test(def.pose || ''), slot: withChar.indexOf(s), visible: s.visible, keys: (S.charKeys[s.key] || []).map((k) => ({ t: k.t, x: k.x, y: k.y, mul: k.mul, flip: !!k.flip, ease: k.ease })) });
+    layers.push({ fit: getFit(s.charId), skins: s.skins ?? def.skins ?? null, key: s.key, charId: s.charId, anims, clips, present: plan.present, flip: s.flip, xf: s.xf ? { ...s.xf } : null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', shadow: s.shadow?.on ? { ...s.shadow } : null, tears: s.tears ? tearConfig(s.tears) : null, tearFacingBack: /\bback\b/i.test(def.pose || ''), slot: withChar.indexOf(s), visible: s.visible, keys: (S.charKeys[s.key] || []).map((k) => ({ t: k.t, x: k.x, y: k.y, mul: k.mul, flip: !!k.flip, ease: k.ease })) });
   }
   return layers.reverse(); // front-first -> back-first
 }
@@ -1631,6 +1631,37 @@ function drawCropNav() {
       h('button', { type: 'button', class: 'cb-close', 'aria-label': 'Cancel the crop', title: 'Cancel', onclick: () => cd.cancel() }, icon('x')),
       h('button', { type: 'button', class: 'cb-close crop-ok', 'aria-label': 'Apply the crop', title: 'Apply', onclick: () => cd.done() }, icon('check'))));
 }
+/** the shadow settings of one prop or character (owner.shadow): on / off, where the light comes from, how long, how soft, how dark */
+const SHADOW_DEFAULT = Object.freeze({ on: true, angle: 35, length: 1, soft: 0.35, opacity: 0.5 });
+function shadowSection(owner, apply) {
+  const sh = () => (owner.shadow ||= { ...SHADOW_DEFAULT, on: false });
+  const sync = () => { if (owner.shadow && !owner.shadow.on) { /* kept for when it is switched on again */ } apply(); };
+  const on = h('input', { type: 'checkbox', checked: !!owner.shadow?.on, 'aria-label': 'Shadow', onchange: (e) => { sh().on = e.target.checked; body.hidden = !e.target.checked; sync(); } });
+  const row = (label, min, max, get, set, unit) => {
+    const out = h('b', { class: 'pe-val' }, `${Math.round(get())}${unit}`);
+    const input = h('input', { type: 'range', min, max, step: 1, value: Math.round(get()), 'aria-label': label, oninput: (e) => { set(+e.target.value); out.textContent = `${e.target.value}${unit}`; apply(); } });
+    return { el: h('label', { class: 'cb-field pe-row' }, h('span', {}, label, ' ', out), input), input, out, get };
+  };
+  const angle = row('Light direction', 0, 360, () => sh().angle, (v) => { sh().angle = v; }, '°');
+  const length = row('Length', 10, 250, () => sh().length * 100, (v) => { sh().length = v / 100; }, '%');
+  const soft = row('Softness', 0, 100, () => sh().soft * 100, (v) => { sh().soft = v / 100; }, '');
+  const dark = row('Darkness', 5, 100, () => sh().opacity * 100, (v) => { sh().opacity = v / 100; }, '%');
+  // where the shadow falls, all the way round: 0° = right, 90° = toward you (down), 180° = left, 270° = away (up)
+  const dirs = [[0, '→'], [45, '↘'], [90, '↓'], [135, '↙'], [180, '←'], [225, '↖'], [270, '↑'], [315, '↗']];
+  const dirRow = h('div', { class: 'bg-fx-row sh-dirs' }, dirs.map(([deg, arrow]) => h('button', { type: 'button', class: 'btn sm', 'data-deg': deg, 'aria-label': `Shadow falls ${deg}°`, onclick: () => { sh().angle = deg; angle.input.value = deg; angle.out.textContent = `${deg}°`; apply(); } }, arrow)));
+  const matchAll = h('button', { type: 'button', class: 'btn sm', onclick: () => {
+    const a = sh().angle; let n = 0;
+    for (const o of [...S.props, ...S.speakers]) if (o !== owner && o.shadow?.on) { o.shadow.angle = a; n++; if (o.key) { const l = stage.layers.find((x) => x.key === o.key); if (l) l.shadow = { ...o.shadow }; } else dbPut('props', o); }
+    S.dirty = true; stage.setProps(S.props); toast(n ? `The light is the same for ${n} other shadow${n > 1 ? 's' : ''} now.` : 'There is no other shadow in the scene yet.');
+  } }, 'Same light for all');
+  const body = h('div', { class: 'sh-body', hidden: !owner.shadow?.on }, dirRow, angle.el, length.el, soft.el, dark.el, matchAll);
+  return h('div', { class: 'sh-section' }, h('label', { class: 'row', style: 'gap:8px;align-items:center;margin-top:12px' }, on, h('b', {}, 'Shadow')), body);
+}
+/** Shadow of a character (its More list): the same controls, kept on the character */
+function openCharShadow(s) {
+  const apply = () => { const l = stage.layers.find((x) => x.key === s.key); if (l) l.shadow = s.shadow?.on ? { ...s.shadow } : null; S.dirty = true; };
+  let close; close = modal(`Shadow · ${s.name}`, h('div', {}, shadowSection(s, apply), h('div', { class: 'row', style: 'margin-top:14px' }, h('span', { class: 'sp' }), h('button', { type: 'button', class: 'btn sm pri', onclick: () => close() }, 'Done'))));
+}
 /** Edit of a prop / object: size, turn, see-through, a glow look, in front of or behind the characters */
 function openPropEdit(pr) {
   if (!pr) return;
@@ -1652,6 +1683,7 @@ function openPropEdit(pr) {
   let close;
   close = modal(`Edit · ${pr.name}`, h('div', { class: 'prop-edit' }, size.el, turn.el, see.el, h('h3', { style: 'margin:10px 0 6px' }, 'Look'), chips,
     h('label', { class: 'row', style: 'gap:8px;margin-top:12px;align-items:center' }, behind, h('span', {}, 'Behind the characters')),
+    shadowSection(pr, () => { S.dirty = true; dbPut('props', pr); }),
     h('div', { class: 'row', style: 'margin-top:14px;gap:8px' }, h('button', { type: 'button', class: 'btn sm', onclick: reset }, 'Reset'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'btn sm pri', onclick: () => close() }, 'Done'))));
 }
 /** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
@@ -2744,6 +2776,7 @@ function drawCharBar(l) {
           cur.mul = e.target.value / 100; saveXf(cur); stage.layout(); updateSel(); S.dirty = true; charBar.querySelector('.cb-pct').textContent = `${Math.round(cur.mul * 100)}%`;
         } })),
         ...rest.map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
+        btn('sun', 'Shadow', () => openCharShadow(s), { title: 'A shadow on the ground, with the light from any direction' }),
         btn('rotate', 'Reset', () => resetChar(l, s)),
         btn('trash', 'Delete', () => removeCharacterFrom(s), { class: 'cb-btn danger', disabled: S.exporting }),
         btn('x', 'Done', () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; }, { 'aria-label': 'Close the character tools' }))));

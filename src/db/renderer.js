@@ -160,14 +160,14 @@ export class GLRenderer {
     gl.drawElements(gl.TRIANGLES, this.ni, gl.UNSIGNED_SHORT, 0); this.nv = 0; this.ni = 0;
   }
   /** adds one item of a draw list; m = [a, b, c, d, tx, ty] maps the armature's coordinates to canvas pixels */
-  add(item, tex, m, alpha = 1) {
+  add(item, tex, m, alpha = 1, black = false) {          // black: draw it as a flat black silhouette (a shadow)
     const n = item.verts.length / 2, k = item.idx.length;
     if (this.cur !== tex || this.blend !== item.blend || this.nv + n > MAXV || this.ni + k > MAXV * 3) { this.flush(); this.cur = tex; this.setBlend(item.blend); }
     const a = item.alpha * alpha, v = this.v, base = this.nv, [ma, mb, mc, md, tx, ty] = m;
     for (let j = 0, o = base * STRIDE; j < n; j++, o += STRIDE) {
       const x = item.verts[j * 2], y = item.verts[j * 2 + 1];
       v[o] = ma * x + mc * y + tx; v[o + 1] = mb * x + md * y + ty; v[o + 2] = item.uvs[j * 2]; v[o + 3] = item.uvs[j * 2 + 1];
-      v[o + 4] = item.r * a; v[o + 5] = item.g * a; v[o + 6] = item.b * a; v[o + 7] = a;
+      v[o + 4] = black ? 0 : item.r * a; v[o + 5] = black ? 0 : item.g * a; v[o + 6] = black ? 0 : item.b * a; v[o + 7] = a;
     }
     for (let j = 0; j < k; j++) this.i[this.ni + j] = base + item.idx[j];
     this.nv += n; this.ni += k;
