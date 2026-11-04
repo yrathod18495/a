@@ -142,3 +142,22 @@ test('Path flags on the layer: A and B sit on the animation clip and dragging on
   expect(r.clip.dur).toBeGreaterThan(4.3); expect(r.path.dur).toBeCloseTo(r.clip.dur, 1); expect(r.path.start).toBe(1);   // B moved later: the walk and the path are longer
   await expect(page.locator('.lane2 .pflag')).toHaveCount(2);
 });
+
+test('Path shadow: a picture on a dark card becomes a cut-out with a dark outline (no box around the shadow)', async ({ page }) => {
+  await studio(page);
+  await page.evaluate(() => {
+    const { S } = window.__toon, c = document.createElement('canvas'); c.width = 60; c.height = 96; const g = c.getContext('2d');
+    g.fillStyle = '#1d1e22'; g.fillRect(0, 0, 60, 96); g.fillStyle = '#e8c07a'; g.fillRect(18, 10, 24, 80);          // a figure on a dark card
+    S.characters.find((x) => x.id === 'fake').thumb = c.toDataURL();
+  });
+  await page.evaluate(() => window.__toon.startPathShadow(window.__toon.S.speakers.find((x) => x.key === 'fake1')));
+  await expect.poll(() => page.locator('.pathshadow').getAttribute('src'), { timeout: 5000 }).toMatch(/^data:image\/png/);
+  const px = await page.evaluate(async () => {
+    const img = document.querySelector('.pathshadow'); await img.decode(); const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const at = (fx, fy) => [...g.getImageData(Math.round(fx * (c.width - 1)), Math.round(fy * (c.height - 1)), 1, 1).data];
+    return { corner: at(0.02, 0.02), middle: at(0.5, 0.5), edge: at(0.275, 0.5) };
+  });
+  expect(px.corner[3]).toBe(0);                                  // the card is gone
+  expect(px.middle[3]).toBe(255); expect(px.middle[0]).toBeGreaterThan(150);          // the figure is there
+  expect(px.edge[3]).toBeGreaterThan(200); expect(px.edge[0]).toBeLessThan(40);       // its outline is dark
+});
