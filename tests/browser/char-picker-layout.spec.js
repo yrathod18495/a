@@ -29,9 +29,9 @@ for (const width of [360, 390, 430]) test(`character picker at ${width}px: two c
   await page.getByRole('tab', { name: 'Female' }).click(); await check(3);                  // Female: Maya, Mukhiya, Rani
   await expect(page.locator('.cp-card b')).toHaveText(['Maya', 'Mukhiya', 'Rani']);
   await page.getByRole('tab', { name: 'Boy' }).click(); await expect(page.locator('.cp-card')).toHaveCount(0); await expect(page.locator('.cp-empty')).toBeVisible();
-  await expect(page.locator('.cp-next')).toBeDisabled();
+  await expect(page.locator('.cp-next, .cp-prev, .cp-nav')).toHaveCount(0);        // no Prev / Next at all
   await page.getByRole('tab', { name: 'Female' }).click();
-  await page.locator('.cp-card').first().click(); await page.locator('.cp-next').click();    // page 2: the poses of Maya
+  await page.locator('.cp-card').first().click();    // picking a character opens page 2 by itself: the poses of Maya
   await check(3);
   await expect(page.locator('.cp-card').first().locator('b, small')).toBeVisible();
 });

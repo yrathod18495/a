@@ -780,13 +780,24 @@ function viewStudio() {
   panelEl = h('div', { class: 'panel' });
   dockWire(tabsEl, 'rail'); dockWire(panelEl, 'panel'); panelEl.addEventListener('pointerup', rememberPanelSize);
   const zoom = (f) => { const left = tlScroll.scrollLeft / S.pps; S.pps = Math.min(300, Math.max(4, S.pps * f)); drawTimeline(); tlScroll.scrollLeft = left * S.pps; };
+  // two fingers on the timeline zoom it (pinch), around the point between the fingers: the buttons are only for a mouse
+  {
+    let d0 = 0, pps0 = 0, mid = 0, t0 = 0;
+    const gap = (e) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    tlScroll.addEventListener('touchstart', (e) => { if (e.touches.length === 2) { d0 = gap(e); pps0 = S.pps; mid = (e.touches[0].clientX + e.touches[1].clientX) / 2 - tlScroll.getBoundingClientRect().left; t0 = (tlScroll.scrollLeft + mid) / S.pps; } }, { passive: true });
+    tlScroll.addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 2 || !d0) return; e.preventDefault();
+      S.pps = Math.min(300, Math.max(4, pps0 * (gap(e) / d0))); drawTimeline(); tlScroll.scrollLeft = Math.max(0, t0 * S.pps - mid);
+    }, { passive: false });
+    tlScroll.addEventListener('touchend', (e) => { if (e.touches.length < 2) d0 = 0; }, { passive: true });
+  }
   const fit = fitTimeline;
   const tools = h('div', { class: 'tltools' },
     tlUndo = h('button', { class: 'btn sm icon-btn tl-hist', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, icon('undo')),
     tlRedo = h('button', { class: 'btn sm icon-btn tl-hist', 'data-history-control': true, 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo')),
     h('b', { class: 'timeline-title' }, 'Timeline'),
-    h('button', { class: 'btn sm icon-btn', title: 'Zoom out timeline', 'aria-label': 'Zoom out timeline', onclick: () => zoom(1 / 1.5) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Zoom in timeline', 'aria-label': 'Zoom in timeline', onclick: () => zoom(1.5) }, icon('zoom-in')),
-    h('button', { class: 'btn sm icon-btn', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')),
+    h('button', { class: 'btn sm icon-btn tl-zoom', title: 'Zoom out timeline', 'aria-label': 'Zoom out timeline', onclick: () => zoom(1 / 1.5) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn tl-zoom', title: 'Zoom in timeline', 'aria-label': 'Zoom in timeline', onclick: () => zoom(1.5) }, icon('zoom-in')),
+    h('button', { class: 'btn sm icon-btn tl-zoom', title: 'Fit whole timeline', 'aria-label': 'Fit whole timeline', onclick: fit }, icon('maximize')),
     snapBtn = h('button', { class: 'btn sm icon-btn snap-toggle', type: 'button', 'aria-pressed': String(snapOn()), title: 'Snap: clips stick to other clips, the playhead and whole seconds. Hold Alt while dragging to move freely.', 'aria-label': 'Snap clips', onclick: () => setSnap(!snapOn()) }, icon('magnet')), h('span', { class: 'tl-sep', 'aria-hidden': 'true' }), editTools(), clipBar = h('div', { class: 'clipbar', hidden: true }));
   drawTimeline(); drawLineBox(); drawTabs();
   setTimeout(fit, 0);
@@ -800,8 +811,8 @@ function viewStudio() {
       h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), clipNav = h('div', { class: 'clip-nav', hidden: true, role: 'toolbar', 'aria-label': 'Selected clip' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
   // phone: the Play button sits in the scene row (one row less); on a wide screen it stays at the start of the player controls
   const phone = matchMedia('(max-width: 860px)'), placePlay = () => {
-    const row = root.querySelector('.scene-row'), controls = root.querySelector('.controls');
-    if (phone.matches) row.insertBefore(playBtn, row.querySelector('.tl-size-grip')); else controls.prepend(playBtn);
+    const controls = root.querySelector('.controls');
+    if (phone.matches) tools.prepend(playBtn); else controls.prepend(playBtn);          // phone: Play is the first button of the timeline tools row
   };
   placePlay(); phone.addEventListener('change', placePlay);
   return root;
@@ -2398,6 +2409,14 @@ function saveXf(l) {
     // so a smaller character stays smaller when the playhead moves. The position is a keyframe at the playhead.
     const was = stage.keyChar(keys.slice().sort((a, b) => a.t - b.t), player.time)?.mul || 1, ratio = (l.mul ?? 1) / was;
     if (Math.abs(ratio - 1) > 1e-4) { for (const k of keys) k.mul = +Math.max(0.05, (k.mul || 1) * ratio).toFixed(4); if (S.paths[l.key]) S.paths[l.key].mul = +Math.max(0.05, (S.paths[l.key].mul ?? 1) * ratio).toFixed(4); }
+    const path = S.paths[l.key];
+    if (path) {
+      // a path is just two places (first and last): dragging the character moves the whole route, it does not add keyframes
+      const was = stage.keyChar(keys.slice().sort((a, b) => a.t - b.t), player.time), nowX = l.axf ?? l.anchor.x / stage.W, nowY = l.ayf ?? (stage.H - l.anchor.y) / stage.H;
+      const dx = nowX - was.axf, dy = nowY - was.ayf;
+      if (Math.abs(dx) + Math.abs(dy) > 1e-4) path.pts = path.pts.map((p) => ({ x: +(p.x + dx).toFixed(4), y: +(p.y + dy).toFixed(4) }));
+      applyPath(l.key); return;
+    }
     writeCharKey(l); return;
   }
   const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf };
@@ -2650,33 +2669,11 @@ function outfitModal(s) {
   close = modal(`Outfit for ${s.name}`, h('div', { class: 'gridc' }, names.map((n) => h('button', { class: `cc ${cur?.length === 1 && cur[0] === n ? 'on' : ''}`, onclick: () => pick([n]) }, h('div', { class: 'th' }, h('span', {}, '👗')), h('b', {}, n === 'Buisness' ? 'Business' : n)))));
 }
 function tabChars() {
-  const onStage = S.order.map(sOf).filter((s) => s?.charId);
-  const rows = onStage.map((s, i) => {
-    const c = charOf(s), entry = libraryCharacters().find((e) => `lib:${e.id}` === s.charId);
-    const mv = (d) => { const j = S.order.indexOf(onStage[i + d].key), me = S.order.indexOf(s.key); [S.order[me], S.order[j]] = [S.order[j], S.order[me]]; stage.reorder([...S.order].reverse()); S.dirty = true; drawTabs(); drawTimeline(); };
-    return h('div', { class: 'layer' }, h('span', { class: 'th xs' }, entry ? h('img', { src: cdn(entry.thumbnail), alt: '' }) : c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'),
-      h('div', { class: 't', style: 'cursor:pointer', onclick: () => selectChar(s.key) }, s.name, h('small', {}, c.name)),
-      skinNames(c).length > 1 ? h('button', { class: 'ib', title: 'Outfit', onclick: () => outfitModal(s) }, '👗') : null,
-      h('button', { class: 'ib', title: 'Change character', onclick: () => addCharacterTo(s) }, '⇄'),
-      h('button', { class: 'ib', title: 'Bring forward', disabled: i === 0, onclick: () => mv(-1) }, '↑'),
-      h('button', { class: 'ib', title: 'Send back', disabled: i === onStage.length - 1, onclick: () => mv(1) }, '↓'),
-      h('button', { class: 'ib', title: 'Show / hide', onclick: (e) => { s.visible = !s.visible; const l = stage.layers.find((x) => x.key === s.key); if (l) l.visible = s.visible; e.currentTarget.textContent = s.visible ? '👁' : '—'; S.dirty = true; } }, s.visible ? '👁' : '—'),
-      h('button', { class: 'ib', title: 'Remove from stage', onclick: () => removeCharacterFrom(s) }, '🗑'));
-  });
-  const without = S.speakers.filter((s) => !s.charId).map((s) => h('div', { class: 'layer' }, h('span', { class: 'dot', style: `background:${s.color}` }), h('div', { class: 't' }, s.name, h('small', {}, s.manual ? 'No character yet' : 'Voice without a character')),
-    h('button', { class: 'btn sm', onclick: () => addCharacterTo(s) }, '＋ Pick character'),
-    s.manual ? h('button', { class: 'ib', title: 'Remove', onclick: () => { S.speakers = S.speakers.filter((x) => x !== s); S.order = S.order.filter((k) => k !== s.key); drawTabs(); } }, '✕') : null));
-  const n = rows.length + without.length, collapsed = charsCollapsed();
-  const emptyShown = !(S.lines.length > 0 || S.speakers.some((x) => x.charId));      // the empty-stage "Add character" button is also on screen right now
-  const toggle = h('button', { type: 'button', class: 'btn sm icon-btn chars-collapse', title: collapsed ? 'Expand the character list' : 'Collapse the character list', 'aria-label': collapsed ? 'Expand the character list' : 'Collapse the character list', 'aria-expanded': String(!collapsed), onclick: () => { setCharsCollapsed(!collapsed); drawTabs(); } }, icon(collapsed ? 'arrow-down' : 'arrow-up'));
   // the Characters tab opens straight on the characters (page 1) and then their poses (page 2): no extra "Add character" step
   const picker = libraryCharacters().some((e) => e.template)
     ? characterPicker({ entries: libraryCharacters(), isOn: () => false, steps: true, onPick: (e) => { const sp = newManualSpeaker(); historyAction(async () => { if (await useCharacter(sp, `lib:${e.id}`)) await finishManualCharacter(sp); }); } })
     : libraryStatus() ? h('p', { class: 'sub', role: 'alert' }, libraryStatus()) : h('p', { class: 'sub' }, 'Loading characters…');
-  return h('div', { class: 'list' }, picker,
-    h('button', { class: 'btn sm', type: 'button', 'aria-label': emptyShown ? 'More characters for the stage' : undefined, title: 'Characters from your device or your account', onclick: addManualCharacter }, 'More characters…'),
-    h('div', { class: 'chars-head' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0;flex:1' }, `Characters on stage (${n}) — top = in front.`), n ? toggle : null),
-    ...(collapsed ? [] : [...rows, ...without]));
+  return h('div', { class: 'list' }, picker);          // only the characters: no Prev/Next, no "More characters", no stage list (the Layers panel has it)
 }
 const CHARS_COLLAPSE_KEY = '12toons-chars-collapsed';
 const charsCollapsed = () => { try { return localStorage.getItem(CHARS_COLLAPSE_KEY) === '1'; } catch { return false; } };

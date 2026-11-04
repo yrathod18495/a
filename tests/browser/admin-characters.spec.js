@@ -139,12 +139,10 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   // page 1: the characters only (no poses below); Prev is off, Next needs a character
   await expect(page.locator('.cp-page-characters')).toBeVisible(); await expect(page.locator('.cp-kind.on')).toHaveText('Female');          // Maya is a Female character (guessed from her category)
   await expect(page.locator('.cp-poses')).toHaveCount(0);
-  await expect(page.locator('.cp-prev')).toBeDisabled(); await expect(page.locator('.cp-next')).toBeDisabled();
+  await expect(page.locator('.cp-next, .cp-prev')).toHaveCount(0);
   await expect(page.locator('.cp-card:not(.pose) .cp-img img')).toHaveCount(1);
   await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click();
-  await expect(page.locator('.cp-poses')).toHaveCount(0); await expect(page.locator('.cp-next')).toBeEnabled();
-  await page.locator('.cp-next').click();
-  // page 2: the chosen character on top, then its poses; Prev goes back, Next confirms
+    // page 2: the chosen character on top, then its poses; Prev goes back, Next confirms
   await expect(page.locator('.cp-page-poses')).toBeVisible();
   await expect(page.locator('.cp-chosen')).toContainText('Maya');
   await expect(page.locator('.cp-poses .pose')).toHaveCount(4);
@@ -155,11 +153,10 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   expect(new Set(pics.map((p) => p[0])).size).toBe(4); expect(pics.every((p) => p[1] === 200 && p[2] === 320)).toBe(true);
   const pixels = await Promise.all((await page.locator('.cp-poses .pose img').all()).map((img) => img.evaluate(async (el) => { const c = document.createElement('canvas'); c.width = 40; c.height = 64; const g = c.getContext('2d'); g.drawImage(el, 0, 0, 40, 64); const d = g.getImageData(0, 0, 40, 64).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 1000003; return h; })));
   expect(new Set(pixels).size).toBe(4);                                                                   // different views really look different
-  await page.locator('.cp-prev').click(); await expect(page.locator('.cp-page-characters')).toBeVisible(); await expect(page.locator('.cp-card.on')).toContainText('Maya');
-  await page.locator('.cp-next').click();
-  await page.locator('.cp-poses .pose').nth(1).click(); await expect(page.locator('.cp-poses .pose.on small')).toHaveText('Front');   // choosing a pose only marks it ...
-  expect(await page.evaluate(() => window.__toon.stage.layers.length)).toBe(0);                          // ... nothing is applied before Next
-  await page.locator('.cp-next').click();                                                               // Next on the last page confirms
+  await page.locator('.cp-chosen').click(); await expect(page.locator('.cp-page-characters')).toBeVisible(); await expect(page.locator('.cp-card.on')).toContainText('Maya');
+  await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click();
+  expect(await page.evaluate(() => window.__toon.stage.layers.length)).toBe(0);
+  await page.locator('.cp-poses .pose').nth(1).click();                                                 // choosing a pose adds the character
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
   await page.waitForTimeout(1500);
   expect(await page.evaluate(() => [...window.__toon.stage.layers[0].anim])).toEqual(expect.arrayContaining([expect.stringMatching(/stand/)]));      // a character that was just added stands (idle), it does not play a random animation
@@ -229,7 +226,7 @@ test('tears work on an uploaded character: both eyes are found (iris slots), the
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click(); await page.locator('.cp-next').click(); await page.locator('.cp-next').click();
+  await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click(); await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
   await page.evaluate(() => window.__toon.openTab('tears'));
   await page.locator('.tear-style').nth(1).click();                                                   // the first real style (0 = none)
@@ -256,6 +253,6 @@ test('tears work on an uploaded character: both eyes are found (iris slots), the
     l.tears = on; return { out, mul: l.mul, H: stage.H };
   });
   expect(px.mul).toBe(1); expect(px.H).toBe(480);
-  for (const n of px.out) expect(n).toBeGreaterThan(40);
+  for (const n of px.out) expect(n).toBeGreaterThan(5);      // drawn (the tears were made smaller in f611062, so the count is lower than before)
   expect(r.p0.x).toBeGreaterThan(0); expect(r.p0.y).toBeGreaterThan(0);
 });

@@ -326,8 +326,8 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 
 /* phone: Play lives in the scene row, so the player row above only has the time and the zoom */
 @media(max-width:860px){
-  #app .ws .scene-row .play-btn{flex:none;width:42px;height:28px;padding:0;border-radius:99px}
-  #app .ws .scene-row .play-btn svg{width:18px;height:18px}
+  #app .ws .tltools .play-btn{flex:none;width:42px;height:28px;padding:0;border-radius:99px}
+  #app .ws .tltools .play-btn svg{width:18px;height:18px}
 }
 
 .tile-search{width:100%;box-sizing:border-box;height:38px;margin:0 0 6px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);font-size:14px}
@@ -405,9 +405,11 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .char-bar .cb-field input[type=range]{width:100%}
   #app .ws .studio:has(.clip-nav:not([hidden])) .char-bar{display:none !important}
   #app .ws .selbar{display:none !important}
+  #app .ws .tltools .tl-zoom{display:none}
+  #app .ws .tl-scroll{touch-action:pan-x pan-y}
   #app .ws .tltools .clipbar{display:none !important}
   #app .ws .tltools .edittools{flex:0 0 auto;order:0;padding:0;overflow:visible}
-  #app .ws .tltools .edit-btn:not(.edit-prev):not(.edit-next):not(.edit-paste){display:none}
+  #app .ws .tltools .edit-btn:not(.edit-prev):not(.edit-next):not(.edit-paste):not(.edit-del){display:none}
   #app .ws .tltools .edit-btn span:not(.ic){display:none !important}
   #app .ws .tltools .edit-btn{flex:0 0 auto;width:36px;min-width:0;height:32px;padding:0}
 }

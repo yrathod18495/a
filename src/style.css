@@ -943,7 +943,7 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .cp-step i{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--line);color:var(--text);font-style:normal;font-size:12px}
 .cp-step.on{border-color:var(--acc);color:var(--text)}.cp-step.on i{background:var(--acc);color:#fff}
 .cp-step:disabled{opacity:.45;cursor:not-allowed}
-.cp-chosen{display:flex;align-items:center;gap:12px;margin:0 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:14px}
+.cp-chosen{width:100%;text-align:left;font:inherit;color:inherit;background:none;cursor:pointer;display:flex;align-items:center;gap:12px;margin:0 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:14px}
 .cp-chosen-img{display:block;width:44px;height:64px;border-radius:8px;overflow:hidden;background:#1d1e22}.cp-chosen-img img{width:100%;height:100%;object-fit:contain;object-position:center bottom}
 .cp-chosen small{display:block;font-size:11px;color:var(--mute)}.cp-chosen b{font-size:15px}
 .cp-page .cp-poses{margin-top:0}

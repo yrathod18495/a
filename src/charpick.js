@@ -52,7 +52,7 @@ function stepPicker({ entries, isOn, onPick }) {
   const st = { step: 1, base: current?.base ?? null, pose: current?.poses.find(isOn) ?? null, kind: current?.group ?? CHARACTER_GROUPS.map(([id]) => id).find((id) => groups.some((g) => g.group === id)) ?? 'male' };
   const group = () => groups.find((g) => g.base === st.base) || null;
   const go = (step) => { st.step = step; draw(); };
-  const chooseBase = (g) => { if (st.base !== g.base) { st.base = g.base; st.pose = g.poses.find((p) => p.template.pose === 'front-side') || g.poses[0]; } draw(); };
+  const chooseBase = (g) => { st.base = g.base; st.pose = g.poses.find((p) => p.template.pose === 'front-side') || g.poses[0]; go(2); };      // picking a character opens its poses straight away: no Next button
   const draw = () => {
     const g = group(), shown = groups.filter((c) => c.group === st.kind);
     const page = st.step === 1
@@ -63,12 +63,10 @@ function stepPicker({ entries, isOn, onPick }) {
           h('span', { class: 'cp-img' }, h('img', { src: cdn(c.cover), alt: '', loading: 'lazy' })), h('b', {}, c.name))))
           : h('p', { class: 'cp-hint cp-empty' }, 'No characters in this group yet.'))
       : h('div', { class: 'cp-page cp-page-poses' },
-        h('div', { class: 'cp-chosen' }, h('span', { class: 'cp-chosen-img' }, h('img', { src: cdn(g.cover), alt: '' })), h('div', {}, h('small', {}, 'Character'), h('b', {}, g.name))),
-        h('div', { class: 'cp-poses' }, h('div', { class: 'cp-row' }, g.poses.map((e) => h('button', { type: 'button', class: `cp-card pose ${st.pose === e ? 'on' : ''}`, 'aria-pressed': String(st.pose === e), onclick: () => { st.pose = e; draw(); } },
+        h('button', { type: 'button', class: 'cp-chosen', 'aria-label': 'Back to the characters', onclick: () => go(1) }, h('span', { class: 'cp-chosen-img' }, h('img', { src: cdn(g.cover), alt: '' })), h('div', {}, h('small', {}, 'Character'), h('b', {}, g.name))),
+        h('div', { class: 'cp-poses' }, h('div', { class: 'cp-row' }, g.poses.map((e) => h('button', { type: 'button', class: `cp-card pose ${st.pose === e ? 'on' : ''}`, 'aria-pressed': String(st.pose === e), onclick: () => onPick(e) },
           h('span', { class: 'cp-img' }, h('img', { src: cdn(e.thumbnail), alt: '', loading: 'lazy' })), h('small', {}, e.pose))))));
-    const prev = h('button', { type: 'button', class: 'btn cp-prev', disabled: st.step === 1, onclick: () => go(1) }, '‹ Prev');
-    const next = h('button', { type: 'button', class: 'btn pri cp-next', disabled: st.step === 1 ? !(g && g.group === st.kind) : !st.pose, onclick: () => { if (st.step === 1) go(2); else onPick(st.pose); } }, 'Next ›');
-    root.replaceChildren(page, h('div', { class: 'cp-nav' }, prev, next));
+    root.replaceChildren(page);
   };
   draw();
   return root;

@@ -21,7 +21,7 @@ test('phone: the selected clip\'s tools are in the bottom bar, nothing is left a
   await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Duplicate', 'Delete']);
   await expect(page.locator('.tltools .clipbar')).toBeHidden(); await expect(page.locator('.selbar')).toBeHidden();
   const edits = await page.locator('.tltools .edit-btn:visible').evaluateAll((els) => els.map((e) => e.className.match(/edit-(?!btn)(\w+)/)[1]));
-  expect(edits).toEqual(['prev', 'next', 'paste']);                                              // only the ones that need no selection stay at the top
+  expect(edits).toEqual(['prev', 'next', 'paste', 'del']);                                              // only the ones that need no selection stay at the top
   const tabs = await page.locator('.tabs.big').boundingBox(), bb = await nav.boundingBox();
   expect(Math.abs(bb.y - tabs.y)).toBeLessThan(3); expect(bb.x + bb.width).toBeLessThanOrEqual(390.5);       // it takes the place of the bottom menu
   // More: Move / Length arrows, Paste, Prev, Next, Done
