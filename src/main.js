@@ -691,7 +691,7 @@ function layoutTools() {
   syncLayoutUi(); return box;
 }
 /** "Show outside the frame": the editor looks at a larger area; the part inside the video frame is bright, what sticks out of it is dimmed. Editor only, never exported. */
-const OVERFLOW_ZOOM = 1.3;
+const OVERFLOW_ZOOM = 1.25;
 let overflowEl = null;
 /** The editor always looks at a slightly larger area than the video frame: what sticks out of the frame is dimmed, never exported. A character can be dragged out of the frame and is still there to edit. */
 function setOverflow(on) {
@@ -703,17 +703,12 @@ function setOverflow(on) {
   updateBgSel(); S.dirty = true; updateSel();
 }
 function paintOverflow() {
-  const on = !!stage.overflow, pad = ((OVERFLOW_ZOOM - 1) / 2) * 100, z = 1 / OVERFLOW_ZOOM;
-  // the video frame keeps its size: the picture is drawn bigger than the frame and sticks out of it on every side (the stage box clips it)
-  Object.assign(stage.out.style, on ? { position: 'absolute', width: `${OVERFLOW_ZOOM * 100}%`, height: `${OVERFLOW_ZOOM * 100}%`, left: `-${pad}%`, top: `-${pad}%`, maxWidth: 'none' } : { position: '', width: '', height: '', left: '', top: '', maxWidth: '' });
-  document.getElementById('stagebox')?.classList.toggle('of-on', on);
   if (!overflowEl) return;
-  overflowEl.hidden = !on;
-  Object.assign(overflowEl.style, { left: `-${pad}%`, top: `-${pad}%`, width: `${OVERFLOW_ZOOM * 100}%`, height: `${OVERFLOW_ZOOM * 100}%` });
-  Object.assign(overflowEl.firstChild.style, { left: `${((1 - z) / 2) * 100}%`, top: `${((1 - z) / 2) * 100}%`, width: `${z * 100}%`, height: `${z * 100}%` });
+  const z = 1 / OVERFLOW_ZOOM, f = overflowEl.firstChild; overflowEl.hidden = !stage.overflow;
+  Object.assign(f.style, { left: `${((1 - z) / 2) * 100}%`, top: `${((1 - z) / 2) * 100}%`, width: `${z * 100}%`, height: `${z * 100}%` });
 }
 /** on for the character editing; off where the canvas is edited directly (a selected background, the camera, tear placement) */
-const wantOverflow = () => S.step === 3 && !S.exporting && S.editorZoom <= 1.05 && !bgOf() && !(S.panelOpen && ['camera', 'tears', 'grade', 'canvas'].includes(S.tab));
+const wantOverflow = () => S.step === 3 && !S.exporting && !bgOf() && !(S.panelOpen && ['camera', 'tears', 'grade', 'canvas'].includes(S.tab));
 function resizeHandle(cls, label, onDrag, onReset) {
   const el = h('div', { class: `resize-handle ${cls}`, role: 'separator', title: `${label} — drag to resize, double-click to reset` });
   el.addEventListener('pointerdown', (e) => {
@@ -1949,7 +1944,6 @@ function startPathShadow(s) {
   const flag = (which) => h('i', { class: `pflag stage ${which}` }, which.toUpperCase());
   const flagA = flag('a'), flagB = flag('b');
   layer.append(svg, shadow, flagA, flagB, h('span', { class: 'pathhint' }, `Drag the shadow to where ${s.name} should go · Esc = cancel`));
-  Object.assign(layer.style, { inset: 'auto', left: `${stage.out.offsetLeft}px`, top: `${stage.out.offsetTop}px`, width: `${stage.out.offsetWidth}px`, height: `${stage.out.offsetHeight}px` });
   wrapEl.append(layer);
   const line = svg.querySelector('polyline');
   const at = (e) => { const r = stage.out.getBoundingClientRect(), p = fromScreen((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); return { x: Math.min(1.3, Math.max(-0.3, p.x)), y: Math.min(1.3, Math.max(-0.5, p.y)) }; };
@@ -2453,7 +2447,7 @@ function updateSel() {
     if (hintEl) hintEl.hidden = true;
     const v = viewOf(), k = stage.out.clientWidth / v.w, w = (prop.w || .18) * stage.W * k, hgt = (prop.h || .18) * stage.H * k;
     propSelEl.hidden = false;
-    Object.assign(propSelEl.style, { left: `${stage.out.offsetLeft + ((prop.x ?? .5) * stage.W - v.x) * k - w / 2}px`, top: `${stage.out.offsetTop + ((prop.y ?? .65) * stage.H - v.y) * k - hgt / 2}px`, width: `${w}px`, height: `${hgt}px`, transform: `rotate(${prop.rotation || 0}deg)` });
+    Object.assign(propSelEl.style, { left: `${((prop.x ?? .5) * stage.W - v.x) * k - w / 2}px`, top: `${((prop.y ?? .65) * stage.H - v.y) * k - hgt / 2}px`, width: `${w}px`, height: `${hgt}px`, transform: `rotate(${prop.rotation || 0}deg)` });
     return;
   }
   if (propSelEl) propSelEl.hidden = true;
@@ -2468,20 +2462,19 @@ function updateSel() {
   const pct = selBar.querySelector('.pct'); if (pct) pct.textContent = `${Math.round((l.mul ?? 1) * 100)}%`;
   // the box never shows while playing or in a zoomed camera shot, so it can't cover the picture
   if (player.playing || stage.camZoom > 1.02) { hideBox(); return; }
-  const v = viewOf(), k = stage.out.clientWidth / v.w, ch = stage.out.clientHeight, cw = stage.out.clientWidth, m = 18, ox = stage.out.offsetLeft, oy = stage.out.offsetTop;
-  const bxr = document.getElementById('stagebox').getBoundingClientRect(), wr = wrapEl.getBoundingClientRect();
-  const minX = Math.max(ox, bxr.left - wr.left) + m, maxX = Math.min(ox + cw, bxr.right - wr.left) - m, minY = Math.max(oy, bxr.top - wr.top) + m, maxY = Math.min(oy + ch, bxr.bottom - wr.top) - m;      // handles stay in the part of the picture that is on screen
+  const v = viewOf(), k = stage.out.clientWidth / v.w, ch = stage.out.clientHeight, cw = stage.out.clientWidth, m = 18;
   const b = { x0: l.box.x0 - v.x, x1: l.box.x1 - v.x, y0: l.box.y0 - v.y, y1: l.box.y1 - v.y };          // the box in view pixels (the view is bigger than the frame while the outside is shown)
   selEl.hidden = false;
-  Object.assign(selEl.style, { left: `${ox + b.x0 * k}px`, top: `${oy + b.y0 * k}px`, width: `${(b.x1 - b.x0) * k}px`, height: `${(b.y1 - b.y0) * k}px` });
+  Object.assign(selEl.style, { left: `${b.x0 * k}px`, top: `${b.y0 * k}px`, width: `${(b.x1 - b.x0) * k}px`, height: `${(b.y1 - b.y0) * k}px` });
+  // handles stay inside the picture even when the character is bigger than the view
   l.hpos = {};
   for (const [c, [x, y]] of Object.entries({ tl: [b.x0, b.y0], tr: [b.x1, b.y0], bl: [b.x0, b.y1], br: [b.x1, b.y1] })) {
-    const px = Math.min(maxX, Math.max(minX, ox + x * k)), py = Math.min(maxY, Math.max(minY, oy + y * k)), el = handleEls[c];
+    const px = Math.min(cw - m, Math.max(m, x * k)), py = Math.min(ch - m, Math.max(m, y * k)), el = handleEls[c];
     el.hidden = false; el.style.left = `${px}px`; el.style.top = `${py}px`;
-    el.classList.toggle('pinned', Math.abs(px - ox - x * k) > 1 || Math.abs(py - oy - y * k) > 1);
-    l.hpos[c] = [(px - ox) / k + v.x, (py - oy) / k + v.y];
+    el.classList.toggle('pinned', Math.abs(px - x * k) > 1 || Math.abs(py - y * k) > 1);
+    l.hpos[c] = [px / k + v.x, py / k + v.y];
   }
-  if (selToolsEl) updateSelTools(l, { x0: b.x0 + ox / k, x1: b.x1 + ox / k, y0: b.y0 + oy / k, y1: b.y1 + oy / k }, k, maxX + m, maxY + m);
+  if (selToolsEl) updateSelTools(l, b, k, cw, ch);
 }
 /** a small floating toolbox over the selected character, for the tools that act on one character — tap a button to jump straight into that tool */
 const SEL_TOOLS = [['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask'], ['motion', 'Move', 'move'], ['props', 'Hand props', 'package']];

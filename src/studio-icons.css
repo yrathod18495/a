@@ -413,6 +413,3 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .tltools .edit-btn span:not(.ic){display:none !important}
   #app .ws .tltools .edit-btn{flex:0 0 auto;width:36px;min-width:0;height:32px;padding:0}
 }
-/* the area outside the video frame: the frame keeps its size, the picture sticks out of it and the stage box clips it */
-#app .ws .stagebox.of-on{overflow:hidden}
-#app .ws .stagebox.of-on .stagewrap{overflow:visible}
