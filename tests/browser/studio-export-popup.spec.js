@@ -14,18 +14,18 @@ test('Download opens the export box (no direct render); quality changes the esti
   const box = page.locator('.exp-pop'); await expect(box).toBeVisible();
   await expect(box).not.toContainText(/mp4|webm/i);                       // no format wording
   const size = () => box.locator('.exp-pop-info b').first().textContent();
-  await box.getByRole('button', { name: '360p', exact: true }).click(); const small = await size();
+  await box.getByRole('button', { name: '480p', exact: true }).click(); const small = await size();
   await box.getByRole('button', { name: '1080p', exact: true }).click(); const big = await size();
   const mb = (t) => parseFloat(t.match(/[\d.]+/)[0]);
   expect(mb(big)).toBeGreaterThan(mb(small));
   expect(await page.evaluate(() => window.__toon.S.fps)).toBe(30);                    // always opens on 30 fps
   await expect(box.getByRole('button', { name: '60', exact: true })).toBeVisible();     // and 60 fps is there for the smoothest video
-  await box.getByRole('button', { name: '15', exact: true }).click();
-  expect(await page.evaluate(() => ({ q: window.__toon.S.quality, f: window.__toon.S.fps, fmt: window.__toon.S.format }))).toEqual({ q: 1080, f: 15, fmt: 'mp4' });
+  await expect(box.getByRole('button', { name: '360p', exact: true })).toHaveCount(0); await expect(box.getByRole('button', { name: '2K', exact: true })).toBeVisible();          // no 360p, there is 2K
+  await expect(box.getByRole('button', { name: '12', exact: true })).toHaveCount(0); await expect(box.getByRole('button', { name: '15', exact: true })).toHaveCount(0);          // no 12 / 15 fps
+  await box.getByRole('button', { name: '24', exact: true }).click();
+  expect(await page.evaluate(() => ({ q: window.__toon.S.quality, f: window.__toon.S.fps, fmt: window.__toon.S.format }))).toEqual({ q: 1080, f: 24, fmt: 'mp4' });
   const m = await box.boundingBox(); expect(m.x).toBeGreaterThanOrEqual(0); expect(m.x + m.width).toBeLessThanOrEqual(390);
   await expect(box.getByRole('button', { name: 'Render', exact: true })).toBeVisible();
-  await page.locator('.modal .row .btn').first().click(); await expect(box).toHaveCount(0);
-  await page.getByRole('button', { name: 'Export', exact: true }).first().click(); expect(await page.evaluate(() => window.__toon.S.fps)).toBe(30);          // opened again: back on 30 fps
   await page.locator('.modal .row .btn').first().click(); await expect(box).toHaveCount(0);
   // Render closes the box and hands over to the export (it asks the server first; the fake debug session has no account, so only the hand-over is checked)
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));

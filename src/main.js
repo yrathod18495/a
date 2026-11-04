@@ -3304,11 +3304,11 @@ function tabExport() {
   const multi = exportScenes.length > 1, hasAudio = exportScenes.some(scene => scene.doc.lines?.length), soundInVideo = hasAudio || exportScenes.some(scene => scene.doc.music && !scene.doc.music.muted);
   const duration = sequencePlan(exportScenes, sceneAudio).at(-1)?.end || player.total;
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: cur() === k ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', items[i][0] === k)); redrawPanel(); } }, l)));
-  const q = seg([[360, 'Draft · 360p'], [480, 'Low · 480p'], [720, 'HD · 720p'], [1080, 'Full HD · 1080p'], [2160, '4K · 2160p']], () => S.quality, (v) => { S.quality = v; });
+  const q = seg([[480, 'Low · 480p'], [720, 'HD · 720p'], [1080, 'Full HD · 1080p'], [1440, '2K · 1440p'], [2160, '4K · 2160p']], () => S.quality, (v) => { S.quality = v; });
   const m = seg(multi ? [['fast', '⚡ Fast render']] : [['fast', '⚡ Fast render'], ['live', '⏺ Record live']], () => multi ? 'fast' : S.expMethod, (v) => { S.expMethod = v; });
   const fm = seg([['webm', 'WebM · smaller, sharper'], ['mp4', 'MP4 · plays everywhere']], () => S.format, (v) => { S.format = v; });
   const lv = seg([['std', 'Standard'], ['high', 'High'], ['max', 'Maximum']], () => S.level, (v) => { S.level = v; });
-  const f = seg([[12, '12 fps · draft'], [15, '15 fps · fast'], [24, '24 fps'], [30, '30 fps · smooth']], () => S.fps, (v) => { S.fps = v; });
+  const f = seg([[24, '24 fps'], [30, '30 fps · smooth'], [60, '60 fps · extra smooth']], () => S.fps, (v) => { S.fps = v; });
   const cScenes = h('div', { class: 'card flat' }, h('h2', {}, 'Scenes'), h('select', { 'aria-label': 'Export scenes', onchange: e => { S.exportScope = e.target.value; redrawPanel(); } }, h('option', { value: 'all', selected: S.exportScope === 'all' }, `All scenes (${S.scenes.length})`), h('option', { value: 'current', selected: S.exportScope === 'current' }, 'Current scene only')), h('p', { class: 'sub' }, 'All scenes join in tab order with Fast render, using the current scene’s aspect ratio. Live recording is available for the current scene.'));
   const cNoAudio = !hasAudio ? h('div', { class: 'card flat' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, `🔇 No audio added — this video will be ${duration.toFixed(1)} seconds long and silent. Add audio any time.`)) : null;
   const cMethod = h('div', { class: 'card flat' }, h('h2', {}, 'Method'), m,
@@ -3353,7 +3353,7 @@ let exportChecking = false;
 function openExportPopup() {
   if (bgExport) { toast('An export is already running. You can follow it in the box at the bottom left.'); return; }
   if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
-  S.format = 'mp4'; if (S.fps < 30) S.fps = 30;          // the popup always opens on a smooth 30 fps (an old project or a draft preset may have left 12 / 15 / 24)
+  S.format = 'mp4'; if (S.fps < 24) S.fps = 30; if (S.quality < 480) S.quality = 480;          // the popup always opens on a smooth 30 fps (an old project or a draft preset may have left 12 / 15 / 24)
   const scenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
   const duration = sequencePlan(scenes, sceneAudio).at(-1)?.end || player.total, sound = scenes.some((sc) => sc.doc.lines?.length) || scenes.some((sc) => sc.doc.music && !sc.doc.music.muted);
   const info = h('div', { class: 'exp-pop-info' });
@@ -3365,8 +3365,8 @@ function openExportPopup() {
   };
   const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { close(); doExport(); } }, 'Render');
   const close = modal('Export video', h('div', { class: 'exp-pop' },
-    h('h3', {}, 'Quality'), chips([[360, '360p'], [480, '480p'], [720, '720p'], [1080, '1080p'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; }),
-    h('h3', {}, 'Frames per second'), chips([[12, '12'], [15, '15'], [24, '24'], [30, '30'], [60, '60']], () => S.fps, (v) => { S.fps = v; }),
+    h('h3', {}, 'Quality'), chips([[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; }),
+    h('h3', {}, 'Frames per second'), chips([[24, '24'], [30, '30'], [60, '60']], () => S.fps, (v) => { S.fps = v; }),
     info, render));
   refresh();
 }
