@@ -7,17 +7,19 @@ import { friendlyError } from '../shared/hinglish-errors.js';
 
 const KINDS = [['prop', '🧸 Props'], ['effect', '💫 Effects']];
 const ACCESS_LABEL = { paid: 'Paid accounts only', free: 'Free for everyone' };
-const GROUP_LABEL = { general: 'General (Props tab)', hand: 'Hand (character toolbox)' };
+const GROUP_LABEL = { general: 'Object (Objects tab)', hand: 'Prop (character toolbox)' };
 const BLEND_LABEL = { normal: 'Normal', add: 'Glow (add)', screen: 'Screen' };
 
 /** `only` ('prop' | 'effect'): the same screen for one kind, without its own header, tabs or back button (used inside Admin → Add Assets). Returns the content element then. */
-export async function propsEffectsView({ back, home, toast, only = null }) {
+export async function propsEffectsView({ back, home, toast, only = null, group: fixedGroup = null }) {          // fixedGroup 'general' = Objects (stone, tree ...), 'hand' = Props (held in a hand)
   const root = h('div', { class: 'sh admin-assets admin-props-effects' });
   const tabs = h('div', { class: 'admin-assets-tabs', role: 'tablist', 'aria-label': 'Props aur effects' });
   const content = h('main', { class: 'admin-assets-content' });
   const state = { kind: only || 'prop', assets: [], loading: false, filter: 'all', sheet: false };
 
-  const records = () => state.assets.filter((asset) => asset.type === state.kind);
+  const inGroup = (asset) => !fixedGroup || asset.type !== 'prop' || (asset.group === 'hand') === (fixedGroup === 'hand');
+  const records = () => state.assets.filter((asset) => asset.type === state.kind && inGroup(asset));
+  const noun = state.kind === 'effect' ? 'effect' : fixedGroup === 'hand' ? 'prop' : fixedGroup === 'general' ? 'object' : 'prop';
   const categories = () => [...new Set(records().map((asset) => asset.category).filter(Boolean))].sort();
   async function refresh() {
     state.loading = true; draw();
@@ -64,26 +66,26 @@ export async function propsEffectsView({ back, home, toast, only = null }) {
     const placement = h('select', { 'aria-label': 'Placement' }, [['full', 'Full frame'], ['sticker', 'Small sticker']].map(([value, label]) => h('option', { value }, label)));
     const sheetOn = h('input', { type: 'checkbox', checked: state.sheet, onchange: (e) => { state.sheet = e.target.checked; draw(); } });
     const cols = h('input', { type: 'number', min: 1, max: 16, value: 4, 'aria-label': 'Sprite sheet columns' }), rows = h('input', { type: 'number', min: 1, max: 16, value: 4, 'aria-label': 'Sprite sheet rows' }), fps = h('input', { type: 'number', min: 1, max: 60, value: 12, 'aria-label': 'Sprite sheet fps' });
-    const submit = h('button', { class: 'btn pri', type: 'submit', disabled: state.loading }, effect ? 'Publish effect' : 'Publish prop');
+    const submit = h('button', { class: 'btn pri', type: 'submit', disabled: state.loading }, `Publish ${noun}`);
     return h('form', { class: 'admin-animation-form', onsubmit: async (event) => {
       event.preventDefault();
       const files = [...(file.files || [])];
       if (!files.length) { toast('Please choose an image file first.'); return; }
       const meta = { category: category.value.trim(), access: access.value };
-      if (!effect) meta.group = group.value;
+      if (!effect) meta.group = fixedGroup || group.value;
       if (effect) Object.assign(meta, { blend: blend.value, opacity: Number(opacity.value), placement: placement.value, ...(state.sheet ? { sheet: { cols: Number(cols.value), rows: Number(rows.value), fps: Number(fps.value) } } : {}) });
       try { cleanAssetMeta(state.kind, meta); } catch (error) { toast(error.message); return; }
       submit.disabled = true; state.loading = true;
       try {
         for (const picture of files) await saveStudioAsset(state.kind, name.value.trim() || picture.name.replace(/\.[^.]+$/, ''), picture, meta);
-        toast(`${files.length > 1 ? `${files.length} props` : effect ? 'Effect' : 'Prop'} published. Creators will see it in the studio.`);
+        toast(`${files.length > 1 ? `${files.length} ${noun}s` : noun[0].toUpperCase() + noun.slice(1)} published. Creators will see it in the studio.`);
         await refresh();
       } catch (e) { toast(`Could not publish: ${friendlyError(e)}`); }
       finally { state.loading = false; submit.disabled = false; }
     } },
-      field(effect ? 'Effect image / sprite sheet (up to 40 MB)' : 'Prop image(s) (PNG / WebP, up to 40 MB each)', file, true),
+      field(effect ? 'Effect image / sprite sheet (up to 40 MB)' : `${noun[0].toUpperCase() + noun.slice(1)} image(s) (PNG / WebP, up to 40 MB each)`, file, true),
       field('Name', name), field('Category', category), datalist,
-      ...(effect ? [] : [field('Prop type', group)]), field('Who can use it', access),
+      ...(effect || fixedGroup ? [] : [field('Prop type', group)]), field('Who can use it', access),
       ...(effect ? [field('Blend mode', blend), field('Opacity (0.05 – 1)', opacity), field('Placement', placement),
         h('label', { class: 'admin-animation-field' }, h('span', {}, 'This is a sprite sheet (frame-based animation)'), sheetOn),
         ...(state.sheet ? [field('Columns', cols), field('Rows', rows), field('Frames per second', fps)] : [])] : []),
@@ -108,13 +110,13 @@ export async function propsEffectsView({ back, home, toast, only = null }) {
     const effect = state.kind === 'effect', list = records(), cats = categories();
     const shown = list.filter((asset) => state.filter === 'all' || (asset.category || '') === state.filter);
     content.replaceChildren(...[
-      h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, effect ? 'Effects' : 'Props'),
+      h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, effect ? 'Effects' : fixedGroup === 'general' ? 'Objects' : 'Props'),
         h('p', {}, effect ? 'Upload effects like rain, sparkle, light leak here. Creators see them in the studio\'s Effects tab and apply them to the scene. The effect animates when a sprite sheet is provided.' : 'Upload props here. Creators see them by category in the studio\'s Props tab and place them in the scene.')),
       form(),
       cats.length ? h('div', { class: 'admin-assets-tabs', style: 'padding-left:0' }, [['all', 'All'], ...cats.map((c) => [c, c])].map(([value, label]) => h('button', { class: `admin-assets-tab ${state.filter === value ? 'active' : ''}`, type: 'button', onclick: () => { state.filter = value; draw(); } }, label))) : null,
       state.loading && !list.length ? h('p', { class: 'admin-assets-empty' }, 'Loading library…')
         : shown.length ? h('div', { class: 'admin-assets-grid' }, shown.map(card))
-          : h('div', { class: 'admin-assets-empty' }, h('span', {}, effect ? '💫' : '🧸'), h('b', {}, `No ${effect ? 'effect' : 'prop'} yet`), h('p', {}, 'Upload the first one above; it will show up for creators right away.')),
+          : h('div', { class: 'admin-assets-empty' }, h('span', {}, effect ? '💫' : fixedGroup === 'general' ? '🪵' : '🧸'), h('b', {}, `No ${noun} yet`), h('p', {}, 'Upload the first one above; it will show up for creators right away.')),
       only ? null : h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'),
     ].filter(Boolean));
   }

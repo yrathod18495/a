@@ -45,13 +45,13 @@ test('the bottom bar: Upload, Characters, Animations, Props, Background, Advance
   await phone(page, 390);
   const bar = page.locator('#app .tabs.big');
   const items = await bar.evaluate((el) => [...el.children].filter((c) => c.tagName === 'BUTTON' || c.tagName === 'DETAILS').map((c) => ({ label: c.tagName === 'DETAILS' ? c.querySelector('summary').textContent.trim() : c.textContent.trim(), left: c.getBoundingClientRect().left, right: c.getBoundingClientRect().right })));
-  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Props', 'Background', 'Advanced']);
+  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Objects', 'Background', 'Advanced']);
   const barBox = await bar.boundingBox();
   for (const i of items) { expect(i.left).toBeGreaterThanOrEqual(barBox.x - 1); expect(i.right).toBeLessThanOrEqual(barBox.x + barBox.width + 1); }     // all six are on screen
   await expect(bar.getByRole('button', { name: 'Export', exact: true })).toHaveCount(0);                                                                     // no Export button in the bar itself
   const tab = () => page.evaluate(() => window.__toon.S.tab);
   await bar.getByRole('button', { name: 'Upload' }).click(); expect(await tab()).toBe('audio');
-  await bar.getByRole('button', { name: 'Props' }).click(); expect(await tab()).toBe('props'); await expect(page.locator('.panel')).toContainText('Props');
+  await bar.getByRole('button', { name: 'Objects' }).click(); expect(await tab()).toBe('props'); await expect(page.locator('.panel')).toContainText('Objects');
   await bar.getByRole('button', { name: 'Background' }).click(); expect(await tab()).toBe('canvas');
   await bar.getByRole('button', { name: 'Characters' }).click(); expect(await tab()).toBe('chars');
   await bar.getByRole('button', { name: 'Animations' }).click(); expect(await tab()).toBe('anim');
@@ -73,5 +73,5 @@ test('on a wide screen the left menu is unchanged: Export is still listed under 
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Wide');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await expect(page.locator('#app .tabs.big .rail-btn')).toContainText(['Audio', 'Characters', 'Animations', 'Background', 'Props', 'Export']);
+  await expect(page.locator('#app .tabs.big .rail-btn')).toContainText(['Audio', 'Characters', 'Animations', 'Background', 'Objects', 'Export']);
 });

@@ -46,7 +46,7 @@ test('the back buttons inside admin sections return to the Overview', async ({ p
   await expect(page.locator('.admin-console-host > *')).toHaveCount(1);
 });
 
-test('Add Assets opens at once and has the sub-tabs Background, Props, Effects, Animation (no Characters button, no separate Props & Effects tab)', async ({ page }) => {
+test('Add Assets opens at once and has the sub-tabs Background, Objects, Props, Effects, Animation (no Characters button, no separate Props & Effects tab)', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await console_(page);
   // a slow server must not hold the page back
@@ -56,7 +56,7 @@ test('Add Assets opens at once and has the sub-tabs Background, Props, Effects, 
   await tabs.filter({ hasText: /^Add Assets$/ }).click();
   await expect(page.locator('.admin-assets-tab').first()).toBeVisible({ timeout: 1500 });
   expect(Date.now() - started).toBeLessThan(1500);
-  await expect(page.locator('.admin-assets-tab')).toHaveText(['🖼 Add Background', '🧸 Add Props', '💫 Add Effects', '🎬 Add Animation']);
+  await expect(page.locator('.admin-assets-tab')).toHaveText(['🖼 Add Background', '🪵 Add Objects', '🧸 Add Props', '💫 Add Effects', '🎬 Add Animation']);
   await expect(page.getByText('Characters →')).toHaveCount(0);
   await expect(tabs.filter({ hasText: /Props & Effects/ })).toHaveCount(0);
   await expect(tabs.filter({ hasText: /^Characters$/ })).toHaveCount(1);                    // Characters stays a main tab
@@ -75,7 +75,10 @@ test('Add Assets → Add Effects shows the effect form (blend, placement, sprite
   await expect(page.locator('.admin-console-host > *')).toHaveCount(1);                       // still one page inside the console
   await page.locator('.admin-assets-tab', { hasText: 'Add Props' }).click();
   await expect(page.getByRole('heading', { name: 'Props', level: 1 })).toBeVisible({ timeout: 5000 });
-  await expect(page.getByLabel('Prop type')).toBeVisible(); await expect(page.getByRole('button', { name: 'Publish prop' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Publish prop' })).toBeVisible(); await expect(page.getByLabel('Prop type')).toHaveCount(0);          // this tab is only for hand props: no type to choose
+  await page.locator('.admin-assets-tab', { hasText: 'Add Objects' }).click();
+  await expect(page.getByRole('heading', { name: 'Objects', level: 1 })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole('button', { name: 'Publish object' })).toBeVisible(); await expect(page.getByLabel('Prop type')).toHaveCount(0);
   await page.locator('.admin-assets-tab', { hasText: 'Add Background' }).click();
   await expect(page.getByRole('heading', { name: 'Add Backgrounds', level: 1 })).toBeVisible();
   await page.locator('.admin-assets-tab', { hasText: 'Add Effects' }).click();

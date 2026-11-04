@@ -95,7 +95,7 @@ test('search by name hides the other pictures in Props (Backgrounds has no searc
   const names = () => page.locator('.tile:not(.add):visible .tile-name').allTextContents();
   expect((await names()).sort()).toEqual(['Forest village', 'Palace hall']);
   await page.evaluate(() => { window.__toon.S.sharedAssets = [{ id: 'a1', type: 'prop', access: 'free', name: 'Lamp' }, { id: 'a2', type: 'prop', access: 'free', name: 'Chair' }]; window.__toon.openTab('props'); });
-  await page.getByLabel('Search props by name').fill('lam');
+  await page.getByLabel('Search objects by name').fill('lam');
   expect(await names()).toEqual(['Lamp']);
 });
 

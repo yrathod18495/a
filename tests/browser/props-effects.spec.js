@@ -35,7 +35,7 @@ test('props and effects come from the shared library, show in front, honour opac
   await studio(page); await publish(page);
   const rail = page.locator('#app .tabs.big');
   await rail.locator('.upload-tools>summary').click();
-  await rail.getByRole('button', { name: 'Props', exact: true }).click();
+  await rail.getByRole('button', { name: 'Objects', exact: true }).click();
   await expect(page.locator('.lib-card')).toHaveCount(1);
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.map((p) => p.kind))).toEqual(['prop']);
@@ -78,7 +78,7 @@ test('effects can be removed and props can be sent behind characters', async ({ 
   await studio(page); await publish(page);
   const rail = page.locator('#app .tabs.big');
   await rail.locator('.upload-tools>summary').click();
-  await rail.getByRole('button', { name: 'Props', exact: true }).click();
+  await rail.getByRole('button', { name: 'Objects', exact: true }).click();
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
   await page.getByLabel('Place behind the character').check();
@@ -102,7 +102,7 @@ test('a prop can be held in the left or right hand of a character and follows th
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
   await rail.locator('.upload-tools>summary').click();
-  await rail.getByRole('button', { name: 'Props', exact: true }).click();
+  await rail.getByRole('button', { name: 'Objects', exact: true }).click();
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
   // no character picked as holder yet: it stays where it is on the stage
