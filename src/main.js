@@ -691,19 +691,24 @@ function layoutTools() {
   syncLayoutUi(); return box;
 }
 /** "Show outside the frame": the editor looks at a larger area; the part inside the video frame is bright, what sticks out of it is dimmed. Editor only, never exported. */
-const OVERFLOW_ZOOM = 1.5;
-let overflowEl = null, overflowToggle = null;
-function overflowBtn() {
-  overflowToggle = h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-pressed': 'false', title: 'Show what is outside the video frame (dimmed)', 'aria-label': 'Show what is outside the video frame', onclick: () => setOverflow(!stage.overflow) }, icon('eye'));
-  return overflowToggle;
-}
+const OVERFLOW_ZOOM = 1.25;
+let overflowEl = null;
+/** The editor always looks at a slightly larger area than the video frame: what sticks out of the frame is dimmed, never exported. A character can be dragged out of the frame and is still there to edit. */
 function setOverflow(on) {
-  if (on && (S.exporting || S.step !== 3)) return;
-  stage.overflow = !!on; stage.overCam = null; overflowToggle?.setAttribute('aria-pressed', String(!!on)); overflowToggle?.classList.toggle('on', !!on);
-  if (overflowEl) { overflowEl.hidden = !on; const z = 1 / OVERFLOW_ZOOM, f = overflowEl.firstChild; Object.assign(f.style, { left: `${((1 - z) / 2) * 100}%`, top: `${((1 - z) / 2) * 100}%`, width: `${z * 100}%`, height: `${z * 100}%` }); }
-  if (on) { selEl && (selEl.hidden = true); Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (propSelEl) propSelEl.hidden = true; hideSelBar(); }
-  updateBgSel(); S.dirty = true; if (!on) updateSel();
+  on = !!on && !S.exporting && S.step === 3;
+  if (stage.overflow === on) return;
+  stage.overflow = on; stage.overCam = null;
+  paintOverflow();
+  stage.view = on ? { x: -(OVERFLOW_ZOOM - 1) / 2 * stage.W, y: -(OVERFLOW_ZOOM - 1) / 2 * stage.H, w: OVERFLOW_ZOOM * stage.W, h: OVERFLOW_ZOOM * stage.H } : { x: 0, y: 0, w: stage.W, h: stage.H };
+  updateBgSel(); S.dirty = true; updateSel();
 }
+function paintOverflow() {
+  if (!overflowEl) return;
+  const z = 1 / OVERFLOW_ZOOM, f = overflowEl.firstChild; overflowEl.hidden = !stage.overflow;
+  Object.assign(f.style, { left: `${((1 - z) / 2) * 100}%`, top: `${((1 - z) / 2) * 100}%`, width: `${z * 100}%`, height: `${z * 100}%` });
+}
+/** on for the character editing; off where the canvas is edited directly (a selected background, the camera, tear placement) */
+const wantOverflow = () => S.step === 3 && !S.exporting && !bgOf() && !(S.panelOpen && ['camera', 'tears', 'grade', 'canvas'].includes(S.tab));
 function resizeHandle(cls, label, onDrag, onReset) {
   const el = h('div', { class: `resize-handle ${cls}`, role: 'separator', title: `${label} — drag to resize, double-click to reset` });
   el.addEventListener('pointerdown', (e) => {
@@ -805,7 +810,7 @@ function viewStudio() {
     h('div', { class: 'studio' },
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard(), startPill = h('button', { class: 'start-pill', type: 'button', hidden: true, title: 'Show the quick start guide', 'aria-label': 'Show the quick start guide', onclick: () => setStartHidden(false) }, '☰ Quick start')),
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
-          h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), overflowBtn(), layoutTools()),
+          h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, h('div', { class: 'scene-row' }, sceneTabs(), grip), tools, tlBox),
       h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), clipNav = h('div', { class: 'clip-nav', hidden: true, role: 'toolbar', 'aria-label': 'Selected clip' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
@@ -2294,7 +2299,7 @@ function mountStage() {
   handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true })]));
   tearHandlesEl = h('div', { class: 'tear-handles', hidden: true }, tearHandle('left'), tearHandle('right'));
   selToolsEl = h('div', { class: 'sel-tools', hidden: true });
-  overflowEl = h('div', { class: 'of-clip', hidden: true }, h('div', { class: 'of-frame' }), h('span', { class: 'of-note' }, 'Dimmed = outside the video frame'));
+  overflowEl = h('div', { class: 'of-clip', hidden: true }, h('div', { class: 'of-frame' })); paintOverflow();
   wrapEl = h('div', { class: 'stagewrap' }, stage.out, overflowEl, bgSelEl, selEl, propSelEl, ...Object.values(handleEls), tearHandlesEl, selToolsEl);
   stageObserver?.disconnect();
   const box = document.getElementById('stagebox'); box.replaceChildren(wrapEl);
@@ -2306,10 +2311,10 @@ function mountStage() {
     const c = bgOf(); if (!c || S.exporting || S.sel || S.selectedPropId || stage.camZoom > 1.02) return;
     e.preventDefault(); bgXf(c).s = clampBgScale(bgXf(c).s * Math.exp(-e.deltaY * 0.0015)); pushBg(c);
   }, { passive: false });
-  const pt = (e) => { const r = stage.out.getBoundingClientRect(), k = stage.W / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
+  const pt = (e) => { const r = stage.out.getBoundingClientRect(), v = viewOf(); return { x: v.x + (e.clientX - r.left) / r.width * v.w, y: v.y + (e.clientY - r.top) / r.height * v.h }; };
   const layer = () => stage.layers.find((l) => l.key === S.sel);
   wrapEl.addEventListener('pointerdown', (e) => {
-    if (S.exporting || stage.overflow) return;          // while looking outside the frame the stage is view-only
+    if (S.exporting) return;
     if (e.target.closest('.sel-tools')) return;   // the floating character-tools toolbar sits over the canvas; its own buttons handle their clicks
     if (camPointerDown(e)) return;
     if (syncFullView()) return;
@@ -2431,8 +2436,8 @@ function saveXf(l) {
   const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf };
 }
 function updateSel() {
+  setOverflow(wantOverflow());
   syncStart(); updateBgSel();
-  if (stage.overflow) { selEl && (selEl.hidden = true); Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (propSelEl) propSelEl.hidden = true; return; }
   if (!selEl) return;
   const fullView = syncFullView();
   const prop = S.props.find((item) => item.id === S.selectedPropId);
@@ -2440,9 +2445,9 @@ function updateSel() {
     selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; });
     hideSelBar();
     if (hintEl) hintEl.hidden = true;
-    const k = stage.out.clientWidth / stage.W, w = (prop.w || .18) * stage.W * k, hgt = (prop.h || .18) * stage.H * k;
+    const v = viewOf(), k = stage.out.clientWidth / v.w, w = (prop.w || .18) * stage.W * k, hgt = (prop.h || .18) * stage.H * k;
     propSelEl.hidden = false;
-    Object.assign(propSelEl.style, { left: `${(prop.x ?? .5) * stage.out.clientWidth - w / 2}px`, top: `${(prop.y ?? .65) * stage.out.clientHeight - hgt / 2}px`, width: `${w}px`, height: `${hgt}px`, transform: `rotate(${prop.rotation || 0}deg)` });
+    Object.assign(propSelEl.style, { left: `${((prop.x ?? .5) * stage.W - v.x) * k - w / 2}px`, top: `${((prop.y ?? .65) * stage.H - v.y) * k - hgt / 2}px`, width: `${w}px`, height: `${hgt}px`, transform: `rotate(${prop.rotation || 0}deg)` });
     return;
   }
   if (propSelEl) propSelEl.hidden = true;
@@ -2457,16 +2462,17 @@ function updateSel() {
   const pct = selBar.querySelector('.pct'); if (pct) pct.textContent = `${Math.round((l.mul ?? 1) * 100)}%`;
   // the box never shows while playing or in a zoomed camera shot, so it can't cover the picture
   if (player.playing || stage.camZoom > 1.02) { hideBox(); return; }
-  const k = stage.out.clientWidth / stage.W, ch = stage.out.clientHeight, cw = stage.out.clientWidth, b = l.box, m = 18;
+  const v = viewOf(), k = stage.out.clientWidth / v.w, ch = stage.out.clientHeight, cw = stage.out.clientWidth, m = 18;
+  const b = { x0: l.box.x0 - v.x, x1: l.box.x1 - v.x, y0: l.box.y0 - v.y, y1: l.box.y1 - v.y };          // the box in view pixels (the view is bigger than the frame while the outside is shown)
   selEl.hidden = false;
   Object.assign(selEl.style, { left: `${b.x0 * k}px`, top: `${b.y0 * k}px`, width: `${(b.x1 - b.x0) * k}px`, height: `${(b.y1 - b.y0) * k}px` });
-  // handles stay inside the picture even when the character is bigger than the frame
+  // handles stay inside the picture even when the character is bigger than the view
   l.hpos = {};
   for (const [c, [x, y]] of Object.entries({ tl: [b.x0, b.y0], tr: [b.x1, b.y0], bl: [b.x0, b.y1], br: [b.x1, b.y1] })) {
     const px = Math.min(cw - m, Math.max(m, x * k)), py = Math.min(ch - m, Math.max(m, y * k)), el = handleEls[c];
     el.hidden = false; el.style.left = `${px}px`; el.style.top = `${py}px`;
     el.classList.toggle('pinned', Math.abs(px - x * k) > 1 || Math.abs(py - y * k) > 1);
-    l.hpos[c] = [px / k, py / k];
+    l.hpos[c] = [px / k + v.x, py / k + v.y];
   }
   if (selToolsEl) updateSelTools(l, b, k, cw, ch);
 }
@@ -3613,7 +3619,7 @@ function loop(now) {
   if (sceneChanging) return;
   if (S.exporting && !player.playing) return; // offline export drives the stage itself
   if (player.playing && player.time >= player.total && !S.exporting) { player.pause(); const next = S.scenes[S.scenes.findIndex(scene => scene.id === S.sceneId) + 1]; if (next && !sceneChanging) { switchScene(next.id, { play: true }); return; } if (S.loop) { if (S.scenes.length > 1 && S.sceneId !== S.scenes[0].id) { switchScene(S.scenes[0].id, { play: true }); return; } player.seek(0); player.play(); } S.dirty = true; }
-  syncFullView();
+  syncFullView(); if (stage.overflow !== wantOverflow()) setOverflow(!stage.overflow);
   if (!player.playing && !S.dirty) return;
   S.dirty = false;
   const t = player.time;

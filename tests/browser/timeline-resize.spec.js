@@ -65,23 +65,17 @@ test('when the project ID is replaced (it was already taken), the chip shows the
   await expect(page.locator('.project-id b')).toHaveText('123456789');
 });
 
-test('"show outside the frame" shows what sticks out of the video frame, dimmed, and turns off for export', async ({ page }) => {
+test('the area outside the video frame is always shown dimmed while editing', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await studio(page);
   await page.evaluate(async () => {
     const T = window.__toon, c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'); g.fillStyle = '#ffcc00'; g.fillRect(0, 0, 16, 16);
     T.S.props.push({ id: 'p-out', name: 'Lamp', visible: true, blob: await new Promise((r) => c.toBlob(r)), x: 0.5, y: 1.05, w: 0.3, h: 0.3 }); await T.stage.setProps(T.S.props); T.S.dirty = true;
   });
-  const toggle = page.locator('button[aria-label="Show what is outside the video frame"]');
-  await toggle.click();
-  await expect(page.locator('.of-clip')).toBeVisible();
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-  expect(await page.evaluate(() => window.__toon.stage.overflow)).toBe(true);
-  await expect.poll(() => page.evaluate(() => window.__toon.stage.camZoom)).toBeLessThan(0.8);          // the editor looks at a larger area than the frame
-  await expect(page.locator('.of-frame')).toBeVisible();
-  await toggle.click();
-  await expect(page.locator('.of-clip')).toBeHidden();
-  expect(await page.evaluate(() => window.__toon.stage.overflow)).toBe(false);
-  await expect.poll(() => page.evaluate(() => window.__toon.stage.camZoom)).toBeGreaterThan(0.99);
+  // there is no button for it: the area outside the frame is always shown (dimmed) while editing (the export turns it off in startExport)
+  await expect(page.locator('button[aria-label="Show what is outside the video frame"]')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.__toon.stage.overflow)).toBe(true);
+  await expect(page.locator('.of-clip')).toBeVisible(); await expect(page.locator('.of-frame')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__toon.stage.camZoom)).toBeLessThan(0.85);          // the editor looks at a larger area than the frame
   expect(errors).toEqual([]);
 });
