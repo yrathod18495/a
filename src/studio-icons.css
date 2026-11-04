@@ -421,6 +421,6 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 .lane2 .pflag .pf-cloth{height:15px;font-size:10px;line-height:15px;padding:0 6px 0 3px}
 .lane2 .pflag .pf-cloth svg{width:10px;height:10px}
 #app .ws .char-bar .cb-btn,#app .ws .clip-nav .cb-btn{color:var(--text)}
-#app .ws .char-bar .cb-btn svg,#app .ws .clip-nav .cb-btn svg{color:var(--ink)}
+#app .ws .char-bar .cb-btn svg,#app .ws .clip-nav .cb-btn svg{color:inherit}          /* the icon has the colour of its text (not --ink: in the studio that is the dark text colour for light buttons) */
 #app .ws .char-bar .cb-btn.danger,#app .ws .clip-nav .cb-btn.danger{color:#ff8f8f}
 #app .ws .char-bar .cb-btn.on,#app .ws .clip-nav .cb-btn.on{color:#fff}
