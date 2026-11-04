@@ -358,7 +358,6 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
           try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
           catch (error) { toast(`Could not apply the animation: ${error.message}`); apply.disabled = false; }
         } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, hasGif ? posterImg(a.poster, a.posterType) : '▶'),
-        a.length ? h('span', { class: 'animation-len' }, `${Number(a.length).toFixed(2)} s`) : null,
         h('span', { class: 'animation-copy', title: a.cat.layer || a.cat.name }, h('b', {}, a.name), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+')));
         const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${Math.floor(index / cols) * ROW}px;left:calc(${col} * (100% + ${GAP}px) / ${cols});width:calc((100% - ${(cols - 1) * GAP}px) / ${cols});height:${CARD}px` }, apply);
         if (!a.cat.overlay && a.ref.source !== 'mode' && !hasGif) {          // a card that has its own looping picture keeps it; the others play live when the pointer rests on them
@@ -462,7 +461,7 @@ function layerPlan(s) {
     }
     for (const m of own) {
       if (m.ref.source === 'mode') expandBody(m.ref, def, m.start, m.end, `${s.key}|m|${m.id}`).forEach((seg, j) => { refs.push(seg.ref); clips.push({ id: `m:${m.id}:${j}`, kind, name: animKey(seg.ref), start: seg.start, dur: seg.dur, off: seg.off, manual: true }); });
-      else { refs.push(m.ref); clips.push({ id: `m:${m.id}`, kind, name: animKey(m.ref), start: m.start, dur: m.end - m.start, off: m.off || 0, manual: true }); }
+      else { refs.push(m.ref); clips.push({ id: `m:${m.id}`, kind, name: animKey(m.ref), start: m.start, dur: m.end - m.start, off: m.off || 0, manual: true, ...(m.span > 0 ? { rate: rateOf(m) } : {}) }); }
       if (kind === 'body') extra.push({ start: m.start, end: m.end });
     }
   }
@@ -1234,10 +1233,12 @@ function pathClipFor(s) {
   return body.find((x) => x.id === S.mclip) || body.find((x) => player.time >= x.start - 0.01 && player.time < x.start + x.dur) || (body.length === 1 ? body[0] : null) || takeSoloBody(s);
 }
 function commitClips(redraw = true) { syncPaths(); updateTotal(); refreshPresence(); if (redraw) { drawTimeline(); } else drawClipBar(); }
+/** how many seconds of the animation one second of the clip shows: a clip made with a `span` plays that part of the animation over its whole length (slower when the clip is longer) */
+const DEFAULT_CLIP = 5, rateOf = (m) => (m.span > 0 && m.dur > 0 ? m.span / m.dur : 1);
 async function addClip(s, ref, overlay, length) {
-  const kind = ref.layer || (overlay ? 'face' : 'body'), dur = Math.max(0.3, +(length || 3).toFixed(2));
+  const kind = ref.layer || (overlay ? 'face' : 'body'), dur = DEFAULT_CLIP;          // every animation comes onto the timeline 5 seconds long; it plays once over the clip, so a longer clip is slower and a shorter one faster
   const start = Math.max(0, snap(Math.min(player.time, Math.max(0, player.total - 0.3))));
-  const m = { id: uid(), kind, ref: { ...ref }, start, dur, off: 0 };
+  const m = { id: uid(), kind, ref: { ...ref }, start, dur, off: 0, ...(length > 0 && ref.source !== 'mode' ? { span: +length.toFixed(3) } : {}) };
   (S.manual[s.key] ||= []).push(m); S.mclip = m.id;
   updateTotal();
   const b = busy('Adding animation…');
@@ -1472,8 +1473,8 @@ const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti()
 function dragClip(e, m, mode, el) {
   dragItem(e, mode === 'size' ? 'right' : mode, el, {
     id: m.id, key: keyOf('clip', m.id), lock: `char:${findManual(m.id)?.s?.key}`,
-    get: () => ({ start: m.start, dur: m.dur, off: m.off || 0 }),
-    set: (r) => { m.start = r.start; m.dur = r.dur; m.off = r.off; },
+    get: () => ({ start: m.start, dur: m.dur, off: m.span > 0 ? 1e6 : m.off || 0 }),          // a clip with a span is stretched, not trimmed: its edges can go any way
+    set: (r) => { m.start = r.start; m.dur = r.dur; if (!(m.span > 0)) m.off = r.off; },
     select: () => { selectOnly('clip', m.id); el.classList.add('sel'); },
   });
 }
@@ -1527,7 +1528,7 @@ function arrows(label, get, set, after) {
     h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': label === 'Move' ? 'Move earlier' : 'Shorter', title: label === 'Move' ? 'Move earlier (0.1 s)' : 'Shorter (0.1 s)', onclick: () => go(-NUDGE) }, icon('chevron-left')),
     h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': label === 'Move' ? 'Move later' : 'Longer', title: label === 'Move' ? 'Move later (0.1 s)' : 'Longer (0.1 s)', onclick: () => go(NUDGE) }, icon('chevron-right')));
 }
-const replaceClip = (s, m) => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); });
+const replaceClip = (s, m) => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length > 0 && ref.source !== 'mode') { m.span = +length.toFixed(3); m.off = 0; } else { delete m.span; if (length) m.dur = Math.max(0.3, +length.toFixed(2)); } const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); });
 /** move the selected clip (which = 'start') or make it longer / shorter (which = 'dur') by `delta` seconds: the arrows of the bottom bar on a phone */
 function nudgeSelected(which, delta) {
   const it = selectedItem(); if (!it) return;
@@ -1663,7 +1664,8 @@ async function splitSelected() {
   const t = player.time, inside = (a, b) => t > a + 0.1 && t < b - 0.1;
   if (it.kind === 'clip') {
     const { m, list } = it.f; if (!inside(m.start, m.start + m.dur)) { toast('Move the playhead inside the clip first.'); return; }
-    const at = snap(t), c = { ...m, id: uid(), ref: { ...m.ref }, start: at, dur: m.start + m.dur - at, off: (m.off || 0) + (at - m.start) };
+    const at = snap(t), r = rateOf(m), c = { ...m, id: uid(), ref: { ...m.ref }, start: at, dur: m.start + m.dur - at, off: (m.off || 0) + (at - m.start) * r };
+    if (m.span > 0) { c.span = +(m.span - (at - m.start) * r).toFixed(3); m.span = +((at - m.start) * r).toFixed(3); }          // each half keeps its part of the animation at the same speed
     m.dur = at - m.start; list.push(c); S.mclip = c.id; commitClips(); return;
   }
   if (it.kind === 'bg') {
@@ -3656,7 +3658,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, applyMoves, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, applyMoves, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

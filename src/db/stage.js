@@ -378,7 +378,7 @@ export class Stage {
   }
   /** apply a clip's animation(s): an optional idle base (head / body motion) with the gesture layered on top */
   stack(want, c, t, alpha) {
-    const off = t - c.start + (c.off || 0);
+    const off = (t - c.start) * (c.rate || 1) + (c.off || 0);          // c.rate: the whole animation is stretched over the clip (slower when the clip is longer)
     if (c.base) want.push({ name: c.base, time: Math.max(0, t), weight: alpha });
     want.push({ name: c.name, time: Math.max(0, off), weight: alpha });
   }
