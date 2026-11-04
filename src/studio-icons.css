@@ -354,8 +354,7 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 .pathshadow-layer{position:absolute;inset:0;z-index:30;cursor:grabbing;touch-action:none;background:#00000018}
 .pathshadow-layer svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .pathshadow-layer polyline{fill:none;stroke:#c9c0ff;stroke-width:2.5;stroke-dasharray:5 6;stroke-linecap:round;vector-effect:non-scaling-stroke}
-.pathshadow{position:absolute;width:auto;transform:translate(-50%,-100%) scaleX(var(--flip,1));opacity:.4;filter:grayscale(.6) brightness(.75);pointer-events:none;user-select:none}
-.pathshadow.boxed{mix-blend-mode:screen;filter:grayscale(.55) brightness(1.1)}          /* a picture that could not be cut out: the dark card disappears with a blend instead */
+.pathshadow{position:absolute;width:auto;transform:translate(-50%,-100%) scaleX(var(--flip,1));opacity:.4;filter:grayscale(.6) brightness(.75) blur(.6px);pointer-events:none;user-select:none}
 .pathshadow.blob{border-radius:40% 40% 8px 8px;background:#a597ff;filter:blur(1px)}
 .pflag{display:inline-block}
 .pflag.stage{position:absolute;z-index:2;transform:translate(-2px,-100%);width:auto;min-width:18px;height:16px;padding:0 5px 0 4px;border-radius:2px 6px 6px 2px;background:var(--acc,#7c6cf5);color:#fff;font:700 10px/16px system-ui,sans-serif;font-style:normal;pointer-events:none;box-shadow:0 1px 4px #0008}

@@ -1928,36 +1928,6 @@ function stopPathDraw() { const had = S.pathDraw; S.pathDraw?.cleanup(); S.pathD
  * a straight way from where the character stands (flag A) to where the shadow was left (flag B). The time is on the layer: the two flags
  * sit on the character's animation clip (its start and end) and can be dragged like keyframes.
  */
-/** a character picture on a flat dark / light card becomes a cut-out (the card colour is removed from the edges inwards), so the shadow has no box around it; returns null when it cannot be read */
-const cutoutCache = new Map();
-function cutout(src) {
-  if (!src) return Promise.resolve(null);
-  if (cutoutCache.has(src)) return cutoutCache.get(src);
-  const job = new Promise((resolve) => {
-    const img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const w = Math.min(320, img.naturalWidth), hh = Math.round(w * img.naturalHeight / img.naturalWidth), c = document.createElement('canvas'); c.width = w; c.height = hh;
-        const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, w, hh);
-        const d = g.getImageData(0, 0, w, hh), px = d.data, at = (x, y) => (y * w + x) * 4;
-        if (px[at(0, 0) + 3] < 200 && px[at(w - 1, 0) + 3] < 200) { resolve(null); return; }          // it already has a see-through background
-        const br = px[at(0, 0)], bg = px[at(0, 0) + 1], bb = px[at(0, 0) + 2], close = (i) => Math.abs(px[i] - br) + Math.abs(px[i + 1] - bg) + Math.abs(px[i + 2] - bb) < 48;
-        const seen = new Uint8Array(w * hh), stack = [];
-        const push = (x, y) => { if (x < 0 || y < 0 || x >= w || y >= hh) return; const k = y * w + x; if (seen[k] || !close(k * 4)) return; seen[k] = 1; stack.push(k); };
-        for (let x = 0; x < w; x++) { push(x, 0); push(x, hh - 1); } for (let y = 0; y < hh; y++) { push(0, y); push(w - 1, y); }
-        while (stack.length) { const k = stack.pop(), x = k % w, y = (k - x) / w; px[k * 4 + 3] = 0; push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1); }
-        g.putImageData(d, 0, 0);
-        // a dark outline all around the figure (a black copy of it drawn a little to every side, the figure on top)
-        const t = document.createElement('canvas'); t.width = w; t.height = hh; const tg = t.getContext('2d'); tg.drawImage(c, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = '#000'; tg.fillRect(0, 0, w, hh);
-        const o = document.createElement('canvas'); o.width = w; o.height = hh; const og = o.getContext('2d'), r = Math.max(2, Math.round(w / 70));
-        for (let a = 0; a < 16; a++) og.drawImage(t, Math.cos(a * Math.PI / 8) * r, Math.sin(a * Math.PI / 8) * r);
-        og.drawImage(c, 0, 0); resolve(o.toDataURL('image/png'));
-      } catch { resolve(null); }          // a picture from another site that the browser will not let us read
-    };
-    img.onerror = () => resolve(null); img.src = src;
-  });
-  cutoutCache.set(src, job); return job;
-}
 function startPathShadow(s) {
   if (S.exporting || !wrapEl) return;
   const clip = pathClipFor(s);
@@ -1972,12 +1942,11 @@ function startPathShadow(s) {
   const layer = h('div', { class: 'pathshadow-layer' }), svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = '<polyline points=""/>';
   const shadow = src ? h('img', { class: 'pathshadow', src, alt: '', draggable: 'false' }) : h('div', { class: 'pathshadow blob' });
-  if (src) cutout(src).then((u) => { if (u && shadow.isConnected) shadow.src = u; else if (!u) shadow.classList.add('boxed'); });          // no box around the shadow
   shadow.style.height = `${heightPct}%`; if (!src) shadow.style.width = `${widthPct}%`;
   if (s.flip) shadow.style.setProperty('--flip', '-1');
   const flag = (which) => h('i', { class: `pflag stage ${which}` }, which.toUpperCase());
   const flagA = flag('a'), flagB = flag('b');
-  const bar = h('div', { class: 'pathbar' }, h('span', { class: 'pathhint' }, `Drag the shadow, then press Done`),
+  const bar = h('div', { class: 'pathbar' }, h('span', { class: 'pathhint' }, `Drag the shadow box, then press Done`),
     h('button', { type: 'button', class: 'btn sm', onclick: () => { stopPathDraw(); drawTabs(); } }, 'Cancel'), h('button', { type: 'button', class: 'btn sm pri', onclick: () => finish() }, 'Done'));
   for (const type of ['pointerdown', 'pointerup', 'pointermove', 'click']) bar.addEventListener(type, (e) => e.stopPropagation());          // the buttons are not part of the drawing area
   layer.append(svg, shadow, flagA, flagB, bar);
@@ -1989,11 +1958,12 @@ function startPathShadow(s) {
   const show = () => { place(shadow, B); place(flagA, A); place(flagB, B); line.setAttribute('points', penLine([A, B])); };
   show();
   let down = false, grab = { x: 0, y: 0 };
-  // a touch near the shadow takes it where it is (no jump); a touch somewhere else puts the shadow there. Lifting the finger does not finish: press Done.
+  // only a touch ON the shadow (or its B flag) picks it up, and it moves by the finger's distance: a touch anywhere else does nothing, so the shadow never jumps. Lifting the finger does not finish: press Done.
   const onDown = (e) => {
+    const hit = (el) => { const r = el.getBoundingClientRect(), pad = 26; return e.clientX >= r.left - pad && e.clientX <= r.right + pad && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad; };
+    if (!hit(shadow) && !hit(flagB)) return;
     e.preventDefault(); e.stopPropagation(); layer.setPointerCapture(e.pointerId); down = true;
-    const p = at(e), near = Math.hypot((p.x - B.x) * stage.W, (p.y - B.y) * stage.H) < Math.max(60, stage.H * 0.35);
-    grab = near ? { x: B.x - p.x, y: B.y - p.y } : { x: 0, y: 0 }; B = { x: p.x + grab.x, y: p.y + grab.y }; show();
+    const p = at(e); grab = { x: B.x - p.x, y: B.y - p.y };
   };
   const onMove = (e) => { if (down) { const p = at(e); B = { x: p.x + grab.x, y: p.y + grab.y }; show(); } };
   const onUp = () => { down = false; };
