@@ -98,3 +98,45 @@ test('search by name hides the other pictures in Props (Backgrounds has no searc
   await page.getByLabel('Search props by name').fill('lam');
   expect(await names()).toEqual(['Lamp']);
 });
+
+test('hold a background tile: effects (None, Night second ...) apply to it, and Delete removes it', async ({ page }) => {
+  await open(page, 390);
+  await page.evaluate(async () => {
+    const { S } = window.__toon, png = await (await fetch('data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==')).blob();
+    S.myBgs.push({ id: 'g1', name: 'Forest village.png', blob: png }, { id: 'g2', name: 'Palace hall.png', blob: png });
+    window.__toon.openTab('canvas');
+  });
+  const tile = page.locator('.tile', { hasText: 'Forest village' }); await expect(tile).toBeVisible();
+  await expect(tile.locator('.x')).toHaveCount(0);                      // no cross on the tile: Delete is in the hold sheet
+  const b = await tile.boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
+  const sheet = page.locator('.modal'); await expect(sheet).toBeVisible();
+  await expect(sheet.locator('.bg-fx')).toHaveText(['None', 'Night', 'Evening', 'Dawn', 'Gloomy']);          // Night is second
+  expect(await page.evaluate(() => window.__toon.S.bgClips.length)).toBe(0);          // holding did not add it
+  await sheet.locator('.bg-fx[data-fx="night"]').click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.map((c) => [c.bgId, c.fx, c.dur]))).toEqual([['g1', 'night', 5]]);
+  // a normal tap still adds a plain 5 s clip
+  await page.locator('.tile', { hasText: 'Palace hall' }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(2);
+  expect(await page.evaluate(() => window.__toon.S.bgClips[1].fx)).toBeUndefined();
+  // Delete from the same sheet
+  const b2 = await page.locator('.tile', { hasText: 'Palace hall' }).boundingBox();
+  await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
+  await page.locator('.modal .bg-delete').click();
+  await expect(page.locator('.tile', { hasText: 'Palace hall' })).toHaveCount(0);
+  expect(await page.evaluate(() => window.__toon.S.myBgs.map((r) => r.id))).toEqual(['g1']);
+});
+
+test('a background with the Night effect is really drawn darker and bluer', async ({ page }) => {
+  await open(page, 390);
+  const px = await page.evaluate(async () => {
+    const { S, stage, player, drawTimeline } = window.__toon;
+    const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, 8, 8);
+    const blob = await new Promise((r) => c.toBlob(r)); S.myBgs.push({ id: 'g1', name: 'Grey.png', blob });
+    S.bgClips.push({ id: 'b1', bgId: 'g1', preset: 0, start: 0, dur: 5 });
+    const sample = async () => { await stage.setBackgroundClips(S.bgClips.map((k) => ({ fx: k.fx || null, start: k.start, dur: k.dur, preset: 0, blob })), true); stage.render(1, 0, [], []); const t = document.createElement('canvas'); t.width = stage.out.width; t.height = stage.out.height; const x = t.getContext('2d'); x.drawImage(stage.out, 0, 0); return [...x.getImageData(t.width >> 1, 4, 1, 1).data].slice(0, 3); };
+    const plain = await sample(); S.bgClips[0].fx = 'night'; const night = await sample();
+    return { plain, night };
+  });
+  expect(px.night[0]).toBeLessThan(px.plain[0] * 0.6); expect(px.night[2]).toBeGreaterThan(px.night[0]);          // darker and bluer
+});

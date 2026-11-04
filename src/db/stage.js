@@ -1,5 +1,6 @@
 // The animation stage on DragonBones: layered clips (body + legs / hand / face layers) with cross-fades, shots / camera, lip-sync, free camera.
 // Characters are DragonBones armatures (src/db/glslot.js) drawn by our WebGL renderer (src/db/renderer.js).
+import { bgTint } from '../../shared/bg-effects.js';
 import { gradeAt } from '../../shared/color-grade.js';
 import { bindTearEyes, drawTears } from './tears.js';
 import { GLFactory } from './glslot.js';
@@ -327,7 +328,7 @@ export class Stage {
   async setBackgroundClips(clips = [], blankOutside = false) {
     this.blankOutside = !!blankOutside;          // true once the whole-scene background was turned into clips: outside the clips the canvas is plain black
     const next = [];
-    for (const c of clips) next.push({ start: c.start, end: c.start + c.dur, preset: c.preset ?? 0, image: c.blob ? await loadImage(c.blob) : null, xf: c.xf || null });
+    for (const c of clips) next.push({ start: c.start, end: c.start + c.dur, preset: c.preset ?? 0, image: c.blob ? await loadImage(c.blob) : null, xf: c.xf || null, fx: c.fx || null });
     this.bgClips = next;
     for (const c of next) this.bgTexture(c.preset, c.image);          // build the pictures now, not in the middle of playback
   }
@@ -353,7 +354,7 @@ export class Stage {
   setBgXf(index, xf) { if (this.bgClips[index]) this.bgClips[index].xf = xf ? { ...xf } : null; }
   ensureBackground(t = 0) {
     const clip = this.bgClips.find((c) => t >= c.start && t < c.end);
-    this.bgXf = clip?.xf || null;
+    this.bgXf = clip?.xf || null; this.bgFx = clip?.fx || null;
     this.bgTex = clip ? this.bgTexture(clip.preset, clip.image) : this.blankOutside ? this.bgTexture('blank', null) : this.bgTexture(this.bg.preset, this.bg.image);
   }
 
@@ -489,9 +490,10 @@ export class Stage {
     r.begin(W, H, { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
     r.setMask(null, W, H);
     const bx = this.bgXf;
-    if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, 0, 0, W, H, 0.4);          // a shrunk or moved background: the rest of the frame shows a dimmed copy of it (never black)
-      r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh); }
-    else r.quad(this.bgTex, 0, 0, W, H);
+    const tint = this.bgFx ? bgTint(this.bgFx) : [1, 1, 1];          // the effect of this background (Night, Evening ...)
+    if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, 0, 0, W, H, tint.map((v) => v * 0.4));          // a shrunk or moved background: the rest of the frame shows a dimmed copy of it (never black)
+      r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh, tint); }
+    else r.quad(this.bgTex, 0, 0, W, H, tint);
     this.drawProps(t, true);                               // props placed behind the characters
     const list = [];
     for (const layer of this.layers) layer.tearAnchors = {};

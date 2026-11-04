@@ -434,3 +434,7 @@ body.path-mode .lane2 .pflag:not(.stage){pointer-events:auto}
 .close-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:90;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:var(--card2);border:1px solid var(--line);box-shadow:0 10px 30px #000a;white-space:nowrap;color:var(--text);font-size:13px;font-weight:650}
 .close-pop[hidden]{display:none}
 .close-pop .btn{min-height:34px;padding:0 12px}
+.bg-fx-row{display:flex;flex-wrap:wrap;gap:8px}
+.bg-fx{display:inline-flex;align-items:center;gap:7px}
+.bg-fx .fx-dot{width:12px;height:12px;border-radius:50%;border:1px solid #fff6;display:inline-block}
+.bg-delete{display:inline-flex;align-items:center;gap:6px;color:#ff8f8f}

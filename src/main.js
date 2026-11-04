@@ -31,6 +31,7 @@ import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError, currentPlan, refreshPlan } from './export-plan.js';
+import { BG_EFFECTS, bgEffectId } from '../shared/bg-effects.js';
 import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
@@ -1210,7 +1211,7 @@ const findManual = (id) => { for (const [k, list] of Object.entries(S.manual)) {
 /** an empty scene is 8 s; otherwise the end of the last clip (animation, background clip, effect with an end) decides. Trimming clips shortens the scene. With audio the voice decides the length. */
 const sceneLen = () => contentLength({ solo: S.solo, speakers: S.speakers, manual: S.manual, bgClips: S.bgClips, props: S.props, camKeys: S.camKeys, charKeys: S.charKeys, gradeKeys: S.gradeKeys });
 /** background clips as the stage wants them: the picture is looked up in the user's own backgrounds */
-const bgClipJobs = () => S.bgClips.map((c) => ({ start: c.start, dur: c.dur, xf: c.xf || null, preset: c.preset ?? 0, blob: c.bgId ? S.myBgs.find((r) => r.id === c.bgId)?.blob ?? null : null }));
+const bgClipJobs = () => S.bgClips.map((c) => ({ fx: c.fx || null, start: c.start, dur: c.dur, xf: c.xf || null, preset: c.preset ?? 0, blob: c.bgId ? S.myBgs.find((r) => r.id === c.bgId)?.blob ?? null : null }));
 const bgBlankOutside = () => S.bgClips.some((c) => c.base);
 const syncBgClips = async () => { await stage.setBackgroundClips(bgClipJobs(), bgBlankOutside()); S.dirty = true; };
 function updateTotal() {
@@ -3155,8 +3156,16 @@ async function addOwnProps(files) {
 const filterTiles = (grid) => { const q = (grid.dataset.q || '').trim().toLowerCase(); for (const t of grid.querySelectorAll('.tile:not(.add)')) t.hidden = !!q && !(t.dataset.name || '').includes(q); };
 const tileSearch = (grid, label) => h('input', { type: 'search', class: 'tile-search', placeholder: `Search ${label} by name…`, 'aria-label': `Search ${label} by name`, oninput: (e) => { grid.dataset.q = e.target.value; filterTiles(grid); } });
 /** one picture tile of the Props / Effects / Background lists (same look as the animation cards): a picture with its name underneath; `add` makes the dashed "+" tile */
-function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, onclick, onremove, onview, viewing }) {
-  return h('button', { type: 'button', 'data-name': String(name || '').toLowerCase(), class: `tile${add ? ' add' : ''}${on ? ' on' : ''}${locked ? ' locked' : ''}${cover ? ' cover' : ''}`, title: title || name, 'aria-disabled': locked ? 'true' : undefined, onclick },
+function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, onclick, onremove, onview, viewing, onhold }) {
+  // onhold: pressing and holding the tile (half a second) opens its options instead of adding it
+  let timer = 0, held = false;
+  const cancel = () => { clearTimeout(timer); timer = 0; };
+  const holdProps = onhold ? {
+    onpointerdown: (e) => { held = false; cancel(); const x = e.clientX, y = e.clientY; timer = setTimeout(() => { held = true; onhold(); }, 550); e.currentTarget._at = { x, y }; },
+    onpointermove: (e) => { const a = e.currentTarget._at; if (a && Math.hypot(e.clientX - a.x, e.clientY - a.y) > 10) cancel(); },
+    onpointerup: cancel, onpointercancel: cancel, onpointerleave: cancel, oncontextmenu: (e) => { e.preventDefault(); cancel(); if (!held) { held = true; onhold(); } },
+  } : {};
+  return h('button', { type: 'button', 'data-name': String(name || '').toLowerCase(), class: `tile${add ? ' add' : ''}${on ? ' on' : ''}${locked ? ' locked' : ''}${cover ? ' cover' : ''}`, title: title || name, 'aria-disabled': locked ? 'true' : undefined, ...holdProps, onclick: (e) => { if (held) { held = false; e.preventDefault(); return; } onclick?.(e); } },
     locked ? lockBadge() : null,
     h('span', { class: 'tile-pic' }, add ? h('span', { class: 'tile-plus' }, '+') : src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : glyph),
     h('span', { class: 'tile-name' }, h('b', {}, name)),
@@ -3256,10 +3265,26 @@ function tabCanvas() {
     drawTabs();
     updateTotal(); drawTimeline(); S.dirty = true;
   };
+  /** hold a background: effects for it (Night, Evening ...) and Delete */
+  const applyBgFx = async (rec, fxId) => {
+    const fx = bgEffectId(fxId), usable = (c) => c.bgId === rec.id;
+    let c = S.bgClips.find((x) => x.id === S.bgSel && usable(x)) || S.bgClips.find((x) => usable(x) && player.time >= x.start && player.time < x.start + x.dur);
+    if (!c) { await addBgClip(rec); c = S.bgClips.find((x) => x.id === S.bgSel && usable(x)) || S.bgClips.at(-1); }
+    if (!c) return;
+    if (fx) c.fx = fx; else delete c.fx;
+    S.bgSel = c.id; await syncBgClips(); S.dirty = true; commitClips(); drawTabs();
+  };
+  const openBgOptions = (rec) => {
+    const cur = S.bgClips.find((x) => x.id === S.bgSel && x.bgId === rec.id)?.fx || 'none';
+    let close;
+    const chips = BG_EFFECTS.map((e) => h('button', { type: 'button', class: `btn sm bg-fx${cur === e.id ? ' pri' : ''}`, 'data-fx': e.id, 'aria-pressed': String(cur === e.id), onclick: async () => { close(); await applyBgFx(rec, e.id); } }, h('i', { class: 'fx-dot', style: `background:${e.dot}` }), e.name));
+    close = modal(rec.name.replace(/\.[^.]+$/, ''), h('div', {}, h('h3', { style: 'margin:0 0 8px' }, 'Effects'), h('div', { class: 'bg-fx-row' }, chips),
+      h('div', { class: 'row', style: 'margin-top:14px' }, h('button', { type: 'button', class: 'btn sm danger bg-delete', onclick: async () => { close(); await removeBg(rec); } }, icon('trash'), ' Delete this background'))));
+  };
   // one list: "+" first (opens the device's files), then the pictures this project already has, the generated ones and the admin's shared scenes
   const mine = h('div', { class: 'tile-grid' },
     tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => file.click() }),
-    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: r.name, onclick: () => pickBg(r), onremove: () => removeBg(r) })),
+    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: `${r.name} · hold for effects and delete`, onclick: () => pickBg(r), onhold: () => openBgOptions(r) })),
     shared('background').map(sharedTile));
   generatedTiles(pickBg, mine);
   // plain colours: small round swatches, the last one opens the colour picker so the user can make any colour of their own

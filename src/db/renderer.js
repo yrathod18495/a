@@ -173,8 +173,9 @@ export class GLRenderer {
     this.nv += n; this.ni += k;
   }
   /** a flat picture covering the canvas (background) */
-  quad(tex, x, y, w, h, shade = 1) {
-    this.add({ verts: new Float32Array([x, y, x + w, y, x + w, y + h, x, y + h]), uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: 1, r: shade, g: shade, b: shade, blend: 0 }, tex, [1, 0, 0, 1, 0, 0]);
+  quad(tex, x, y, w, h, shade = 1) {          // shade: one brightness, or a [r, g, b] tint
+    const [r, g, b] = Array.isArray(shade) ? shade : [shade, shade, shade];
+    this.add({ verts: new Float32Array([x, y, x + w, y, x + w, y + h, x, y + h]), uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: 1, r, g, b, blend: 0 }, tex, [1, 0, 0, 1, 0, 0]);
   }
   end(seed = 0) { this.flush(); if (this.grade && this.scene) this.gradePass(seed); }
 }
