@@ -373,3 +373,8 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
   #app .ws .tl2 .tclip .tn{font-size:10.5px}
   #app .ws .tl2 .pflag .pf-cloth{font-size:7.5px}
 }
+
+/* the "..." menu: full-width rows that do not wrap */
+#app .ws .studio-menu-panel{display:flex;flex-direction:column;gap:6px;padding:8px}
+#app .ws .studio-menu-panel .btn{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;white-space:nowrap;height:auto;min-height:38px;padding:6px 10px}
+#app .ws .studio-menu-panel .btn svg{width:18px;height:18px}

@@ -3484,6 +3484,12 @@ async function stepHistory(dir) {
   } finally { b.done(); hist.busy = false; updateHistoryButtons(); S.dirty = true; }
   await tick();
 }
+/** reloads the website (the project is saved first); the page opens again with the newest version of the site */
+async function refreshSite() {
+  if ((S.exporting || bgExport) && !confirm('A video is being made. Refreshing the page stops it. Refresh anyway?')) return;
+  try { await tick({ sceneCommit: true }); } catch { /* the autosave keeps what it already saved */ }
+  location.reload();
+}
 async function resetEverything() {
   if (!confirm('Reset this project? This removes its characters, clips and audio from this device. Other projects are preserved. This cannot be undone.')) return;
   S.ready = false; player?.pause();
@@ -3519,7 +3525,7 @@ function headerTools() {
   exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: () => openExportPopup() }, icon('download'));
   const closeBtn = h('button', { class: 'btn sm icon-btn close-studio', 'aria-label': 'Close studio', title: 'Close studio — back to your projects', onclick: goHome }, icon('x'));
   return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), h('span', { class: 'studio-brand', title: '12toons', 'aria-label': '12toons' }, ...brandWordmark()), h('span', { class: 'sp' }), creditsBadge({ compact: true }), projectIdChip(), saveDetails, hdrUndo, hdrRedo,
-    h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
+    h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm refresh-site', type: 'button', onclick: refreshSite }, h('span', {}, icon('rotate')), ' Refresh the page'), h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
     exportBtn, closeBtn);
 }
 matchMedia('(min-width: 1000px)').addEventListener?.('change', () => { if (!$app.hidden && S.ready && tabsEl) { drawTabs(); S.dirty = true; } });
@@ -3566,7 +3572,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
