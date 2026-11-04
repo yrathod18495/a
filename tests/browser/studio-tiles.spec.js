@@ -142,3 +142,17 @@ test('a background with the Night effect is really drawn darker and bluer', asyn
   });
   expect(px.night[0]).toBeLessThan(px.plain[0] * 0.6); expect(px.night[2]).toBeGreaterThan(px.night[0]);          // darker and bluer
 });
+
+test('with the playhead on the very last second the last background is still shown (not black)', async ({ page }) => {
+  await open(page, 390);
+  const px = await page.evaluate(async () => {
+    const { S, stage } = window.__toon;
+    const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, 8, 8);
+    const blob = await new Promise((r) => c.toBlob(r));
+    await stage.setBackgroundClips([{ start: 0, dur: 5, preset: 0, blob }], true);
+    const at = (t) => { stage.render(t, 0, [], []); const x = document.createElement('canvas'); x.width = stage.out.width; x.height = stage.out.height; const k = x.getContext('2d'); k.drawImage(stage.out, 0, 0); return [...k.getImageData(x.width >> 1, 4, 1, 1).data].slice(0, 3); };
+    return { inside: at(4.9), end: at(5), after: at(5.5) };
+  });
+  expect(px.inside[0]).toBeGreaterThan(100); expect(px.end[0]).toBeGreaterThan(100);          // the last second keeps the picture
+  expect(px.after[0]).toBeLessThan(40);                                                       // well after the end there is nothing (outside the clips the canvas is black)
+});

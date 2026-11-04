@@ -448,8 +448,16 @@ export class Stage {
    * Draw one frame. t = timeline seconds, dt = real seconds advanced (0 when scrubbing).
    * clips: timeline clips; active clip drives the speaker's mouth.
    */
+  /** the very end of the scene (the playhead parked on the last second) shows the last picture instead of nothing: clips end at t = end, so look a hair before it */
+  holdEnd(t) {
+    let end = 0;
+    for (const c of this.bgClips || []) end = Math.max(end, c.end);
+    for (const l of this.layers) { for (const c of l.clips || []) end = Math.max(end, c.start + c.dur); for (const x of l.present || []) end = Math.max(end, x.end); }
+    return end > 0 && t >= end - 1e-6 && t <= end + 0.06 ? end - 1e-3 : t;
+  }
   render(t, dt, clips, plan) {
     const { r, W, H } = this;
+    const th = this.holdEnd(t);
     let moved = false;
     for (const l of this.layers) if (l.keys?.length) {
       const v = this.keyChar(l.keys, t);
@@ -457,9 +465,9 @@ export class Stage {
     }
     if (moved) this.layout();
     for (const l of this.layers) {
-      l.shown = !l.present || l.present.some((x) => t >= x.start && t < x.end);
+      l.shown = !l.present || l.present.some((x) => th >= x.start && th < x.end);
       l.motion.reset();                                   // offsets of the last frame (physics, life, proportions) are removed before the pose is evaluated
-      this.pose(l, t);
+      this.pose(l, th);
       this.life(l, t);
       l.motion.fitting();                                 // proportions: leg / arm / hand length
       l.arm.advanceTime(0);
@@ -480,7 +488,7 @@ export class Stage {
       else l.mask={...l.mask,x:a.x,y:a.y,w:a.w,h:a.h};
       if(l.maskFollow){const bone=l.arm.getBone(l.maskFollow);if(bone){const m=bone.globalTransformMatrix, p={x:l.mat[0]*m.tx+l.mat[2]*m.ty+l.mat[4],y:l.mat[1]*m.tx+l.mat[3]*m.ty+l.mat[5]};l.mask={...l.mask,x:(p.x-l.mask.w*this.W/2)/this.W,y:(p.y-l.mask.h*this.H/2)/this.H};}}
     }
-    this.ensureBackground(t);
+    this.ensureBackground(th);
     r.target(this.gradeKeys.length ? gradeAt(this.gradeKeys, t, this.grade) : this.grade, W, H);                             // colour grade on: the scene goes into a texture first
     r.clear(...(this.userCam ? [0.93, 0.95, 0.97] : this.overflow ? [0.1, 0.11, 0.13] : [0, 0, 0]));
     const cam = this.cameraAt(plan, t), vw = W / cam.zoom, vh = H / cam.zoom;
@@ -494,7 +502,7 @@ export class Stage {
     if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, 0, 0, W, H, tint.map((v) => v * 0.4));          // a shrunk or moved background: the rest of the frame shows a dimmed copy of it (never black)
       r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh, tint); }
     else r.quad(this.bgTex, 0, 0, W, H, tint);
-    this.drawProps(t, true);                               // props placed behind the characters
+    this.drawProps(th, true);                               // props placed behind the characters
     const list = [];
     for (const layer of this.layers) layer.tearAnchors = {};
     for (const l of this.layers) if (l.visible !== false && l.shown !== false) {
@@ -504,7 +512,7 @@ export class Stage {
       drawTears(r, this.tearTex, l, list, t);
     }
     r.setMask(null, W, H);
-    this.drawProps(t, false);
+    this.drawProps(th, false);
     r.end(Math.floor(t * 30));
     this.onFrame?.();
   }

@@ -1075,7 +1075,7 @@ function drawTimeline() {
       (S.bgId || stage.bg.preset !== 0) && !S.bgClips.some((c) => c.base) ? h('div', { class: 'tclip bg base', title: `Background · ${bgName} (whole scene) — click to select, then split, trim or move it`, onpointerdown: (e) => { if (e.button || S.exporting) return; e.preventDefault(); takeBaseBackground(); }, style: `left:0;width:${Math.max(40, total * pps)}px` }, h('span', { class: 'tn' }, `Background · ${bgName}`)) : null);
     for (const c of S.bgClips) {
       const nm = (c.bgId ? (S.myBgs.find((r) => r.id === c.bgId)?.name || 'Background image').replace(/\.[^.]+$/, '') : (BACKGROUNDS[c.preset] || BACKGROUNDS[0]).name), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
-      const el = h('div', { 'data-key': keyOf('bg', c.id), class: `tclip bg mine ${c.id === S.bgSel ? 'sel' : ''} ${multi.has(keyOf('bg', c.id)) ? 'msel' : ''} ${isLocked('bg') ? 'locked' : ''}`, title: `${nm} — drag to move, drag an edge to resize`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `🖼 ${nm}`), rz);
+      const el = h('div', { 'data-key': keyOf('bg', c.id), class: `tclip bg mine ${c.id === S.bgSel ? 'sel' : ''} ${multi.has(keyOf('bg', c.id)) ? 'msel' : ''} ${bgLockedNow(c) ? 'locked' : ''}`, title: `${nm} — drag to move, drag an edge to resize`, style: `left:${c.start * pps}px;width:${Math.max(6, c.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `🖼 ${nm}`), rz);
       el.addEventListener('pointerdown', (e) => dragBgClip(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
       bgLane.append(el);
     }
@@ -1089,7 +1089,7 @@ function drawTimeline() {
     const rowEls = [];
     for (const prop of rowProps) {
     const start = prop.start || 0, end = prop.end ?? total, lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
-    const el = h('div', { 'data-key': keyOf('prop', prop.id), class: `tclip prop ${isEffect(prop) ? 'fx' : ''} mine ${prop.id === S.propSel ? 'sel' : ''} ${multi.has(keyOf('prop', prop.id)) ? 'msel' : ''} ${isLocked(`prop:${prop.lane || prop.id}`) ? 'locked' : ''}`, title: `${prop.name} — drag to move, drag an edge to resize`, style: `left:${start * pps}px;width:${Math.max(6, (end - start) * pps)}px` }, lz, h('span', { class: 'tn' }, `${isEffect(prop) ? '✨' : '🧸'} ${prop.name}`), rz);
+    const el = h('div', { 'data-key': keyOf('prop', prop.id), class: `tclip prop ${isEffect(prop) ? 'fx' : ''} mine ${prop.id === S.propSel ? 'sel' : ''} ${multi.has(keyOf('prop', prop.id)) ? 'msel' : ''} ${propLockedNow(prop) ? 'locked' : ''}`, title: `${prop.name} — drag to move, drag an edge to resize`, style: `left:${start * pps}px;width:${Math.max(6, (end - start) * pps)}px` }, lz, h('span', { class: 'tn' }, `${isEffect(prop) ? '✨' : '🧸'} ${prop.name}`), rz);
     el.addEventListener('pointerdown', (e) => dragPropRange(e, prop, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
       rowEls.push(el);
     }
@@ -1137,7 +1137,7 @@ function drawTimeline() {
       }
       for (const m of (S.manual[s.key] || []).filter((x) => x.kind === kind)) {
         const name = m.ref.name.replace(/^Listener · /, ''), rz = h('i', { class: 'rz' }), lz = h('i', { class: 'lz' });
-        const el = h('div', { 'data-mid': m.id, 'data-key': keyOf('clip', m.id), class: `tclip ${kind} mine ${m.id === S.mclip ? 'sel' : ''} ${multi.has(keyOf('clip', m.id)) ? 'msel' : ''} ${isLocked(`char:${s.key}`) ? 'locked' : ''}`, title: `${s.name} · ${name} — drag to move, drag an edge to resize`, style: `left:${m.start * pps}px;width:${Math.max(6, m.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `${s.name} · ${name}`), rz);
+        const el = h('div', { 'data-mid': m.id, 'data-key': keyOf('clip', m.id), class: `tclip ${kind} mine ${m.id === S.mclip ? 'sel' : ''} ${multi.has(keyOf('clip', m.id)) ? 'msel' : ''} ${isLocked(`char:${s.key}`) || m.locked ? 'locked' : ''}`, title: `${s.name} · ${name} — drag to move, drag an edge to resize`, style: `left:${m.start * pps}px;width:${Math.max(6, m.dur * pps)}px` }, lz, h('span', { class: 'tn' }, `${s.name} · ${name}`), rz);
         el.addEventListener('pointerdown', (e) => dragClip(e, m, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
         ln.append(el);
       }
@@ -1271,7 +1271,10 @@ const lockKeyOf = (key) => {
   return null;
 };
 const isLocked = (lock) => !!(lock && S.locks?.[lock]);
-const isKeyLocked = (key) => isLocked(lockKeyOf(key));
+/** one item can be locked on its own too (`locked`): a background clip, a prop or an animation clip; a layer lock (the button on the left of the timeline) locks the whole row */
+const itemLocked = (key) => { const i = key.indexOf(':'), kind = key.slice(0, i), id = key.slice(i + 1); return kind === 'bg' ? !!S.bgClips.find((x) => x.id === id)?.locked : kind === 'prop' ? !!S.props.find((x) => x.id === id)?.locked : kind === 'clip' ? !!findManual(id)?.m?.locked : false; };
+const isKeyLocked = (key) => isLocked(lockKeyOf(key)) || itemLocked(key);
+const bgLockedNow = (c) => !!c && (isLocked('bg') || !!c.locked), propLockedNow = (p) => !!p && (isLocked(`prop:${p.lane || p.id}`) || !!p.locked), charLockedNow = (key) => isLocked(`char:${key}`);
 function toggleLock(lock) {
   S.locks = { ...(S.locks || {}) }; if (S.locks[lock]) delete S.locks[lock]; else S.locks[lock] = true;
   for (const k of [...multi]) if (isKeyLocked(k)) multi.delete(k);
@@ -1535,7 +1538,7 @@ function arrows(label, get, set, after) {
     h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': label === 'Move' ? 'Move earlier' : 'Shorter', title: label === 'Move' ? 'Move earlier (0.1 s)' : 'Shorter (0.1 s)', onclick: () => go(-NUDGE) }, icon('chevron-left')),
     h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': label === 'Move' ? 'Move later' : 'Longer', title: label === 'Move' ? 'Move later (0.1 s)' : 'Longer (0.1 s)', onclick: () => go(NUDGE) }, icon('chevron-right')));
 }
-const replaceClip = (s, m) => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length > 0 && ref.source !== 'mode') { m.span = +length.toFixed(3); m.off = 0; } else { delete m.span; if (length) m.dur = Math.max(0.3, +length.toFixed(2)); } const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); });
+const replaceClip = (s, m) => isKeyLocked(keyOf('clip', m.id)) ? lockedToast() : clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length > 0 && ref.source !== 'mode') { m.span = +length.toFixed(3); m.off = 0; } else { delete m.span; if (length) m.dur = Math.max(0.3, +length.toFixed(2)); } const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); });
 /** move the selected clip (which = 'start') or make it longer / shorter (which = 'dur') by `delta` seconds: the arrows of the bottom bar on a phone */
 function nudgeSelected(which, delta) {
   const it = selectedItem(); if (!it) return;
@@ -1555,6 +1558,7 @@ const clearClipSelection = () => { S.bgReplace = null; S.mclip = null; S.bgSel =
 /** Crop of a background clip: zoom into the picture and choose which part stays in the frame */
 function openBgCrop(c) {
   if (!c) return;
+  if (isKeyLocked(keyOf('bg', c.id))) { lockedToast(); return; }
   const xf = bgXf(c), range = () => Math.max(0, (xf.s - 1) / 2);
   const zoom = h('input', { type: 'range', min: 100, max: 300, value: Math.round(Math.max(1, xf.s) * 100), 'aria-label': 'Zoom' });
   const px = h('input', { type: 'range', min: -100, max: 100, value: 0, 'aria-label': 'Left / right' }), py = h('input', { type: 'range', min: -100, max: 100, value: 0, 'aria-label': 'Up / down' });
@@ -1571,6 +1575,7 @@ function openBgCrop(c) {
 /** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
 function replaceBg(c) {
   if (!c) return;
+  if (isKeyLocked(keyOf('bg', c.id))) { lockedToast(); return; }
   S.bgReplace = c.id; openTab('canvas'); toast('Pick the new background: it replaces the selected one.');
 }
 async function replaceBgWith(rec, preset) {
@@ -1589,20 +1594,38 @@ function drawPathNav() {
     ...(has ? [btn('trash', 'Remove path', () => { const k = S.pathDraw?.key; S.pathDraw?.cancel(); if (k) { delete S.paths[k]; applyPath(k); drawTimeline(); drawClipBar(); } }, { class: 'cb-btn danger' })] : []),
     btn('check', 'Done', () => S.pathDraw?.finish(), { class: 'cb-btn on' })));
 }
+/** a button that repeats while it is held: one step at once, then faster and faster (x1, x3 after 1 s, x8 after 2 s); a tap with the keyboard is one step */
+function holdButton(btn, step) {
+  let timer = 0, t0 = 0;
+  const stop = () => { clearTimeout(timer); timer = 0; };
+  const tick = () => { const held = performance.now() - t0; step(held > 2000 ? 8 : held > 1000 ? 3 : 1); timer = setTimeout(tick, held > 1000 ? 60 : 90); };
+  btn.addEventListener('pointerdown', (e) => { if (e.button) return; e.preventDefault(); btn.setPointerCapture?.(e.pointerId); stop(); t0 = performance.now(); step(1); timer = setTimeout(tick, 380); });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) btn.addEventListener(type, stop);
+  btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); step(1); } });
+  return btn;
+}
+/** lock / unlock the selected item on its own (a background clip, a prop or an animation clip) */
+function toggleItemLock() {
+  const it = selectedItem(); if (!it) return;
+  const o = it.kind === 'clip' ? it.f.m : it.kind === 'bg' ? it.bc : it.kind === 'prop' ? it.pr : null; if (!o) return;
+  o.locked = !o.locked; if (!o.locked) delete o.locked;
+  if (it.kind === 'prop') dbPut('props', o); S.dirty = true; drawTimeline(); drawClipBar(); updateSel(); updateBgSel();
+  toast(o.locked ? 'Locked: it cannot be moved, resized or deleted until you unlock it.' : 'Unlocked.');
+}
 function drawClipNav() {
   if (!clipNav) return;
   if (S.pathDraw) { drawPathNav(); return; }
   const many = multi.size >= 2, it = selectedItem();
   if (!it && !many) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }
   const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop'].includes(kind);
-  const hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath].join('|');
+  const itemLockedNow = !many && isKeyLocked(kind === 'clip' ? keyOf('clip', m?.id) : kind === 'bg' ? keyOf('bg', it.bc?.id) : kind === 'prop' ? keyOf('prop', it.pr?.id) : 'x:x'), hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, it?.bc?.id, it?.pr?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath, itemLockedNow].join('|');
   clipNav.hidden = false;
   if (clipNav.dataset.sig === sig) return;
   clipNav.dataset.sig = sig;
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': text, onclick, ...extra }, icon(ic), h('span', {}, text));
   const nudge = (label, which) => h('div', { class: 'cb-nudge' }, h('span', {}, label),
-    h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move earlier' : 'Shorter', onclick: () => nudgeSelected(which, -NUDGE) }, icon('chevron-left')),
-    h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move later' : 'Longer', onclick: () => nudgeSelected(which, NUDGE) }, icon('chevron-right')));
+    holdButton(h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move earlier' : 'Shorter' }, icon('chevron-left')), (k) => nudgeSelected(which, -NUDGE * k)),
+    holdButton(h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move later' : 'Longer' }, icon('chevron-right')), (k) => nudgeSelected(which, NUDGE * k)));
   clipNav.replaceChildren(
     h('div', { class: 'cb-list' },
       btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected),
@@ -1617,6 +1640,7 @@ function drawClipNav() {
         ...(canNudge ? [nudge('Move', 'start'), nudge('Length', 'dur')] : []),
         btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard }), btn('skip-back', 'Prev', () => jumpEdge(-1)), btn('skip-forward', 'Next', () => jumpEdge(1)),
         ...(kind === 'bg' || kind === 'clip' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
+        ...(['clip', 'bg', 'prop'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
         btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))));
@@ -1658,7 +1682,7 @@ function copySelected() {
 }
 /* ---------- the always-visible edit toolbar: split / copy / paste / duplicate / delete / jump between clips ---------- */
 /** is the one selected item on a locked layer? */
-const selectedLocked = () => { if (multi.size >= 2) return false; if (S.mclip) return isKeyLocked(keyOf('clip', S.mclip)); if (S.bgSel) return isLocked('bg'); if (S.propSel) return isKeyLocked(keyOf('prop', S.propSel)); if (S.lineSel && !S.mclip) return isLocked('audio'); return false; };
+const selectedLocked = () => { if (multi.size >= 2) return false; if (S.mclip) return isKeyLocked(keyOf('clip', S.mclip)); if (S.bgSel) return isKeyLocked(keyOf('bg', S.bgSel)); if (S.propSel) return isKeyLocked(keyOf('prop', S.propSel)); if (S.lineSel && !S.mclip) return isLocked('audio'); return false; };
 const selectedItem = () => {
   const f = S.mclip && findManual(S.mclip), bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = S.propSel && S.props.find((x) => x.id === S.propSel);
   if (f) return { kind: 'clip', f };
@@ -1972,6 +1996,7 @@ function stopPathDraw() { const had = S.pathDraw; S.pathDraw?.cleanup(); S.pathD
  */
 function startPathShadow(s) {
   if (S.exporting || !wrapEl) return;
+  if (charLockedNow(s.key)) { lockedToast(); return; }
   const clip = pathClipFor(s);
   if (!clip) { toast(`Please add an animation for ${s.name} first (for example walk): the character keeps playing it while it moves along the path.`); return; }
   const old = S.paths[s.key];
@@ -2381,7 +2406,7 @@ function mountStage() {
   let drag = null;
   const pointers = new Map(), pinchDist = () => { const [a, b] = [...pointers.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
   wrapEl.addEventListener('wheel', (e) => {            // mouse wheel over the canvas resizes the selected background (when nothing else is selected)
-    const c = bgOf(); if (!c || S.exporting || S.sel || S.selectedPropId || stage.camZoom > 1.02) return;
+    const c = bgOf(); if (!c || bgLockedNow(c) || S.exporting || S.sel || S.selectedPropId || stage.camZoom > 1.02) return;
     e.preventDefault(); bgXf(c).s = clampBgScale(bgXf(c).s * Math.exp(-e.deltaY * 0.0015)); pushBg(c);
   }, { passive: false });
   const pt = (e) => { const r = stage.out.getBoundingClientRect(), k = stage.W / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
@@ -2393,7 +2418,7 @@ function mountStage() {
     if (syncFullView()) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const bgc = bgOf();
-    if (bgc && stage.camZoom <= 1.02) {
+    if (bgc && stage.camZoom <= 1.02 && !bgLockedNow(bgc)) {
       if (drag?.mode === 'bg' && pointers.size === 2) { drag.pinch = { d0: pinchDist() || 1, s0: bgXf(bgc).s }; return; }          // a second finger: pinch to resize
       if (e.target.dataset?.bg) {
         const r = stage.out.getBoundingClientRect(), xf = bgXf(bgc), cx = r.left + r.width / 2 + xf.x * r.width, cy = r.top + r.height / 2 + xf.y * r.height;
@@ -2405,12 +2430,14 @@ function mountStage() {
       const prop = [...S.props].reverse().find((x) => x.visible !== false && !coversFrame(x) && !isHeld(x) && Math.abs(p.x - x.x * stage.W) <= (x.w || .18) * stage.W / 2 && Math.abs(p.y - x.y * stage.H) <= (x.h || .18) * stage.H / 2);
       if (prop) {
         S.selectedPropId = prop.id; S.sel = null;
+        if (propLockedNow(prop)) { lockedToast(); updateSel(); return; }          // a locked prop is selected but not moved
         drag = { mode: 'prop', prop, p0: p, x0: prop.x ?? .5, y0: prop.y ?? .65 };
         updateSel(); S.dirty = true; wrapEl.setPointerCapture(e.pointerId); return;
       }
       S.selectedPropId = null;
     }
     let l = layer();
+    if (hd && l && charLockedNow(l.key)) { lockedToast(); return; }
     if (hd && l) {
       // A = the real opposite corner (stays put); C = where the handle is drawn (pinned inside the picture when the corner is off-screen)
       const b = l.box, corners = { tl: [b.x0, b.y0], tr: [b.x1, b.y0], bl: [b.x0, b.y1], br: [b.x1, b.y1] }, opp = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' }[hd];
@@ -2420,8 +2447,9 @@ function mountStage() {
       l = stage.camZoom <= 1.02 ? stage.hitLayers(p)[0] : null;      // the character really under the mouse (its drawn shape), not just the biggest box
       S.sel = l?.key ?? null;
       if (l && doubleTapOn(l, e)) { drag = null; S.sel = l.key; historyAction(() => fitCharInFrame(l)); updateSel(); return; }          // double tap / double click: the character comes back to 100% inside the frame if (l || !bgc) dropItemSelection();          // the clip tools close when a character is touched, or when empty space is (a selected background is moved instead)
+      if (l && charLockedNow(l.key)) { lockedToast(); updateSel(); return; }          // a locked character is selected but not moved
       if (l) drag = { mode: 'move', p0: p, a0: { ...l.anchor } };
-      else if (bgc && stage.camZoom <= 1.02) { const xf = bgXf(bgc); drag = { mode: 'bg', kind: 'move', c: bgc, p0: { x: e.clientX, y: e.clientY }, x0: xf.x, y0: xf.y }; }          // nothing else under the finger: it moves the selected background
+      else if (bgc && stage.camZoom <= 1.02 && !bgLockedNow(bgc)) { const xf = bgXf(bgc); drag = { mode: 'bg', kind: 'move', c: bgc, p0: { x: e.clientX, y: e.clientY }, x0: xf.x, y0: xf.y }; }          // nothing else under the finger: it moves the selected background
       updateSel(); S.dirty = true;
     }
     if (drag) wrapEl.setPointerCapture(e.pointerId);
@@ -2491,7 +2519,7 @@ let syncBgSize = null;
 function updateBgSel() {
   if (!bgSelEl) return;
   const c = bgOf();
-  if (!c || stage.overflow || S.step !== 3 || S.exporting || player.playing || stage.camZoom > 1.02 || syncFullView()) { bgSelEl.hidden = true; return; }
+  if (!c || bgLockedNow(c) || stage.overflow || S.step !== 3 || S.exporting || player.playing || stage.camZoom > 1.02 || syncFullView()) { bgSelEl.hidden = true; return; }
   const xf = bgXf(c), cw = stage.out.clientWidth, ch = stage.out.clientHeight, w = cw * xf.s, hh = ch * xf.s;
   const x0 = Math.max(0, cw / 2 + xf.x * cw - w / 2), y0 = Math.max(0, ch / 2 + xf.y * ch - hh / 2), x1 = Math.min(cw, cw / 2 + xf.x * cw + w / 2), y1 = Math.min(ch, ch / 2 + xf.y * ch + hh / 2);
   bgSelEl.hidden = x1 <= x0 || y1 <= y0;
@@ -2609,10 +2637,11 @@ function drawCharBar(l) {
   charBar.hidden = false;
   if (charBar.dataset.key === l.key) {
     markCharBar(l);
+    for (const inp of charBar.querySelectorAll('.cb-size')) inp.disabled = charLockedNow(l.key);
     const size = charBar.querySelector('.cb-size'), pct = charBar.querySelector('.cb-pct'); if (size && document.activeElement !== size) { size.value = Math.round((l.mul ?? 1) * 100); if (pct) pct.textContent = `${Math.round((l.mul ?? 1) * 100)}%`; }
     return;
   }
-  charBar.dataset.key = l.key; queueMicrotask(() => markCharBar(l));
+  charBar.dataset.key = l.key; queueMicrotask(() => { markCharBar(l); for (const inp of charBar.querySelectorAll('.cb-size')) inp.disabled = charLockedNow(l.key); });
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
   const items = [['anim', 'Animations', 'film'], ['props', 'Props', 'sword'], ['motion', 'Path', 'route']];
   const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']];
