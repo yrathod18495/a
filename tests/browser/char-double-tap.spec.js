@@ -55,6 +55,8 @@ test('double tap on a character brings it back to 100% inside the frame, and Und
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
   
   await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => window.__toon.S.speakers[0].name)).toBe('Maya');          // called by the character's own name, not "Character 1"
+  await expect(page.locator('.rl.char .lt').first()).toHaveText('Maya');
   await page.evaluate(() => { document.querySelector('.panel')?.classList.remove('open'); const t = window.__toon, l = t.stage.layers[0]; l.axf = 0.62; l.ayf = 0.1; l.mul = 1.4; t.saveXf(l); t.stage.layout(); t.S.sel = l.key; t.S.dirty = true; });
   await page.waitForTimeout(800);
   const state = () => page.evaluate(() => { const l = window.__toon.stage.layers[0]; return { mul: +(l.mul ?? 1).toFixed(3), axf: +(l.axf ?? -1).toFixed(3), ayf: +(l.ayf ?? -1).toFixed(3) }; });

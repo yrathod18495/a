@@ -250,6 +250,12 @@ async function useCharacter(s, id) {
     finally { loading.done(); }
   }
   s.charId = id; s._chosen = true; if (id) S.sel = s.key;
+  // a character that has only the automatic name ("Character 2") is called by the name of the character it got (Roshan, Maya ...); a second one gets a number
+  const picked = id ? charOf(s) : null;
+  if (picked?.name && (s._auto || /^Character \d+$/.test(s.name))) {
+    let name = picked.name, n = 2; while (S.speakers.some((x) => x !== s && x.name === name)) name = `${picked.name} ${n++}`;
+    s.name = name; s._auto = true;
+  }
   S.speakers.filter(x => x.charId).forEach((x, i) => { if (!x._flipSet) x.flip = i % 2 === 1; });
   return true;
 }
@@ -2588,7 +2594,7 @@ function drawCharBar(l) {
     h('details', { class: 'char-more' },
       h('summary', { title: 'More', 'aria-label': 'More character tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
-        h('label', { class: 'cb-field' }, h('span', {}, 'Name'), h('input', { type: 'text', class: 'cb-name', maxlength: 80, value: s.name, 'aria-label': 'Character name', onchange: (e) => { const name = e.target.value.trim(); if (!name) { e.target.value = s.name; return; } s.name = name; drawTabs(); drawLineBox(); drawTimeline(); S.dirty = true; } })),
+        h('label', { class: 'cb-field' }, h('span', {}, 'Name'), h('input', { type: 'text', class: 'cb-name', maxlength: 80, value: s.name, 'aria-label': 'Character name', onchange: (e) => { const name = e.target.value.trim(); if (!name) { e.target.value = s.name; return; } s.name = name; s._auto = false; drawTabs(); drawLineBox(); drawTimeline(); S.dirty = true; } })),
         h('label', { class: 'cb-field' }, h('span', {}, 'Size ', h('b', { class: 'cb-pct' }, `${Math.round((l.mul ?? 1) * 100)}%`)), h('input', { type: 'range', class: 'cb-size', min: 20, max: 800, value: Math.round((l.mul ?? 1) * 100), 'aria-label': 'Character size', oninput: (e) => {
           const cur = stage.layers.find((x) => x.key === l.key); if (!cur) return;
           cur.axf ??= cur.anchor.x / stage.W; cur.ayf ??= (stage.H - cur.anchor.y) / stage.H;            // keep the feet where they are
@@ -2603,7 +2609,7 @@ function drawSelBar(l) {
   const s = S.speakers.find((x) => x.key === l.key);
   selBar.dataset.key = l.key; selBar.hidden = false;
   selBar.replaceChildren(
-    h('span', { class: 'dot', style: `background:${s.color}` }), h('input', { class: 'character-name', 'aria-label': 'Selected character name', value: s.name, maxlength: 80, onchange: e => { const name = e.target.value.trim(); if (!name) { e.target.value = s.name; return; } s.name = name; drawTabs(); drawLineBox(); drawTimeline(); S.dirty = true; } }),
+    h('span', { class: 'dot', style: `background:${s.color}` }), h('input', { class: 'character-name', 'aria-label': 'Selected character name', value: s.name, maxlength: 80, onchange: e => { const name = e.target.value.trim(); if (!name) { e.target.value = s.name; return; } s.name = name; s._auto = false; drawTabs(); drawLineBox(); drawTimeline(); S.dirty = true; } }),
     h('span', { class: 'pct' }, `${Math.round((l.mul ?? 1) * 100)}%`),
     h('input', { type: 'range', min: 20, max: 800, value: Math.round((l.mul ?? 1) * 100), 'aria-label': 'Size', oninput: (e) => {
       const m = e.target.value / 100, cur = stage.layers.find((x) => x.key === l.key);
