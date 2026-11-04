@@ -18,10 +18,14 @@ test('Download opens the export box (no direct render); quality changes the esti
   await box.getByRole('button', { name: '1080p', exact: true }).click(); const big = await size();
   const mb = (t) => parseFloat(t.match(/[\d.]+/)[0]);
   expect(mb(big)).toBeGreaterThan(mb(small));
+  expect(await page.evaluate(() => window.__toon.S.fps)).toBe(30);                    // always opens on 30 fps
+  await expect(box.getByRole('button', { name: '60', exact: true })).toBeVisible();     // and 60 fps is there for the smoothest video
   await box.getByRole('button', { name: '15', exact: true }).click();
   expect(await page.evaluate(() => ({ q: window.__toon.S.quality, f: window.__toon.S.fps, fmt: window.__toon.S.format }))).toEqual({ q: 1080, f: 15, fmt: 'mp4' });
   const m = await box.boundingBox(); expect(m.x).toBeGreaterThanOrEqual(0); expect(m.x + m.width).toBeLessThanOrEqual(390);
   await expect(box.getByRole('button', { name: 'Render', exact: true })).toBeVisible();
+  await page.locator('.modal .row .btn').first().click(); await expect(box).toHaveCount(0);
+  await page.getByRole('button', { name: 'Export', exact: true }).first().click(); expect(await page.evaluate(() => window.__toon.S.fps)).toBe(30);          // opened again: back on 30 fps
   await page.locator('.modal .row .btn').first().click(); await expect(box).toHaveCount(0);
   // Render closes the box and hands over to the export (it asks the server first; the fake debug session has no account, so only the hand-over is checked)
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));

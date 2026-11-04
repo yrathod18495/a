@@ -3353,7 +3353,7 @@ let exportChecking = false;
 function openExportPopup() {
   if (bgExport) { toast('An export is already running. You can follow it in the box at the bottom left.'); return; }
   if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
-  S.format = 'mp4';
+  S.format = 'mp4'; if (S.fps < 30) S.fps = 30;          // the popup always opens on a smooth 30 fps (an old project or a draft preset may have left 12 / 15 / 24)
   const scenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
   const duration = sequencePlan(scenes, sceneAudio).at(-1)?.end || player.total, sound = scenes.some((sc) => sc.doc.lines?.length) || scenes.some((sc) => sc.doc.music && !sc.doc.music.muted);
   const info = h('div', { class: 'exp-pop-info' });
@@ -3366,7 +3366,7 @@ function openExportPopup() {
   const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { close(); doExport(); } }, 'Render');
   const close = modal('Export video', h('div', { class: 'exp-pop' },
     h('h3', {}, 'Quality'), chips([[360, '360p'], [480, '480p'], [720, '720p'], [1080, '1080p'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; }),
-    h('h3', {}, 'Frames per second'), chips([[12, '12'], [15, '15'], [24, '24'], [30, '30']], () => S.fps, (v) => { S.fps = v; }),
+    h('h3', {}, 'Frames per second'), chips([[12, '12'], [15, '15'], [24, '24'], [30, '30'], [60, '60']], () => S.fps, (v) => { S.fps = v; }),
     info, render));
   refresh();
 }
@@ -3787,7 +3787,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, applyMoves, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
