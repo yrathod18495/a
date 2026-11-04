@@ -4,9 +4,10 @@ const vector = (m,x,y) => ({x:m.a*x+m.c*y,y:m.b*x+m.d*y});
 // which eye a slot is: named "eye ..." or "iris ..." with a left / right part (eyebrows, lashes, glasses / accessories ("acc") are not eyes)
 const EYE_SLOT = /(?:eye(?!brow|lash)|iris)/i, ACCESSORY = /acc(?:essor|$|[_\-/])/i;
 const sideOf = name => EYE_SLOT.test(name) && !ACCESSORY.test(name) ? /(?:^|[_\-/])(l|left)(?:$|[_\-/])/i.test(name) ? 'left' : /(?:^|[_\-/])(r|right)(?:$|[_\-/])/i.test(name) ? 'right' : null : null;
-// The drops are drawn in units of the width of the slot they hang from. An iris is a small slot, so its drops were tiny: they are made bigger by default
-// (the "Tear size" slider is on top of this), so they are clear at 100% canvas and 100% character size, not only when zoomed in.
-export const TEAR_BOOST_IRIS = 3.5, TEAR_BOOST_EYE = 1.8;
+// The drops are drawn in units of the width of the slot they hang from (the "Tear size" slider multiplies this).
+// The old boosts (iris 3.5×, eye 1.8×) made a drop wider than the whole eye; these keep a drop at roughly half an eye wide,
+// in proportion to the face, while still readable at 100% canvas size.
+export const TEAR_BOOST_IRIS = 1.3, TEAR_BOOST_EYE = 0.7;
 export function bindTearEyes(layer, items) {
   const eyes={};
   for(const item of items){
