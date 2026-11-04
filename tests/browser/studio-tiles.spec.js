@@ -156,3 +156,18 @@ test('with the playhead on the very last second the last background is still sho
   expect(px.inside[0]).toBeGreaterThan(100); expect(px.end[0]).toBeGreaterThan(100);          // the last second keeps the picture
   expect(px.after[0]).toBeLessThan(40);                                                       // well after the end there is nothing (outside the clips the canvas is black)
 });
+
+test('background clips: two overlapping updates never put an older list back (the newest wins) and the same file keeps one picture', async ({ page }) => {
+  await open(page, 390);
+  const r = await page.evaluate(async () => {
+    const { stage } = window.__toon, mk = async (col, n) => { const c = document.createElement('canvas'); c.width = c.height = n; const g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, n, n); return new Promise((res) => c.toBlob(res)); };
+    const big = await mk('#ff0000', 900), small = await mk('#00ff00', 8);
+    const a = stage.setBackgroundClips([{ start: 0, dur: 5, preset: 0, blob: big }], true);          // older call, slow to decode
+    const b = stage.setBackgroundClips([{ start: 0, dur: 5, preset: 0, blob: small }, { start: 5, dur: 5, preset: 1, blob: small }], true);          // newer call
+    await Promise.all([a, b]);
+    const same = stage.bgClips[0].image === stage.bgClips[1].image;
+    return { n: stage.bgClips.length, same };
+  });
+  expect(r.n).toBe(2);              // the newer list stayed
+  expect(r.same).toBe(true);        // the same file is decoded once
+});

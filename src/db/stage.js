@@ -326,11 +326,19 @@ export class Stage {
   /** the background (gradient and/or image) is painted once into a texture and drawn as one quad per frame */
   /** background clips of the scene: [{start, dur, preset, blob|null}] — while one is on, it replaces the scene's base background */
   async setBackgroundClips(clips = [], blankOutside = false) {
+    // the newest call wins: two calls that overlap (every edit starts one) must not finish in the wrong order and put an older list back, which made backgrounds vanish and return
+    const mine = (this.bgToken = (this.bgToken || 0) + 1), next = [];
+    for (const c of clips) next.push({ start: c.start, end: c.start + c.dur, preset: c.preset ?? 0, image: c.blob ? await this.bgImage(c.blob) : null, xf: c.xf || null, fx: c.fx || null });
+    if (mine !== this.bgToken) return;
     this.blankOutside = !!blankOutside;          // true once the whole-scene background was turned into clips: outside the clips the canvas is plain black
-    const next = [];
-    for (const c of clips) next.push({ start: c.start, end: c.start + c.dur, preset: c.preset ?? 0, image: c.blob ? await loadImage(c.blob) : null, xf: c.xf || null, fx: c.fx || null });
     this.bgClips = next;
     for (const c of next) this.bgTexture(c.preset, c.image);          // build the pictures now, not in the middle of playback
+  }
+  /** one decoded picture per file: the same file gives the same picture (and the same texture) every time, instead of a new one on every edit */
+  bgImage(blob) {
+    this.bgImgCache ||= new WeakMap();
+    let p = this.bgImgCache.get(blob); if (!p) { p = loadImage(blob); this.bgImgCache.set(blob, p); p.catch(() => this.bgImgCache.delete(blob)); }
+    return p;
   }
   bgTexture(preset, image) {
     let id = 0;

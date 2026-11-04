@@ -490,3 +490,4 @@ body.studio-dark #app .ws .tl2 .tclip.sel{border:1.5px solid #fff !important;z-i
   #app .ws .tl2 .tclip{top:4px;bottom:4px}
   #app .ws .tl2 .tclip .tn{font-size:11.5px;font-weight:650}
 }
+.toast.warn{background:#f5b82e !important;color:#1b1400 !important;border-color:#c98f0a !important;font-weight:650}

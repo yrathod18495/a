@@ -73,7 +73,7 @@ const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}.${String(Math.floor((s % 1) * 10))}`;
-const toast = (msg) => { const t = h('div', { class: 'toast' }, msg); document.body.append(t); swipeAway(t); };
+const toast = (msg, kind = '') => { const t = h('div', { class: `toast${kind ? ` ${kind}` : ''}` }, msg); document.body.append(t); swipeAway(t); };
 const busy = (msg, onCancel) => {
   const bar = h('i'), txt = h('div', {}, msg), el = h('div', { class: 'busy' }, h('div', { class: 'card' }, txt, h('div', { class: 'bar', style: 'margin:12px 0 0' }, bar),
     onCancel && h('button', { class: 'btn sm', style: 'margin-top:14px', onclick: onCancel }, 'Cancel')));
@@ -1280,7 +1280,7 @@ function toggleLock(lock) {
   for (const k of [...multi]) if (isKeyLocked(k)) multi.delete(k);
   S.dirty = true; drawTimeline(); drawClipBar();
 }
-const lockedToast = () => toast('This layer is locked. Unlock it with the lock button on the left of the timeline.');
+const lockedToast = () => toast('This layer is locked. Unlock it with the lock button on the left of the timeline.', 'warn');          // yellow, so it is not mistaken for a normal message
 /** pressing on a locked clip only selects it; the notice appears if the user then tries to drag it */
 function blockedDrag(e, select) {
   e.preventDefault(); e.stopPropagation(); select?.();
