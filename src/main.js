@@ -2339,7 +2339,7 @@ function mountStage() {
       // A = the real opposite corner (stays put); C = where the handle is drawn (pinned inside the picture when the corner is off-screen)
       const b = l.box, corners = { tl: [b.x0, b.y0], tr: [b.x1, b.y0], bl: [b.x0, b.y1], br: [b.x1, b.y1] }, opp = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' }[hd];
       const c = l.hpos?.[hd] || corners[hd];
-      drag = { mode: 'scale', A: { x: corners[opp][0], y: corners[opp][1] }, C: { x: c[0], y: c[1] }, a0: { ...l.anchor }, mul0: l.mul ?? 1 };
+      drag = { mode: 'scale', A: { x: corners[opp][0], y: corners[opp][1] }, C: { x: c[0], y: c[1] }, a0: { ...l.anchor }, mul0: l.mul ?? 1, tap: { x: e.clientX, y: e.clientY, t: performance.now(), pinned: e.target.classList?.contains('pinned'), key: l.key } };
     } else {
       l = stage.camZoom <= 1.02 ? stage.hitLayers(p)[0] : null;      // the character really under the mouse (its drawn shape), not just the biggest box
       S.sel = l?.key ?? null;
@@ -2394,7 +2394,11 @@ function mountStage() {
     l.axf = a.x / W; l.ayf = (H - a.y) / H;
     saveXf(l); stage.layout(); updateSel(); S.dirty = true;
   });
-  const end = async (e) => { pointers.delete(e?.pointerId); if (drag?.mode === 'bg') { if (!pointers.size || drag.pinch) { drag = null; S.dirty = true; } return; } if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag && S.tab === 'motion') drawTabs(); drag = null; };
+  const end = async (e) => { pointers.delete(e?.pointerId); if (drag?.mode === 'bg') { if (!pointers.size || drag.pinch) { drag = null; S.dirty = true; } return; } if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag?.mode === 'scale' && drag.tap?.pinned && e?.type === 'pointerup' && performance.now() - drag.tap.t < 600 && Math.hypot(e.clientX - drag.tap.x, e.clientY - drag.tap.y) < 8) {
+      // a tap (not a drag) on a handle that is stuck to the edge of the picture = the character is out of the frame: bring it back, 100%, inside
+      const lay = stage.layers.find((x) => x.key === drag.tap.key); drag = null; if (lay) { historyAction(() => fitCharInFrame(lay)); updateSel(); } return;
+    }
+    if (drag && S.tab === 'motion') drawTabs(); drag = null; };
   wrapEl.addEventListener('pointerup', end); wrapEl.addEventListener('pointercancel', end);
   S.dirty = true; updateSel();
 }
