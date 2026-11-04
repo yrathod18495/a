@@ -1306,6 +1306,12 @@ function toggleMulti(key) {
 }
 /** a box dragged over empty space on the timeline selects every clip it touches */
 function wireBoxSelect() {
+  // a tap on empty space in the timeline leaves the selected clip / character: the bottom bar is the normal menu again
+  tlInner.addEventListener('click', (e) => {
+    if (S.exporting || e.target.closest('.tclip,.ruler,.phead,.pflag,button,input,.kf,.dia')) return;
+    const had = dropItemSelection();
+    if (S.sel) { S.sel = null; updateSel(); S.dirty = true; } else if (had) updateSel();
+  });
   tlInner.addEventListener('pointerdown', (e) => {
     if (e.button || S.exporting || e.pointerType === 'touch' || e.target.closest('.tclip,.ruler,.phead,button')) return;      // a finger scrolls the timeline; the box is for mouse and pen
     const area = tlInner.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY; let box = null;
@@ -1533,6 +1539,8 @@ function nudgeSelected(which, delta) {
     stage.setProps(S.props); dbPut('props', pr); setTimeout(commitClips, 0);
   }
 }
+/** true when a clip, background clip, prop or group was selected (and now is not): choosing a character, or tapping empty space, leaves the clip tools */
+const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
 const clearClipSelection = () => { S.mclip = null; S.bgSel = null; S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
 /** phone: what you can do with the selected clip (Split, Copy, Duplicate, Path, Delete and a More list) sits in the bottom bar, in place of the menu, instead of rows at the top */
 function drawClipNav() {
@@ -2331,7 +2339,7 @@ function mountStage() {
       drag = { mode: 'scale', A: { x: corners[opp][0], y: corners[opp][1] }, C: { x: c[0], y: c[1] }, a0: { ...l.anchor }, mul0: l.mul ?? 1 };
     } else {
       l = stage.camZoom <= 1.02 ? stage.hitLayers(p)[0] : null;      // the character really under the mouse (its drawn shape), not just the biggest box
-      S.sel = l?.key ?? null;
+      S.sel = l?.key ?? null; if (l || !bgc) dropItemSelection();          // the clip tools close when a character is touched, or when empty space is (a selected background is moved instead)
       if (l) drag = { mode: 'move', p0: p, a0: { ...l.anchor } };
       else if (bgc && stage.camZoom <= 1.02) { const xf = bgXf(bgc); drag = { mode: 'bg', kind: 'move', c: bgc, p0: { x: e.clientX, y: e.clientY }, x0: xf.x, y0: xf.y }; }          // nothing else under the finger: it moves the selected background
       updateSel(); S.dirty = true;
@@ -2484,7 +2492,7 @@ function updateSelTools(l, b, k, cw, ch) {
 /** select a character; one that is not in frame at the playhead gets the playhead moved to where it first appears, so its box can be shown and edited */
 function selectChar(key) {
   if (!sOf(key)?.charId) return;
-  S.sel = key; S.selectedPropId = null; S.animFor = key;
+  S.sel = key; S.selectedPropId = null; S.animFor = key; dropItemSelection();
   const l = stage.layers.find((x) => x.key === key);
   if (l && l.shown === false && l.present?.length) { const t = Math.min(...l.present.map((x) => x.start)); if (Number.isFinite(t)) { player.seek(t); toast(`${sOf(key)?.name || 'Character'} was not in frame at this time, so the playhead was moved to its earlier shot.`); } }
   updateSel(); drawLineBox(); S.dirty = true;
