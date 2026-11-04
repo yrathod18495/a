@@ -108,6 +108,7 @@ test('hold a background tile: effects (None, Night second ...) apply to it, and 
   });
   const tile = page.locator('.tile', { hasText: 'Forest village' }); await expect(tile).toBeVisible();
   await expect(tile.locator('.x')).toHaveCount(0);                      // no cross on the tile: Delete is in the hold sheet
+  await page.waitForTimeout(300);
   const b = await tile.boundingBox();
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
   const sheet = page.locator('.modal'); await expect(sheet).toBeVisible();
@@ -120,6 +121,7 @@ test('hold a background tile: effects (None, Night second ...) apply to it, and 
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(2);
   expect(await page.evaluate(() => window.__toon.S.bgClips[1].fx)).toBeUndefined();
   // Delete from the same sheet
+  await expect(page.locator('.tile', { hasText: 'Palace hall' })).toBeVisible(); await page.waitForTimeout(400);          // the list is drawn again after a tap
   const b2 = await page.locator('.tile', { hasText: 'Palace hall' }).boundingBox();
   await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
   await page.locator('.modal .bg-delete').click();
