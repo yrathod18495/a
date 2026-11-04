@@ -423,3 +423,10 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 #app .ws .char-bar .cb-btn svg,#app .ws .clip-nav .cb-btn svg{color:inherit}          /* the icon has the colour of its text (not --ink: in the studio that is the dark text colour for light buttons) */
 #app .ws .char-bar .cb-btn.danger,#app .ws .clip-nav .cb-btn.danger{color:#ff8f8f}
 #app .ws .char-bar .cb-btn.on,#app .ws .clip-nav .cb-btn.on{color:#fff}
+.pathshadow-layer .path-arrow{position:absolute;z-index:6;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;border:2px solid #fff;background:var(--acc,#7c6cf5);color:#fff;pointer-events:auto;box-shadow:0 2px 10px #0009;padding:0}
+.pathshadow-layer .path-arrow[hidden]{display:none}
+.pathshadow-layer .path-arrow svg{width:22px;height:22px}
+/* the A / B flags on the timeline belong to the Path tool: they can be touched only while it is open */
+.lane2 .pflag:not(.stage){pointer-events:none}
+body.path-mode .lane2 .pflag:not(.stage){pointer-events:auto}
+@media (max-width:860px){.pathshadow-layer .pathbar .pb-desk{display:none}}

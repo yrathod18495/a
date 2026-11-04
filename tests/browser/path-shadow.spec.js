@@ -136,8 +136,14 @@ test('Path flags on the layer: A and B sit on the animation clip and dragging on
   const pps = await page.evaluate(() => window.__toon.S.pps), lane = await page.locator('.lane2.char').first().boundingBox(), fa = await a.boundingBox();
   expect(fa.height).toBeLessThanOrEqual(24);                                                          // small, like a flag stuck on the layer
   expect(Math.abs(fa.x - (lane.x + 1 * pps))).toBeLessThan(6);
+  // outside the Path tool the flags cannot be touched (a drag there does nothing to the path) ...
   const bb = await b.boundingBox(), y = bb.y + 6, x = bb.x + 1;
   await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 60, y, { steps: 6 }); await page.mouse.up();
+  expect((await page.evaluate(() => window.__toon.S.paths.fake1)).dur).toBe(4);
+  // ... inside it they can
+  await page.evaluate(() => window.__toon.startPathShadow(window.__toon.S.speakers.find((x) => x.key === 'fake1')));
+  const bb2 = await b.boundingBox(), y2 = bb2.y + 6, x2 = bb2.x + 1;
+  await page.mouse.move(x2, y2); await page.mouse.down(); await page.mouse.move(x2 + 60, y2, { steps: 6 }); await page.mouse.up();
   const r = await page.evaluate(() => ({ clip: window.__toon.S.manual.fake1[0], path: window.__toon.S.paths.fake1 }));
   expect(r.clip.dur).toBeGreaterThan(4.3); expect(r.path.dur).toBeCloseTo(r.clip.dur, 1); expect(r.path.start).toBe(1);   // B moved later: the walk and the path are longer
   await expect(page.locator('.lane2 .pflag')).toHaveCount(2);
@@ -163,4 +169,27 @@ test('Path: the Path button of the bottom bar is lit while the shadow is placed,
   await expect(path).toHaveClass(/\bon\b/);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(path).not.toHaveClass(/\bon\b/);
+});
+
+test('Path tool: its own bottom bar on a phone (Cancel, Bring back, Remove path, Done) and an arrow when the shadow is mostly outside the picture', async ({ page }) => {
+  await studio(page);
+  await page.setViewportSize({ width: 390, height: 860 }); await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    const { S, commitClips } = window.__toon; S.paths.fake1 = { pts: [{ x: 0.2, y: 0.4 }, { x: 0.8, y: 0.4 }], clipId: 'walk1', start: 1, dur: 4, depth: 0, mul: 1 }; S.mclip = 'walk1'; commitClips();
+    window.__toon.startPathShadow(S.speakers.find((x) => x.key === 'fake1'));
+  });
+  const nav = page.locator('.clip-nav'); await expect(nav).toBeVisible();
+  await expect(nav.locator('.cb-btn > span:last-child')).toHaveText(['Cancel', 'Bring back', 'Remove path', 'Done']);
+  await expect(page.locator('.path-arrow')).toBeHidden();                               // the shadow is inside the picture
+  // the shadow goes (almost) out of the picture: an arrow appears at the edge; a tap brings it back in
+  const box = await page.locator('.pathshadow-layer').boundingBox(), s0 = await page.locator('.pathshadow').boundingBox();
+  const gx = s0.x + s0.width / 2, gy = s0.y + s0.height * 0.8;
+  await page.mouse.move(gx, gy); await page.mouse.down(); await page.mouse.move(box.x + box.width + 70, gy, { steps: 8 }); await page.mouse.up();
+  await expect(page.locator('.path-arrow')).toBeVisible();
+  await page.locator('.path-arrow').click();
+  await expect(page.locator('.path-arrow')).toBeHidden();
+  const inside = await page.locator('.pathshadow').boundingBox(); expect(inside.x + inside.width / 2).toBeLessThan(box.x + box.width);
+  await nav.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.locator('.pathshadow-layer')).toHaveCount(0);
+  expect(await page.evaluate(() => document.body.classList.contains('path-mode'))).toBe(false);
 });
