@@ -2619,7 +2619,7 @@ function tabChars() {
   const picker = libraryCharacters().some((e) => e.template)
     ? characterPicker({ entries: libraryCharacters(), isOn: () => false, steps: true, onPick: (e) => { const sp = newManualSpeaker(); historyAction(async () => { if (await useCharacter(sp, `lib:${e.id}`)) await finishManualCharacter(sp); }); } })
     : libraryStatus() ? h('p', { class: 'sub', role: 'alert' }, libraryStatus()) : h('p', { class: 'sub' }, 'Loading characters…');
-  return h('div', { class: 'list' }, h('h2', { class: 'chars-pick-title' }, 'Choose a character'), picker,
+  return h('div', { class: 'list' }, picker,
     h('button', { class: 'btn sm', type: 'button', 'aria-label': emptyShown ? 'More characters for the stage' : undefined, title: 'Characters from your device or your account', onclick: addManualCharacter }, 'More characters…'),
     h('div', { class: 'chars-head' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0;flex:1' }, `Characters on stage (${n}) — top = in front.`), n ? toggle : null),
     ...(collapsed ? [] : [...rows, ...without]));

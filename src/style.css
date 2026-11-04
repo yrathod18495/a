@@ -957,3 +957,18 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .pathghosts{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden}
 .pathdraw .pathghosts{z-index:1}
 .pathghost{position:absolute;width:auto;transform:translate(-50%,-100%);filter:blur(1.4px) saturate(.85);pointer-events:none;user-select:none}
+
+/* the character picker (Characters tab / Add character): cards in a grid of two columns that fills the width (three when the panel is wide),
+   square, showing the character from the head down, with the name on a bar at the bottom - instead of tall cards in a narrow row */
+.cp .cp-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
+.cp .cp-card,.cp .cp-card.pose{position:relative;display:block;width:100%;padding:0;gap:0;border-radius:12px;overflow:hidden;text-align:left}
+.cp .cp-card .cp-img{display:block;width:100%;aspect-ratio:1/1;border-radius:0;background:linear-gradient(180deg,#26282d,#1b1c20)}
+.cp .cp-card .cp-img img{width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;object-position:center top}
+.cp .cp-card>b,.cp .cp-card>small{position:absolute;left:0;right:0;bottom:0;display:block;padding:7px 10px;background:#101114e6;color:#fff;font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp .cp-card.on{box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 55%,transparent)}
+.cp .cp-card.on::after{content:"✓";position:absolute;top:6px;right:6px;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;font-size:13px;font-weight:700}
+.cp .cp-poses{padding:0;border:0;background:none}
+.cp-stepbar{gap:6px;margin:0 0 8px}.cp-step{padding:5px 12px;font-size:13px}.cp-step i{width:18px;height:18px;font-size:11px}
+.cp-hint{margin:0 0 6px}
+.cp-chosen{margin:0 0 8px;padding:6px 10px;gap:10px}.cp-chosen-img{width:34px;height:44px}.cp-chosen b{font-size:14px}
+.cp-nav{margin-top:10px;padding:8px 0 0}.cp-nav .btn{min-width:96px;padding:8px 14px}
