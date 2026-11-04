@@ -387,7 +387,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
+let bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, clipNav, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -797,7 +797,7 @@ function viewStudio() {
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), overflowBtn(), layoutTools()),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, h('div', { class: 'scene-row' }, sceneTabs(), grip), tools, tlBox),
-      h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
+      h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), clipNav = h('div', { class: 'clip-nav', hidden: true, role: 'toolbar', 'aria-label': 'Selected clip' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
   // phone: the Play button sits in the scene row (one row less); on a wide screen it stays at the start of the player controls
   const phone = matchMedia('(max-width: 860px)'), placePlay = () => {
     const row = root.querySelector('.scene-row'), controls = root.querySelector('.controls');
@@ -928,7 +928,7 @@ document.addEventListener('pointerdown', event => {
 }, true);
 document.addEventListener('click', event => {
   const inside = event.target.closest?.('.advanced-tools-list button,.scene-menu-items button,.studio-menu button,.studio-menu a,.cb-more-list button');
-  if (inside) for (const group of document.querySelectorAll(POPUPS)) if (group.contains(inside)) group.open = false;
+  if (inside && !inside.closest('.cb-nudge')) for (const group of document.querySelectorAll(POPUPS)) if (group.contains(inside)) group.open = false;          // the arrows keep the list open for another tap
 }, false);
 window.addEventListener('resize', () => {
   for (const group of document.querySelectorAll('#app .upload-tools[open]')) group.open = false;
@@ -1509,8 +1509,51 @@ function arrows(label, get, set, after) {
     h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': label === 'Move' ? 'Move earlier' : 'Shorter', title: label === 'Move' ? 'Move earlier (0.1 s)' : 'Shorter (0.1 s)', onclick: () => go(-NUDGE) }, icon('chevron-left')),
     h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': label === 'Move' ? 'Move later' : 'Longer', title: label === 'Move' ? 'Move later (0.1 s)' : 'Longer (0.1 s)', onclick: () => go(NUDGE) }, icon('chevron-right')));
 }
+const replaceClip = (s, m) => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); });
+/** move the selected clip (which = 'start') or make it longer / shorter (which = 'dur') by `delta` seconds: the arrows of the bottom bar on a phone */
+function nudgeSelected(which, delta) {
+  const it = selectedItem(); if (!it) return;
+  const r = (v) => +v.toFixed(2);
+  if (it.kind === 'clip') { const m = it.f.m; if (which === 'start') m.start = Math.max(0, r(m.start + delta)); else m.dur = Math.max(0.2, r(m.dur + delta)); setTimeout(commitClips, 0); }
+  else if (it.kind === 'bg') { const c = it.bc; if (which === 'start') c.start = Math.max(0, r(c.start + delta)); else c.dur = Math.max(MIN_CLIP, r(c.dur + delta)); syncBgClips(); setTimeout(commitClips, 0); }
+  else if (it.kind === 'prop') {
+    const pr = it.pr, len = (pr.end ?? player.total) - (pr.start || 0);
+    if (which === 'start') { pr.start = Math.max(0, r((pr.start || 0) + delta)); if (pr.end != null) pr.end = r(pr.start + len); } else pr.end = r((pr.start || 0) + Math.max(MIN_CLIP, len + delta));
+    stage.setProps(S.props); dbPut('props', pr); setTimeout(commitClips, 0);
+  }
+}
+const clearClipSelection = () => { S.mclip = null; S.bgSel = null; S.propSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
+/** phone: what you can do with the selected clip (Split, Copy, Duplicate, Path, Delete and a More list) sits in the bottom bar, in place of the menu, instead of rows at the top */
+function drawClipNav() {
+  if (!clipNav) return;
+  const many = multi.size >= 2, it = selectedItem();
+  if (!it && !many) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }
+  const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop'].includes(kind);
+  const hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), sig = [kind, m?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind].join('|');
+  clipNav.hidden = false;
+  if (clipNav.dataset.sig === sig) return;
+  clipNav.dataset.sig = sig;
+  const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': text, onclick, ...extra }, icon(ic), h('span', {}, text));
+  const nudge = (label, which) => h('div', { class: 'cb-nudge' }, h('span', {}, label),
+    h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move earlier' : 'Shorter', onclick: () => nudgeSelected(which, -NUDGE) }, icon('chevron-left')),
+    h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move later' : 'Longer', onclick: () => nudgeSelected(which, NUDGE) }, icon('chevron-right')));
+  clipNav.replaceChildren(
+    h('div', { class: 'cb-list' },
+      btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected), btn('layers', 'Duplicate', duplicateSelected),
+      ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s))] : []),
+      btn('trash', 'Delete', deleteSelected, { class: 'cb-btn danger' })),
+    h('details', { class: 'char-more' },
+      h('summary', { title: 'More', 'aria-label': 'More clip tools' }, icon('more'), h('span', {}, 'More')),
+      h('div', { class: 'cb-more-list' },
+        ...(canNudge ? [nudge('Move', 'start'), nudge('Length', 'dur')] : []),
+        btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard }), btn('skip-back', 'Prev', () => jumpEdge(-1)), btn('skip-forward', 'Next', () => jumpEdge(1)),
+        ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
+        ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
+        ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
+        btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))));
+}
 function drawClipBar() {
-  updateEditTools(); updateBgSel();
+  updateEditTools(); updateBgSel(); drawClipNav();
   if (!clipBar) return;
   clipBar.classList.toggle('locked', selectedLocked());
   const bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = !bc && S.propSel && S.props.find((x) => x.id === S.propSel);
@@ -1524,7 +1567,7 @@ function drawClipBar() {
   clipBar.replaceChildren(
     
     arrows('Move', () => m.start, (v) => { m.start = Math.max(0, +v.toFixed(2)); }, () => setTimeout(commitClips, 0)), arrows('Length', () => m.dur, (v) => { m.dur = Math.max(0.2, +v.toFixed(2)); }, () => setTimeout(commitClips, 0)),
-    btn('⇄ Replace', () => clipPicker(s, async (ref, overlay, length) => { m.ref = { ...ref }; m.kind = ref.layer || (overlay ? 'face' : 'body'); if (length) m.dur = Math.max(0.3, +length.toFixed(2)); const b = busy('Applying…'); try { await applyLayers(); } catch (er) { toast(er.message); } finally { b.done(); } commitClips(); }), 'Pick another animation for this clip'),
+    btn('⇄ Replace', () => replaceClip(s, m), 'Pick another animation for this clip'),
     ...(m.kind === 'body' ? [h('button', { type: 'button', class: 'btn sm walk-to', title: 'Path: drag the character\'s shadow to where it should go', onclick: () => startPathShadow(s) }, icon('route'), h('span', {}, 'Path')) ] : []),
     ...(S.paths[s.key]?.clipId === m.id ? [h('button', { type: 'button', class: 'btn sm path-remove', title: 'Remove the path of this animation', onclick: () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); } }, icon('x'), h('span', {}, 'Path')) ] : []),
     btn('🗑 Delete', deleteSelected, 'Remove this animation: the character goes back to idle'),
@@ -1663,6 +1706,7 @@ function updateEditTools() {
   for (const el of Object.values(editBtns)) if (el?.classList.contains('needs-sel')) { el.disabled = !has; }
   if (editBtns.split) editBtns.split.disabled = many || !has;
   if (editBtns.paste) editBtns.paste.disabled = !S.clipboard;
+  drawClipNav();
 }
 
 async function pasteClip() {
@@ -2434,7 +2478,11 @@ function drawCharBar(l) {
   if (!charBar) return;
   const s = S.speakers.find((x) => x.key === l.key); if (!s) return;
   charBar.hidden = false;
-  if (charBar.dataset.key === l.key) { for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', S.tab === b.dataset.tab && S.panelOpen); return; }
+  if (charBar.dataset.key === l.key) {
+    for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', S.tab === b.dataset.tab && S.panelOpen);
+    const size = charBar.querySelector('.cb-size'), pct = charBar.querySelector('.cb-pct'); if (size && document.activeElement !== size) { size.value = Math.round((l.mul ?? 1) * 100); if (pct) pct.textContent = `${Math.round((l.mul ?? 1) * 100)}%`; }
+    return;
+  }
   charBar.dataset.key = l.key;
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
   const items = [['anim', 'Animations', 'film'], ['props', 'Hand props', 'sword'], ['motion', 'Path', 'route']];
@@ -2447,6 +2495,12 @@ function drawCharBar(l) {
     h('details', { class: 'char-more' },
       h('summary', { title: 'More', 'aria-label': 'More character tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
+        h('label', { class: 'cb-field' }, h('span', {}, 'Name'), h('input', { type: 'text', class: 'cb-name', maxlength: 80, value: s.name, 'aria-label': 'Character name', onchange: (e) => { const name = e.target.value.trim(); if (!name) { e.target.value = s.name; return; } s.name = name; drawTabs(); drawLineBox(); drawTimeline(); S.dirty = true; } })),
+        h('label', { class: 'cb-field' }, h('span', {}, 'Size ', h('b', { class: 'cb-pct' }, `${Math.round((l.mul ?? 1) * 100)}%`)), h('input', { type: 'range', class: 'cb-size', min: 20, max: 800, value: Math.round((l.mul ?? 1) * 100), 'aria-label': 'Character size', oninput: (e) => {
+          const cur = stage.layers.find((x) => x.key === l.key); if (!cur) return;
+          cur.axf ??= cur.anchor.x / stage.W; cur.ayf ??= (stage.H - cur.anchor.y) / stage.H;            // keep the feet where they are
+          cur.mul = e.target.value / 100; saveXf(cur); stage.layout(); updateSel(); S.dirty = true; charBar.querySelector('.cb-pct').textContent = `${Math.round(cur.mul * 100)}%`;
+        } })),
         ...rest.map(([tab, text, ic]) => btn(ic, text, () => openCharTool(l.key, tab), { 'data-tab': tab })),
         btn('rotate', 'Reset', () => resetChar(l, s)),
         btn('trash', 'Delete', () => removeCharacterFrom(s), { class: 'cb-btn danger', disabled: S.exporting }),
@@ -3572,7 +3626,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

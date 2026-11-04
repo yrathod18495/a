@@ -378,3 +378,36 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 #app .ws .studio-menu-panel{display:flex;flex-direction:column;gap:6px;padding:8px}
 #app .ws .studio-menu-panel .btn{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;white-space:nowrap;height:auto;min-height:38px;padding:6px 10px}
 #app .ws .studio-menu-panel .btn svg{width:18px;height:18px}
+
+
+/* phone: the selected clip's tools in the bottom bar (same look as the character bar); the rows that were at the top are gone */
+.clip-nav{display:none !important}
+@media(max-width:860px){
+.clip-nav{display:none !important}
+  #app .ws .clip-nav:not([hidden]){display:flex !important;grid-area:rail;position:relative;align-items:stretch;z-index:55;min-width:0;border:1px solid var(--line);border-radius:16px;background:var(--card);overflow:hidden}
+  #app .ws .clip-nav .cb-list{flex:1;min-width:0;display:flex;gap:2px;padding:4px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+  #app .ws .clip-nav .cb-list::-webkit-scrollbar{display:none}
+  #app .ws .clip-nav .cb-btn{flex:0 0 66px;width:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:44px;padding:4px 2px;border:0;border-radius:12px;background:transparent;color:var(--mute);scroll-snap-align:start}
+  #app .ws .clip-nav .cb-btn svg{width:22px;height:22px}
+  #app .ws .clip-nav .cb-btn>span:last-child{font-size:10.5px;font-weight:600;line-height:1.1;max-width:62px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #app .ws .clip-nav .cb-btn.on{background:var(--acc);color:#fff}
+  #app .ws .clip-nav .cb-btn.danger{color:#ff8f8f}
+  #app .ws .clip-nav .cb-close{flex:none;width:48px;display:grid;place-items:center;border:0;border-left:1px solid var(--line);background:transparent;color:var(--text)}
+  #app .ws .clip-nav .cb-close svg{width:22px;height:22px}
+  #app .ws .clip-nav:not([hidden]){overflow:visible}
+  #app .ws .clip-nav .cb-list{overflow:visible;gap:2px}
+  #app .ws .clip-nav .cb-list .cb-btn{flex:1 1 0;width:auto;min-width:0}
+  #app .ws .clip-nav .cb-nudge{grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:2px 4px;font-size:12px;font-weight:650;color:var(--mute)}
+  #app .ws .clip-nav .cb-nudge span{flex:1}
+  #app .ws .clip-nav .cb-nudge .btn{min-width:48px;height:34px}
+  #app .ws .char-bar .cb-field{grid-column:1/-1;display:grid;gap:4px;font-size:12px;font-weight:650;color:var(--mute);padding:2px 4px}
+  #app .ws .char-bar .cb-field input[type=text]{height:34px;padding:0 10px;border-radius:8px;font:inherit;font-size:14px;color:var(--text);background:var(--card2);border:1px solid var(--line)}
+  #app .ws .char-bar .cb-field input[type=range]{width:100%}
+  #app .ws .studio:has(.clip-nav:not([hidden])) .char-bar{display:none !important}
+  #app .ws .selbar{display:none !important}
+  #app .ws .tltools .clipbar{display:none !important}
+  #app .ws .tltools .edittools{flex:0 0 auto;order:0;padding:0;overflow:visible}
+  #app .ws .tltools .edit-btn:not(.edit-prev):not(.edit-next):not(.edit-paste){display:none}
+  #app .ws .tltools .edit-btn span:not(.ic){display:none !important}
+  #app .ws .tltools .edit-btn{flex:0 0 auto;width:36px;min-width:0;height:32px;padding:0}
+}
