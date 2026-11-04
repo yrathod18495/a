@@ -2433,7 +2433,7 @@ function mountStage() {
     if (drag.mode === 'move') a = { x: drag.a0.x + p.x - drag.p0.x, y: drag.a0.y + p.y - drag.p0.y };
     else {
       const vx = drag.C.x - drag.A.x, vy = drag.C.y - drag.A.y;
-      const r = Math.min(8, Math.max(0.15, ((p.x - drag.A.x) * vx + (p.y - drag.A.y) * vy) / (vx * vx + vy * vy)));
+      const r = Math.min(3 / drag.mul0, Math.max(0.2 / drag.mul0, ((p.x - drag.A.x) * vx + (p.y - drag.A.y) * vy) / (vx * vx + vy * vy)));          // 20 % ... 300 %
       l.mul = drag.mul0 * r;
       a = { x: drag.A.x + (drag.a0.x - drag.A.x) * r, y: drag.A.y + (drag.a0.y - drag.A.y) * r };
     }
@@ -2473,7 +2473,7 @@ function saveXf(l) {
     // With keyframes (a path, a movement) the character's size belongs to the whole movement, not to one moment: every keyframe is scaled by the same amount,
     // so a smaller character stays smaller when the playhead moves. The position is a keyframe at the playhead.
     const was = stage.keyChar(keys.slice().sort((a, b) => a.t - b.t), player.time)?.mul || 1, ratio = (l.mul ?? 1) / was;
-    if (Math.abs(ratio - 1) > 1e-4) { for (const k of keys) k.mul = +Math.max(0.05, (k.mul || 1) * ratio).toFixed(4); if (S.paths[l.key]) S.paths[l.key].mul = +Math.max(0.05, (S.paths[l.key].mul ?? 1) * ratio).toFixed(4); }
+    if (Math.abs(ratio - 1) > 1e-4) { for (const k of keys) k.mul = +Math.min(3, Math.max(0.2, (k.mul || 1) * ratio)).toFixed(4); if (S.paths[l.key]) S.paths[l.key].mul = +Math.min(3, Math.max(0.2, (S.paths[l.key].mul ?? 1) * ratio)).toFixed(4); }
     const path = S.paths[l.key];
     if (path) {
       // a path is just two places (first and last): dragging the character moves the whole route, it does not add keyframes
@@ -2595,7 +2595,7 @@ function drawCharBar(l) {
       h('summary', { title: 'More', 'aria-label': 'More character tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
         h('label', { class: 'cb-field' }, h('span', {}, 'Name'), h('input', { type: 'text', class: 'cb-name', maxlength: 80, value: s.name, 'aria-label': 'Character name', onchange: (e) => { const name = e.target.value.trim(); if (!name) { e.target.value = s.name; return; } s.name = name; s._auto = false; drawTabs(); drawLineBox(); drawTimeline(); S.dirty = true; } })),
-        h('label', { class: 'cb-field' }, h('span', {}, 'Size ', h('b', { class: 'cb-pct' }, `${Math.round((l.mul ?? 1) * 100)}%`)), h('input', { type: 'range', class: 'cb-size', min: 20, max: 800, value: Math.round((l.mul ?? 1) * 100), 'aria-label': 'Character size', oninput: (e) => {
+        h('label', { class: 'cb-field' }, h('span', {}, 'Size ', h('b', { class: 'cb-pct' }, `${Math.round((l.mul ?? 1) * 100)}%`)), h('input', { type: 'range', class: 'cb-size', min: 20, max: 300, value: Math.round((l.mul ?? 1) * 100), 'aria-label': 'Character size', oninput: (e) => {
           const cur = stage.layers.find((x) => x.key === l.key); if (!cur) return;
           cur.axf ??= cur.anchor.x / stage.W; cur.ayf ??= (stage.H - cur.anchor.y) / stage.H;            // keep the feet where they are
           cur.mul = e.target.value / 100; saveXf(cur); stage.layout(); updateSel(); S.dirty = true; charBar.querySelector('.cb-pct').textContent = `${Math.round(cur.mul * 100)}%`;
@@ -2611,7 +2611,7 @@ function drawSelBar(l) {
   selBar.replaceChildren(
     h('span', { class: 'dot', style: `background:${s.color}` }), h('input', { class: 'character-name', 'aria-label': 'Selected character name', value: s.name, maxlength: 80, onchange: e => { const name = e.target.value.trim(); if (!name) { e.target.value = s.name; return; } s.name = name; s._auto = false; drawTabs(); drawLineBox(); drawTimeline(); S.dirty = true; } }),
     h('span', { class: 'pct' }, `${Math.round((l.mul ?? 1) * 100)}%`),
-    h('input', { type: 'range', min: 20, max: 800, value: Math.round((l.mul ?? 1) * 100), 'aria-label': 'Size', oninput: (e) => {
+    h('input', { type: 'range', min: 20, max: 300, value: Math.round((l.mul ?? 1) * 100), 'aria-label': 'Size', oninput: (e) => {
       const m = e.target.value / 100, cur = stage.layers.find((x) => x.key === l.key);
       cur.axf ??= cur.anchor.x / stage.W; cur.ayf ??= (stage.H - cur.anchor.y) / stage.H; // keep feet where they are
       cur.mul = m; saveXf(cur); stage.layout(); updateSel(); S.dirty = true;

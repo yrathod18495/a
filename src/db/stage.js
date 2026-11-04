@@ -217,7 +217,7 @@ export class Stage {
     if (!l.keys.length && l.base) { l.flip = l.base.flip; l.mul = l.base.mul; l.axf = l.base.axf; l.ayf = l.base.ayf; this.layout(); }
   }
   keyChar(ks, t) {
-    const at = (k) => ({ axf: k.x, ayf: k.y, mul: Math.max(0.05, k.mul), flip: !!k.flip });
+    const at = (k) => ({ axf: k.x, ayf: k.y, mul: Math.min(3, Math.max(0.2, k.mul)), flip: !!k.flip });
     if (t <= ks[0].t) return at(ks[0]);
     const last = ks[ks.length - 1];
     if (t >= last.t) return at(last);
@@ -290,7 +290,7 @@ export class Stage {
     const fit = (l) => Math.min((slotW * 0.96) / l.bounds.w, (H * CHARACTER_MAX_HEIGHT) / l.bounds.h);          // at 100% size a character is at most 75% of the canvas height
     const auto = Math.min(...this.layers.map(fit));
     this.layers.forEach((l, i) => {
-      const b = l.bounds, S = auto * (l.mul ?? 1), dir = l.flip ? -1 : 1;
+      const b = l.bounds, S = auto * Math.min(3, Math.max(0.2, l.mul ?? 1)), dir = l.flip ? -1 : 1;
       // anchor = bottom-centre of the character; auto-placed in its slot unless the user moved it
       const ax = l.axf != null ? l.axf * W : slotW * ((l.slot ?? i) + 0.5);
       const ay = l.ayf != null ? l.ayf * H : H * 0.07;

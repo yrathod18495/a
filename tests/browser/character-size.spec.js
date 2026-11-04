@@ -21,3 +21,22 @@ test('a character at 100% size is 75% of the canvas height at most', async ({ pa
   expect(r.out['1:1'].share).toBeCloseTo(0.75, 3);
   expect(r.out.half).toBeCloseTo(0.375, 3);                         // the size slider still scales from there
 });
+
+test('a character is never bigger than 300 % or smaller than 20 %', async ({ page }) => {
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Size');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  const r = await page.evaluate(() => {
+    const { stage } = window.__toon; stage.setSize('16:9', 480);
+    const draw = (mul) => { stage.layers = [{ key: 'a', mul, bounds: { x: 0, y: 0, w: 100, h: 300 }, visible: true }]; stage.layout(); const b = stage.layers[0].box; return b.y1 - b.y0; };
+    const h100 = draw(1);
+    return { big: draw(8) / h100, huge: draw(3) / h100, small: draw(0.05) / h100, min: draw(0.2) / h100 };
+  });
+  expect(r.big).toBeCloseTo(3, 2); expect(r.huge).toBeCloseTo(3, 2);           // asked for 800 %: 300 %
+  expect(r.small).toBeCloseTo(0.2, 2); expect(r.min).toBeCloseTo(0.2, 2);      // asked for 5 %: 20 %
+  await page.evaluate(() => { const T = window.__toon; T.S.speakers.push({ key: 'fake1', name: 'Fake', color: '#c06', charId: 'fake' }); T.S.sel = 'fake1'; T.drawCharBar({ key: 'fake1', mul: 1 }); });
+  await expect(page.locator('.cb-size')).toHaveAttribute('max', '300'); await expect(page.locator('.cb-size')).toHaveAttribute('min', '20');
+});
