@@ -48,7 +48,8 @@ export async function loadCatalog() {
     const pictures = entries.map((e) => { const ref = e.template.character.views[e.template.view]?.thumb || e.template.character.thumb; return ref ? pictureUrl(ref).then((u) => { e.thumbnail = u; }).catch(() => { /* the card shows no picture */ }) : null; });
     return Promise.race([Promise.all(pictures.filter(Boolean)), new Promise((resolve) => setTimeout(resolve, 4000))]);
   }).catch((e) => { console.warn('Uploaded characters are not available:', e.message); });
-  await Promise.all([rulesTask, managedTask, libraryTask, cloudTask]);
+  // the studio opens with whatever arrived within 9 s: a slow or stuck request must not keep the page waiting (the rest is added when it comes)
+  await Promise.race([Promise.all([rulesTask, managedTask, libraryTask, cloudTask]), new Promise((resolve) => setTimeout(resolve, 9000))]);
   if (library.length) libraryProblem = '';
 }
 export const libraryCharacters = () => library;

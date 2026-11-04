@@ -10,11 +10,13 @@ function persistent(key) {
 export async function apiCall(url, body, owner = auth.currentUser?.uid) {
   const offline = import.meta.env.DEV && location.search.includes('debug');   // dev test mode: no sign-in, the browser tests answer the API themselves
   if (!offline && (!owner || auth.currentUser?.uid !== owner)) throw Error('The account has changed. Please reopen the project.');
-  const token = offline ? 'debug' : await idToken();
+  const token = offline ? 'debug' : await Promise.race([idToken(), new Promise((_, no) => setTimeout(() => { const e = Error('Signing in took too long. Please check your internet and try again.'); e.code = 'network'; no(e); }, 15000))]);
   if (!offline && auth.currentUser?.uid !== owner) throw Error('The account has changed. Please try again.');
   let r;
-  try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body) }); }
-  catch (cause) { const e = Error(friendlyError(cause, 'The request did not reach the server. Please check your internet and try again.')); e.code = 'network'; throw e; }
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);          // a request that never answers must not hold a page open forever
+  try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body), signal: ctl.signal }); }
+  catch (cause) { const e = Error(cause?.name === 'AbortError' ? 'The server took too long to answer. Please try again.' : friendlyError(cause, 'The request did not reach the server. Please check your internet and try again.')); e.code = 'network'; throw e; }
+  finally { clearTimeout(timer); }
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const e = Error(j.error || 'The cloud request failed. Please try again.'); e.code = j.code; e.status = r.status; throw e; }
   if (!offline && auth.currentUser?.uid !== owner) throw Error('The account has changed. Please try again.');

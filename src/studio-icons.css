@@ -430,3 +430,7 @@ body.studio-dark h1,body.studio-dark h2,body.studio-dark .modal b,body.studio-da
 .lane2 .pflag:not(.stage){pointer-events:none}
 body.path-mode .lane2 .pflag:not(.stage){pointer-events:auto}
 @media (max-width:860px){.pathshadow-layer .pathbar .pb-desk{display:none}}
+.close-wrap{position:relative;display:inline-flex}
+.close-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:90;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:var(--card2);border:1px solid var(--line);box-shadow:0 10px 30px #000a;white-space:nowrap;color:var(--text);font-size:13px;font-weight:650}
+.close-pop[hidden]{display:none}
+.close-pop .btn{min-height:34px;padding:0 12px}

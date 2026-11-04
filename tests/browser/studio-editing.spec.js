@@ -349,7 +349,7 @@ test('background export: closing the studio while it renders does not stop it; t
   const downloadReady = page.waitForEvent('download', { timeout: 120000 });
   await page.locator('#app .hdr-tools').getByRole('button', { name: 'Export', exact: true }).click();
   await expect(page.locator('.export-pill')).toBeVisible({ timeout: 20000 });
-  await page.locator('.close-studio').click();                                                   // leave the studio while it renders
+  await page.locator('.close-studio').click(); await page.locator('.close-yes').click();                                                   // leave the studio while it renders
   await expect(page.locator('#app')).toBeHidden({ timeout: 15000 });
   const download = await downloadReady;
   const { readFile } = await import('node:fs/promises'); expect((await readFile(await download.path())).length).toBeGreaterThan(2000);

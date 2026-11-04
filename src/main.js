@@ -3224,17 +3224,19 @@ function generatedTiles(pick, grid) {
 function tabCanvas() {
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: String(cur()) === String(k) ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', String(items[i][0]) === String(k))); } }, l)));
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => {
-    for (const f of e.target.files) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: f.name, blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); S.bgId = rec.id; await stage.setBackgroundImage(f); }
-    S.dirty = true; drawTabs();
+    let last = null;
+    for (const f of e.target.files) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: f.name, blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); last = rec; }
+    S.dirty = true; if (last) await addBgClip(last); else drawTabs();          // the new picture goes on the timeline as a 5 s clip
   } });
   const addBgClip = async (rec, preset = 0) => {
     if (S.bgReplace && await replaceBgWith(rec, preset)) return;
-    const start = snapTo(Math.min(player.time, Math.max(0, player.total - 1))), c = { id: uid(), bgId: rec?.id ?? null, preset, start, dur: Math.max(1, Math.min(3, snapTo(player.total - start))) };
+    const start = snapTo(Math.max(0, player.time)), c = { id: uid(), bgId: rec?.id ?? null, preset, start, dur: 5 };          // a background is always a 5 s clip at the playhead; the user stretches it as far as it should go
     S.bgClips.push(c); S.bgSel = c.id; await syncBgClips(); updateTotal(); drawTimeline(); drawTabs();
   };
   const pickBg = async (rec, preset) => {
     if (S.bgReplace && await replaceBgWith(rec, preset)) return;
-    if (S.bgAtTime) return addBgClip(rec, preset ?? stage.bg.preset); S.bgId = rec?.id ?? null; await stage.setBackgroundImage(rec?.blob ?? null); S.dirty = true; drawTabs(); };
+    return addBgClip(rec, preset ?? stage.bg.preset);
+  };
   askPlan();
   const shared = (type) => S.sharedAssets.filter((asset) => asset.type === type);
   const addSharedBackground = async (asset) => {
@@ -3250,27 +3252,25 @@ function tabCanvas() {
     if (S.scenes.some(scene => scene.id !== S.sceneId && (scene.doc?.bgId === r.id || scene.doc?.bgClips?.some((c) => c.bgId === r.id)))) { toast('This background is being used in another scene.'); return; }
     await dbDel('backgrounds', r.id); S.myBgs = S.myBgs.filter((x) => x.id !== r.id);
     const usedOnTimeline = S.bgClips.some((c) => c.bgId === r.id); if (usedOnTimeline) { S.bgClips = S.bgClips.filter((c) => c.bgId !== r.id); if (S.bgSel && !S.bgClips.some((c) => c.id === S.bgSel)) S.bgSel = null; await syncBgClips(); }          // its pieces on the timeline go with it
-    if (S.bgId === r.id) await pickBg(null); else drawTabs();
+    if (S.bgId === r.id) { S.bgId = null; await stage.setBackgroundImage(null); S.dirty = true; }
+    drawTabs();
     updateTotal(); drawTimeline(); S.dirty = true;
   };
   // one list: "+" first (opens the device's files), then the pictures this project already has, the generated ones and the admin's shared scenes
   const mine = h('div', { class: 'tile-grid' },
     tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => file.click() }),
-    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: r.name, onclick: () => pickBg(r), onremove: () => removeBg(r), ...(S.bgAtTime ? {} : { viewing: S.bgId === r.id, onview: () => pickBg(S.bgId === r.id ? null : r) }) })),
+    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: r.name, onclick: () => pickBg(r), onremove: () => removeBg(r) })),
     shared('background').map(sharedTile));
   generatedTiles(pickBg, mine);
   // plain colours: small round swatches, the last one opens the colour picker so the user can make any colour of their own
   const solidPng = (hex) => new Promise((resolve) => { const c = document.createElement('canvas'); c.width = 32; c.height = 18; const g = c.getContext('2d'); g.fillStyle = hex; g.fillRect(0, 0, 32, 18); c.toBlob(resolve, 'image/png'); });
-  const sw = h('div', { class: 'bg-swatches' }, BACKGROUNDS.map((b, i) => h('button', { type: 'button', title: b.name, 'aria-label': b.name, class: `bg-swatch${stage.bg.preset === i && !S.bgId ? ' on' : ''}`, style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { if (S.bgAtTime) return addBgClip(null, i); stage.bg.preset = i; await pickBg(null); } })),
+  const sw = h('div', { class: 'bg-swatches' }, BACKGROUNDS.map((b, i) => h('button', { type: 'button', title: b.name, 'aria-label': b.name, class: `bg-swatch${stage.bg.preset === i && !S.bgId ? ' on' : ''}`, style: `background:linear-gradient(135deg,${b.a},${b.b})`, onclick: async () => { await addBgClip(null, i); } })),
     h('label', { class: 'bg-swatch custom', title: 'Make your own colour' }, h('input', { type: 'color', value: '#3b82f6', 'aria-label': 'Make your own colour', onchange: async (e) => {
       try { const hex = e.target.value, blob = await solidPng(hex), rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: `Colour ${hex}`, blob }; await dbPut('backgrounds', rec); S.myBgs.push(rec); await pickBg(rec); }
       catch (er) { toast(`Could not make the colour: ${friendlyError(er)}`); }
     } }), '+'));
-  return h('div', { class: 'list' },
-    h('div', { class: 'card flat bg-colours' }, h('h2', {}, 'Plain colours'), sw),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Backgrounds'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Tap + to add a picture from your device, or choose one below. Eye = show / hide, ✕ = delete.'), tileSearch(mine, 'backgrounds'), mine, file),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Where should the background be applied?'), seg([[0, 'Whole scene'], [1, 'On the timeline (from the playhead)']], () => (S.bgAtTime ? 1 : 0), (k) => { S.bgAtTime = String(k) === '1'; drawTabs(); }),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.bgAtTime ? `The background you choose will be added to the timeline at the playhead (${fmt(player.time)}).` : 'The background you choose will stay behind for the whole scene.')));
+  // only what is needed: "+" and the backgrounds, then the plain colours. Every choice is a 5 s clip at the playhead.
+  return h('div', { class: 'list' }, mine, file, h('div', { class: 'bg-colours' }, h('h2', { class: 'bg-h' }, 'Plain colours'), sw));
 }
 
 /** export size for the chosen orientation + quality */
@@ -3700,6 +3700,7 @@ function projectIdChip() {
   chip.dataset.id = String(id); addEventListener('project-id-changed', changed);
   return chip;
 }
+let closePopOutside = () => {};
 function headerTools() {
   hdrUndo = h('button', { class: 'btn sm icon-btn history-button', 'data-history-control': true, 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => stepHistory(-1) }, icon('undo'));
   hdrRedo = h('button', { class: 'btn sm icon-btn history-button', 'data-history-control': true, 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => stepHistory(1) }, icon('redo'));
@@ -3709,7 +3710,11 @@ function headerTools() {
   updateSaveStatus();
   queueMicrotask(updateHistoryButtons);
   exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: () => openExportPopup() }, icon('download'));
-  const closeBtn = h('button', { class: 'btn sm icon-btn close-studio', 'aria-label': 'Close studio', title: 'Close studio — back to your projects', onclick: goHome }, icon('x'));
+  // the ✕ asks first, in a small drop right under it (a project can be left by a stray tap otherwise)
+  const closePop = h('div', { class: 'close-pop', role: 'dialog', 'aria-label': 'Close the studio?', hidden: true }, h('span', {}, 'Close the studio?'),
+    h('button', { type: 'button', class: 'btn sm', onclick: () => { closePop.hidden = true; } }, 'Stay'), h('button', { type: 'button', class: 'btn sm pri close-yes', onclick: () => { closePop.hidden = true; goHome(); } }, 'Close'));
+  const closeBtn = h('span', { class: 'close-wrap' }, h('button', { class: 'btn sm icon-btn close-studio', 'aria-label': 'Close studio', 'aria-haspopup': 'dialog', title: 'Close studio — back to your projects', onclick: () => { closePop.hidden = !closePop.hidden; } }, icon('x')), closePop);
+  document.removeEventListener('pointerdown', closePopOutside, true); closePopOutside = (e) => { if (!closePop.hidden && !closeBtn.contains(e.target)) closePop.hidden = true; }; document.addEventListener('pointerdown', closePopOutside, true);
   return h('div', { class: 'hdr-tools' }, previewControl(), h('span', { class: 'sp' }), h('span', { class: 'studio-brand', title: '12toons', 'aria-label': '12toons' }, ...brandWordmark()), h('span', { class: 'sp' }), creditsBadge({ compact: true }), projectIdChip(), saveDetails, hdrUndo, hdrRedo,
     h('details', { class: 'studio-menu' }, h('summary', { class: 'btn sm icon-btn', 'aria-label': 'More studio actions', title: 'More' }, icon('more')), h('div', { class: 'studio-menu-panel' }, h('button', { class: 'btn sm refresh-site', type: 'button', onclick: refreshSite }, h('span', {}, icon('rotate')), ' Refresh the page'), h('button', { class: 'btn sm danger', onclick: resetEverything }, h('span', {}, icon('trash')), ' Reset this project…'))),
     exportBtn, closeBtn);

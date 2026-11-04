@@ -40,23 +40,19 @@ test('phone: no floating toolbar over the character; the timeline has a thick sc
   expect(parseFloat(bar.h)).toBeGreaterThanOrEqual(14); expect(bar.width).toBe('auto'); expect(bar.room).toBeGreaterThan(50);
 });
 
-test('background tile: the eye button shows or hides it (eye / crossed eye, no emoji)', async ({ page }) => {
+test('Background tab: "+" and the backgrounds, then the plain colours; a picture or colour becomes a 5 s clip at the playhead (no questions)', async ({ page }) => {
   await open(page, 390);
   await page.evaluate(() => window.__toon.openTab('canvas'));
+  await expect(page.getByText('Where should the background be applied?')).toHaveCount(0);
+  await expect(page.locator('.tile-search')).toHaveCount(0);
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('.tile.add').first().click()]);
   await chooser.setFiles({ name: 'pic.png', mimeType: 'image/png', buffer: PNG });
-  const eye = page.locator('.tile:not(.add) .eye').first();
-  await expect(eye).toBeVisible({ timeout: 15000 });
-  await expect(eye).toHaveClass(/on/);                                   // just added = showing
-  expect(await page.evaluate(() => !!window.__toon.S.bgId)).toBe(true);
-  await eye.click();
-  await expect(page.locator('.tile:not(.add) .eye').first()).not.toHaveClass(/on/);
-  expect(await page.evaluate(() => window.__toon.S.bgId)).toBeFalsy();
-  expect(await page.locator('.tile .eye').first().textContent()).not.toContain('🚫');
-  await page.locator('.tile:not(.add) .eye').first().click();
-  await expect(page.locator('.tile:not(.add) .eye').first()).toHaveClass(/on/);
-  const eb = await page.locator('.tile:not(.add) .eye').first().boundingBox(), xb = await page.locator('.tile:not(.add) .x').first().boundingBox();
-  expect(eb.x + eb.width).toBeLessThanOrEqual(xb.x);                    // the eye and the delete button do not overlap
+  await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length), { timeout: 15000 }).toBe(1);
+  const c = await page.evaluate(() => window.__toon.S.bgClips[0]); expect(c.dur).toBe(5); expect(c.bgId).toBeTruthy(); expect(c.start).toBe(0);
+  await expect(page.locator('.tile:not(.add) .eye')).toHaveCount(0);                      // no eye on a background: it is a clip on the timeline
+  await page.locator('.bg-swatch').first().click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(2);
+  expect((await page.evaluate(() => window.__toon.S.bgClips[1])).dur).toBe(5);
 });
 
 test('props: one picture is added once (tapping it again selects it); a background tile shows the whole 16:9 picture; custom colour makes a background', async ({ page }) => {
@@ -84,13 +80,12 @@ test('props: one picture is added once (tapping it again selects it); a backgrou
   await page.evaluate(() => window.__toon.openTab('canvas'));
   await expect(page.locator('.studio-bg-editor, .card:has-text("Move and resize")')).toHaveCount(0);
   const sw = await page.locator('.bg-swatch').first().boundingBox(); expect(sw.width).toBeLessThanOrEqual(32);
-  const firstCard = await page.evaluate(() => document.querySelector('.panel .card h2').textContent); expect(firstCard).toBe('Plain colours');
   await page.locator('.bg-swatch.custom input').evaluate((el) => { el.value = '#ff0000'; el.dispatchEvent(new Event('change', { bubbles: true })); });
   await expect(page.locator('.tile', { hasText: 'Colour #ff0000' })).toBeVisible({ timeout: 10000 });
-  expect(await page.evaluate(() => !!window.__toon.S.bgId)).toBe(true);
+  expect(await page.evaluate(() => window.__toon.S.bgClips.length)).toBeGreaterThan(0);
 });
 
-test('search by name hides the other pictures in Backgrounds and Props', async ({ page }) => {
+test('search by name hides the other pictures in Props (Backgrounds has no search)', async ({ page }) => {
   await open(page, 390);
   await page.evaluate(async () => {
     const { S } = window.__toon, png = await (await fetch('data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==')).blob();
@@ -99,10 +94,6 @@ test('search by name hides the other pictures in Backgrounds and Props', async (
   });
   const names = () => page.locator('.tile:not(.add):visible .tile-name').allTextContents();
   expect((await names()).sort()).toEqual(['Forest village', 'Palace hall']);
-  await page.getByLabel('Search backgrounds by name').fill('pal');
-  expect(await names()).toEqual(['Palace hall']);
-  await page.getByLabel('Search backgrounds by name').fill('');
-  expect((await names()).length).toBe(2);
   await page.evaluate(() => { window.__toon.S.sharedAssets = [{ id: 'a1', type: 'prop', access: 'free', name: 'Lamp' }, { id: 'a2', type: 'prop', access: 'free', name: 'Chair' }]; window.__toon.openTab('props'); });
   await page.getByLabel('Search props by name').fill('lam');
   expect(await names()).toEqual(['Lamp']);
