@@ -23,7 +23,7 @@ test('phone: a selected character gets named tool buttons over the bottom menu; 
   const tabsBox = await page.locator('.tabs.big').boundingBox(), bb = await bar.boundingBox();
   expect(Math.abs(bb.y - tabsBox.y)).toBeLessThan(3); expect(bb.x + bb.width).toBeLessThanOrEqual(390.5);             // it covers the bottom menu
   const more = bar.locator('.char-more'); const sb = await more.locator('summary').boundingBox(); await page.mouse.click(sb.x + sb.width / 2, sb.y + sb.height / 2);
-  await expect(more.locator('.cb-more-list .cb-btn > span:last-child')).toHaveText(['Tears', 'Mask', 'Reset', 'Delete', 'Done']);
+  await expect(more.locator('.cb-more-list .cb-btn > span:last-child')).toHaveText(['Tears', 'Mask', 'Shadow', 'Reset', 'Delete', 'Done']);
   const pop = await more.locator('.cb-more-list').boundingBox(); expect(pop.x).toBeGreaterThanOrEqual(0); expect(pop.x + pop.width).toBeLessThanOrEqual(390); expect(pop.y + pop.height).toBeLessThanOrEqual(bb.y);   // above the bar, inside the screen
   await page.locator('.controls .time').click(); await expect(more).toHaveJSProperty('open', false); await expect(bar).toBeVisible();       // tap elsewhere: closes
   const sb2 = await more.locator('summary').boundingBox(); await page.mouse.click(sb2.x + sb2.width / 2, sb2.y + sb2.height / 2); await more.getByRole('button', { name: 'Close the character tools' }).click();
