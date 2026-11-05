@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { cleanAssetMeta } from '../../shared/studio-effects.js';
 
-const CACHE = '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/maya-cloud.json';          // the uploaded Maya (fake cloud state) is kept here, so the slow upload happens once
-const ZIP = process.env.CHARACTER_ZIP || '/tmp/maya.zip', GIF = process.env.MASHAL_GIF || '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/mashal.gif', OUT = '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/';
+const WHO = process.env.WHO || 'Maya', CACHE = `/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/${WHO.toLowerCase()}-cloud.json`;          // the uploaded Maya (fake cloud state) is kept here, so the slow upload happens once
+const ZIP = process.env.CHARACTER_ZIP || (WHO === 'Roshan' ? '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/wz/roshan.zip' : '/tmp/maya.zip'), GIF = process.env.MASHAL_GIF || '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/mashal.gif', OUT = '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/';
 
 /** a stand-in for the character actions of api/studio-assets.js + R2 (the real server logic is tested in tests/characters-api.test.js) */
 function fakeServer(page) {
@@ -58,7 +58,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
     await page.getByLabel('Character ZIP').setInputFiles(ZIP);
     await page.getByLabel('Animation preview quality').selectOption('low');
     await page.getByRole('button', { name: 'Done — upload' }).click();
-    await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 10 * 60 * 1000, intervals: [2000] }).toMatch(/Maya is saved/); console.log('STEP maya saved');
+    await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 10 * 60 * 1000, intervals: [2000] }).toMatch(new RegExp(`${WHO} is saved`)); console.log('STEP maya saved');
     writeFileSync(CACHE, JSON.stringify({ db: [...cloud.db], r2: [...cloud.r2].map(([k, v]) => [k, Buffer.from(v).toString('base64')]), characters: [...cloud.characters], categories: [...cloud.categories] }));
   }
   await page.evaluate(async () => { const { propsEffectsView } = await import('/src/admin-props-effects.js'); document.querySelector('#shell').replaceChildren(await propsEffectsView({ home: () => {}, back: () => {}, toast: (m) => { window.__toast = m; }, only: 'prop', group: 'hand' })); });
@@ -74,7 +74,8 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click(); await page.locator('.cp-poses .pose').first().click();
+  await page.locator('.cp-kind').first().click().catch(() => {}); for (const kind of ['Male', 'Female']) { const tab = page.getByRole('tab', { name: kind }); if (await tab.count()) { await tab.click(); if (await page.locator('.cp-card').filter({ hasText: new RegExp(`^${WHO}$`) }).count()) break; } }
+  await page.locator('.cp-card').filter({ hasText: new RegExp(`^${WHO}$`) }).click(); await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
   await page.waitForTimeout(1500); console.log('STEP maya on stage');
   // 3. Props tab: the torch is listed with nobody selected; tap it, choose the right hand
@@ -98,6 +99,18 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   const f0 = await frame(0.0), f1 = await frame(0.07), f2 = await frame(0.35);
   writeFileSync(OUT + 'f0.png', Buffer.from(f0.split(',')[1], 'base64')); writeFileSync(OUT + 'f1.png', Buffer.from(f1.split(',')[1], 'base64')); writeFileSync(OUT + 'f2.png', Buffer.from(f2.split(',')[1], 'base64'));
   expect(f0).not.toBe(f1); expect(f1).not.toBe(f2);          // the torch changes from frame to frame
+  // 4b. the character walks: the torch must stay at the hand in every frame
+  await page.evaluate(async () => {
+    const T = window.__toon, { S, stage, player } = T, sp = S.speakers[0], { categoriesFor } = await import('/src/catalog.js'), def = [...stage.assets.values()][0].def;
+    const walk = categoriesFor(def.rig).flatMap((c) => c.animations).find((x) => /walk/i.test(x.name) && !x.ref.layer && x.length);
+    player.seek(0); await T.addClip(sp, walk.ref, false, walk.length); T.S.mclip = null;
+  });
+  for (const t of [0.4, 1.3, 2.1, 3.0]) {
+    const g = await page.evaluate((time) => { const { stage, S } = window.__toon, l = stage.layers[0]; stage.propClock = null; stage.render(time, 0, [], []); const p = S.props[0], pl = stage.propPlacement(p, time), bone = ['R_Palm', 'right_grip', 'right_palm_jt'].map((n) => l.arm.getBone(n)).find(Boolean), m = bone.globalTransformMatrix, M = l.mat, palm = { x: M[0] * m.tx + M[2] * m.ty + M[4], y: M[1] * m.tx + M[3] * m.ty + M[5] };
+      const c = document.createElement('canvas'); c.width = stage.out.width; c.height = stage.out.height; c.getContext('2d').drawImage(stage.out, 0, 0); return { pl, palm, png: c.toDataURL('image/png'), grip: p.grip }; }, t);
+    writeFileSync(OUT + `walk-${WHO}-${t}.png`, Buffer.from(g.png.split(',')[1], 'base64'));
+    console.log('WALK', WHO, t, JSON.stringify({ cx: +g.pl.cx.toFixed(1), cy: +g.pl.cy.toFixed(1), a: +g.pl.a.toFixed(2), palm: [+g.palm.x.toFixed(1), +g.palm.y.toFixed(1)], grip: g.grip, h: +g.pl.h.toFixed(1) }));
+  }
   // 5. tap it on the canvas: the box and its tools (Edit) open; drag it forward / up
   const at = await page.evaluate(() => { const { stage, S } = window.__toon, pl = stage.propPlacement(S.props[0], window.__toon.S.t || 0), o = stage.out.getBoundingClientRect(); return { x: o.left + pl.cx / stage.W * o.width, y: o.top + pl.cy / stage.H * o.height }; });
   await page.mouse.click(at.x, at.y);
