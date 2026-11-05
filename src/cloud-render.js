@@ -5,9 +5,9 @@
 import { unpackRecords } from './project-codec.js';
 import { restoreSnapshot, selectProject } from './store.js';
 
-/** a secret-authenticated call to /api/cloud-export — no Firebase sign-in involved at all */
+/** a secret-authenticated call to /api/export (cloud export shares this endpoint — see docs/CLOUD-EXPORT.md) — no Firebase sign-in involved at all */
 async function jobCall(uid, jobId, secret, action, extra = {}) {
-  const r = await fetch('/api/cloud-export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, uid, jobId, secret, ...extra }) });
+  const r = await fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, uid, jobId, secret, ...extra }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const e = Error(j.error || 'The cloud export request failed.'); e.code = j.code; throw e; }
   return j;
@@ -24,7 +24,7 @@ const hashBlob = async (blob) => hex(await crypto.subtle.digest('SHA-256', await
 export async function runCloudRenderJob({ uid, jobId, secret }) {
   let job;
   try {
-    job = await jobCall(uid, jobId, secret, 'fetch');
+    job = await jobCall(uid, jobId, secret, 'cloudFetch');
   } catch (e) { console.error('Cloud export: could not start', e); return; }
   try {
     const download = (key) => fetchBlobByUrl(job.assetUrls[key.slice('assets/'.length)]);
@@ -38,6 +38,6 @@ export async function runCloudRenderJob({ uid, jobId, secret }) {
     await studio.runCloudExportJob({ uid, jobId, secret, settings: job.settings, jobCall });
   } catch (e) {
     console.error('Cloud export failed', e);
-    try { await jobCall(uid, jobId, secret, 'fail', { message: e.message }); } catch { /* best effort */ }
+    try { await jobCall(uid, jobId, secret, 'cloudFail', { message: e.message }); } catch { /* best effort */ }
   }
 }

@@ -3972,7 +3972,7 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
     const now = performance.now();
     if (p < 1 && now - lastSent < 2000) return;        // the job's own progress field is a cloud write: a couple of seconds apart is plenty
     lastSent = now;
-    try { await jobCall(uid, jobId, secret, 'progress', { progress: p }); } catch (e) { console.warn('Cloud export: progress update failed', e.message); }
+    try { await jobCall(uid, jobId, secret, 'cloudProgress', { progress: p }); } catch (e) { console.warn('Cloud export: progress update failed', e.message); }
   };
   try {
     await stage.setTextureLimit(S.quality >= 2160 ? 4096 : 2048);
@@ -3990,13 +3990,13 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
       res = await exportOffline({ stage, clips: player.clips, plan: shotPlan(), total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, fps: S.fps, level: S.level, format: S.format });
     }
     const { blob, ext } = res, hash = await hashBlobSha256(blob), size = blob.size;
-    const { upload, have } = await jobCall(uid, jobId, secret, 'presign', { hash, size });
+    const { upload, have } = await jobCall(uid, jobId, secret, 'cloudPresign', { hash, size });
     if (!have) { const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: blob }); if (!put.ok) throw Error(`The rendered video could not be uploaded (${put.status}).`); }
-    await jobCall(uid, jobId, secret, 'complete', { hash, size });
+    await jobCall(uid, jobId, secret, 'cloudComplete', { hash, size });
     console.log(`Cloud export done: ${ext.toUpperCase()}, ${(size / 1e6).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(0)}s`);
   } catch (e) {
     console.error('Cloud export failed', e);
-    try { await jobCall(uid, jobId, secret, 'fail', { message: e.message }); } catch { /* best effort */ }
+    try { await jobCall(uid, jobId, secret, 'cloudFail', { message: e.message }); } catch { /* best effort */ }
   } finally { S.exporting = false; }
 }
 const hashBlobSha256 = async (blob) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map((b) => b.toString(16).padStart(2, '0')).join('');

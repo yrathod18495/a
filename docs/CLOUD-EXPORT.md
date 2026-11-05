@@ -18,14 +18,14 @@ pixel-identical to a normal export, forever, with no separate code path to keep 
 - **No new backend.** Everything lives in infrastructure the project already has: the Realtime Database (`cloudExports/<uid>/<jobId>`,
   next to the existing `projects/<uid>/<id>`) and the existing R2 bucket (the finished video is just another content-addressed
   asset, `assets/<uid>/<hash>`, downloaded the exact same way a character picture is). **No new Vercel environment variable is
-  needed** — `api/cloud-export.js` reuses `FIREBASE_ADMIN_CREDENTIALS`, `FIREBASE_DATABASE_URL` and the `CLOUDFLARE_R2_*` variables
+  needed** — these actions reuse the same `FIREBASE_ADMIN_CREDENTIALS`, `FIREBASE_DATABASE_URL` and the `CLOUDFLARE_R2_*` variables
   that are already set.
 
 ## The pieces
 
 | Piece | File(s) | Runs where |
 | --- | --- | --- |
-| Job API | `api/cloud-export.js`, `server/cloud-export-store.js` | Vercel (existing deployment) |
+| Job API | `api/export.js` (actions prefixed `cloud...`), `server/cloud-export-store.js` | Vercel (existing deployment) |
 | Owner's tab: submit / watch / cancel / download | `src/cloud-export.js`, the "Cloud export" card in `tabExport()` in `src/main.js` | the user's own browser, signed in normally |
 | Render page | `src/cloud-render.js`, route `#/cloudrender` in `src/shell.js`, `runCloudExportJob()` in `src/main.js` | inside the headless Chromium the worker opens — anonymous, no sign-in |
 | Worker | `hf-cloud-export/` (`app.py`, `Dockerfile`, `requirements.txt`, `README.md`) | a Hugging Face Space (Docker), separate from the website |
@@ -34,14 +34,14 @@ pixel-identical to a normal export, forever, with no separate code path to keep 
 
 1. The owner, signed in as normal, taps **Start cloud export** in the Export tab (quality/fps/level/format are whatever is
    already selected there). The browser first makes sure the project is saved to the cloud (`syncCurrent()`), then calls
-   `api/cloud-export` `action:"create"`, which checks the account's plan length limit (same rule as a normal export) and writes
+   `api/export` `action:"cloudCreate"`, which checks the account's plan length limit (same rule as a normal export) and writes
    a job to `cloudExports/<uid>/<jobId>` with a random `secret`, `status:"pending"`.
-2. The owner's tab polls `action:"status"` every ~2.5 s (plain signed-in calls; this never involves the secret) and shows a
-   progress bar. It may call `action:"cancel"` at any time while the job has not finished.
+2. The owner's tab polls `action:"cloudStatus"` every ~2.5 s (plain signed-in calls; this never involves the secret) and shows a
+   progress bar. It may call `action:"cloudCancel"` at any time while the job has not finished.
 3. The Hugging Face worker polls the whole `cloudExports` node with the **Admin SDK** (bypasses all rules — it is a server,
    not a user) for jobs with `status:"pending"`, and for each one opens `{SITE_URL}/#/cloudrender/<uid>/<jobId>/<secret>` in a
    headless Chromium tab.
-4. That page (`src/cloud-render.js`) calls `api/cloud-export` `action:"fetch"` with `{uid, jobId, secret}` — no Firebase sign-in
+4. That page (`src/cloud-render.js`) calls `api/export` `action:"cloudFetch"` with `{uid, jobId, secret}` — no Firebase sign-in
    at all, only the secret. The server reads the project's last-saved snapshot straight from R2 (`server/r2-storage.js`,
    `readText`/`getUrl`, the same code the normal sync path uses) and returns the manifest plus a signed download URL for every
    asset it references. The page downloads them, calls `restoreSnapshot()` (`src/store.js`) to put them in this tab's local
@@ -50,14 +50,14 @@ pixel-identical to a normal export, forever, with no separate code path to keep 
    code path (`boot()` → `restoreProject()` → `loadDoc()`).
 5. Once the studio is ready, the page calls the new `runCloudExportJob()` in `src/main.js`: it renders with
    `exportParallel`/`exportOffline` (falling back to one thread if parallel rendering is not available), posting
-   `action:"progress"` every couple of seconds, then hashes the finished video, calls `action:"presign"` for an R2 upload URL,
-   PUTs the bytes straight to R2, and finally calls `action:"complete"` with the hash and size. The server does a `HEAD` to
+   `action:"cloudProgress"` every couple of seconds, then hashes the finished video, calls `action:"cloudPresign"` for an R2 upload URL,
+   PUTs the bytes straight to R2, and finally calls `action:"cloudComplete"` with the hash and size. The server does a `HEAD` to
    confirm the upload really arrived, registers it in the normal asset/quota ledger (`confirmAssets`), and marks the job
    `status:"done"`.
 6. The owner's tab, which has been polling the whole time, sees `status:"done"` and shows a **Download the video** button; it
    calls `api/r2` `action:"urls"` (the same endpoint every other download in the app uses) with the video's hash to get a fresh
    signed link.
-7. If anything fails at any point, the page (or the worker, on a timeout) calls `action:"fail"`; the owner's tab shows the
+7. If anything fails at any point, the page (or the worker, on a timeout) calls `action:"cloudFail"`; the owner's tab shows the
    error. If the owner cancels, the worker notices on its next poll and closes that browser tab early.
 
 ## Setting it up
@@ -75,6 +75,16 @@ pixel-identical to a normal export, forever, with no separate code path to keep 
 
 ### 2. Nothing to add on Vercel
 No new environment variable is needed there (see "Why it works this way" above) — only redeploy once this code is merged.
+
+**Do not give cloud export its own `api/*.js` file.** Vercel's Hobby (free) plan caps a project at **12 serverless functions**
+total. This project already had exactly 12 `api/*.js` files; adding a 13th (`api/cloud-export.js`, the first version of this
+feature) made every deployment fail right after a successful build, with no error in the build log itself — only on the
+Deployments list, and the live site kept serving the last good deploy, so nothing looked obviously broken except that new
+code never went live. That is why the cloud export actions live inside `api/export.js` instead (named `cloudCreate` /
+`cloudCancel` / `cloudStatus` / `cloudFetch` / `cloudPresign` / `cloudProgress` / `cloudComplete` / `cloudFail`, to avoid
+clashing with that file's own `status`/`authorize`/`complete`). If a future feature truly needs its own endpoint, first check
+the count of files in `api/` — at 12, merge it into the closest existing one instead of adding a 13th, unless the project has
+since moved to a paid Vercel plan.
 
 ### 3. Verify end to end (do this once, by hand — I could not run this part myself: it needs a real Hugging Face Space, a real
    Firebase project and real R2 credentials, none of which exist in the sandbox this was written in)

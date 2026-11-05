@@ -6,11 +6,11 @@ test('Cloud export: Start submits a job, progress polling shows it, and Cancel s
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   let job = null;
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
-  await page.route('**/api/cloud-export', async (r) => {
+  await page.route('**/api/export', async (r) => {
     const body = JSON.parse(r.request().postData());
-    if (body.action === 'create') { job = { status: 'rendering', progress: 0.1, projectId: body.projectId }; return r.fulfill({ json: { jobId: 'cexp_test1', job } }); }
-    if (body.action === 'status') return r.fulfill({ json: { job } });
-    if (body.action === 'cancel') { job = { ...job, status: 'cancelled' }; return r.fulfill({ json: { job } }); }
+    if (body.action === 'cloudCreate') { job = { status: 'rendering', progress: 0.1, projectId: body.projectId }; return r.fulfill({ json: { jobId: 'cexp_test1', job } }); }
+    if (body.action === 'cloudStatus') return r.fulfill({ json: { job } });
+    if (body.action === 'cloudCancel') { job = { ...job, status: 'cancelled' }; return r.fulfill({ json: { job } }); }
     return r.fulfill({ json: { error: 'unexpected' }, status: 400 });
   });
   await page.goto('/?debug&workers=0#/toons');
