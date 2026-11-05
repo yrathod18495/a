@@ -63,6 +63,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   }
   await page.evaluate(async () => { const { propsEffectsView } = await import('/src/admin-props-effects.js'); document.querySelector('#shell').replaceChildren(await propsEffectsView({ home: () => {}, back: () => {}, toast: (m) => { window.__toast = m; }, only: 'prop', group: 'hand' })); });
   console.log('STEP admin props view'); await page.getByLabel('Image file').setInputFiles(GIF);
+  await page.getByLabel('Who can use it', { exact: true }).selectOption('free');          // the default is Paid only: a free account would see the torch locked
   await page.getByRole('button', { name: 'Publish prop', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 60000 }).toMatch(/published/i);
   await expect(page.locator('.admin-asset-card', { hasText: 'mashal' })).toHaveCount(1); console.log('STEP mashal published');
