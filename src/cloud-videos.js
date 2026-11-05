@@ -1,5 +1,6 @@
 // "My cloud videos": every finished cloud export is kept for 3 days so it can be downloaded later, even after the studio was closed.
 import { h, toast } from './dom.js';
+import { exportFileName } from './export-name.js';
 import { listCloudVideos, deleteCloudVideo, saveCloudVideo } from './cloud-export.js';
 
 const mb = (n) => (n / 1048576 < 10 ? (n / 1048576).toFixed(1) : Math.round(n / 1048576)) + ' MB';
@@ -20,7 +21,7 @@ export function openCloudVideos(uid, { projectId = null } = {}) {
     list.replaceChildren(...shown.map((v) => {
       const download = h('button', { type: 'button', class: 'btn ok sm', onclick: async () => {
         download.disabled = true;
-        try { await saveCloudVideo(uid, v.id, `toon-${v.quality || 'video'}p-${v.id.slice(-6)}.mp4`, v.size); }
+        try { await saveCloudVideo(uid, v.id, exportFileName(v.projectId, 'mp4', new Date(v.createdAt)), v.size); }
         catch (e) { toast(e.message); } finally { download.disabled = false; }
       } }, 'Download');
       const remove = h('button', { type: 'button', class: 'btn sm', 'aria-label': 'Delete this video', onclick: async () => {

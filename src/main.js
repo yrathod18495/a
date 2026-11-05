@@ -27,6 +27,7 @@ import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as as
 import { pictureUrl } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
+import { exportFileName } from './export-name.js';
 import { createCloudExport, cancelCloudExport, cloudExportStatus, watchCloudExport, saveCloudVideo } from './cloud-export.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
@@ -3777,8 +3778,8 @@ async function cancelCloudExportJob() {
 }
 async function downloadCloudExport() {
   if (!cloudJob?.id) return;
-  const uid = projectContext()?.uid; if (!uid) return;
-  try { await saveCloudVideo(uid, cloudJob.id, `toon-${S.quality}p-${cloudJob.id.slice(-6)}.mp4`, cloudJob.size); }
+  const uid = projectContext()?.uid, id = projectContext()?.id; if (!uid) return;
+  try { await saveCloudVideo(uid, cloudJob.id, exportFileName(id, 'mp4'), cloudJob.size); }
   catch (e) { toast(`Could not get the download link: ${e.message}`); }
 }
 /** the device tile of the Render section: one button, states it plainly instead of a row of separate controls */
@@ -3913,7 +3914,7 @@ async function runBackgroundExport(grant) {
     const took = (performance.now() - t0) / 1000;
     rememberSpeed({ duration: total, seconds: took, pixels: W * H, fps });
     rememberSize({ bytes: blob.size, duration: total, videoBps: bitrateFor(W, H, S.level, ext === 'mp4' ? 'mp4' : 'webm', S.fps), audio: clips.length > 0 || music.length > 0, format: ext === 'mp4' ? 'mp4' : 'webm' });
-    const a = h('a', { href: URL.createObjectURL(blob), download: `toon-${exportAspect.replace(':', 'x')}-${Date.now()}.${ext}` });
+    const a = h('a', { href: URL.createObjectURL(blob), download: exportFileName(projectContext()?.id, ext) });
     document.body.append(a); a.click(); a.remove(); exported = true;
     toast(`Your video is ready (${took.toFixed(0)} s) · ${ext.toUpperCase()} · ${info}`);
   } catch (e) { if (e.message === 'cancelled') toast('Export was stopped.'); else failed = e; console.error(e); }
@@ -3992,7 +3993,7 @@ async function doExport({ foreground = false } = {}) {
     const took = (performance.now() - t0) / 1000;
     if (offline && !stop) rememberSize({ bytes: blob.size, duration: sequence ? sequence.at(-1).end : player.total, videoBps: bitrateFor(stage.W, stage.H, S.level, ext === 'mp4' ? 'mp4' : 'webm', S.fps), audio: !silentExport(), format: ext === 'mp4' ? 'mp4' : 'webm' });
     if (offline && !stop) rememberSpeed({ duration: sequence ? sequence.at(-1).end : player.total, seconds: took, pixels: stage.W * stage.H, fps: S.fps });          // the next estimate is based on this export
-    const a = h('a', { href: URL.createObjectURL(blob), download: `toon-${exportAspect.replace(':', 'x')}-${Date.now()}.${ext}` });
+    const a = h('a', { href: URL.createObjectURL(blob), download: exportFileName(projectContext()?.id, ext) });
     document.body.append(a); a.click(); a.remove();
     exported = true;
     toast(`Done in ${took.toFixed(0)}s (${((sequence ? sequence.at(-1).end : player.total) / took).toFixed(1)}× real time) · ${ext.toUpperCase()} · ${info}`);
