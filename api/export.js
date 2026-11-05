@@ -53,8 +53,10 @@ export default async function handler(req, res) {
         return send(res, 200, { upload: signed.upload[hash] || null, have: signed.have.includes(hash) });
       }
       if (b.action === 'cloudProgress') {
-        const progress = Math.max(0, Math.min(1, Number(b.progress) || 0));
-        await updateJob(store, b.uid, b.jobId, { status: 'rendering', progress });
+        const patch = { status: 'rendering' };
+        if (b.progress !== undefined) patch.progress = Math.max(0, Math.min(1, Number(b.progress) || 0));
+        if (['loading', 'preparing', 'rendering', 'uploading'].includes(b.phase)) patch.phase = b.phase;
+        await updateJob(store, b.uid, b.jobId, patch);
         return send(res, 200, { ok: true });
       }
       if (b.action === 'cloudComplete') {

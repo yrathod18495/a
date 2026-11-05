@@ -26,7 +26,9 @@ export async function runCloudRenderJob({ uid, jobId, secret }) {
   try {
     job = await jobCall(uid, jobId, secret, 'cloudFetch');
   } catch (e) { console.error('Cloud export: could not start', e); return; }
+  const phase = (name) => jobCall(uid, jobId, secret, 'cloudProgress', { phase: name }).catch(() => {});
   try {
+    await phase('loading');
     const download = (key) => fetchBlobByUrl(job.assetUrls[key.slice('assets/'.length)]);
     const records = await unpackRecords(job.manifest, download);
     const meta = { ...job.meta, dirty: false, deleted: false };

@@ -3774,6 +3774,10 @@ function deviceRenderTile() {
     h('button', { type: 'button', class: 'btn ok exp-opt-btn', disabled, onclick: () => doExport() }, busy ? 'Exporting…' : 'Render'));
 }
 /** the cloud tile: same frame as the device one, its body swaps for the job's current state */
+function cloudPhaseText(job, pct) {
+  if (job.status === 'starting' || job.status === 'pending') return 'Waiting for a machine…';
+  return { loading: 'Starting the render machine and loading your project…', preparing: 'Preparing your scene…', uploading: 'Finishing up: saving the video…' }[job.phase] || `Rendering… ${pct}%`;
+}
 function cloudRenderTile() {
   const pct = Math.round((cloudJob?.progress || 0) * 100), idle = !cloudJob || ['done', 'error', 'cancelled'].includes(cloudJob.status);
   const head = h('div', { class: 'exp-opt-head' }, h('span', { class: 'exp-opt-ico', 'aria-hidden': 'true' }, icon('cloud')), h('div', {}, h('b', {}, 'Cloud'), h('small', {}, idle ? 'Renders elsewhere — this tab can close' : cloudJob.status === 'done' ? 'Ready' : cloudJob.status === 'error' ? 'Failed' : 'Working…')));
@@ -3785,7 +3789,7 @@ function cloudRenderTile() {
   if (cloudJob.status === 'done') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn ok exp-opt-btn', onclick: downloadCloudExport }, '⬇ Download'));
   return h('div', { class: 'exp-opt' }, head,
     h('div', { class: 'bar exp-opt-bar' }, h('i', { style: `width:${pct}%` })),
-    h('p', { class: 'exp-opt-msg' }, cloudJob.status === 'starting' || cloudJob.status === 'pending' ? 'Waiting for a machine…' : `Rendering… ${pct}%`),
+    h('p', { class: 'exp-opt-msg' }, cloudPhaseText(cloudJob, pct)),
     h('button', { type: 'button', class: 'btn exp-opt-btn exp-opt-cancel', onclick: cancelCloudExportJob }, 'Cancel'));
 }
 function renderSection() {
@@ -3986,9 +3990,10 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
     const now = performance.now();
     if (p < 1 && now - lastSent < 2000) return;        // the job's own progress field is a cloud write: a couple of seconds apart is plenty
     lastSent = now;
-    try { await jobCall(uid, jobId, secret, 'cloudProgress', { progress: p }); } catch (e) { console.warn('Cloud export: progress update failed', e.message); }
+    try { await jobCall(uid, jobId, secret, 'cloudProgress', { progress: p, phase: 'rendering' }); } catch (e) { console.warn('Cloud export: progress update failed', e.message); }
   };
   try {
+    jobCall(uid, jobId, secret, 'cloudProgress', { phase: 'preparing' }).catch(() => {});
     await stage.setTextureLimit(S.quality >= 2160 ? 4096 : 2048);
     await applyLayers();
     stage.setSize(S.aspect, S.quality);
@@ -4004,6 +4009,7 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
       res = await exportOffline({ stage, clips: player.clips, plan: shotPlan(), total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, fps: S.fps, level: S.level, format: S.format });
     }
     const { blob, ext } = res, hash = await hashBlobSha256(blob), size = blob.size;
+    await jobCall(uid, jobId, secret, 'cloudProgress', { progress: 1, phase: 'uploading' }).catch(() => {});
     const { upload, have } = await jobCall(uid, jobId, secret, 'cloudPresign', { hash, size });
     if (!have) { const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: blob }); if (!put.ok) throw Error(`The rendered video could not be uploaded (${put.status}).`); }
     await jobCall(uid, jobId, secret, 'cloudComplete', { hash, size });
