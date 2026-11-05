@@ -24,3 +24,7 @@ Every error a user can see — toasts, form errors, failed/empty states and API 
 
 This also applies to how Claude talks to the user in chat for this project: reply in English, not Hinglish.
 
+
+## Timeline and phone-studio rules (permanent rule)
+
+Every layer must stay visible on a short timeline (rows shrink together), the character "◆ move" lane is collapsible, and the phone bottom bar must never cut its labels. Details, the code that does it and the tests: `docs/TIMELINE-RULES.md`. Read it before changing the timeline.

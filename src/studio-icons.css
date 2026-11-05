@@ -551,3 +551,10 @@ body.studio-dark #app .ws .tl2 .tclip.shadow{--k-fill:#1d1f24;--k-edge:#8b909c;b
   #app .ws .panel .selbar input[type=range]{order:5;flex:1 1 100%;min-width:0}
   #app .ws .panel .selbar .pct,#app .ws .panel .selbar .dot{display:initial}
 }
+
+/* ---- a short timeline: every row shrinks so all layers stay visible (see fitRows in main.js) ---- */
+.tl2.squeezed .lane2 .tclip{top:2px !important;bottom:2px !important;height:auto !important;line-height:1.1;min-height:0}
+.tl2.squeezed .lane2 .tclip.face,.tl2.squeezed .lane2.char .tclip.face{font-size:10px;line-height:1.1}
+.tl2.squeezed .rl{overflow:hidden;padding-top:0 !important;padding-bottom:0 !important}
+.tl2.squeezed .rl .timeline-icon{transform:scale(.6);margin:-6px}
+.tl2.squeezed .lane2 .pflag:not(.stage){top:-3px}

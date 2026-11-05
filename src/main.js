@@ -776,6 +776,7 @@ function viewStudio() {
   tlLabels = h('div', { class: 'tl-labels' });
   tlInner = h('div', { class: 'tl-inner' }); wireBoxSelect();
   tlScroll = h('div', { class: 'tl-scroll' }, tlInner);
+  new ResizeObserver(() => requestAnimationFrame(fitRows)).observe(tlScroll);
   tlBox = h('div', { class: 'tl2' }, tlLabels, tlScroll);
   // phone: a grip above the timeline. Tap = bigger timeline / back; drag up or down = any size in between
   const grip = h('button', { type: 'button', class: 'tl-size-grip', 'aria-label': 'Make the timeline bigger or smaller', title: 'Tap to make the timeline bigger or smaller, or drag it up and down' }, icon('chevron-up'));
@@ -1046,6 +1047,17 @@ function refreshLayerAnim(force = true) {
     el.classList.toggle('none', !at);
   }
 }
+/** A short timeline must still show every layer: when the rows are taller than the box, they all shrink together (never below MIN_ROW), so nothing is hidden under the scroll bar. */
+let tlRows = null; const MIN_ROW = 18;
+function fitRows() {
+  if (!tlRows || !tlScroll) return;
+  const { labels, lanes } = tlRows, avail = tlScroll.clientHeight;
+  if (avail < 40) return;
+  const nat = labels.map((l, i) => +(l.dataset.nat || (l.dataset.nat = parseFloat(l.style.height) || l.offsetHeight || 40)));
+  const rest = nat.slice(1).reduce((x, y) => x + y, 0), room = avail - nat[0], k = rest > room && room > 0 ? room / rest : 1;
+  tlBox.classList.toggle('squeezed', k < 1);
+  labels.forEach((l, i) => { const px = i && k < 1 ? Math.max(MIN_ROW, Math.floor(nat[i] * k)) : nat[i]; l.style.setProperty('height', `${px}px`, i && k < 1 ? 'important' : ''); if (lanes[i]) lanes[i].style.setProperty('height', `${px}px`, i && k < 1 ? 'important' : ''); });
+}
 function drawTimeline() {
   if (!tlInner) return;
   const total = player.total || 1, pps = S.pps;
@@ -1225,6 +1237,7 @@ function drawTimeline() {
     labels.push(h('div', { class: 'rl audio', style: 'height:38px', onclick: () => openTab('camera') }, timelineIcon(null, 'camera'), h('span', { class: 'lt' }, 'Camera'))); lanes.push(cl);
   }
   tlLabels.replaceChildren(...labels);
+  tlRows = { labels, lanes }; fitRows();
   refreshLayerAnim();
   tlInner.style.width = `${Math.ceil(total * pps) + 60}px`;
   tlInner.replaceChildren(...lanes, headEl);
