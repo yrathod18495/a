@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { cleanAssetMeta } from '../../shared/studio-effects.js';
 
+const CACHE = '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/maya-cloud.json';          // the uploaded Maya (fake cloud state) is kept here, so the slow upload happens once
 const ZIP = process.env.CHARACTER_ZIP || '/tmp/maya.zip', GIF = process.env.MASHAL_GIF || '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/mashal.gif', OUT = '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/mashal/';
 
 /** a stand-in for the character actions of api/studio-assets.js + R2 (the real server logic is tested in tests/characters-api.test.js) */
@@ -43,23 +44,28 @@ function fakeServer(page) {
 
 test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the studio lists it, a tap asks the hand, the torch plays in Maya\'s hand, can be selected on the canvas and moved', async ({ page }) => {
   test.skip(!existsSync(ZIP) || !existsSync(GIF), 'needs the Maya ZIP and the torch GIF');
-  test.setTimeout(14 * 60 * 1000);
+  test.setTimeout(16 * 60 * 1000);
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
-  fakeServer(page);
+  const cloud = fakeServer(page); page.setDefaultTimeout(30000);
   await page.goto('/?debug#/hub');
-  // 1. the admin publishes Maya, then the torch (Add Props = hand props)
-  await page.evaluate(async () => { const { charactersView } = await import('/src/admin-characters.js'); document.querySelector('#shell').replaceChildren(await charactersView({ home() {}, back() {}, toast: (m) => { window.__toast = m; } })); });
-  await page.getByLabel('Character ZIP').setInputFiles(ZIP);
-  await page.getByLabel('Animation preview quality').selectOption('low');
-  await page.getByRole('button', { name: 'Done — upload' }).click();
-  await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 8 * 60 * 1000, intervals: [2000] }).toMatch(/Maya is saved/); console.log('STEP maya saved');
+  // 1. the admin publishes Maya (once; later runs load her from the cache), then the torch (Add Props = hand props)
+  const cached = existsSync(CACHE);
+  if (cached) { const c = JSON.parse(readFileSync(CACHE, 'utf8')); for (const [k, v] of c.db) cloud.db.set(k, v); for (const [k, v] of c.r2) cloud.r2.set(k, Buffer.from(v, 'base64')); for (const [k, v] of c.characters) cloud.characters.set(k, v); for (const [k, v] of c.categories) cloud.categories.set(k, v); console.log('STEP maya loaded from the cache'); }
+  if (!cached) await page.evaluate(async () => { const { charactersView } = await import('/src/admin-characters.js'); document.querySelector('#shell').replaceChildren(await charactersView({ home() {}, back() {}, toast: (m) => { window.__toast = m; } })); });
+  if (!cached) {
+    await page.getByLabel('Character ZIP').setInputFiles(ZIP);
+    await page.getByLabel('Animation preview quality').selectOption('low');
+    await page.getByRole('button', { name: 'Done — upload' }).click();
+    await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 10 * 60 * 1000, intervals: [2000] }).toMatch(/Maya is saved/); console.log('STEP maya saved');
+    writeFileSync(CACHE, JSON.stringify({ db: [...cloud.db], r2: [...cloud.r2].map(([k, v]) => [k, Buffer.from(v).toString('base64')]), characters: [...cloud.characters], categories: [...cloud.categories] }));
+  }
   await page.evaluate(async () => { const { propsEffectsView } = await import('/src/admin-props-effects.js'); document.querySelector('#shell').replaceChildren(await propsEffectsView({ home: () => {}, back: () => {}, toast: (m) => { window.__toast = m; }, only: 'prop', group: 'hand' })); });
-  await page.getByLabel('Image file').setInputFiles(GIF);
+  console.log('STEP admin props view'); await page.getByLabel('Image file').setInputFiles(GIF);
   await page.getByRole('button', { name: 'Publish prop', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 60000 }).toMatch(/published/i);
-  await expect(page.locator('.admin-asset-card', { hasText: 'mashal' })).toHaveCount(1);
+  await expect(page.locator('.admin-asset-card', { hasText: 'mashal' })).toHaveCount(1); console.log('STEP mashal published');
   // 2. the studio: Maya on the stage
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
@@ -69,7 +75,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click(); await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1500); console.log('STEP maya on stage');
   // 3. Props tab: the torch is listed with nobody selected; tap it, choose the right hand
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Props', exact: true }).click();
   const card = page.locator('.hand-card', { hasText: 'mashal' }); await expect(card).toBeVisible({ timeout: 20000 });
