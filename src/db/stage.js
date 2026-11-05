@@ -556,19 +556,25 @@ export class Stage {
       for (const [dx, dy] of offsets) for (const it of list) r.add(it, l.tex.get(it.atlas.imagePath) || this.assets.get(l.charId).pages.get(it.atlas.imagePath), [F[0], F[1], F[2], F[3], F[4] + dx, F[5] + dy], al, true);
     }
   }
+  /** where a prop is drawn: centre, size and turn in canvas pixels. A held prop follows the palm of its character; null while that character is off screen. */
+  propPlacement(prop, t) {
+    const { W, H } = this, w = Math.max(8, (prop.w || 0.18) * W), h = Math.max(8, (prop.h || 0.18) * H);
+    let cx = (prop.x ?? 0.5) * W, cy = (prop.y ?? 0.65) * H, a = (prop.rotation || 0) * Math.PI / 180, flip = false;
+    if (isHeld(prop)) {
+      const held = heldAt(this.layers.find((l) => l.key === prop.attach.key), prop.attach.hand);
+      if (held === 'hidden') return null;
+      if (held) { const at = heldPlacement(prop, held, w, h); cx = at.cx; cy = at.cy; a = at.angle; flip = at.mirrored; }
+    }
+    return { cx, cy, w, h, a, flip };
+  }
   drawProps(t, behind) {
     const { r, W, H } = this;
     r.setMask(null, W, H);
     for (const prop of this.props) {
       const tex = this.propTex.get(prop.id);
       if (!tex || !propActive(prop, t) || (prop.behind === true && prop.kind !== 'effect') !== behind) continue;
-      const w = Math.max(8, (prop.w || 0.18) * W), h = Math.max(8, (prop.h || 0.18) * H);
-      let cx = (prop.x ?? 0.5) * W, cy = (prop.y ?? 0.65) * H, a = (prop.rotation || 0) * Math.PI / 180, flip = false;
-      if (isHeld(prop)) {                                                          // held: it travels with the hand bone of that character
-        const held = heldAt(this.layers.find((l) => l.key === prop.attach.key), prop.attach.hand);
-        if (held === 'hidden') continue;
-        if (held) { const at = heldPlacement(prop, held, w, h); cx = at.cx; cy = at.cy; a = at.angle; flip = at.mirrored; }
-      }
+      const pl = this.propPlacement(prop, t); if (!pl) continue;
+      const { w, h, cx, cy, a, flip } = pl;
       const c = Math.cos(a), s = Math.sin(a);
       const m = [c, s, -s, c, cx - c * w / 2 + s * h / 2, cy - s * w / 2 - c * h / 2];
       let [u0, v0, u1, v1] = sheetUv(prop.sheet, t - (prop.start || 0));       // sprite-sheet effects play their frames

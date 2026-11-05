@@ -35,24 +35,26 @@ export function cleanAssetMeta(type, input = {}) {
     if (!PROP_GROUPS.includes(group)) throw bad('The prop type is not valid. Please choose General or Hand.');
     if (group === 'hand') meta.group = 'hand';
   }
+  if (input.sheet && (type === 'prop' || type === 'effect')) {          // an animated picture is a sprite sheet: props play it too
+    const cols = Math.floor(Number(input.sheet.cols)), rows = Math.floor(Number(input.sheet.rows)), fps = Number(input.sheet.fps);
+    if (!(cols >= 1 && cols <= 16 && rows >= 1 && rows <= 16 && cols * rows >= 2 && cols * rows <= 144 && fps >= 1 && fps <= 60)) throw bad('Please enter valid sprite sheet columns, rows (2 to 144 frames total) and fps (1 to 60).');
+    meta.sheet = { cols, rows, fps: +fps.toFixed(1) };
+    const used = Math.floor(Number(input.sheet.frames));          // how many cells hold a picture (the last row may be part empty)
+    if (used >= 2 && used < cols * rows && used > cols * (rows - 1)) meta.sheet.frames = used;
+  }
   if (type !== 'effect') return meta;
   const blend = input.blend ?? 'normal';
   if (!(blend in EFFECT_BLENDS)) throw bad('The blend mode is not valid.');
   const placement = input.placement ?? 'full';
   if (!EFFECT_PLACEMENTS.includes(placement)) throw bad('The placement is not valid.');
   Object.assign(meta, { blend, placement, opacity: +num(input.opacity, 0.05, 1, 1).toFixed(2) });
-  if (input.sheet) {
-    const cols = Math.floor(Number(input.sheet.cols)), rows = Math.floor(Number(input.sheet.rows)), fps = Number(input.sheet.fps);
-    if (!(cols >= 1 && cols <= 16 && rows >= 1 && rows <= 16 && cols * rows >= 2 && cols * rows <= 144 && fps >= 1 && fps <= 60)) throw bad('Please enter valid sprite sheet columns, rows (2 to 144 frames total) and fps (1 to 60).');
-    meta.sheet = { cols, rows, fps: +fps.toFixed(1) };
-  }
   return meta;
 }
 
 /** which part (u0, v0, u1, v1) of a sprite sheet is on screen at time t; a plain picture is always the whole picture */
 export function sheetUv(sheet, t = 0) {
   if (!sheet || !(sheet.cols * sheet.rows > 1)) return [0, 0, 1, 1];
-  const frames = sheet.cols * sheet.rows, index = Math.floor(Math.max(0, t) * (sheet.fps || 12)) % frames;
+  const frames = Math.min(sheet.cols * sheet.rows, sheet.frames || Infinity), index = Math.floor(Math.max(0, t) * (sheet.fps || 12)) % frames;
   const col = index % sheet.cols, row = Math.floor(index / sheet.cols);
   return [col / sheet.cols, row / sheet.rows, (col + 1) / sheet.cols, (row + 1) / sheet.rows];
 }
@@ -84,7 +86,7 @@ export function placeProp(prop, natW, natH, aspect) {
 /** a new scene prop from a shared library asset */
 export function propFromAsset(asset, blob, id) {
   const base = { id, assetId: asset.id, name: asset.name, blob, rotation: 0, visible: true };
-  if (asset.type !== 'effect') return { ...base, kind: 'prop', x: 0.5, y: 0.66, w: 0.18, h: 0.18, ...(asset.category ? { category: asset.category } : {}), ...(asset.group === 'hand' ? { group: 'hand' } : {}) };
+  if (asset.type !== 'effect') return { ...base, kind: 'prop', x: 0.5, y: 0.66, w: 0.18, h: 0.18, ...(asset.sheet ? { sheet: { ...asset.sheet } } : {}), ...(asset.category ? { category: asset.category } : {}), ...(asset.group === 'hand' ? { group: 'hand' } : {}) };
   const full = asset.placement !== 'sticker';
   return { ...base, kind: 'effect', x: 0.5, y: full ? 0.5 : 0.4, w: full ? 1 : 0.3, h: full ? 1 : 0.3, opacity: asset.opacity ?? 1, blend: asset.blend || 'normal', ...(asset.sheet ? { sheet: { ...asset.sheet } } : {}), ...(asset.category ? { category: asset.category } : {}) };
 }

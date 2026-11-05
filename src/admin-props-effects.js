@@ -3,6 +3,7 @@
 import { h, logo } from './dom.js';
 import { deleteStudioAsset, listStudioAssets, saveStudioAsset, setPropGroup, setAssetAccess } from './studio-assets.js';
 import { cleanAssetMeta } from '../shared/studio-effects.js';
+import { animatedToSheet } from './animated-image.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
 const KINDS = [['prop', '🧸 Props'], ['effect', '💫 Effects']];
@@ -77,13 +78,17 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
       try { cleanAssetMeta(state.kind, meta); } catch (error) { toast(error.message); return; }
       submit.disabled = true; state.loading = true;
       try {
-        for (const picture of files) await saveStudioAsset(state.kind, name.value.trim() || picture.name.replace(/\.[^.]+$/, ''), picture, meta);
+        for (const picture of files) {
+          // an animated GIF / WebP / APNG is turned into a sprite sheet here, so it plays in the studio and in the video; a still picture is saved as it is
+          const anim = state.sheet ? null : await animatedToSheet(picture);
+          await saveStudioAsset(state.kind, name.value.trim() || picture.name.replace(/\.[^.]+$/, ''), anim ? anim.file : picture, anim ? { ...meta, sheet: anim.sheet } : meta);
+        }
         toast(`${files.length > 1 ? `${files.length} ${noun}s` : noun[0].toUpperCase() + noun.slice(1)} published. Creators will see it in the studio.`);
         await refresh();
       } catch (e) { toast(`Could not publish: ${friendlyError(e)}`); }
       finally { state.loading = false; submit.disabled = false; }
     } },
-      field(effect ? 'Effect image / sprite sheet (up to 40 MB)' : `${noun[0].toUpperCase() + noun.slice(1)} image(s) (PNG / WebP, up to 40 MB each)`, file, true),
+      field(effect ? 'Effect image / sprite sheet (up to 40 MB)' : `${noun[0].toUpperCase() + noun.slice(1)} image(s) (PNG / WebP / GIF, up to 40 MB each; a GIF plays as an animation)`, file, true),
       field('Name', name), field('Category', category), datalist,
       ...(effect || fixedGroup ? [] : [field('Prop type', group)]), field('Who can use it', access),
       ...(effect ? [field('Blend mode', blend), field('Opacity (0.05 – 1)', opacity), field('Placement', placement),

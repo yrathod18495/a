@@ -32,7 +32,8 @@ import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError, currentPlan, refreshPlan } from './export-plan.js';
 import { BG_EFFECTS, bgEffectId } from '../shared/bg-effects.js';
-import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp } from '../shared/studio-effects.js';
+import { animatedToSheet } from './animated-image.js';
+import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp, propActive } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
 import { thin, pathLength, pathKeys, simplify, insertAt, anchorPath, DEPTH_DEFAULT } from '../shared/motion-path.js';
@@ -1491,7 +1492,7 @@ async function retimeAudio() {
   await prepareStudio({ quiet: true });
   player.seek(Math.min(at, player.total)); S.dirty = true;
 }
-const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; S.shadowSel = kind === 'shadow' ? id : null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
+const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; S.shadowSel = kind === 'shadow' ? id : null; S.selectedPropId = kind === 'prop' ? id : null; if (kind === 'prop') S.sel = null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
 function dragClip(e, m, mode, el) {
   dragItem(e, mode === 'size' ? 'right' : mode, el, {
     id: m.id, key: keyOf('clip', m.id), lock: `char:${findManual(m.id)?.s?.key}`,
@@ -2587,10 +2588,11 @@ function mountStage() {
     }
     const p = pt(e), hd = e.target.dataset?.c;
     if (stage.camZoom <= 1.02 && !hd) {
-      const prop = [...S.props].reverse().find((x) => x.visible !== false && !coversFrame(x) && !isHeld(x) && Math.abs(p.x - x.x * stage.W) <= (x.w || .18) * stage.W / 2 && Math.abs(p.y - x.y * stage.H) <= (x.h || .18) * stage.H / 2);
+      const prop = [...S.props].reverse().find((x) => propHit(x, p));
       if (prop) {
-        S.selectedPropId = prop.id; S.sel = null;
-        if (propLockedNow(prop)) { lockedToast(); updateSel(); return; }          // a locked prop is selected but not moved
+        const again = S.propSel === prop.id; S.selectedPropId = prop.id; S.sel = null; if (!again) { selectOnly('prop', prop.id); drawTimeline(); }          // its tools open at the bottom, its layer is lit
+        if (propLockedNow(prop)) { lockedToast(); updateSel(); return; }
+        if (isHeld(prop)) { updateSel(); return; }          // a held prop is selected (size, turn, delete ...) but it moves with the hand, not with the finger          // a locked prop is selected but not moved
         drag = { mode: 'prop', prop, p0: p, x0: prop.x ?? .5, y0: prop.y ?? .65 };
         updateSel(); S.dirty = true; wrapEl.setPointerCapture(e.pointerId); return;
       }
@@ -2705,18 +2707,20 @@ function saveXf(l) {
   const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf };
 }
 function updateSel() {
+  if (S.sel) S.handHolder = S.sel;          // the Props tab keeps offering the hand of the last chosen character while a prop is selected
   syncStart(); updateBgSel();
   if (stage.overflow) { selEl && (selEl.hidden = true); Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (propSelEl) propSelEl.hidden = true; return; }
   if (!selEl) return;
   const fullView = syncFullView();
   const prop = S.props.find((item) => item.id === S.selectedPropId);
-  if (prop && !isHeld(prop) && S.step === 3 && !fullView && stage.camZoom <= 1.02 && !player.playing) {      // a held prop has no box: it moves with the hand
+  const place = prop && stage.propPlacement(prop, player.time);          // where it is drawn now (a held prop follows its hand)
+  if (prop && place && S.step === 3 && !fullView && stage.camZoom <= 1.02 && !player.playing) {
     selEl.hidden = true; Object.values(handleEls).forEach((e) => { e.hidden = true; });
     hideSelBar();
     if (hintEl) hintEl.hidden = true;
-    const k = stage.out.clientWidth / stage.W, w = (prop.w || .18) * stage.W * k, hgt = (prop.h || .18) * stage.H * k;
+    const k = stage.out.clientWidth / stage.W, w = place.w * k, hgt = place.h * k;
     propSelEl.hidden = false;
-    Object.assign(propSelEl.style, { left: `${(prop.x ?? .5) * stage.out.clientWidth - w / 2}px`, top: `${(prop.y ?? .65) * stage.out.clientHeight - hgt / 2}px`, width: `${w}px`, height: `${hgt}px`, transform: `rotate(${prop.rotation || 0}deg)` });
+    Object.assign(propSelEl.style, { left: `${place.cx * k - w / 2}px`, top: `${place.cy * k - hgt / 2}px`, width: `${w}px`, height: `${hgt}px`, transform: `rotate(${place.a}rad)` });
     return;
   }
   if (propSelEl) propSelEl.hidden = true;
@@ -3308,6 +3312,13 @@ async function refreshShared(fresh = false) {
   } catch (e) { if (fresh) toast(`Could not load the library: ${friendlyError(e)}`); }
   return false;
 }
+/** is the point p (canvas pixels) on the prop as it is drawn now: turned, and following the hand when it is held */
+function propHit(x, p) {
+  if (x.visible === false || coversFrame(x) || !propActive(x, player.time)) return false;
+  const pl = stage.propPlacement(x, player.time); if (!pl) return false;
+  const dx = p.x - pl.cx, dy = p.y - pl.cy, c = Math.cos(-pl.a), s = Math.sin(-pl.a);
+  return Math.abs(dx * c - dy * s) <= pl.w / 2 && Math.abs(dx * s + dy * c) <= pl.h / 2;
+}
 const coversFrame = (prop) => isEffect(prop) && (prop.w ?? 1) >= 0.99 && (prop.h ?? 1) >= 0.99;
 async function libraryBlob(asset) {
   const known = sharedBlobs.get(asset.id) || S.props.find((prop) => prop.assetId === asset.id)?.blob;
@@ -3315,10 +3326,11 @@ async function libraryBlob(asset) {
   const blob = await downloadStudioAsset(asset); sharedBlobs.set(asset.id, blob); return blob;
 }
 /** the pixel size of a picture, so a prop can be placed at its real size */
-async function imageSize(blob) { const bitmap = await createImageBitmap(blob); const size = { w: bitmap.width, h: bitmap.height }; bitmap.close?.(); return size; }
+async function imageSize(blob, sheet = null) { const bitmap = await createImageBitmap(blob); const size = { w: bitmap.width / (sheet?.cols || 1), h: bitmap.height / (sheet?.rows || 1) }; bitmap.close?.(); return size; }          // one frame of a sprite sheet is the picture
 async function putProp(prop) {
   await dbPut('props', prop); S.props.push(prop); S.selectedPropId = prop.id;
   await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
+  selectOnly('prop', prop.id); drawTimeline();          // its layer shows on the timeline at once and its tools open
 }
 async function addLibraryProp(asset, hold = null) {
   if (!hold && S.props.some((p) => p.assetId === asset.id)) return;                       // the same picture is added once
@@ -3326,7 +3338,7 @@ async function addLibraryProp(asset, hold = null) {
   try {
     const blob = await libraryBlob(asset);
     let prop = propFromAsset(asset, blob, crypto.randomUUID());
-    if (!isEffect(prop)) { const size = await imageSize(blob); prop = placeProp(prop, size.w, size.h, aspectOf(S.aspect)); }      // a prop keeps the size and shape of its picture
+    if (!isEffect(prop)) { const size = await imageSize(blob, prop.sheet); prop = placeProp(prop, size.w, size.h, aspectOf(S.aspect)); }      // a prop keeps the size and shape of its picture
     if (hold && !isEffect(prop)) prop = { ...prop, rotation: -90, attach: { key: hold.key, hand: hold.hand } };              // a hand prop starts in the chosen hand of the selected character
     await putProp(prop);
   }
@@ -3337,8 +3349,8 @@ async function addOwnProps(files) {
   try {
     for (const f of files) {
       if (!f.type.startsWith('image/')) { toast('Please choose an image file only.'); continue; }
-      const size = await imageSize(f);
-      await putProp(placeProp({ id: crypto.randomUUID(), kind: 'prop', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My prop', blob: f, x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true }, size.w, size.h, aspectOf(S.aspect)));
+      const anim = await animatedToSheet(f), pic = anim ? anim.file : f, size = await imageSize(pic, anim?.sheet);          // a GIF becomes a sprite sheet and plays
+      await putProp(placeProp({ id: crypto.randomUUID(), kind: 'prop', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My prop', blob: pic, ...(anim ? { sheet: anim.sheet } : {}), x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true }, size.w, size.h, aspectOf(S.aspect)));
     }
   } catch (e) { toast(`Could not add the prop: ${friendlyError(e)}`); }
 }
@@ -3368,7 +3380,7 @@ function libraryTab(kind, group = 'general') {
   const typed = S.sharedAssets.filter((asset) => asset.type === kind);
   const assets = kind === 'prop' ? typed.filter((asset) => !isHandAsset(asset)) : typed;          // hand props are listed in the toolbox of a selected character
   const handAssets = kind === 'prop' ? typed.filter(isHandAsset) : [];
-  const holder = S.speakers.find((sp) => sp.charId && sp.key === S.sel);
+  const holder = S.speakers.find((sp) => sp.charId && sp.key === (S.sel || S.handHolder));
   const categories = [...new Set(assets.map((asset) => asset.category || 'Other'))].sort();
   if (libraryFilter[kind] !== 'all' && !categories.includes(libraryFilter[kind])) libraryFilter[kind] = 'all';
   const shown = assets.filter((asset) => libraryFilter[kind] === 'all' || (asset.category || 'Other') === libraryFilter[kind]);
@@ -3390,7 +3402,12 @@ function libraryTab(kind, group = 'general') {
     locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : (asset.category || 'Hand prop'))); };
   if (group === 'hand') {          // Props: what a character can use (knife, bat, bag ...); Objects (stone, well, tree ...) make the scene
-    return h('div', { class: 'list' }, h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Props'),
+    // the props that are already in the scene (in a hand): tap one to select it and edit it, eye hides it, ✕ takes it out
+    const inScene = S.props.filter((p) => !isEffect(p) && (isHeld(p) || p.group === 'hand'));
+    const sceneTile = (p) => { const a = S.sharedAssets.find((x) => x.id === p.assetId); return tile({ src: a?.thumb || (p.blob ? URL.createObjectURL(p.blob) : null), name: p.name, title: `${p.name}${isHeld(p) ? ' · in hand' : ''} — tap to edit`, onclick: () => { selectOnly('prop', p.id); drawTimeline(); updateSel(); openPropEdit(p); }, ...controls(p), on: p.id === S.propSel }); };
+    return h('div', { class: 'list' },
+      ...(inScene.length ? [h('div', { class: 'card flat in-scene' }, h('h2', {}, 'In the scene'), h('div', { class: 'tile-grid' }, inScene.map(sceneTile)))] : []),
+      h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Props'),
       !handAssets.length ? h('p', { class: 'sub studio-library-empty' }, 'No props have been published yet. They are added from Add Assets → Add Props in the admin panel.')
         : holder ? h('div', {}, h('p', { class: 'sub studio-help' }, `Tap a prop to put it in ${holder.name}'s right hand.`), h('div', { class: 'studio-shared-grid' }, handAssets.map(handCard)))
           : h('p', { class: 'sub studio-help' }, 'Select a character on the stage first. The prop you tap goes straight into that character\'s hand.'),
@@ -3970,6 +3987,7 @@ function loop(now) {
   S.dirty = false;
   const t = player.time;
   try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; lastPreviewFrame = now; } catch (e) { console.error(e); }
+  if (S.selectedPropId) { const sp = S.props.find((q) => q.id === S.selectedPropId); if (sp && isHeld(sp)) updateSel(); }          // the box of a held prop follows the hand
   if (player.playing) followLine();
   updateSel(); updateCamBox(); updateTearHandles();
   if (S.tab === 'grade' && S.gradeKeys.length && Math.abs(player.time - gradeSeen) > 0.02) { gradeSeen = player.time; refreshGradeFields(); }
@@ -3984,7 +4002,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, propHit, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
