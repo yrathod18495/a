@@ -3714,7 +3714,6 @@ function tabExport() {
   const cFormat = h('div', { class: 'card flat' }, h('h2', {}, 'File format'), fm, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.format === 'webm' ? 'WebM (VP9): same sharpness in about half the size. Plays in Chrome, Edge, Firefox, VLC and most editors; some phone galleries and WhatsApp may not open it.' : 'MP4 (H.264): opens everywhere — gallery, WhatsApp, editors — but the file is bigger for the same sharpness.'));
   const cLevel = h('div', { class: 'card flat' }, h('h2', {}, 'Video quality'), lv, (() => { const { W, H } = sizeFor(); const mbps = bitrateFor(W, H, S.level, S.format, S.fps) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo, ratio: sizeRatio(S.format) }); return h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `${W}×${H} · about ${mbps.toFixed(1)} Mbps → roughly ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB for this video. Higher = sharper picture and a bigger file.`); })());
   const cFps = h('div', { class: 'card flat' }, h('h2', {}, 'Smoothness'), f, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'Fewer frames per second = faster export.'));
-  const cDone = h('button', { class: 'btn ok', style: 'width:100%;padding:14px', disabled: !!bgExport || (!pickType() && !window.VideoEncoder), onclick: () => doExport() }, bgExport ? 'Exporting in the background…' : '⬇ Export video');
   const { W: outW, H: outH } = sizeFor(), preset = presetMatch(S);
   const mbps = bitrateFor(outW, outH, S.level, S.format, S.fps) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo, ratio: sizeRatio(S.format) });
   const live = !multi && S.expMethod === 'live', eta = estimateSeconds({ duration, pixels: outW * outH, fps: S.fps, live, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
@@ -3728,7 +3727,7 @@ function tabExport() {
     group('out', '🎞', 'Scenes & method', cScenes, cNoAudio, cMethod),
     group('pic', '🖼', 'Picture', cQuality, cFps),
     group('file', '📦', 'File', cFormat, cLevel),
-    cDone, cloudExportCard());
+    renderSection());
 }
 const redrawPanel = () => { const k = panelEl.scrollTop; drawTabs(); panelEl.scrollTop = k; };
 
@@ -3766,29 +3765,30 @@ async function downloadCloudExport() {
     document.body.append(a); a.click(); a.remove();
   } catch (e) { toast(`Could not get the download link: ${e.message}`); }
 }
-function cloudExportCard() {
-  const pct = Math.round((cloudJob?.progress || 0) * 100);
-  const body = !cloudJob
-    ? h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, '☁ Start cloud export')
-    : cloudJob.status === 'error'
-      ? h('div', {},
-          h('p', { role: 'alert', style: 'font-size:13px;margin:0 0 10px;padding:8px 10px;border-radius:8px;background:#3a1d22;color:#ff9aa8;font-weight:600' }, '⚠ ' + (cloudJob.error || 'This export failed.')),
-          h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, '↻ Try again'))
-      : cloudJob.status === 'cancelled'
-        ? h('div', {},
-            h('p', { style: 'font-size:12px;margin:0 0 10px;color:var(--mute)' }, 'Cancelled.'),
-            h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, '☁ Start cloud export'))
-        : cloudJob.status === 'done'
-          ? h('div', {},
-              h('p', { style: 'font-size:12px;margin:0 0 10px;color:#9de2a8' }, '✓ Your video is ready.'),
-              h('button', { type: 'button', class: 'btn sm ok', onclick: downloadCloudExport }, '⬇ Download the video'))
-          : h('div', {},                        // starting / pending / rendering
-              h('div', { class: 'bar', style: 'margin:4px 0 8px' }, h('i', { style: `width:${pct}%` })),
-              h('p', { style: 'font-size:12px;margin:0 0 8px;color:var(--text)' }, cloudJob.status === 'starting' || cloudJob.status === 'pending' ? 'Waiting for a render machine…' : `Rendering… ${pct}%`),
-              h('button', { type: 'button', class: 'btn sm', style: 'color:#ff8f8f', onclick: cancelCloudExportJob }, 'Cancel'));
-  return h('div', { class: 'card flat' }, h('h2', {}, 'Cloud export'),
-    h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Renders on a separate machine, using the settings above — your project does not need to stay open, but it is slower to start.'),
-    body);
+/** the device tile of the Render section: one button, states it plainly instead of a row of separate controls */
+function deviceRenderTile() {
+  const busy = !!bgExport, disabled = busy || (!pickType() && !window.VideoEncoder);
+  return h('div', { class: `exp-opt${busy ? ' exp-opt-busy' : ''}` },
+    h('div', { class: 'exp-opt-head' }, h('span', { class: 'exp-opt-ico', 'aria-hidden': 'true' }, icon('download')), h('div', {}, h('b', {}, 'This device'), h('small', {}, busy ? 'Exporting…' : 'Renders right here, right now'))),
+    h('button', { type: 'button', class: 'btn ok exp-opt-btn', disabled, onclick: () => doExport() }, busy ? 'Exporting…' : 'Render'));
+}
+/** the cloud tile: same frame as the device one, its body swaps for the job's current state */
+function cloudRenderTile() {
+  const pct = Math.round((cloudJob?.progress || 0) * 100), idle = !cloudJob || ['done', 'error', 'cancelled'].includes(cloudJob.status);
+  const head = h('div', { class: 'exp-opt-head' }, h('span', { class: 'exp-opt-ico', 'aria-hidden': 'true' }, icon('cloud')), h('div', {}, h('b', {}, 'Cloud'), h('small', {}, idle ? 'Renders elsewhere — this tab can close' : cloudJob.status === 'done' ? 'Ready' : cloudJob.status === 'error' ? 'Failed' : 'Working…')));
+  if (!cloudJob) return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn exp-opt-btn', onclick: startCloudExport }, 'Render'));
+  if (cloudJob.status === 'error') return h('div', { class: 'exp-opt exp-opt-error' }, head,
+    h('p', { role: 'alert', class: 'exp-opt-msg exp-opt-msg-error' }, cloudJob.error || 'This export failed.'),
+    h('button', { type: 'button', class: 'btn exp-opt-btn', onclick: startCloudExport }, '↻ Try again'));
+  if (cloudJob.status === 'cancelled') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn exp-opt-btn', onclick: startCloudExport }, 'Render'));
+  if (cloudJob.status === 'done') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn ok exp-opt-btn', onclick: downloadCloudExport }, '⬇ Download'));
+  return h('div', { class: 'exp-opt' }, head,
+    h('div', { class: 'bar exp-opt-bar' }, h('i', { style: `width:${pct}%` })),
+    h('p', { class: 'exp-opt-msg' }, cloudJob.status === 'starting' || cloudJob.status === 'pending' ? 'Waiting for a machine…' : `Rendering… ${pct}%`),
+    h('button', { type: 'button', class: 'btn exp-opt-btn exp-opt-cancel', onclick: cancelCloudExportJob }, 'Cancel'));
+}
+function renderSection() {
+  return h('div', { class: 'card flat exp-render' }, h('h2', {}, 'Render'), h('div', { class: 'exp-opts' }, deviceRenderTile(), cloudRenderTile()));
 }
 
 async function togglePlay() {
