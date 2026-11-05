@@ -126,12 +126,14 @@ export async function saveAnimRules(hidden, user) {
 /**
  * Is this account an admin? Only the server's answer counts. A failed call (network, a cold server) is tried again a few times and then
  * reported as `null` ("not known"), never as "not admin": an admin must not be shown the maintenance page or signed out because of one bad request.
+ * This gates sign-in itself (every login waits for it), so each attempt gets its own short timeout rather than apiCall's normal 25s —
+ * otherwise a single slow attempt alone could leave someone staring at the login page for up to 25s before even the first retry starts.
  */
 export async function isAdmin(user) {
  if(!user)return false;
  if(user.uid==='debug')return false;
- for(let attempt=0;attempt<4;attempt++){
-  try{return (await apiCall('/api/security',{action:'status'},user.uid)).admin === true;}
+ for(let attempt=0;attempt<3;attempt++){
+  try{return (await withTimeout(apiCall('/api/security',{action:'status'},user.uid), 6000)).admin === true;}
   catch(e){if(e.status===401||e.status===403)return false;await new Promise(r=>setTimeout(r,500*(attempt+1)));}
  }
  return null;

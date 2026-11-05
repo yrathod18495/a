@@ -247,8 +247,22 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && railOpen
 function setRail(open) { railOpen = open; rail?.classList.toggle('open', open); rail?.querySelector('.rail-burger')?.setAttribute('aria-expanded', String(open)); }
 
 /* ---------------- shared bits ---------------- */
-async function login() {
-  try { const u = await signInGoogle(); if (u) go('#/hub'); } catch (e) { if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Sign-in is not available from this web address. Please open the official 12toons website and try again.' : `Sign-in failed: ${friendlyError(e)}`); }
+async function login(event) {
+  // Google closing the popup only means the browser signed in; the account still needs a session (a couple of its own network
+  // round trips — see onUser() in firebase.js) before this app actually treats it as signed in. Jumping to #/hub immediately
+  // here used to race that: the page would bounce straight back to this one, with no sign the tap did anything, until that
+  // session work finished (which can take a few real seconds on a slow connection — exactly "stuck on login for a while").
+  // So this no longer navigates itself; it only shows that the tap worked, and the authoritative onUser() callback in start()
+  // does the actual `go('#/hub')` once the account is really ready.
+  const btn = event?.currentTarget;
+  if (btn) { btn.disabled = true; btn.dataset.wasHtml = btn.innerHTML; btn.replaceChildren(h('span', { class: 'sh-spinner', 'aria-hidden': 'true' }), 'Signing in…'); }
+  const restore = () => { if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset.wasHtml; } };
+  try {
+    await signInGoogle();
+    // the sign-in itself succeeded; if the account session work afterwards (onUser, above) still has not moved this page away
+    // from #/login after a while, something in it failed quietly — restore the button instead of leaving it spinning forever
+    setTimeout(() => { if (location.hash === '#/login' && btn && btn.disabled) restore(); }, 25000);
+  } catch (e) { restore(); if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') toast(e.code === 'auth/unauthorized-domain' ? 'Sign-in is not available from this web address. Please open the official 12toons website and try again.' : `Sign-in failed: ${friendlyError(e)}`); }
 }
 const initial = (u) => (u.displayName || u.email || '?').trim()[0].toUpperCase();
 let profileMenuCount = 0;
