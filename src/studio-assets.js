@@ -4,7 +4,7 @@ import { apiCall } from './session.js';
 import { uploadAssets, fetchBlob } from './binary-cloud.js';
 import { THUMB_MAX_CHARS, THUMB_PATTERN } from '../shared/studio-effects.js';
 
-const uid = () => auth.currentUser?.uid;
+const uid = () => auth.currentUser?.uid || (import.meta.env.DEV && location.search.includes('debug') ? 'debug' : undefined);          // the browser tests run without a sign-in
 async function digest(blob) {
   const bytes = await blob.arrayBuffer();
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((x) => x.toString(16).padStart(2, '0')).join('');
