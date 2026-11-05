@@ -101,3 +101,20 @@ scheme).
   CPU/RAM can take it, or run more than one Space and let each pick up whatever is still `pending`.
 - A job nobody picks up, or that never finishes, auto-fails after a few hours (`TTL_MS` in `server/cloud-export-store.js`) so
   it never looks like it is "still going" forever.
+
+## Cost safety: the worker cleans up after itself
+
+The worker re-downloads the *whole* `cloudExports` node on every single poll (every `POLL_SECONDS`), because the Realtime
+Database has no server-side "give me only pending rows" query across every user. The Realtime Database bills by bytes
+downloaded, not by the number of reads — so a node that only ever grows (old finished jobs nobody deletes) would make every
+future poll a little more expensive forever. A sibling project hit exactly this bug once (see that project's own
+`hf-server-files/NOTES.md`, "the poll safety-nets ... ran up the runaway bandwidth bill"). `app.py`'s `cleanup_old_jobs()`
+runs on every poll and prevents it two ways:
+- a finished job (`done` / `error` / `cancelled`) is deleted `CLEANUP_AFTER_SECONDS` (15 min) after it finished — plenty of
+  time for the owner's own tab, which polls every ~2.5 s, to have already shown the result. (The video itself stays in R2
+  forever; only this small progress record is deleted.)
+- a job stuck in `pending` / `rendering` for `STALE_AFTER_SECONDS` (2 h) that no live thread on this worker is tracking —
+  meaning the worker that was rendering it crashed or restarted — is marked `error` instead of being left there forever.
+
+Net effect: the node can only ever hold jobs from roughly the last couple of hours, so its size (and the cost of polling it)
+stays flat no matter how long the Space has been running.

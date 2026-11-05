@@ -101,12 +101,43 @@ def render_one(uid, job_id, job):
             pass
 
 
+# A job record that is never deleted would make the whole `cloudExports` node grow forever, and this worker re-downloads that
+# WHOLE node on every single poll (the Realtime Database bills by bytes downloaded, not by the number of reads) — exactly the
+# mistake that ran up a real bill on a sibling project (see NOTES.md in that project's hf-server-files/). So every finished job
+# (done / error / cancelled) is deleted a little while after it finishes, once the owner's own tab has certainly already seen it.
+CLEANUP_AFTER_SECONDS = 15 * 60
+STALE_AFTER_SECONDS = 2 * 60 * 60  # a job stuck in "pending"/"rendering" this long was abandoned by a worker that crashed or restarted
+
+
+def cleanup_old_jobs(all_jobs, running):
+    now_ms = int(time.time() * 1000)
+    for uid, jobs in all_jobs.items():
+        if not isinstance(jobs, dict):
+            continue
+        for job_id, job in jobs.items():
+            if not isinstance(job, dict):
+                continue
+            status = job.get("status")
+            age_seconds = (now_ms - int(job.get("updatedAt") or job.get("createdAt") or now_ms)) / 1000
+            ref = db.reference(f"cloudExports/{uid}/{job_id}")
+            try:
+                if status in TERMINAL and age_seconds > CLEANUP_AFTER_SECONDS:
+                    ref.delete()
+                # not tracked by any live thread here (this worker process restarted, or it died on another one) and clearly abandoned
+                elif status in ("pending", "rendering") and (uid, job_id) not in running and age_seconds > STALE_AFTER_SECONDS:
+                    log(f"Marking abandoned job {job_id} as failed (no worker has touched it in {age_seconds / 60:.0f} min)")
+                    ref.update({"status": "error", "error": "The render machine restarted while this job was in progress. Please try again.", "updatedAt": now_ms})
+            except Exception:
+                log(f"Could not clean up job {job_id}:\n" + traceback.format_exc())
+
+
 def worker_loop():
     running = set()
     log("Cloud export worker started.")
     while True:
         try:
             all_jobs = db.reference("cloudExports").get() or {}
+            cleanup_old_jobs(all_jobs, running)
             for uid, jobs in all_jobs.items():
                 if not isinstance(jobs, dict):
                     continue
