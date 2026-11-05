@@ -3811,11 +3811,16 @@ function openExportPopup() {
   };
   const note = h('p', { class: 'sub exp-pop-note', role: 'alert', hidden: true }, 'This device cannot make a video with this picture size and frames per second. Please choose a lower quality or fewer frames per second.');
   const heavy = h('p', { class: 'sub exp-pop-heavy', role: 'status', hidden: true }, 'Note: 4K above 60 frames per second is too heavy for most computers and phones to play smoothly, even when the video is made correctly (a 60 Hz screen cannot show 90 frames either). For smooth playback choose 4K at 60 fps, or 2K at 90 fps.');
-  const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { close(); doExport(); } }, 'Render');
+  const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { close(); doExport(); } }, 'Render on this device');
+  const cloud = h('button', { type: 'button', class: 'btn exp-pop-cloud', onclick: () => { close(); openTab('export'); startCloudExport(); } }, '☁ Render on the cloud');
   const close = modal('Export video', h('div', { class: 'exp-pop' },
     h('h3', {}, 'Quality'), chips([[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; }),
     h('h3', {}, 'Frames per second'), chips([[24, '24'], [30, '30'], [60, '60'], [90, '90']], () => S.fps, (v) => { S.fps = v; }),
-    info, note, heavy, render));
+    info, note, heavy,
+    h('div', { class: 'exp-pop-actions', style: 'display:flex;gap:8px;flex-wrap:wrap' },
+      h('div', { style: 'flex:1 1 160px' }, render),
+      h('div', { style: 'flex:1 1 160px' }, cloud)),
+    h('p', { class: 'sub', style: 'font-size:11.5px;margin:6px 0 0' }, 'On this device: renders right here, using your own phone or computer. On the cloud: renders on a separate machine — this tab can even be closed while it works.')));
   refresh();
 }
 /** everything the render workers need to draw the video (a snapshot of the scene), for a picture of W × H */
