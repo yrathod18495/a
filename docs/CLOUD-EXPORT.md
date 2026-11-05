@@ -120,6 +120,16 @@ scheme).
 - A job nobody picks up, or that never finishes, auto-fails after a few hours (`TTL_MS` in `server/cloud-export-store.js`) so
   it never looks like it is "still going" forever.
 
+## The render page can read the shared library (characters, animations)
+
+Characters the admin uploaded, and the shared animations, are not part of a project snapshot: the studio fetches them from
+`/api/studio-assets` with the owner's sign-in. The render page has none, so without help every such character was silently
+dropped from cloud videos ("Uploaded characters are not available", "Please sign in to view the studio asset library"). Now
+`src/session.js` `apiCall` sends `/api/studio-assets` calls through `api/export.js` `action:"cloudStudio"` when `setCloudRenderAuth()`
+was called (only `cloud-render.js` does). The server checks the job secret, allows only the read-only actions
+`list` / `animation` / `get` / `character:list` / `character:files`, and runs the normal handler with an internal `req.cloudOwner`
+that `server/access.js` turns into the owner's identity (never for writes or admin). A real HTTP request cannot set that property.
+
 ## Where finished videos live (kept 3 days)
 
 A finished cloud video is **not** a normal project asset. It is stored at `u/<uid>/v/<jobId>.mp4` in R2 (limit 1 GB per

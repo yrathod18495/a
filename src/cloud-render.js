@@ -4,6 +4,7 @@
 // like a returning visitor's browser would, renders the video and uploads it — all with the exact same code real exports use.
 import { unpackRecords } from './project-codec.js';
 import { restoreSnapshot, selectProject } from './store.js';
+import { setCloudRenderAuth } from './session.js';
 
 /** a secret-authenticated call to /api/export (cloud export shares this endpoint — see docs/CLOUD-EXPORT.md) — no Firebase sign-in involved at all */
 async function jobCall(uid, jobId, secret, action, extra = {}) {
@@ -28,6 +29,7 @@ export async function runCloudRenderJob({ uid, jobId, secret }) {
   } catch (e) { console.error('Cloud export: could not start', e); return; }
   const phase = (name) => jobCall(uid, jobId, secret, 'cloudProgress', { phase: name }).catch(() => {});
   try {
+    setCloudRenderAuth({ uid, jobId, secret });          // the shared character / animation library is read through the job's secret
     await phase('loading');
     const download = (key) => fetchBlobByUrl(job.assetUrls[key.slice('assets/'.length)]);
     const records = await unpackRecords(job.manifest, download);

@@ -105,3 +105,18 @@ test('My cloud videos: lists finished videos with a Download and Delete button',
   await expect(row).toHaveCount(0); expect(deleted).toBe('cexp_v1');
   expect(errors).toEqual([]);
 });
+
+test('Cloud render page: shared character/animation library calls go through the job secret, not a sign-in', async ({ page }) => {
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  const seen = [];
+  await page.route('**/api/export', (r) => { seen.push(JSON.parse(r.request().postData())); return r.fulfill({ json: { characters: [{ id: 'c1' }] } }); });
+  await page.route('**/api/studio-assets', (r) => { seen.push({ direct: true }); return r.fulfill({ json: {} }); });
+  await page.goto('/?debug&workers=0#/toons');
+  const out = await page.evaluate(async () => {
+    const s = await import('/src/session.js');
+    s.setCloudRenderAuth({ uid: 'owner1', jobId: 'cexp_x', secret: 'sec' });
+    return s.apiCall('/api/studio-assets', { action: 'character:list' }, 'debug');
+  });
+  expect(out.characters[0].id).toBe('c1');
+  expect(seen).toEqual([{ action: 'cloudStudio', uid: 'owner1', jobId: 'cexp_x', secret: 'sec', route: 'studio-assets', body: { action: 'character:list' } }]);
+});

@@ -7,7 +7,18 @@ function persistent(key) {
   if (!value) { value = crypto.randomUUID(); localStorage.setItem(key, value); }
   return value;
 }
+let cloudRender = null;
+/** the cloud export render page has no sign-in: its read-only library calls are sent through /api/export with the job's secret instead */
+export const setCloudRenderAuth = (a) => { cloudRender = a; };
+export const cloudRenderOwner = () => cloudRender?.uid || null;
+async function cloudProxyCall(url, body) {
+  const r = await fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cloudStudio', uid: cloudRender.uid, jobId: cloudRender.jobId, secret: cloudRender.secret, route: url.replace(/^\/api\//, ''), body }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = Error(j.error || 'The cloud request failed. Please try again.'); e.code = j.code; e.status = r.status; throw e; }
+  return j;
+}
 export async function apiCall(url, body, owner = auth.currentUser?.uid) {
+  if (cloudRender && url === '/api/studio-assets') return cloudProxyCall(url, body);
   const offline = import.meta.env.DEV && location.search.includes('debug');   // dev test mode: no sign-in, the browser tests answer the API themselves
   if (!offline && (!owner || auth.currentUser?.uid !== owner)) throw Error('The account has changed. Please reopen the project.');
   const token = offline ? 'debug' : await Promise.race([idToken(), new Promise((_, no) => setTimeout(() => { const e = Error('Signing in took too long. Please check your internet and try again.'); e.code = 'network'; no(e); }, 15000))]);

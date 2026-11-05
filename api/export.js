@@ -24,7 +24,7 @@ function cleanSettings(s) {
   return { quality, fps, level, format };
 }
 // the anonymous cloud-export render worker never carries a Firebase sign-in — it proves ownership of one job with its secret instead
-const SECRET_ACTIONS = new Set(['cloudFetch', 'cloudPresign', 'cloudProgress', 'cloudComplete', 'cloudFail']);
+const SECRET_ACTIONS = new Set(['cloudStudio', 'cloudFetch', 'cloudPresign', 'cloudProgress', 'cloudComplete', 'cloudFail']);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
@@ -37,6 +37,12 @@ export default async function handler(req, res) {
       const job = await jobBySecret(store, b.uid, b.jobId, b.secret);
       if (TERMINAL.has(job.status) && b.action !== 'cloudFetch') return send(res, 200, { ok: true, status: job.status }); // already finished elsewhere
 
+      if (b.action === 'cloudStudio') {
+        // the render page reads the shared character / animation library exactly like the owner's own studio does, as the job's owner, read-only
+        const inner = b.body && typeof b.body === 'object' ? b.body : {};
+        if (b.route !== 'studio-assets' || !['list', 'animation', 'get', 'character:list', 'character:files'].includes(inner.action)) throw new AccessError('forbidden', 'This request is not allowed while rendering in the cloud.', 403);
+        return (await import('./studio-assets.js')).default({ method: 'POST', headers: {}, body: inner, cloudOwner: job.uid }, res);
+      }
       if (b.action === 'cloudFetch') {
         if (!TERMINAL.has(job.status)) await updateJob(store, b.uid, b.jobId, { status: 'rendering' });
         const proj = await store.get(`projects/${job.uid}/${job.projectId}`);

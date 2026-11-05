@@ -20,6 +20,12 @@ const seen = new Map();
 const cacheMs = () => Number(process.env.ACCESS_CACHE_MS ?? (process.env.VERCEL ? 60000 : 0));
 export const forgetAccess = (uid) => (uid ? seen.delete(uid) : seen.clear());
 export async function access(req, { write = false, admin = false, fresh = false, light = false, cache = false } = {}) {
+  // cloud export's render page has no sign-in (see docs/CLOUD-EXPORT.md): api/export.js sets this on an internal request only after it
+  // checked that job's secret, and only for read-only calls on behalf of the job's owner. A real HTTP request can never carry this property.
+  if (req.cloudOwner) {
+    if (write || admin || light) throw new AccessError('forbidden', 'This action is not available while rendering in the cloud.', 403);
+    return { uid: req.cloudOwner, claims: {}, admin: false, session: null };
+  }
   const claims = await identity(req), { db } = services(), ttl = cacheMs(), now = Date.now();
   if (light) {            // the session heartbeat: only the session document (blocking an account also revokes its session)
     const session = (await db.doc('securitySessions/' + claims.uid).get()).data();
