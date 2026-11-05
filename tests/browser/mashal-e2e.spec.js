@@ -94,7 +94,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   console.log('GEO', JSON.stringify(geo)); console.log('BONES', JSON.stringify(await page.evaluate(() => window.__toon.stage.layers[0].arm.getBones().map((b) => b.name))));
   expect(geo.pl).not.toBeNull(); expect(geo.palm).not.toBeNull();
   expect(Math.hypot(geo.pl.cx - geo.palm.x, geo.pl.cy - geo.palm.y)).toBeLessThan(geo.pl.h * 0.6);          // the torch sits at the hand (its middle within the palm's reach)
-  const frame = (t) => page.evaluate((time) => { const { stage } = window.__toon; stage.render(time, 0, [], []); const c = document.createElement('canvas'); c.width = stage.out.width; c.height = stage.out.height; const g = c.getContext('2d'); g.drawImage(stage.out, 0, 0); return c.toDataURL('image/png'); }, t);
+  const frame = (t) => page.evaluate((time) => { const { stage } = window.__toon; stage.propClock = null; stage.render(time, 0, [], []); const c = document.createElement('canvas'); c.width = stage.out.width; c.height = stage.out.height; const g = c.getContext('2d'); g.drawImage(stage.out, 0, 0); return c.toDataURL('image/png'); }, t);
   const f0 = await frame(0.0), f1 = await frame(0.07), f2 = await frame(0.35);
   writeFileSync(OUT + 'f0.png', Buffer.from(f0.split(',')[1], 'base64')); writeFileSync(OUT + 'f1.png', Buffer.from(f1.split(',')[1], 'base64')); writeFileSync(OUT + 'f2.png', Buffer.from(f2.split(',')[1], 'base64'));
   expect(f0).not.toBe(f1); expect(f1).not.toBe(f2);          // the torch changes from frame to frame

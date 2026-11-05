@@ -544,7 +544,7 @@ export class Stage {
       if (!sh?.on || !tex || prop.visible === false || !propActive(prop, t) || isHeld(prop)) continue;
       const w = Math.max(8, (prop.w || 0.18) * W), h = Math.max(8, (prop.h || 0.18) * H), a = (prop.rotation || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), cx = (prop.x ?? 0.5) * W, cy = (prop.y ?? 0.65) * H;
       const M = [c, s, -s, c, cx - c * w / 2 + s * h / 2, cy - s * w / 2 - c * h / 2], [kx, ky] = slant(sh), S = [1, 0, -kx, -ky, kx * h, h + ky * h], F = compose(M, S);
-      const [u0, v0, u1, v1] = sheetUv(prop.sheet, t - (prop.start || 0)), { offsets, a: al } = spread(sh);
+      const [u0, v0, u1, v1] = sheetUv(prop.sheet, this.propClock ?? (t - (prop.start || 0))), { offsets, a: al } = spread(sh);
       const item = { verts: new Float32Array([0, 0, w, 0, w, h, 0, h]), uvs: new Float32Array([u0, v0, u1, v0, u1, v1, u0, v1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: 1, r: 0, g: 0, b: 0, blend: 0 };
       for (const [dx, dy] of offsets) r.add(item, tex, [F[0], F[1], F[2], F[3], F[4] + dx, F[5] + dy], al * Math.min(1, Math.max(0, prop.opacity ?? 1)), true);
     }
@@ -577,7 +577,7 @@ export class Stage {
       const { w, h, cx, cy, a, flip } = pl;
       const c = Math.cos(a), s = Math.sin(a);
       const m = [c, s, -s, c, cx - c * w / 2 + s * h / 2, cy - s * w / 2 - c * h / 2];
-      let [u0, v0, u1, v1] = sheetUv(prop.sheet, t - (prop.start || 0));       // sprite-sheet effects play their frames
+      let [u0, v0, u1, v1] = sheetUv(prop.sheet, this.propClock ?? (t - (prop.start || 0)));       // sprite-sheet effects play their frames
       if (flip) [u0, u1] = [u1, u0];
       r.add({ verts: new Float32Array([0, 0, w, 0, w, h, 0, h]), uvs: new Float32Array([u0, v0, u1, v0, u1, v1, u0, v1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: Math.min(1, Math.max(0, prop.opacity ?? 1)), r: 1, g: 1, b: 1, blend: EFFECT_BLENDS[prop.blend] ?? 0 }, tex, m);
     }

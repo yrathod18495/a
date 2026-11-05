@@ -4010,7 +4010,7 @@ window.addEventListener('keydown', (e) => {
 document.addEventListener('visibilitychange', () => { if (document.hidden) tick(); else { last = performance.now(); S.dirty = true; } });
 
 /* ---------------- main loop ---------------- */
-let last = performance.now(), frameId = 0, renderCount = 0, dirty = true, lastPreviewFrame = -Infinity;
+let lastLiveProp = 0, last = performance.now(), frameId = 0, renderCount = 0, dirty = true, lastPreviewFrame = -Infinity;
 function requestStudioFrame() {
   if (!frameId && player && !$app.hidden && (!document.hidden || S.exporting)) frameId = requestAnimationFrame(loop);
 }
@@ -4026,7 +4026,15 @@ function loop(now) {
   if (S.exporting && !player.playing) return; // offline export drives the stage itself
   if (player.playing && player.time >= player.total && !S.exporting) { player.pause(); const next = S.scenes[S.scenes.findIndex(scene => scene.id === S.sceneId) + 1]; if (next && !sceneChanging) { switchScene(next.id, { play: true }); return; } if (S.loop) { if (S.scenes.length > 1 && S.sceneId !== S.scenes[0].id) { switchScene(S.scenes[0].id, { play: true }); return; } player.seek(0); player.play(); } S.dirty = true; }
   syncFullView();
-  if (!player.playing && !S.dirty) return;
+  // an animated picture (GIF ...) keeps playing in the editor even while the timeline is paused: a live clock drives it, about 15 times a second
+  // (this does not mark the project as changed); playing and exporting use the timeline's own time
+  stage.propClock = null;
+  const live = !player.playing && !S.exporting && S.props.some((q) => q.sheet && q.visible !== false);
+  if (live) requestStudioFrame();
+  const liveTick = live && now - lastLiveProp > 66;
+  if (!player.playing && !S.dirty && !liveTick) return;
+  if (liveTick) lastLiveProp = now;
+  if (live) stage.propClock = now / 1000;
   S.dirty = false;
   const t = player.time;
   try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; lastPreviewFrame = now; } catch (e) { console.error(e); }

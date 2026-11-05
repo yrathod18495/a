@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { createHash } from 'node:crypto';
 // An animated GIF becomes a sprite sheet (so it plays in the studio and the video); a held prop can be selected on the canvas, shows in the Props tab and on the timeline.
 async function open(page, width = 1366, height = 800) {
   await page.setViewportSize({ width, height });
@@ -46,7 +47,7 @@ test('a GIF added as an own prop plays on the stage (the picture changes with ti
   const p = await page.evaluate(() => { const q = window.__toon.S.props[0]; return { sheet: q.sheet, w: q.w, h: q.h, type: q.blob.type }; });
   expect(p.sheet).toMatchObject({ cols: 2, rows: 2 }); expect(p.type).toBe('image/png'); expect(Math.abs(p.w / p.h - 9 / 16)).toBeLessThan(0.02);          // a square frame on a 16:9 canvas
   const at = (t) => page.evaluate((time) => {
-    const { stage, S } = window.__toon, q = S.props[0]; q.x = 0.5; q.y = 0.5; stage.render(time, 0, [], []);
+    const { stage, S } = window.__toon, q = S.props[0]; q.x = 0.5; q.y = 0.5; stage.propClock = null; stage.render(time, 0, [], []);
     const c = document.createElement('canvas'); c.width = stage.out.width; c.height = stage.out.height; const g = c.getContext('2d'); g.drawImage(stage.out, 0, 0);
     return [...g.getImageData(c.width >> 1, c.height >> 1, 1, 1).data].slice(0, 3);
   }, t);
@@ -129,4 +130,18 @@ test('wide screen: the selected character\'s bar is in the side panel, so the ca
   const after = await size(); expect(Math.abs(after.height - before.height)).toBeLessThan(2); expect(Math.abs(after.width - before.width)).toBeLessThan(2);          // ... the canvas did not change
   await page.evaluate(() => { window.__toon.S.sel = null; window.__toon.S.dirty = true; window.__toon.openTab('handprops'); });
   const dropped = await size(); expect(Math.abs(dropped.height - before.height)).toBeLessThan(2);
+});
+
+test('an animated prop keeps playing in the editor while the timeline is paused, and stops being live when it is hidden', async ({ page }) => {
+  await open(page);
+  const bytes = await makeGif()(page);
+  await page.evaluate(() => window.__toon.openTab('props'));
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('.tile.add').first().click()]);
+  await chooser.setFiles({ name: 'torch.gif', mimeType: 'image/gif', buffer: Buffer.from(bytes) });
+  await expect.poll(() => page.evaluate(() => window.__toon.S.props.length), { timeout: 15000 }).toBe(1);
+  await page.evaluate(() => { const T = window.__toon; T.S.props[0].x = 0.5; T.S.props[0].y = 0.5; T.S.props[0].w = 0.3; T.S.props[0].h = 0.5; T.S.propSel = null; T.S.selectedPropId = null; T.S.dirty = true; });
+  expect(await page.evaluate(() => window.__toon.player?.playing ?? false)).toBe(false);          // paused
+  const seen = new Set();
+  for (let i = 0; i < 8; i++) { await page.waitForTimeout(110); seen.add(createHash('md5').update(await page.locator('.stagewrap canvas').screenshot()).digest('hex')); }
+  expect(seen.size).toBeGreaterThan(2);                                                            // the picture changed several times with nobody pressing Play
 });
