@@ -12,7 +12,7 @@ async function studio(page) {
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
 }
 
-test('hand props stay out of the normal Props list and appear in the toolbox of a selected character, where one tap puts the prop in its hand', async ({ page }) => {
+test('hand props stay out of the Objects list and appear in the Props tab of a selected character; a tap asks which hand, then the prop goes into that palm', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page);
   await page.evaluate(async () => {
@@ -25,24 +25,27 @@ test('hand props stay out of the normal Props list and appear in the toolbox of 
       { id: 'prop-cup', type: 'prop', name: 'Cup', category: 'Kitchen', group: 'hand', access: 'free', updatedAt: '2' });
   });
   await page.evaluate(() => window.__toon.openTab('props'));
-  // general props are listed as before; the hand prop is not in this list
-  await expect(page.locator('.lib-card').filter({ hasText: 'Chair' })).toHaveCount(1);
-  await expect(page.locator('.lib-card').filter({ hasText: 'Cup' })).toHaveCount(0);
+  // objects are listed as before; the hand prop is not in this list
+  await expect(page.locator('.tile').filter({ hasText: 'Chair' })).toHaveCount(1);
+  await expect(page.locator('.tile').filter({ hasText: 'Cup' })).toHaveCount(0);
+  await page.evaluate(() => window.__toon.openTab('handprops'));
   // no character selected: only a hint, no hand props yet
   await expect(page.locator('.hand-props')).toContainText('Select a character');
   await expect(page.locator('.hand-card')).toHaveCount(0);
   // a character is selected (a stand-in actor; the rig itself is not needed for the list)
-  await page.evaluate(() => { const { S } = window.__toon; S.speakers.push({ key: 'actor1', name: 'Asha', color: '#f00', charId: 'lib:test', visible: true }); S.sel = 'actor1'; });
-  await page.evaluate(() => window.__toon.openTab('props'));
+  await page.evaluate(() => { const { S, stage } = window.__toon; S.speakers.push({ key: 'actor1', name: 'Asha', color: '#f00', charId: 'lib:test', visible: true }); S.order.push('actor1'); stage.layers.push({ key: 'actor1', visible: true, arm: { getBone: () => null }, mat: [1, 0, 0, 1, 0, 0], anchor: { x: 100, y: 300 }, box: { x0: 60, x1: 140, y0: 100, y1: 300 }, anim: new Set() }); S.sel = 'actor1'; });
+  await page.evaluate(() => window.__toon.openTab('handprops'));
   await expect(page.locator('.hand-card')).toHaveCount(1);
   await expect(page.locator('.hand-props')).toContainText('Asha');
-  await expect(page.locator('.lib-card').filter({ hasText: 'Chair' })).toHaveCount(2 - 1);   // the general prop is still listed once
   await page.locator('.hand-card').click();
+  await expect(page.locator('.edit-dock .ed-hand')).toHaveCount(2);          // which hand?
+  await page.locator('.edit-dock .ed-hand[data-hand="R"]').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
   const cup = await page.evaluate(() => window.__toon.S.props[0]);
   expect([cup.name, cup.assetId, cup.attach, cup.rotation]).toEqual(['Cup', 'prop-cup', { key: 'actor1', hand: 'R' }, -90]);
-  // a general prop is placed on the stage, not in a hand
-  await page.locator('.lib-card').filter({ hasText: 'Chair' }).click();
+  // an object is placed on the stage, not in a hand
+  await page.evaluate(() => window.__toon.openTab('props'));
+  await page.locator('.tile').filter({ hasText: 'Chair' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(2);
   expect(await page.evaluate(() => window.__toon.S.props[1].attach)).toBeUndefined();
   expect(errors).toEqual([]);
@@ -54,9 +57,9 @@ test('opening the Hand props tool of a character shows that character\'s hand pr
     const { S } = window.__toon;
     S.sharedAssets.push({ id: 'prop-cup', type: 'prop', name: 'Cup', category: 'Kitchen', group: 'hand', access: 'free', updatedAt: '2' });
     S.speakers.push({ key: 'actor2', name: 'Ravi', color: '#00f', charId: 'lib:test', visible: true });
-    window.__toon.openCharTool('actor2', 'props');
+    window.__toon.openCharTool('actor2', 'handprops');
   });
-  expect(await page.evaluate(() => [window.__toon.S.tab, window.__toon.S.sel])).toEqual(['props', 'actor2']);
+  expect(await page.evaluate(() => [window.__toon.S.tab, window.__toon.S.sel])).toEqual(['handprops', 'actor2']);
   await expect(page.locator('.hand-props')).toContainText('Ravi');
   await expect(page.locator('.hand-card')).toHaveCount(1);
 });

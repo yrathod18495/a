@@ -563,7 +563,7 @@ export class Stage {
     if (isHeld(prop)) {
       const held = heldAt(this.layers.find((l) => l.key === prop.attach.key), prop.attach.hand);
       if (held === 'hidden') return null;
-      if (held) { const at = heldPlacement(prop, held, w, h); cx = at.cx; cy = at.cy; a = at.angle; flip = at.mirrored; }
+      if (held) { const at = heldPlacement(prop, held, w, h); cx = at.cx; cy = at.cy; a = at.angle; flip = at.mirrored; if (prop.holdOff) { cx += (at.mirrored ? -1 : 1) * (prop.holdOff.x || 0) * W; cy -= (prop.holdOff.y || 0) * H; } }          // moved forward / back / up / down from the palm by the user
     }
     return { cx, cy, w, h, a, flip };
   }

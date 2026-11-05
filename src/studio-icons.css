@@ -534,3 +534,8 @@ body.studio-dark #app .ws .tl2 .tclip.shadow{--k-fill:#1d1f24;--k-edge:#8b909c;b
 .tclip.shadow .tn svg{width:14px;height:14px;vertical-align:-2px}
 /* messages in the studio: a strip over the scene row, not over the work */
 .toast.in-row{display:flex;align-items:center;min-height:44px;padding:6px 14px;border-radius:12px;font-size:12.5px;line-height:1.25;z-index:120;box-sizing:border-box}
+.edit-dock .ed-hands{display:flex;gap:10px}
+.edit-dock .ed-hand{flex:1;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--line);border-radius:14px;background:var(--card2);color:var(--text);font-size:14px;font-weight:700}
+.edit-dock .ed-hand svg{width:26px;height:26px}
+.edit-dock .ed-hand[data-hand="L"] svg{transform:scaleX(-1)}
+.edit-dock .ed-hint{align-self:center;font-size:12px;color:var(--mute);white-space:nowrap}

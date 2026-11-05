@@ -64,8 +64,20 @@ test('a prop in a hand can be selected on the canvas, shows in the Props tab (In
     S.sel = 'actor1'; window.__toon.openTab('handprops');
   });
   await page.locator('.hand-card').click();
+  await expect(page.locator('.edit-dock .ed-title')).toContainText('which hand');                                  // it asks first
+  expect(await page.evaluate(() => window.__toon.S.props.length)).toBe(0);
+  await page.locator('.edit-dock .ed-hand[data-hand="L"]').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
-  expect(await page.evaluate(() => window.__toon.S.props[0].attach)).toEqual({ key: 'actor1', hand: 'R' });
+  expect(await page.evaluate(() => window.__toon.S.props[0].attach)).toEqual({ key: 'actor1', hand: 'L' });          // that palm
+  await expect(page.locator('.edit-dock .ed-chip', { hasText: 'Forward / back' })).toBeVisible();                      // and its editor opens: forward / back, up / down, size ...
+  const dock = page.locator('.edit-dock');
+  await dock.locator('input[aria-label="Forward / back"]').evaluate((el) => { el.value = 20; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  await dock.locator('.ed-chip', { hasText: 'Up / down' }).click();
+  await dock.locator('input[aria-label="Up / down"]').evaluate((el) => { el.value = -10; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(await page.evaluate(() => window.__toon.S.props[0].holdOff)).toEqual({ x: 0.2, y: -0.1 });
+  await dock.locator('.ed-chip[data-hand="R"]').click();
+  expect(await page.evaluate(() => window.__toon.S.props[0].attach.hand)).toBe('R');                                    // the hand can be changed
+  await dock.getByRole('button', { name: 'Done' }).click();
   // its layer is on the timeline at once
   await expect(page.locator('.lane2.prop .tclip.prop')).toHaveCount(1);
   // the Props tab still offers the hand (the character stays remembered) and lists the prop in the scene
@@ -74,6 +86,11 @@ test('a prop in a hand can be selected on the canvas, shows in the Props tab (In
   // select it on the canvas by tapping it: its box and its tools (Edit) appear
   await page.evaluate(() => { const { S } = window.__toon; S.propSel = null; S.selectedPropId = null; window.__toon.drawClipBar(); window.__toon.drawTimeline(); });
   const at = await page.evaluate(() => { const { stage, S } = window.__toon, p = S.props[0], pl = stage.propPlacement(p, 0), o = stage.out.getBoundingClientRect(); return { x: o.left + pl.cx / stage.W * o.width, y: o.top + pl.cy / stage.H * o.height }; });
+  // dragging it on the picture moves it relative to the hand (forward / back / up / down)
+  const before = await page.evaluate(() => ({ ...window.__toon.S.props[0].holdOff }));
+  await page.mouse.move(at.x, at.y); await page.mouse.down(); await page.mouse.move(at.x + 40, at.y - 20, { steps: 5 }); await page.mouse.up();
+  const moved = await page.evaluate(() => ({ ...window.__toon.S.props[0].holdOff }));
+  expect(moved.x).toBeGreaterThan(before.x); expect(moved.y).toBeGreaterThan(before.y);
   await page.mouse.click(at.x, at.y);
   expect(await page.evaluate(() => [window.__toon.S.propSel, window.__toon.S.selectedPropId])).toEqual([await page.evaluate(() => window.__toon.S.props[0].id), await page.evaluate(() => window.__toon.S.props[0].id)]);
   await expect(page.locator('.prop-sel')).toBeVisible();

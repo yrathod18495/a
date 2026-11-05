@@ -1708,6 +1708,16 @@ function openShadowDock(kind, o) {
     onReset: () => { Object.assign(sh(), { ...SHADOW_DEFAULT }); applyShadow(kind, o); },
   });
 }
+/** a hand prop was tapped: which hand holds it? (a small bar at the bottom; the prop goes into that palm and its editor opens) */
+function openHandPicker(asset, holder) {
+  S.editDock?.close();
+  const pick = async (hand) => { S.editDock?.close(); const prop = await addLibraryProp(asset, { key: holder.key, hand }); if (prop) openPropEdit(prop); };
+  editDockEl.replaceChildren(
+    h('div', { class: 'ed-head' }, h('b', { class: 'ed-title' }, `${asset.name}: which hand?`), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Cancel', title: 'Cancel', onclick: () => S.editDock?.close() }, icon('x'))),
+    h('div', { class: 'ed-hands' }, h('button', { type: 'button', class: 'ed-hand', 'data-hand': 'L', onclick: () => pick('L') }, icon('hand'), h('span', {}, 'Left hand')), h('button', { type: 'button', class: 'ed-hand', 'data-hand': 'R', onclick: () => pick('R') }, icon('hand'), h('span', {}, 'Right hand'))));
+  editDockEl.hidden = false; document.body.classList.add('dock-open');
+  S.editDock = { close: () => { editDockEl.hidden = true; editDockEl.replaceChildren(); S.editDock = null; document.body.classList.remove('dock-open'); }, redraw() {} };
+}
 /** Edit of a prop / object: size, turn, see-through, a glow look, in front of or behind the characters, and its shadow */
 function openPropEdit(pr) {
   if (!pr) return;
@@ -1718,15 +1728,19 @@ function openPropEdit(pr) {
   openEditDock({
     title: `Edit · ${pr.name}`, onChange: save, onClose: () => { drawTimeline(); drawClipBar(); },
     params: [
+      ...(isHeld(pr) ? [
+        { key: 'fwd', label: 'Forward / back', min: -60, max: 60, unit: '%', get: () => (pr.holdOff?.x || 0) * 100, set: (v) => { pr.holdOff = { x: v / 100, y: pr.holdOff?.y || 0 }; } },
+        { key: 'up', label: 'Up / down', min: -60, max: 60, unit: '%', get: () => (pr.holdOff?.y || 0) * 100, set: (v) => { pr.holdOff = { x: pr.holdOff?.x || 0, y: v / 100 }; } },
+      ] : []),
       { key: 'size', label: 'Size', min: 10, max: 400, unit: '%', get: () => (pr.w / (pr.w0 || pr.w)) * 100, set: (v) => { const k = v / 100; pr.w = +(pr.w0 * k).toFixed(4); pr.h = +(pr.h0 * k).toFixed(4); } },
       { key: 'turn', label: 'Turn', min: -180, max: 180, unit: '°', get: () => pr.rotation || 0, set: (v) => { pr.rotation = v; } },
       { key: 'opacity', label: 'Opacity', min: 10, max: 100, unit: '%', get: () => (pr.opacity ?? 1) * 100, set: (v) => { pr.opacity = +(v / 100).toFixed(2); } },
     ],
-    extras: (key, { redraw }) => [h('div', { class: 'ed-row' },
+    extras: (key, { redraw }) => [...(isHeld(pr) ? [h('div', { class: 'ed-row' }, ['L', 'R'].map((hand) => h('button', { type: 'button', class: `ed-chip sm${pr.attach.hand === hand ? ' on' : ''}`, 'data-hand': hand, 'aria-pressed': String(pr.attach.hand === hand), onclick: () => { pr.attach = { ...pr.attach, hand }; save(); redraw(); } }, icon('hand'), hand === 'L' ? ' Left hand' : ' Right hand')), h('span', { class: 'ed-hint' }, 'or drag it on the picture'))] : []), h('div', { class: 'ed-row' },
       ...looks.map(([id, text]) => h('button', { type: 'button', class: `ed-chip sm${(pr.blend || 'normal') === id ? ' on' : ''}`, 'data-look': id, 'aria-pressed': String((pr.blend || 'normal') === id), onclick: () => { if (id === 'normal') delete pr.blend; else pr.blend = id; save(); redraw(); } }, text)),
       h('button', { type: 'button', class: `ed-chip sm${pr.behind ? ' on' : ''}`, 'aria-pressed': String(!!pr.behind), 'aria-label': 'Behind the characters', onclick: () => { if (pr.behind) delete pr.behind; else pr.behind = true; save(); redraw(); } }, 'Behind'),
       h('button', { type: 'button', class: 'ed-chip sm ed-shadow-btn', 'aria-label': 'Shadow', onclick: () => openShadowDock('prop', pr) }, icon('shadow'), ' Shadow'))],
-    onReset: () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = 0; delete pr.opacity; delete pr.blend; delete pr.behind; save(); },
+    onReset: () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = isHeld(pr) ? -90 : 0; delete pr.holdOff; delete pr.opacity; delete pr.blend; delete pr.behind; save(); },
   });
 }
 /** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
@@ -2592,7 +2606,11 @@ function mountStage() {
       if (prop) {
         const again = S.propSel === prop.id; S.selectedPropId = prop.id; S.sel = null; if (!again) { selectOnly('prop', prop.id); drawTimeline(); }          // its tools open at the bottom, its layer is lit
         if (propLockedNow(prop)) { lockedToast(); updateSel(); return; }
-        if (isHeld(prop)) { updateSel(); return; }          // a held prop is selected (size, turn, delete ...) but it moves with the hand, not with the finger          // a locked prop is selected but not moved
+        if (isHeld(prop)) {          // a held prop follows the hand: dragging it moves it forward / back / up / down relative to the hand
+          const pl = stage.propPlacement(prop, player.time);
+          drag = { mode: 'hold', prop, p0: p, o0: { x: prop.holdOff?.x || 0, y: prop.holdOff?.y || 0 }, sign: pl?.flip ? -1 : 1 };
+          updateSel(); wrapEl.setPointerCapture(e.pointerId); return;
+        }          // a locked prop is selected but not moved
         drag = { mode: 'prop', prop, p0: p, x0: prop.x ?? .5, y0: prop.y ?? .65 };
         updateSel(); S.dirty = true; wrapEl.setPointerCapture(e.pointerId); return;
       }
@@ -2640,6 +2658,11 @@ function mountStage() {
       else { xf.x = clampBgPos(drag.x0 + (e.clientX - drag.p0.x) / r.width); xf.y = clampBgPos(drag.y0 + (e.clientY - drag.p0.y) / r.height); }
       pushBg(c); return;
     }
+    if (drag?.mode === 'hold') {
+      const p = pt(e), prop = drag.prop, lim = (v) => Math.max(-0.6, Math.min(0.6, v));
+      prop.holdOff = { x: +lim(drag.o0.x + drag.sign * (p.x - drag.p0.x) / stage.W).toFixed(4), y: +lim(drag.o0.y - (p.y - drag.p0.y) / stage.H).toFixed(4) };
+      updateSel(); S.dirty = true; return;
+    }
     if (drag?.mode === 'prop') {
       const p = pt(e), prop = drag.prop;
       prop.x = Math.max(0, Math.min(1, drag.x0 + (p.x - drag.p0.x) / stage.W));
@@ -2660,7 +2683,7 @@ function mountStage() {
     l.axf = a.x / W; l.ayf = (H - a.y) / H;
     saveXf(l); stage.layout(); updateSel(); S.dirty = true;
   });
-  const end = async (e) => { pointers.delete(e?.pointerId); if (drag?.mode === 'bg') { if (!pointers.size || drag.pinch) { drag = null; S.dirty = true; } return; } if (camPointerUp()) return; if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag?.mode === 'scale' && drag.tap?.pinned && e?.type === 'pointerup' && performance.now() - drag.tap.t < 600 && Math.hypot(e.clientX - drag.tap.x, e.clientY - drag.tap.y) < 8) {
+  const end = async (e) => { pointers.delete(e?.pointerId); if (drag?.mode === 'bg') { if (!pointers.size || drag.pinch) { drag = null; S.dirty = true; } return; } if (camPointerUp()) return; if (drag?.mode === 'hold') { try { await dbPut('props', drag.prop); } catch (e) { toast(`Could not save the prop: ${e.message}`); } } if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag?.mode === 'scale' && drag.tap?.pinned && e?.type === 'pointerup' && performance.now() - drag.tap.t < 600 && Math.hypot(e.clientX - drag.tap.x, e.clientY - drag.tap.y) < 8) {
       // a DOUBLE tap on a handle that is stuck to the edge of the picture = the character is out of the frame: bring it back, 100%, inside (a single tap does nothing)
       const lay = stage.layers.find((x) => x.key === drag.tap.key), tap = { x: e.clientX, y: e.clientY, key: drag.tap.key, t: performance.now() }; drag = null;
       const twice = lastHandleTap && lastHandleTap.key === tap.key && tap.t - lastHandleTap.t < 450 && Math.hypot(tap.x - lastHandleTap.x, tap.y - lastHandleTap.y) < 40;
@@ -3340,7 +3363,7 @@ async function addLibraryProp(asset, hold = null) {
     let prop = propFromAsset(asset, blob, crypto.randomUUID());
     if (!isEffect(prop)) { const size = await imageSize(blob, prop.sheet); prop = placeProp(prop, size.w, size.h, aspectOf(S.aspect)); }      // a prop keeps the size and shape of its picture
     if (hold && !isEffect(prop)) prop = { ...prop, rotation: -90, attach: { key: hold.key, hand: hold.hand } };              // a hand prop starts in the chosen hand of the selected character
-    await putProp(prop);
+    await putProp(prop); return prop;
   }
   catch (e) { toast(`Could not add the ${asset.type === 'effect' ? 'effect' : 'prop'}: ${friendlyError(e)}`); }
   finally { loading.done(); }
@@ -3398,7 +3421,7 @@ function libraryTab(kind, group = 'general') {
     onclick: () => (locked ? lockHint() : p ? pick(p) : addLibraryProp(asset)), ...(p ? controls(p) : {}) }); };
   const ownTile = (p) => tile({ src: URL.createObjectURL(p.blob), name: p.name, title: `${p.name} (tap to select it)`, onclick: () => pick(p), ...controls(p) });
   const grid = h('div', { class: 'tile-grid' }, effects ? null : tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => ownFile.click() }), own.map(ownTile), shown.map(tileOf));
-  const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => (locked ? lockHint() : addLibraryProp(asset, { key: holder.key, hand: 'R' })) },
+  const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => (locked ? lockHint() : openHandPicker(asset, holder)) },
     locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : (asset.category || 'Hand prop'))); };
   if (group === 'hand') {          // Props: what a character can use (knife, bat, bag ...); Objects (stone, well, tree ...) make the scene
