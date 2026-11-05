@@ -93,10 +93,26 @@ export class Stage {
     this.artworkCanvas = new Map();
     // a phone takes the graphics memory back when the page goes to the background (or memory runs short): the picture then turns blank / white.
     // Keep the context alive (preventDefault) and, when it comes back, load every picture to the graphics card again.
-    this.out.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; this.onLost?.(); });
-    this.out.addEventListener('webglcontextrestored', () => { this.recover().catch((err) => this.onRecovered?.(err)); });
+    this.watchContext(this.out);
+    // some phones never send "restored" (or leave a sad-face canvas): back in the foreground, a dead context gets a brand new canvas
+    if (typeof document !== 'undefined') this.onShow = () => { if (document.visibilityState !== 'visible') return; clearTimeout(this.showTimer); this.showTimer = setTimeout(() => { if (this.lost || this.gl.isContextLost()) this.freshCanvas().catch((err) => this.onRecovered?.(err)); }, 1200); };
+    if (this.onShow) { document.addEventListener('visibilitychange', this.onShow); window.addEventListener('pageshow', this.onShow); }
     this.setSize('16:9', 720);
   }
+
+  watchContext(canvas) {
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; this.onLost?.(); clearTimeout(this.lostTimer); if (typeof document !== 'undefined' && document.visibilityState === 'visible') this.lostTimer = setTimeout(() => { if (this.lost) this.freshCanvas().catch((err) => this.onRecovered?.(err)); }, 4000); });
+    canvas.addEventListener('webglcontextrestored', () => { clearTimeout(this.lostTimer); this.recover().catch((err) => this.onRecovered?.(err)); });
+  }
+  /** the old canvas cannot be revived: put a new one in its place, with the same size and place on the page */
+  async freshCanvas() {
+    clearTimeout(this.lostTimer);
+    const old = this.out, c = makeCanvas(this.W, this.H);
+    c.className = old.className; c.style.cssText = old.style.cssText; c.width = this.W; c.height = this.H;
+    old.replaceWith(c); this.out = c; this.watchContext(c);
+    await this.recover();
+  }
+  dispose() { if (this.onShow) document.removeEventListener('visibilitychange', this.onShow); this.onShow && window.removeEventListener('pageshow', this.onShow); clearTimeout(this.showTimer); clearTimeout(this.lostTimer); }
 
   /** after the graphics context came back: a new renderer, and every texture built again from the original pictures */
   async recover() {
