@@ -1,6 +1,6 @@
 export const PREVIEW_MODES = Object.freeze({
-  low: Object.freeze({ label: 'Low · fastest', short: 180, maxTex: 512, fps: 12 }),
-  medium: Object.freeze({ label: 'Medium · balanced', short: 480, maxTex: 1024, fps: 24 }),
+  low: Object.freeze({ label: 'Low · fastest', short: 360, maxTex: 1024, fps: 40 }),
+  medium: Object.freeze({ label: 'Medium · balanced', short: 720, maxTex: 2048, fps: 40 }),
   high: Object.freeze({ label: 'High · sharpest', short: 1080, maxTex: 4096, fps: 60 }),
 });
 export const previewMode = value => Object.hasOwn(PREVIEW_MODES, value) ? value : 'medium';

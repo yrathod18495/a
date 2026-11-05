@@ -18,7 +18,6 @@ import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
 import { Player, buildTimeline } from './player.js';
 import { characterPicker } from './charpick.js';
-import { heavyForPlayback } from './export-levels.js';
 import { exportOffline, exportParallel, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
 import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext, listBgLibrary } from './store.js';
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
@@ -53,7 +52,7 @@ const S = {
   step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, pathEdit: false, grade: { ...DEFAULT_GRADE }, gradeKeys: [], gradeSel: null, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
-  quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'mp4',
+  quality: 720, expMethod: 'fast', fps: 40, level: 'high', format: 'mp4',
   manual: {}, mclip: null, addMode: false,            // animations the user placed on the timeline: { <character key>: [{id, kind, ref, start, dur, off}] }
   fx: [], fxSel: null, fxPick: null, charKeys: {}, moveOpen: {}, ckSel: null, motionFor: null,          // movement keyframes per character: { <character key>: [{id, t, x, y, mul, flip, ease}] }
   camKeys: [], camSel: null, camPeek: false,           // camera keyframes: [{id, t, cx, cy, zoom, ease}]
@@ -80,7 +79,7 @@ const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(
 const toast = (msg, kind = '') => {
   const t = h('div', { class: `toast${kind ? ` ${kind}` : ''}` }, msg); document.body.append(t); swipeAway(t);
   // inside the studio a message shows in the scene row (it never covers the buttons you are working with); swipe it away sideways
-  const row = !$app.hidden && document.querySelector('#app .scene-row'), r = row?.getBoundingClientRect();
+  const row = !$app.hidden ? document.querySelector('#app .scene-row') : null, r = row?.getBoundingClientRect();
   if (r?.width) { document.querySelectorAll('.toast.in-row').forEach((x) => x.remove()); t.classList.add('in-row'); Object.assign(t.style, { left: `${r.left + r.width / 2}px`, top: `${r.top}px`, bottom: 'auto', width: `${r.width}px`, maxWidth: 'none' }); }
 };
 const busy = (msg, onCancel) => {
@@ -3695,40 +3694,26 @@ function tabCanvas() {
 
 /** export size for the chosen orientation + quality */
 function sizeFor() { const { w, h } = aspectOf(S.aspect), k = S.quality / Math.min(w, h); return { W: Math.round((w * k) / 2) * 2, H: Math.round((h * k) / 2) * 2 }; }
-/** 4K above 60 fps is only offered on a strong device: many CPU cores, enough memory, an encoder that accepts it and plenty of free storage */
-let heavyGate = null;
-function checkHeavyGate() {
-  if (heavyGate) return heavyGate;
-  heavyGate = (async () => {
-    const { W, H } = { W: 3840, H: 2160 };
-    if ((navigator.hardwareConcurrency || 2) < 8) return { ok: false, why: 'This device is not powerful enough for 4K at 90 fps (it needs at least 8 processor cores).' };
-    if ((navigator.deviceMemory || 8) < 6) return { ok: false, why: 'This device does not have enough memory for 4K at 90 fps.' };
-    try { const { quota = 0, usage = 0 } = await navigator.storage.estimate(); if (quota - usage < 18e9) return { ok: false, why: 'Please free up storage first: 4K at 90 fps needs about 30 GB free on this device.' }; } catch { /* unknown storage: do not block */ }
-    if (!await canExportOffline(W, H, 90, 'mp4', true).catch(() => false)) return { ok: false, why: 'This device cannot encode 4K at 90 fps.' };
-    return { ok: true };
-  })().then((r) => { heavyGate = r; if (!r.ok && S.quality >= 2160 && S.fps > 60) redrawPanel(); return r; });
-  return heavyGate;
-}
-const heavyBlocked = () => S.quality >= 2160 && S.fps > 60 && heavyGate && !heavyGate.then && heavyGate.ok === false ? heavyGate.why : '';
+/** 4K tops out at 60 fps; every other size goes up to 90. Nothing renders below 40 fps. */
+const fpsChoices = () => S.quality >= 2160 ? [[40, '40'], [60, '60']] : [[40, '40'], [60, '60'], [90, '90']];
+const fixFps = () => { if (S.fps < 40) S.fps = 40; if (S.quality >= 2160 && S.fps > 60) S.fps = 60; };
 function tabExport() {
   S.expMethod = 'fast'; S.format = 'mp4';
-  if (S.quality >= 2160 && S.fps > 60) checkHeavyGate();
+  fixFps();
   const exportScenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
   const soundInVideo = exportScenes.some(scene => scene.doc.lines?.length) || exportScenes.some(scene => scene.doc.music && !scene.doc.music.muted);
   const duration = sequencePlan(exportScenes, sceneAudio).at(-1)?.end || player.total;
-  const chips = (items, cur, set) => h('div', { class: 'seg exp-pop-seg' }, items.map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); if (S.quality >= 2160 && S.fps > 60) checkHeavyGate(); redrawPanel(); } }, label)));
+  const chips = (items, cur, set) => h('div', { class: 'seg exp-pop-seg' }, items.map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); fixFps(); redrawPanel(); } }, label)));
   const { W: outW, H: outH } = sizeFor();
   const mbps = bitrateFor(outW, outH, S.level, 'mp4', S.fps) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo, ratio: sizeRatio('mp4') });
   const eta = estimateSeconds({ duration, pixels: outW * outH, fps: S.fps, live: false, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
-  const blocked = heavyBlocked();
   return h('div', { class: 'list exp-compact' },
     h('div', { class: 'card flat exp-pop exp-pop-tab' },
       h('h3', {}, 'Quality'), chips([[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; }),
-      h('h3', {}, 'Frames per second'), chips([[24, '24'], [30, '30'], [60, '60'], [90, '90']], () => S.fps, (v) => { S.fps = v; }),
+      h('h3', {}, 'Frames per second'), chips(fpsChoices(), () => S.fps, (v) => { S.fps = v; }),
       h('h3', {}, 'Detail'), chips([['std', 'Standard'], ['high', 'High'], ['max', 'Maximum']], () => S.level, (v) => { S.level = v; }),
       S.scenes.length > 1 ? h('select', { 'aria-label': 'Export scenes', onchange: e => { S.exportScope = e.target.value; redrawPanel(); } }, h('option', { value: 'all', selected: S.exportScope === 'all' }, `All scenes (${S.scenes.length})`), h('option', { value: 'current', selected: S.exportScope === 'current' }, 'Current scene only')) : null,
-      h('p', { class: 'sub exp-line' }, `${outW}×${outH} · ${duration.toFixed(1)} s · about ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB · about ${prettyTime(eta.seconds)}`),
-      blocked ? h('p', { class: 'sub exp-pop-note', role: 'alert' }, blocked) : null),
+      h('p', { class: 'sub exp-line' }, `${outW}×${outH} · ${duration.toFixed(1)} s · about ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB · about ${prettyTime(eta.seconds)}`),),
     renderSection());
 }
 const redrawPanel = () => { const k = panelEl.scrollTop; drawTabs(); panelEl.scrollTop = k; };
@@ -3801,7 +3786,7 @@ async function downloadCloudExport() {
 }
 /** the device tile of the Render section: one button, states it plainly instead of a row of separate controls */
 function deviceRenderTile() {
-  const busy = !!bgExport, disabled = busy || (!pickType() && !window.VideoEncoder) || !!heavyBlocked();
+  const busy = !!bgExport, disabled = busy || (!pickType() && !window.VideoEncoder);
   return h('div', { class: `exp-opt${busy ? ' exp-opt-busy' : ''}` },
     h('div', { class: 'exp-opt-head' }, h('span', { class: 'exp-opt-ico', 'aria-hidden': 'true' }, icon('download')), h('div', {}, h('b', {}, 'This device'), h('small', {}, busy ? 'Exporting…' : 'Fast, on this phone'))),
     h('button', { type: 'button', class: 'btn ok exp-opt-btn', disabled, onclick: () => doExport() }, busy ? 'Exporting…' : 'Render'));
@@ -3845,30 +3830,28 @@ let exportChecking = false;
 function openExportPopup() {
   if (bgExport) { toast('An export is already running. You can follow it in the box at the bottom left.'); return; }
   if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
-  S.format = 'mp4'; if (S.fps < 24) S.fps = 30; if (S.quality < 480) S.quality = 480;          // the popup always opens on a smooth 30 fps (an old project or a draft preset may have left 12 / 15 / 24)
+  S.format = 'mp4'; if (S.quality < 480) S.quality = 480; fixFps();          // nothing renders below 40 fps (an old project may have left 12 / 15 / 24 / 30)
   const scenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
   const duration = sequencePlan(scenes, sceneAudio).at(-1)?.end || player.total, sound = scenes.some((sc) => sc.doc.lines?.length) || scenes.some((sc) => sc.doc.music && !sc.doc.music.muted);
   const info = h('div', { class: 'exp-pop-info' });
-  const chips = (items, cur, set) => { const box = h('div', { class: 'seg exp-pop-seg' }); const draw = () => box.replaceChildren(...items.map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); draw(); refresh(); } }, label))); draw(); return box; };
+  const chips = (itemsOf, cur, set) => { const box = h('div', { class: 'seg exp-pop-seg' }); const draw = () => box.replaceChildren(...(typeof itemsOf === 'function' ? itemsOf() : itemsOf).map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); draw(); refresh(); } }, label))); box.redraw = draw; draw(); return box; };
   let supportToken = 0;
   const refresh = () => {
     // this device may not be able to make every size / fps (90 fps at 4K, for example): the Render button says so instead of failing later
     const mine = ++supportToken, { W: sw, H: sh } = sizeFor();
-    heavy.hidden = !heavyForPlayback(sw, sh, S.fps);
     canExportOffline(sw, sh, S.fps, 'mp4', !sound).then((ok) => { if (mine !== supportToken) return; render.disabled = !ok && !!window.VideoEncoder; note.hidden = ok || !window.VideoEncoder; }).catch(() => {});
-    if (S.quality >= 2160 && S.fps > 60) checkHeavyGate().then((g) => { if (mine !== supportToken || g.ok) return; render.disabled = true; note.textContent = g.why; note.hidden = false; });
     const { W, H } = sizeFor(), mbps = bitrateFor(W, H, S.level, 'mp4', S.fps) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: sound, ratio: sizeRatio('mp4') });
     const eta = estimateSeconds({ duration, pixels: W * H, fps: S.fps, live: false, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
     info.replaceChildren(h('div', {}, 'Estimated size', h('b', {}, `about ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)), h('div', {}, 'Picture', h('b', {}, `${W}×${H}`)), h('div', {}, 'Length', h('b', {}, `${duration.toFixed(1)} s`)), h('div', {}, 'Time to render', h('b', {}, `about ${prettyTime(eta.seconds)}`)));
   };
+  const fpsBox = chips(fpsChoices, () => S.fps, (v) => { S.fps = v; });
   const note = h('p', { class: 'sub exp-pop-note', role: 'alert', hidden: true }, 'This device cannot make a video with this picture size and frames per second. Please choose a lower quality or fewer frames per second.');
-  const heavy = h('p', { class: 'sub exp-pop-heavy', role: 'status', hidden: true }, 'Note: 4K above 60 frames per second is too heavy for most computers and phones to play smoothly, even when the video is made correctly (a 60 Hz screen cannot show 90 frames either). For smooth playback choose 4K at 60 fps, or 2K at 90 fps.');
   const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { close(); doExport(); } }, 'Render on this device');
   const cloud = h('button', { type: 'button', class: 'btn exp-pop-cloud', onclick: () => { close(); openTab('export'); startCloudExport(); } }, '☁ Render on the cloud');
   const close = modal('Export video', h('div', { class: 'exp-pop' },
-    h('h3', {}, 'Quality'), chips([[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; }),
-    h('h3', {}, 'Frames per second'), chips([[24, '24'], [30, '30'], [60, '60'], [90, '90']], () => S.fps, (v) => { S.fps = v; }),
-    info, note, heavy,
+    h('h3', {}, 'Quality'), chips([[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; fixFps(); fpsBox.redraw(); }),
+    h('h3', {}, 'Frames per second'), fpsBox,
+    info, note,
     h('div', { class: 'exp-pop-actions', style: 'display:flex;gap:8px;flex-wrap:wrap' },
       h('div', { style: 'flex:1 1 160px' }, render),
       h('div', { style: 'flex:1 1 160px' }, cloud)),
@@ -3930,7 +3913,7 @@ async function runBackgroundExport(grant) {
 async function doExport({ foreground = false } = {}) {
   if (bgExport) { toast('An export is already running. You can follow it in the box at the bottom left.'); return; }
   if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
-  if (S.quality >= 2160 && S.fps > 60) { const gate = await checkHeavyGate(); if (!gate.ok) { toast(gate.why); return; } }
+  fixFps();
   // the server decides how long a video this account may export (free 2 min, paid 10 min) before any rendering starts
   let prepStop = false; const prep = exportPill(() => { prepStop = true; }); setExportBusy(true);          // feedback from the very first tap: the button moves and a "Preparing" box appears
   const abort = () => { prep.done(); setExportBusy(false); };
@@ -4172,7 +4155,7 @@ async function restoreProject() {
       if (!a) continue;
       try { const buffer = await audioCtx.decodeAudioData(a.raw.slice(0)); S.lines.push({ ...m, raw: a.raw, buffer, visemes: analyse(buffer) }); sceneAudio.set(m.id, S.lines.at(-1)); savedAudio.add(m.id); } catch { /* skip broken audio */ }
     }
-    Object.assign(S, { quality: rec.ui.v >= 2 ? (rec.ui.quality ?? S.quality) : Math.max(720, rec.ui.quality ?? 720), /* older saves defaulted to 480p on phones */ expMethod: 'fast', fps: rec.ui.fps ?? S.fps, level: rec.ui.level ?? S.level, format: 'mp4', applyAll: !!rec.ui.applyAll, tab: rec.ui.tab ?? S.tab, lineSel: rec.ui.lineSel ?? null, animFor: rec.ui.animFor ?? null });
+    Object.assign(S, { quality: rec.ui.v >= 2 ? (rec.ui.quality ?? S.quality) : Math.max(720, rec.ui.quality ?? 720), /* older saves defaulted to 480p on phones */ expMethod: 'fast', fps: Math.max(40, rec.ui.fps ?? S.fps), level: rec.ui.level ?? S.level, format: 'mp4', applyAll: !!rec.ui.applyAll, tab: rec.ui.tab ?? S.tab, lineSel: rec.ui.lineSel ?? null, animFor: rec.ui.animFor ?? null });
     await loadDoc(rec.doc);
     S.step = 3;
     await prepareStudio();

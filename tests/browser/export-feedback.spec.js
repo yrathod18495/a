@@ -15,7 +15,7 @@ test('Render moves the Download button at once; Cancel is on top of every other 
   await page.getByRole('button', { name: 'Export', exact: true }).first().click();
   const box = page.locator('.exp-pop'); await expect(box).toBeVisible();
   await box.getByRole('button', { name: '720p', exact: true }).click();
-  await box.getByRole('button', { name: '30', exact: true }).click();
+  await box.getByRole('button', { name: '40', exact: true }).click();
   await expect(box.locator('.exp-pop-go')).toBeEnabled();
   await box.locator('.exp-pop-go').click();
   await expect(page.locator('.export-btn.working')).toHaveCount(1, { timeout: 3000 });     // the button is alive straight away

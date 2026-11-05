@@ -18,13 +18,13 @@ test('Download opens the export box (no direct render); quality changes the esti
   await box.getByRole('button', { name: '1080p', exact: true }).click(); const big = await size();
   const mb = (t) => parseFloat(t.match(/[\d.]+/)[0]);
   expect(mb(big)).toBeGreaterThan(mb(small));
-  expect(await page.evaluate(() => window.__toon.S.fps)).toBe(30);                    // always opens on 30 fps
+  expect(await page.evaluate(() => window.__toon.S.fps)).toBe(40);                    // always opens on 40 fps, the minimum
   await expect(box.getByRole('button', { name: '60', exact: true })).toBeVisible();
   await expect(box.getByRole('button', { name: '90', exact: true })).toBeVisible();     // and 60 fps is there for the smoothest video
   await expect(box.getByRole('button', { name: '360p', exact: true })).toHaveCount(0); await expect(box.getByRole('button', { name: '2K', exact: true })).toBeVisible();          // no 360p, there is 2K
-  await expect(box.getByRole('button', { name: '12', exact: true })).toHaveCount(0); await expect(box.getByRole('button', { name: '15', exact: true })).toHaveCount(0);          // no 12 / 15 fps
-  await box.getByRole('button', { name: '24', exact: true }).click();
-  expect(await page.evaluate(() => ({ q: window.__toon.S.quality, f: window.__toon.S.fps, fmt: window.__toon.S.format }))).toEqual({ q: 1080, f: 24, fmt: 'mp4' });
+  for (const f of ['12', '15', '24', '30']) await expect(box.getByRole('button', { name: f, exact: true })).toHaveCount(0);          // nothing below 40 fps
+  await box.getByRole('button', { name: '60', exact: true }).click();
+  expect(await page.evaluate(() => ({ q: window.__toon.S.quality, f: window.__toon.S.fps, fmt: window.__toon.S.format }))).toEqual({ q: 1080, f: 60, fmt: 'mp4' });
   const m = await box.boundingBox(); expect(m.x).toBeGreaterThanOrEqual(0); expect(m.x + m.width).toBeLessThanOrEqual(390);
   await expect(box.getByRole('button', { name: 'Render on this device', exact: true })).toBeVisible();
   await expect(box.getByRole('button', { name: /Render on the cloud/ })).toBeVisible();
@@ -54,7 +54,7 @@ test('90 fps: when this device cannot encode it, Render is off and a plain messa
   await expect(box.locator('.exp-pop-note')).toBeHidden(); await expect(box.locator('.exp-pop-go')).toBeEnabled();
 });
 
-test('4K at 90 fps shows a plain note that most computers cannot play it smoothly; 4K at 60 fps and 2K at 90 fps do not', async ({ page }) => {
+test('4K never offers 90 fps (and drops to 60 when 4K is picked); 2K still has 90', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   await page.goto('/?debug&workers=0#/toons');
@@ -64,8 +64,9 @@ test('4K at 90 fps shows a plain note that most computers cannot play it smoothl
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   await page.getByRole('button', { name: 'Export', exact: true }).first().click();
   const box = page.locator('.exp-pop'); await expect(box).toBeVisible();
-  await box.getByRole('button', { name: '4K', exact: true }).click(); await box.getByRole('button', { name: '90', exact: true }).click();
-  await expect(box.locator('.exp-pop-heavy')).toBeVisible();
-  await box.getByRole('button', { name: '60', exact: true }).click(); await expect(box.locator('.exp-pop-heavy')).toBeHidden();
-  await box.getByRole('button', { name: '2K', exact: true }).click(); await box.getByRole('button', { name: '90', exact: true }).click(); await expect(box.locator('.exp-pop-heavy')).toBeHidden();
+  await box.getByRole('button', { name: '2K', exact: true }).click(); await box.getByRole('button', { name: '90', exact: true }).click();
+  expect(await page.evaluate(() => window.__toon.S.fps)).toBe(90);
+  await box.getByRole('button', { name: '4K', exact: true }).click();
+  await expect(box.getByRole('button', { name: '90', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => window.__toon.S.fps)).toBe(60);
 });

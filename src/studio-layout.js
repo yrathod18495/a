@@ -49,9 +49,9 @@ export const SHORTCUT_GROUPS = [
 
 /** One-click export setups; each only touches the settings the export panel already has. */
 export const EXPORT_PRESETS = [
-  { id: 'draft', label: 'Quick draft', note: '480p · fast to render', quality: 480, format: 'mp4', fps: 24, level: 'std' },
-  { id: 'share', label: 'Chat share', note: '480p MP4 · small file', quality: 480, format: 'mp4', fps: 24, level: 'std' },
-  { id: 'hd', label: 'YouTube HD', note: '1080p MP4 · 30 fps', quality: 1080, format: 'mp4', fps: 30, level: 'high' },
-  { id: 'best', label: 'Best quality', note: '4K MP4 · maximum', quality: 2160, format: 'mp4', fps: 30, level: 'max' },
+  { id: 'draft', label: 'Quick draft', note: '480p · fast to render', quality: 480, format: 'mp4', fps: 40, level: 'std' },
+  { id: 'share', label: 'Chat share', note: '480p MP4 · small file', quality: 480, format: 'mp4', fps: 40, level: 'std' },
+  { id: 'hd', label: 'YouTube HD', note: '1080p MP4 · 40 fps', quality: 1080, format: 'mp4', fps: 40, level: 'high' },
+  { id: 'best', label: 'Best quality', note: '4K MP4 · 60 fps', quality: 2160, format: 'mp4', fps: 60, level: 'max' },
 ];
 export const presetMatch = (s) => EXPORT_PRESETS.find((p) => p.quality === s.quality && p.format === s.format && p.fps === s.fps && p.level === s.level)?.id || null;

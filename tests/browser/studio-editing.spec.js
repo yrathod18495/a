@@ -267,22 +267,23 @@ test('export estimate: size and time are shown before exporting, change with the
   await page.locator('.drop input[type=file]').setInputFiles({ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: wav(20) });
   await expect(page.locator('.tclip.voice')).toHaveCount(1, { timeout: 20000 });
   await page.evaluate(() => { localStorage.removeItem('12toons.exportSpeed'); window.__toon.S.exportScope = 'current'; window.__toon.openTab('export'); });
-  const stat = (label) => page.locator('.exp-summary div', { hasText: label }).locator('b');
-  await expect(stat('Approx. time')).toBeVisible();
-  const num = async (label) => { const text = (await stat(label).textContent()) || '', n = parseFloat(text.replace(/[^0-9.]/g, '')); return /min/.test(text) ? n * 60 : /\bh\b/.test(text) ? n * 3600 : n; };          // seconds / minutes / hours -> seconds
-  await expect(page.locator('.exp-eta')).toContainText('rough guess');
-  const t720 = await num('Approx. time'), mb720 = await num('Approx. size');
-  expect(t720).toBeGreaterThan(0); expect(mb720).toBeGreaterThan(0);
+  const line = page.locator('.exp-line');
+  await expect(line).toBeVisible();
+  const parse = (text) => {
+    const mb = parseFloat(text.match(/about ([\d.]+) MB/)[1]);
+    const t = text.match(/about ([\d.]+) (s|min|h)\b/);
+    return { mb, sec: t ? parseFloat(t[1]) * ({ s: 1, min: 60, h: 3600 })[t[2]] : NaN };
+  };
+  const at720 = parse(await line.textContent());
+  expect(at720.mb).toBeGreaterThan(0); expect(at720.sec).toBeGreaterThan(0);
   await page.evaluate(() => { window.__toon.S.quality = 2160; window.__toon.openTab('export'); });
-  expect(await num('Approx. size')).toBeGreaterThan(mb720);                                     // 4K makes a bigger file …
-  expect(await num('Approx. time')).toBeGreaterThanOrEqual(t720);                               // … that takes longer
-  // after an export the measured speed is used: pretend the last one ran at 4× real time at 720p30
-  await page.evaluate(() => { window.__toon.S.quality = 720; window.__toon.S.fps = 30; const { width, height } = { width: window.__toon.stage.W, height: window.__toon.stage.H }; localStorage.setItem('12toons.exportSpeed', JSON.stringify({ speed: 4, pixels: 1280 * 720, fps: 30, at: Date.now() })); window.__toon.openTab('export'); });
-  await expect(page.locator('.exp-eta')).toContainText('last export');
-  const time = (await stat('Approx. time').textContent()) || '';
-  expect(time).toMatch(/about (5|10|15) s/);                                                      // a 20 s video at 4× real time is about 5 s
-  await page.evaluate(() => { window.__toon.S.expMethod = 'live'; window.__toon.openTab('export'); });
-  expect(await num('Approx. time')).toBeGreaterThanOrEqual(20);                                  // live recording: at least as long as the video
+  const at4k = parse(await line.textContent());
+  expect(at4k.mb).toBeGreaterThan(at720.mb);                                     // 4K makes a bigger file …
+  expect(at4k.sec).toBeGreaterThanOrEqual(at720.sec);                            // … that takes longer
+  await page.evaluate(() => { window.__toon.S.quality = 720; window.__toon.S.fps = 40; const { width, height } = { width: window.__toon.stage.W, height: window.__toon.stage.H }; localStorage.setItem('12toons.exportSpeed', JSON.stringify({ speed: 4, pixels: 1280 * 720, fps: 40, at: Date.now() })); window.__toon.openTab('export'); });
+  const measured = parse(await line.textContent());
+  expect(measured.sec).toBeGreaterThanOrEqual(4);                                // a 20 s video at 4× real time is about 5 s
+  expect(measured.sec).toBeLessThanOrEqual(15);
 });
 
 // ---- a real export (parallel workers) in the background ----
@@ -304,9 +305,10 @@ test('background export: the editor stays free while the video is made from a sn
   await expect(page.locator('.tclip.voice')).toHaveCount(1, { timeout: 20000 });
   await page.locator('.music-card input[type=file]').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: tone(1, 440, 20000) });         // 1 s of music for a 5 s video: it has to repeat
   await expect(page.locator('.tclip.music')).toHaveCount(1, { timeout: 15000 });
-  await page.evaluate(() => { const T = window.__toon; T.S.fps = 5; T.S.quality = 360; Object.assign(T.S.music, { volume: 0.2, fadeIn: 0, fadeOut: 0 }); Object.assign(T.S.lines[0], { volume: 0.5 }); Object.assign(T.player.clips[0], { volume: 0.5 }); T.player.music.volume = 0.2; T.player.music.fadeOut = 0; T.player.music.fadeIn = 0; });
+  await page.evaluate(() => { const T = window.__toon; T.S.fps = 40; T.S.quality = 360; Object.assign(T.S.music, { volume: 0.2, fadeIn: 0, fadeOut: 0 }); Object.assign(T.S.lines[0], { volume: 0.5 }); Object.assign(T.player.clips[0], { volume: 0.5 }); T.player.music.volume = 0.2; T.player.music.fadeOut = 0; T.player.music.fadeIn = 0; });
   const downloadReady = page.waitForEvent('download', { timeout: 120000 });
   await page.locator('#app .hdr-tools').getByRole('button', { name: 'Export', exact: true }).click();
+  await page.locator('.exp-pop-go').click();
   await expect(page.locator('.export-pill')).toBeVisible({ timeout: 20000 });                 // the progress box, not a locked screen
   expect(await page.evaluate(() => window.__toon.S.exporting)).toBe(false);                    // the editor is not frozen
   await expect(page.locator('.busy')).toHaveCount(0);
@@ -345,9 +347,10 @@ test('background export: closing the studio while it renders does not stop it; t
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await page.locator('.drop input[type=file]').setInputFiles({ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: wav(12) });
   await expect(page.locator('.tclip.voice')).toHaveCount(1, { timeout: 20000 });
-  await page.evaluate(() => { window.__toon.S.fps = 5; window.__toon.S.quality = 360; });
+  await page.evaluate(() => { window.__toon.S.fps = 40; window.__toon.S.quality = 360; });
   const downloadReady = page.waitForEvent('download', { timeout: 120000 });
   await page.locator('#app .hdr-tools').getByRole('button', { name: 'Export', exact: true }).click();
+  await page.locator('.exp-pop-go').click();
   await expect(page.locator('.export-pill')).toBeVisible({ timeout: 20000 });
   await page.locator('.close-studio').click(); await page.locator('.close-yes').click();                                                   // leave the studio while it renders
   await expect(page.locator('#app')).toBeHidden({ timeout: 15000 });
