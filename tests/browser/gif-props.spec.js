@@ -95,3 +95,21 @@ test('a prop in a hand can be selected on the canvas, shows in the Props tab (In
   expect(await page.evaluate(() => [window.__toon.S.propSel, window.__toon.S.selectedPropId])).toEqual([await page.evaluate(() => window.__toon.S.props[0].id), await page.evaluate(() => window.__toon.S.props[0].id)]);
   await expect(page.locator('.prop-sel')).toBeVisible();
 });
+
+test('the Props tab lists the hand props even when no character is selected; a tap asks the character (if there are several) and then the hand', async ({ page }) => {
+  await open(page);
+  await page.evaluate(async () => {
+    const { S, sharedBlobs, stage } = window.__toon, c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.fillStyle = '#c80'; g.fillRect(0, 0, 8, 8);
+    sharedBlobs.set('torch', await new Promise((r) => c.toBlob(r)));
+    S.sharedAssets.push({ id: 'torch', type: 'prop', name: 'Mashal', group: 'hand', access: 'free', updatedAt: '1' });
+    for (const [key, name] of [['actor1', 'Asha'], ['actor2', 'Ravi']]) { S.speakers.push({ key, name, color: '#f00', charId: 'lib:test', visible: true }); S.order.push(key); stage.layers.push({ key, visible: true, arm: { getBone: () => null }, mat: [1, 0, 0, 1, 0, 0], anchor: { x: 100, y: 300 }, box: { x0: 60, x1: 140, y0: 100, y1: 300 }, anim: new Set() }); }
+    S.sel = null; S.handHolder = null; window.__toon.openTab('handprops');
+  });
+  await expect(page.locator('.hand-card', { hasText: 'Mashal' })).toBeVisible();          // shown with nobody selected
+  await page.locator('.hand-card').click();
+  await expect(page.locator('.edit-dock .ed-who')).toHaveCount(2);                          // which character?
+  await page.locator('.edit-dock .ed-who[data-who="actor2"]').click();
+  await expect(page.locator('.edit-dock .ed-title')).toContainText('Ravi');
+  await page.locator('.edit-dock .ed-hand[data-hand="R"]').click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.props[0]?.attach)).toEqual({ key: 'actor2', hand: 'R' });
+});

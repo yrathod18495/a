@@ -29,9 +29,9 @@ test('hand props stay out of the Objects list and appear in the Props tab of a s
   await expect(page.locator('.tile').filter({ hasText: 'Chair' })).toHaveCount(1);
   await expect(page.locator('.tile').filter({ hasText: 'Cup' })).toHaveCount(0);
   await page.evaluate(() => window.__toon.openTab('handprops'));
-  // no character selected: only a hint, no hand props yet
-  await expect(page.locator('.hand-props')).toContainText('Select a character');
-  await expect(page.locator('.hand-card')).toHaveCount(0);
+  // no character selected: the hand props are listed anyway; a tap will ask for the character and the hand
+  await expect(page.locator('.hand-props')).toContainText('choose the character and the hand');
+  await expect(page.locator('.hand-card')).toHaveCount(1);
   // a character is selected (a stand-in actor; the rig itself is not needed for the list)
   await page.evaluate(() => { const { S, stage } = window.__toon; S.speakers.push({ key: 'actor1', name: 'Asha', color: '#f00', charId: 'lib:test', visible: true }); S.order.push('actor1'); stage.layers.push({ key: 'actor1', visible: true, arm: { getBone: () => null }, mat: [1, 0, 0, 1, 0, 0], anchor: { x: 100, y: 300 }, box: { x0: 60, x1: 140, y0: 100, y1: 300 }, anim: new Set() }); S.sel = 'actor1'; });
   await page.evaluate(() => window.__toon.openTab('handprops'));

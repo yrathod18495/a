@@ -1711,12 +1711,21 @@ function openShadowDock(kind, o) {
 /** a hand prop was tapped: which hand holds it? (a small bar at the bottom; the prop goes into that palm and its editor opens) */
 function openHandPicker(asset, holder) {
   S.editDock?.close();
-  const pick = async (hand) => { S.editDock?.close(); const prop = await addLibraryProp(asset, { key: holder.key, hand }); if (prop) openPropEdit(prop); };
-  editDockEl.replaceChildren(
-    h('div', { class: 'ed-head' }, h('b', { class: 'ed-title' }, `${asset.name}: which hand?`), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Cancel', title: 'Cancel', onclick: () => S.editDock?.close() }, icon('x'))),
-    h('div', { class: 'ed-hands' }, h('button', { type: 'button', class: 'ed-hand', 'data-hand': 'L', onclick: () => pick('L') }, icon('hand'), h('span', {}, 'Left hand')), h('button', { type: 'button', class: 'ed-hand', 'data-hand': 'R', onclick: () => pick('R') }, icon('hand'), h('span', {}, 'Right hand'))));
-  editDockEl.hidden = false; document.body.classList.add('dock-open');
-  S.editDock = { close: () => { editDockEl.hidden = true; editDockEl.replaceChildren(); S.editDock = null; document.body.classList.remove('dock-open'); }, redraw() {} };
+  const actors = S.speakers.filter((x) => x.charId);
+  if (!holder) {
+    if (!actors.length) { toast('Please add a character first: a prop is held by a character.'); return; }
+    if (actors.length === 1) holder = actors[0];
+  }
+  const done = () => { editDockEl.hidden = true; editDockEl.replaceChildren(); S.editDock = null; document.body.classList.remove('dock-open'); };
+  const show = (title, buttons) => {
+    editDockEl.replaceChildren(
+      h('div', { class: 'ed-head' }, h('b', { class: 'ed-title' }, title), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Cancel', title: 'Cancel', onclick: done }, icon('x'))),
+      h('div', { class: 'ed-hands' }, ...buttons));
+    editDockEl.hidden = false; document.body.classList.add('dock-open'); S.editDock = { close: done, redraw() {} };
+  };
+  const pick = async (who, hand) => { done(); const prop = await addLibraryProp(asset, { key: who.key, hand }); if (prop) openPropEdit(prop); };
+  const hands = (who) => show(`${asset.name}: which hand of ${who.name}?`, ['L', 'R'].map((hand) => h('button', { type: 'button', class: 'ed-hand', 'data-hand': hand, onclick: () => pick(who, hand) }, icon('hand'), h('span', {}, hand === 'L' ? 'Left hand' : 'Right hand'))));
+  if (holder) hands(holder); else show(`${asset.name}: which character?`, actors.map((x) => h('button', { type: 'button', class: 'ed-hand ed-who', 'data-who': x.key, onclick: () => hands(x) }, icon('users'), h('span', {}, x.name))));
 }
 /** Edit of a prop / object: size, turn, see-through, a glow look, in front of or behind the characters, and its shadow */
 function openPropEdit(pr) {
@@ -3398,7 +3407,7 @@ function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, 
     onremove ? h('span', { class: 'x', role: 'button', 'aria-label': `Delete ${name}`, title: 'Delete', onclick: (e) => { e.stopPropagation(); onremove(); } }, '✕') : null);
 }
 function libraryTab(kind, group = 'general') {
-  if (!libraryTab.checked) { libraryTab.checked = true; refreshShared().then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'handprops' || S.tab === 'effects')) redrawPanel(); }); }
+  if (!libraryTab.checked || Date.now() - (libraryTab.fresh || 0) > 60000) { const first = !libraryTab.checked; libraryTab.checked = true; libraryTab.fresh = Date.now(); refreshShared(!first).then((changed) => { if (changed && (S.tab === 'props' || S.tab === 'handprops' || S.tab === 'effects')) redrawPanel(); }); }          // what the admin published a minute ago shows without a reload
   const effects = kind === 'effect', label = effects ? 'Effects' : 'Objects', glyph = effects ? '💫' : '🪵';
   const typed = S.sharedAssets.filter((asset) => asset.type === kind);
   const assets = kind === 'prop' ? typed.filter((asset) => !isHandAsset(asset)) : typed;          // hand props are listed in the toolbox of a selected character
@@ -3421,7 +3430,7 @@ function libraryTab(kind, group = 'general') {
     onclick: () => (locked ? lockHint() : p ? pick(p) : addLibraryProp(asset)), ...(p ? controls(p) : {}) }); };
   const ownTile = (p) => tile({ src: URL.createObjectURL(p.blob), name: p.name, title: `${p.name} (tap to select it)`, onclick: () => pick(p), ...controls(p) });
   const grid = h('div', { class: 'tile-grid' }, effects ? null : tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => ownFile.click() }), own.map(ownTile), shown.map(tileOf));
-  const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in ${holder?.name || 'the character'}'s hand: ${asset.name}`, onclick: () => (locked ? lockHint() : openHandPicker(asset, holder)) },
+  const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in a hand: ${asset.name}`, onclick: () => (locked ? lockHint() : openHandPicker(asset, holder || null)) },
     locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : (asset.category || 'Hand prop'))); };
   if (group === 'hand') {          // Props: what a character can use (knife, bat, bag ...); Objects (stone, well, tree ...) make the scene
@@ -3432,8 +3441,7 @@ function libraryTab(kind, group = 'general') {
       ...(inScene.length ? [h('div', { class: 'card flat in-scene' }, h('h2', {}, 'In the scene'), h('div', { class: 'tile-grid' }, inScene.map(sceneTile)))] : []),
       h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Props'),
       !handAssets.length ? h('p', { class: 'sub studio-library-empty' }, 'No props have been published yet. They are added from Add Assets → Add Props in the admin panel.')
-        : holder ? h('div', {}, h('p', { class: 'sub studio-help' }, `Tap a prop to put it in ${holder.name}'s right hand.`), h('div', { class: 'studio-shared-grid' }, handAssets.map(handCard)))
-          : h('p', { class: 'sub studio-help' }, 'Select a character on the stage first. The prop you tap goes straight into that character\'s hand.'),
+        : h('div', {}, h('p', { class: 'sub studio-help' }, holder ? `Tap a prop, then choose which of ${holder.name}'s hands holds it.` : 'Tap a prop, then choose the character and the hand.'), h('div', { class: 'studio-shared-grid' }, handAssets.map(handCard))),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:8px' }, h('button', { class: 'btn sm', type: 'button', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new'))));
   }
   return h('div', { class: 'list' },
