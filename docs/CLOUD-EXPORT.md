@@ -1,0 +1,103 @@
+# Cloud export (permanent notes)
+
+"Cloud export" renders the video on a separate machine (a Hugging Face Space) instead of the user's own phone/computer. The design
+goal: reuse the real app's rendering code end to end — the worker never reimplements any of it — so a cloud-rendered video is
+pixel-identical to a normal export, forever, with no separate code path to keep in sync.
+
+## Why it works this way
+
+- **No separate renderer.** The worker opens the real website in a headless Chromium tab at a private link
+  (`#/cloudrender/<uid>/<jobId>/<secret>`). That page loads the project exactly like a returning visitor's browser would, then
+  calls the exact same `exportOffline` / `exportParallel` code (`src/exporter.js`) any export uses. Every future feature (new
+  Effects, props, shadows, ...) works in cloud export automatically, with zero extra work.
+- **The render page is never signed in as the user.** 12toons allows only one active session per account (signing in anywhere
+  signs the account out everywhere else — see `src/session.js`). If the render page signed in as the real user, it would kick
+  them off their own phone/browser the moment a cloud export started. So it never does: it is always anonymous, and is allowed
+  to act only because it carries that job's own random `secret` (minted when the job was created, known only to the server and
+  to the worker that reads it with the Admin SDK — never sent to the owner's own, normal, signed-in calls).
+- **No new backend.** Everything lives in infrastructure the project already has: the Realtime Database (`cloudExports/<uid>/<jobId>`,
+  next to the existing `projects/<uid>/<id>`) and the existing R2 bucket (the finished video is just another content-addressed
+  asset, `assets/<uid>/<hash>`, downloaded the exact same way a character picture is). **No new Vercel environment variable is
+  needed** — `api/cloud-export.js` reuses `FIREBASE_ADMIN_CREDENTIALS`, `FIREBASE_DATABASE_URL` and the `CLOUDFLARE_R2_*` variables
+  that are already set.
+
+## The pieces
+
+| Piece | File(s) | Runs where |
+| --- | --- | --- |
+| Job API | `api/cloud-export.js`, `server/cloud-export-store.js` | Vercel (existing deployment) |
+| Owner's tab: submit / watch / cancel / download | `src/cloud-export.js`, the "Cloud export" card in `tabExport()` in `src/main.js` | the user's own browser, signed in normally |
+| Render page | `src/cloud-render.js`, route `#/cloudrender` in `src/shell.js`, `runCloudExportJob()` in `src/main.js` | inside the headless Chromium the worker opens — anonymous, no sign-in |
+| Worker | `hf-cloud-export/` (`app.py`, `Dockerfile`, `requirements.txt`, `README.md`) | a Hugging Face Space (Docker), separate from the website |
+
+## The flow
+
+1. The owner, signed in as normal, taps **Start cloud export** in the Export tab (quality/fps/level/format are whatever is
+   already selected there). The browser first makes sure the project is saved to the cloud (`syncCurrent()`), then calls
+   `api/cloud-export` `action:"create"`, which checks the account's plan length limit (same rule as a normal export) and writes
+   a job to `cloudExports/<uid>/<jobId>` with a random `secret`, `status:"pending"`.
+2. The owner's tab polls `action:"status"` every ~2.5 s (plain signed-in calls; this never involves the secret) and shows a
+   progress bar. It may call `action:"cancel"` at any time while the job has not finished.
+3. The Hugging Face worker polls the whole `cloudExports` node with the **Admin SDK** (bypasses all rules — it is a server,
+   not a user) for jobs with `status:"pending"`, and for each one opens `{SITE_URL}/#/cloudrender/<uid>/<jobId>/<secret>` in a
+   headless Chromium tab.
+4. That page (`src/cloud-render.js`) calls `api/cloud-export` `action:"fetch"` with `{uid, jobId, secret}` — no Firebase sign-in
+   at all, only the secret. The server reads the project's last-saved snapshot straight from R2 (`server/r2-storage.js`,
+   `readText`/`getUrl`, the same code the normal sync path uses) and returns the manifest plus a signed download URL for every
+   asset it references. The page downloads them, calls `restoreSnapshot()` (`src/store.js`) to put them in this tab's local
+   IndexedDB exactly as if this were the owner's own, returning browser, then opens the studio
+   (`import('./main.js').then(m => m.openStudio())`) — which loads that snapshot through the completely ordinary project-open
+   code path (`boot()` → `restoreProject()` → `loadDoc()`).
+5. Once the studio is ready, the page calls the new `runCloudExportJob()` in `src/main.js`: it renders with
+   `exportParallel`/`exportOffline` (falling back to one thread if parallel rendering is not available), posting
+   `action:"progress"` every couple of seconds, then hashes the finished video, calls `action:"presign"` for an R2 upload URL,
+   PUTs the bytes straight to R2, and finally calls `action:"complete"` with the hash and size. The server does a `HEAD` to
+   confirm the upload really arrived, registers it in the normal asset/quota ledger (`confirmAssets`), and marks the job
+   `status:"done"`.
+6. The owner's tab, which has been polling the whole time, sees `status:"done"` and shows a **Download the video** button; it
+   calls `api/r2` `action:"urls"` (the same endpoint every other download in the app uses) with the video's hash to get a fresh
+   signed link.
+7. If anything fails at any point, the page (or the worker, on a timeout) calls `action:"fail"`; the owner's tab shows the
+   error. If the owner cancels, the worker notices on its next poll and closes that browser tab early.
+
+## Setting it up
+
+### 1. Create the Hugging Face Space
+- New Space → SDK: **Docker**. Upload the four files in `hf-cloud-export/` (`Dockerfile`, `app.py`, `requirements.txt`,
+  `README.md` — the `README.md`'s YAML header is what Hugging Face reads to configure the Space itself, so keep it at the top).
+- **Settings → Variables and secrets**, add as **Secret** (not Variable — these must stay private):
+  - `FIREBASE_SERVICE_ACCOUNT_KEY` — the exact same JSON value already in Vercel's `FIREBASE_ADMIN_CREDENTIALS` for this project.
+  - `FIREBASE_DATABASE_URL` — the exact same value already in Vercel's `FIREBASE_DATABASE_URL`.
+  - `SITE_URL` — the deployed website's URL, no trailing slash (e.g. `https://a-two-roan-17.vercel.app`).
+  - `HQ_ACCESS_KEY` — optional, any password; only unlocks a tiny status page at the Space's root URL.
+- The Space restarts itself after secrets are saved. Check its **Logs** tab: it should print `Firebase ready.` then
+  `Cloud export worker started.` If it instead prints a missing-secret message, a secret above is missing or misspelled.
+
+### 2. Nothing to add on Vercel
+No new environment variable is needed there (see "Why it works this way" above) — only redeploy once this code is merged.
+
+### 3. Verify end to end (do this once, by hand — I could not run this part myself: it needs a real Hugging Face Space, a real
+   Firebase project and real R2 credentials, none of which exist in the sandbox this was written in)
+1. Open a project in the studio, add a character and an animation, save it to the cloud (wait for "Saved to Cloud" in the
+   corner, or just wait — autosave does it).
+2. Export tab → **Start cloud export**. It should move to "Waiting for a render machine…" within a couple of seconds.
+3. Watch the Hugging Face Space's **Logs**: it should print `Rendering <jobId> for <uid> -> https://.../#/cloudrender/...`.
+4. Back in the studio tab, progress should climb and the job should become **Download the video** within roughly the time a
+   normal export of that length would take (plus the time to start a browser tab, a few seconds).
+5. Tap Download — it should be the same video a normal export of the same project would produce.
+6. Try **Cancel** mid-render on a longer project: the studio tab should show the job as cancelled, and the Space's logs should
+   show that job's tab closing early on its next poll (within `POLL_SECONDS`, ~4 s).
+
+If step 2–5 does not work, check (in order): the Space's logs for a Python exception; the browser's own devtools console on
+the render page if you open `#/cloudrender/...` directly with a job's real values (it logs everything `src/cloud-render.js` and
+`runCloudExportJob` do); and that `SITE_URL` in the Space's secrets exactly matches the deployed site (no trailing slash, right
+scheme).
+
+## Limits (v1)
+- Renders the **current scene only** (not "export all scenes together"); the Export tab's Scenes dropdown does not apply to
+  cloud export yet. Fast-render / live-recording toggle does not apply either — cloud export always renders offline (the whole
+  point of doing it on a dedicated machine).
+- `MAX_CONCURRENT` in `app.py` (2) is how many videos one Space instance renders at once; raise it if the Space's own
+  CPU/RAM can take it, or run more than one Space and let each pick up whatever is still `pending`.
+- A job nobody picks up, or that never finishes, auto-fails after a few hours (`TTL_MS` in `server/cloud-export-store.js`) so
+  it never looks like it is "still going" forever.

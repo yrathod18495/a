@@ -103,14 +103,18 @@ export async function signDownloads(uid, hashes) {
   return Object.fromEntries(await Promise.all([...new Set(hashes)].map(async (h) => [h, await getUrl(assetKey(uid, h))])));
 }
 
+/** read one object's whole body as text (used for small JSON files only — the project snapshot, a shared animation) */
+export async function readText(key, maxBytes = 8 * 1024 * 1024) {
+  const out = await client().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
+  if (out.ContentLength > maxBytes) throw new AccessError('too_large', 'The file is too large.', 413);
+  return Buffer.from(await out.Body.transformToByteArray()).toString('utf8');
+}
 const animationCache = new Map();
 /** a small JSON asset (a shared animation) read once per server instance and kept: the file is content addressed, so it never changes */
 export async function readAssetText(uid, hash, maxBytes = 4 * 1024 * 1024) {
   const id = uid + '/' + hash;
   if (animationCache.has(id)) return animationCache.get(id);
-  const out = await client().send(new GetObjectCommand({ Bucket: bucket(), Key: assetKey(uid, hash) }));
-  if (out.ContentLength > maxBytes) throw new AccessError('too_large', 'The file is too large.', 413);
-  const text = Buffer.from(await out.Body.transformToByteArray()).toString('utf8');
+  const text = await readText(assetKey(uid, hash), maxBytes);
   if (animationCache.size >= 20) animationCache.delete(animationCache.keys().next().value);
   animationCache.set(id, text);
   return text;

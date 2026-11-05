@@ -32,3 +32,7 @@ Every layer must stay visible on a short timeline (rows shrink together), the ch
 ## Effects (permanent rule)
 
 Effects are layers on the timeline for the whole scene (characters too) or for one picture. How they work, where to add a look and the rules: `docs/EFFECTS.md`. Read it before changing effects, the Colour grade or the renderer passes.
+
+## Cloud export (permanent rule)
+
+Cloud export renders a video on a separate machine (a Hugging Face Space) by reusing the real app's own export code end to end — never a separate renderer. The render page is never signed in as the owner (that would sign them out everywhere else). Full design, setup and the exact secrets to add: `docs/CLOUD-EXPORT.md`. Read it before changing anything under `api/cloud-export.js`, `server/cloud-export-store.js`, `src/cloud-export.js`, `src/cloud-render.js`, the `#/cloudrender` route, `runCloudExportJob`, or `hf-cloud-export/`.

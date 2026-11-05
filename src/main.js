@@ -28,6 +28,7 @@ import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as as
 import { pictureUrl } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
+import { createCloudExport, cancelCloudExport, watchCloudExport, cloudExportDownloadUrl } from './cloud-export.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
@@ -3727,9 +3728,55 @@ function tabExport() {
     group('out', '🎞', 'Scenes & method', cScenes, cNoAudio, cMethod),
     group('pic', '🖼', 'Picture', cQuality, cFps),
     group('file', '📦', 'File', cFormat, cLevel),
-    cDone);
+    cDone, cloudExportCard());
 }
 const redrawPanel = () => { const k = panelEl.scrollTop; drawTabs(); panelEl.scrollTop = k; };
+
+/* ---------------- cloud export: render on a separate machine instead of this device (see docs/CLOUD-EXPORT.md) ---------------- */
+let cloudJob = null, cloudJobStop = false;        // {id, status, progress, hash, size, error} | null
+async function startCloudExport() {
+  const id = projectContext()?.id, uid = projectContext()?.uid;
+  if (!id || !uid) { toast('Please wait for this project to finish saving to the cloud, then try again.'); return; }
+  if (cloudJob && !['done', 'error', 'cancelled'].includes(cloudJob.status)) return;
+  cloudJob = { id: null, status: 'starting', progress: 0 }; cloudJobStop = false; redrawPanel();
+  try {
+    await syncCurrent();          // the render machine only ever sees what is already saved to the cloud
+    const { seconds, scenes } = exportLength();
+    const jobId = await createCloudExport(uid, { projectId: id, seconds, scenes, scope: scenes > 1 ? 'all' : 'current', settings: { quality: S.quality, fps: S.fps, level: S.level, format: S.format } });
+    cloudJob = { id: jobId, status: 'pending', progress: 0 }; redrawPanel();
+    const final = await watchCloudExport(uid, jobId, { onUpdate: (job) => { if (job) { cloudJob = job; redrawPanel(); } }, stop: () => cloudJobStop });
+    if (final) { cloudJob = final; redrawPanel(); if (final.status === 'error') toast(`Cloud export failed: ${final.error || 'unknown error'}`); }
+  } catch (e) { toast(e.message); cloudJob = { id: cloudJob?.id || null, status: 'error', progress: 0, error: e.message }; redrawPanel(); }
+}
+async function cancelCloudExportJob() {
+  if (!cloudJob?.id) { cloudJob = null; redrawPanel(); return; }
+  cloudJobStop = true;
+  const uid = projectContext()?.uid; if (!uid) return;
+  try { cloudJob = await cancelCloudExport(uid, cloudJob.id); } catch (e) { toast(e.message); } redrawPanel();
+}
+async function downloadCloudExport() {
+  if (!cloudJob?.hash) return;
+  const uid = projectContext()?.uid; if (!uid) return;
+  try {
+    const url = await cloudExportDownloadUrl(uid, cloudJob.hash);
+    const a = h('a', { href: url, download: `toon-cloud-${Date.now()}.mp4` });
+    document.body.append(a); a.click(); a.remove();
+  } catch (e) { toast(`Could not get the download link: ${e.message}`); }
+}
+function cloudExportCard() {
+  const active = cloudJob && !['done', 'error', 'cancelled'].includes(cloudJob.status);
+  const pct = Math.round((cloudJob?.progress || 0) * 100);
+  return h('div', { class: 'card flat' }, h('h2', {}, 'Cloud export'),
+    h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Renders on a separate machine, using the settings above — your project does not need to stay open, but it is slower to start.'),
+    !cloudJob || cloudJob.status === 'done' || cloudJob.status === 'error' || cloudJob.status === 'cancelled'
+      ? h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, '☁ Start cloud export')
+      : h('div', {},
+          h('div', { class: 'bar', style: 'margin:4px 0 8px' }, h('i', { style: `width:${pct}%` })),
+          h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, cloudJob.status === 'starting' || cloudJob.status === 'pending' ? 'Waiting for a render machine…' : `Rendering… ${pct}%`),
+          h('button', { type: 'button', class: 'btn sm', style: 'color:#ff8f8f', onclick: cancelCloudExportJob }, 'Cancel')),
+    cloudJob?.status === 'done' ? h('button', { type: 'button', class: 'btn sm ok', style: 'margin-top:8px', onclick: downloadCloudExport }, '⬇ Download the video') : null,
+    cloudJob?.status === 'error' ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0;color:#ff9aa8' }, cloudJob.error || 'This export failed.') : null);
+}
 
 async function togglePlay() {
   if (S.exporting || previewChanging || sceneChanging) return;
@@ -3905,6 +3952,49 @@ async function doExport({ foreground = false } = {}) {
   finishExport(grant.grantId, exported);
   b.done(); setExportBusy(false); S.exporting = false; if (sequence) render(); stage.setSize(S.aspect, S.preview); player.pause(); player.seek(0); fitEditor(); S.dirty = true;
 }
+
+/**
+ * Renders the project's current scene and uploads the result — the cloud export worker's entry point (see docs/CLOUD-EXPORT.md and
+ * src/cloud-render.js, which calls this once the project has been loaded exactly like any returning visitor's project). The job was
+ * already authorized when it was created, so this skips the popup, the authorize call and the background/foreground choice: it
+ * always renders offline, on this one machine, with the settings chosen at that time.
+ */
+export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall }) {
+  Object.assign(S, settings);
+  S.exporting = true;
+  let t0 = performance.now(), lastSent = 0;
+  const progress = async (p) => {
+    const now = performance.now();
+    if (p < 1 && now - lastSent < 2000) return;        // the job's own progress field is a cloud write: a couple of seconds apart is plenty
+    lastSent = now;
+    try { await jobCall(uid, jobId, secret, 'progress', { progress: p }); } catch (e) { console.warn('Cloud export: progress update failed', e.message); }
+  };
+  try {
+    await stage.setTextureLimit(S.quality >= 2160 ? 4096 : 2048);
+    await applyLayers();
+    stage.setSize(S.aspect, S.quality);
+    const silent = !player.clips.length;
+    if (!await canExportOffline(stage.W, stage.H, S.fps, S.format, silent)) throw Error('This render machine cannot make a video with this picture size and frames per second.');
+    t0 = performance.now();
+    let res;
+    try {
+      const job = await exportJob(stage.W, stage.H);
+      res = await exportParallel({ job, clips: player.clips, total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, workers: Math.max(1, workerCount()) });
+    } catch (e) {
+      console.warn('Cloud export: parallel render failed, using one thread', e);
+      res = await exportOffline({ stage, clips: player.clips, plan: shotPlan(), total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, fps: S.fps, level: S.level, format: S.format });
+    }
+    const { blob, ext } = res, hash = await hashBlobSha256(blob), size = blob.size;
+    const { upload, have } = await jobCall(uid, jobId, secret, 'presign', { hash, size });
+    if (!have) { const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: blob }); if (!put.ok) throw Error(`The rendered video could not be uploaded (${put.status}).`); }
+    await jobCall(uid, jobId, secret, 'complete', { hash, size });
+    console.log(`Cloud export done: ${ext.toUpperCase()}, ${(size / 1e6).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(0)}s`);
+  } catch (e) {
+    console.error('Cloud export failed', e);
+    try { await jobCall(uid, jobId, secret, 'fail', { message: e.message }); } catch { /* best effort */ }
+  } finally { S.exporting = false; }
+}
+const hashBlobSha256 = async (blob) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 /* ---------------- autosave, undo / redo, reset ---------------- */
 const blobIds = new WeakMap(), blobReg = new Map();

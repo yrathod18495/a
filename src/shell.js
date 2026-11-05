@@ -118,6 +118,15 @@ window.addEventListener('vite:preloadError', e => { if (reloadForNewVersion(new 
 async function renderRoute() {
   if (!ready) return;
   const parts = (location.hash || '#/').split('/'), hash = parts.slice(0,2).join('/'), projectId = parts[2];
+  // the cloud export render worker (see docs/CLOUD-EXPORT.md): a private link opened only by that one machine, never by a person and
+  // never signed in as anyone — it proves it owns one job with the job's own secret. Works during maintenance and with no account at all.
+  if (hash === '#/cloudrender') {
+    $app.hidden = true; $shell.hidden = false;
+    $shell.replaceChildren(h('div', { style: 'padding:40px;text-align:center;color:#9aa' }, 'Rendering your video…'));
+    const [uid, jobId, secret] = [parts[2], parts[3], parts[4]];
+    if (uid && jobId && secret) import('./cloud-render.js').then((m) => m.runCloudRenderJob({ uid, jobId, secret })).catch((e) => console.error('Cloud export route failed', e));
+    return;
+  }
   document.title = hash === '#/affiliates' ? 'Affiliate Partners | 12toons' : '12toons';
   if (favicon) favicon.href = brandFavicon;
   // Maintenance never blocks signing in — only a signed-in, non-admin user sees the maintenance page; admins always get through.
