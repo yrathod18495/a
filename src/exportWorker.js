@@ -42,11 +42,11 @@ async function segment({ id, from, to }) {
     const vf = new VideoFrame(stage.out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
     enc.encode(vf, { keyFrame: i === from || i % (fps * 2) === 0 }); vf.close();
     while (enc.encodeQueueSize > 4) await new Promise((r) => setTimeout(r, 2));
-    if ((i - from) % 8 === 7) self.postMessage({ type: 'progress', frames: 8 });
+    if ((i - from) % 2 === 1) self.postMessage({ type: 'progress', frames: 2 });
   }
   await enc.flush(); enc.close();
   if (failure) throw failure;
-  self.postMessage({ type: 'progress', frames: (to - from) % 8 });
+  self.postMessage({ type: 'progress', frames: (to - from) % 2 });
   self.postMessage({ type: 'segment', id, chunks, config }, chunks.map((c) => c.data));
 }
 

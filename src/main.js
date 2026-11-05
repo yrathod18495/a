@@ -3747,7 +3747,7 @@ async function resumeCloudJob() {
     if (!job) throw Error('gone');
     cloudJob = { id: saved.id, ...job }; cloudJobStop = false; redrawPanel();
     if (!['done', 'error', 'cancelled'].includes(job.status)) {
-      const final = await watchCloudExport(uid, saved.id, { onUpdate: (j) => { if (j) { cloudJob = { id: saved.id, ...j }; redrawPanel(); } }, stop: () => cloudJobStop });
+      const final = await watchCloudExport(uid, saved.id, { onUpdate: (j) => { if (j) { cloudJob = { id: saved.id, ...j }; noteCloudProgress(cloudJob); redrawPanel(); } }, stop: () => cloudJobStop });
       if (final) { cloudJob = { id: saved.id, ...final }; redrawPanel(); }
     }
   } catch { try { localStorage.removeItem(CLOUD_KEY); } catch { /* optional */ } }
@@ -3765,7 +3765,7 @@ async function startCloudExport() {
     const { seconds, scenes } = exportLength();
     const jobId = await createCloudExport(uid, { projectId: id, seconds, scenes, scope: scenes > 1 ? 'all' : 'current', settings: { quality: S.quality, fps: S.fps, level: S.level, format: S.format } });
     cloudJob = { id: jobId, status: 'pending', progress: 0 }; rememberCloudJob(cloudJob); redrawPanel();
-    const final = await watchCloudExport(uid, jobId, { onUpdate: (job) => { if (job) { cloudJob = job; redrawPanel(); } }, stop: () => cloudJobStop });
+    const final = await watchCloudExport(uid, jobId, { onUpdate: (job) => { if (job) { cloudJob = job; noteCloudProgress(job); redrawPanel(); } }, stop: () => cloudJobStop });
     if (final) { cloudJob = final; redrawPanel(); if (final.status === 'error') toast(`Cloud export failed: ${final.error || 'unknown error'}`); }
   } catch (e) { toast(e.message); cloudJob = { id: cloudJob?.id || null, status: 'error', progress: 0, error: e.message }; redrawPanel(); }
 }
@@ -3792,9 +3792,20 @@ function deviceRenderTile() {
     h('button', { type: 'button', class: 'btn ok exp-opt-btn', disabled, onclick: () => doExport() }, busy ? 'Exporting…' : 'Render'));
 }
 /** the cloud tile: same frame as the device one, its body swaps for the job's current state */
+let cloudSample = null;          // first progress seen in this tab: {at, p}, used to estimate the time left
+function noteCloudProgress(job) {
+  if (!job || job.status !== 'rendering' || !(job.progress > 0)) { if (!job || job.status === 'pending') cloudSample = null; return; }
+  if (!cloudSample || job.progress < cloudSample.p) cloudSample = { at: Date.now(), p: job.progress };
+}
+function cloudEta(job) {
+  if (!cloudSample || !(job.progress > cloudSample.p)) return '';
+  const secs = ((Date.now() - cloudSample.at) / 1000) * (1 - job.progress) / (job.progress - cloudSample.p);
+  if (!Number.isFinite(secs) || secs > 6 * 3600) return '';
+  return secs < 90 ? ` · about ${Math.max(5, Math.round(secs / 5) * 5)} s left` : ` · about ${Math.round(secs / 60)} min left`;
+}
 function cloudPhaseText(job, pct) {
   if (job.status === 'starting' || job.status === 'pending') return 'Waiting for a machine…';
-  return { loading: 'Starting the render machine and loading your project…', preparing: 'Preparing your scene…', uploading: 'Finishing up: saving the video…' }[job.phase] || `Rendering… ${pct}%`;
+  return { loading: 'Starting the render machine and loading your project…', preparing: 'Preparing your scene…', uploading: 'Finishing up: saving the video…' }[job.phase] || `Rendering… ${pct}%${cloudEta(job)}`;
 }
 function cloudRenderTile() {
   const pct = Math.round((cloudJob?.progress || 0) * 100), idle = !cloudJob || ['done', 'error', 'cancelled'].includes(cloudJob.status);
@@ -3806,7 +3817,7 @@ function cloudRenderTile() {
   if (cloudJob.status === 'cancelled') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn exp-opt-btn', onclick: startCloudExport }, 'Render'));
   if (cloudJob.status === 'done') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn ok exp-opt-btn', onclick: downloadCloudExport }, '⬇ Download'));
   return h('div', { class: 'exp-opt' }, head,
-    h('div', { class: 'bar exp-opt-bar' }, h('i', { style: `width:${pct}%` })),
+    h('div', { class: `bar exp-opt-bar${pct === 0 ? ' indet' : ''}` }, h('i', { style: pct > 0 ? `width:${pct}%` : '' })),
     h('p', { class: 'exp-opt-msg' }, cloudPhaseText(cloudJob, pct)),
     h('button', { type: 'button', class: 'btn exp-opt-btn exp-opt-cancel', onclick: cancelCloudExportJob }, 'Cancel'));
 }

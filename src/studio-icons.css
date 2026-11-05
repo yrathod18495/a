@@ -640,3 +640,4 @@ body.studio-dark #app .ws .tl2 .tclip.fxl.fxl.fxl,#app .ws .tl2 .tclip.fxl.fxl.f
 @keyframes expPulse{50%{transform:scale(1.1);filter:brightness(1.15)}}
 @keyframes expPop{0%{transform:scale(.6)}100%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.exp-compact *{animation:none !important;transition:none !important}}
+.exp-opt-bar.indet i{width:38% !important;animation:expSlide 1.1s ease-in-out infinite}
