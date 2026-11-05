@@ -102,6 +102,14 @@ async function boot() {
   S.props.forEach((p) => p.blob && bid(p.blob));
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   stage = new Stage({ maxTex: PREVIEW_MODES[S.previewMode].maxTex });
+  let lostTimer = 0;
+  stage.onLost = () => { clearTimeout(lostTimer); lostTimer = setTimeout(() => { if (stage.lost) toast('The preview lost its graphics memory. Please reopen the project if the picture does not come back.', 'warn'); }, 6000); };
+  stage.onRecovered = async (err) => {
+    clearTimeout(lostTimer);
+    if (err) { toast(`Could not restore the preview: ${err.message}`); return; }
+    try { await applyLayers(); } catch (e) { toast(`Could not restore the preview: ${e.message}`); }
+    S.dirty = true; requestStudioFrame?.();
+  };
   stage.setSize(S.aspect, S.preview);
   await stage.setProps(S.props);
   player = new Player(audioCtx);

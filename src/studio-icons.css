@@ -499,6 +499,11 @@ body.studio-dark #app .ws .tl2 .tclip.sel{border:1.5px solid #fff !important;z-i
 @media (max-width:860px){
   #app .ws .tabs.big .tabs-scroll>button,#app .ws .tabs.big .tabs-scroll>details{flex:0 0 66px;width:66px;min-width:0;scroll-snap-align:start}
   #app .ws .tabs.big .tabs-scroll>details>summary{min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  #app .ws .tabs.big .tabs-scroll>button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;padding:4px 2px}
+  #app .ws .tabs.big .tabs-scroll>button>span:not(.ti),#app .ws .tabs.big .tabs-scroll>details>summary>span:not(.ti){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #app .ws .tabs.big .tabs-scroll>details>summary{min-height:52px}
+  #app .ws .tabs.big{min-height:60px}
+  #app .ws .tabs.big .tabs-scroll{min-height:52px}
 }
 
 /* ---- the edit dock: a short panel at the bottom for the live editors; the stage stays fully visible ---- */

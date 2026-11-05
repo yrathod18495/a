@@ -90,7 +90,31 @@ export class Stage {
     this.fullView = false;    // editing: show the whole canvas instead of what the camera sees
     this.grade = null; this.gradeKeys = []; this.bgTex = null; this.bgCache = new Map(); this.bgClips = []; this.imgIds = new WeakMap(); this.imgSeq = 0;   // backgrounds can change over time: one texture per (colour, picture, size)
     this.prepCache = new Map(); this.uid = 0;
+    this.artworkCanvas = new Map();
+    // a phone takes the graphics memory back when the page goes to the background (or memory runs short): the picture then turns blank / white.
+    // Keep the context alive (preventDefault) and, when it comes back, load every picture to the graphics card again.
+    this.out.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; this.onLost?.(); });
+    this.out.addEventListener('webglcontextrestored', () => { this.recover().catch((err) => this.onRecovered?.(err)); });
     this.setSize('16:9', 720);
+  }
+
+  /** after the graphics context came back: a new renderer, and every texture built again from the original pictures */
+  async recover() {
+    const mips = this.r.mips;
+    this.r = new GLRenderer(this.out); this.r.mips = mips; this.gl = this.r.gl;
+    const pages = new Map(), props = new Map();
+    for (const [id, asset] of this.assets) {
+      const next = new Map();
+      for (const t of asset.def.tex) { const bmp = await loadImage(t.image, this.maxTex, { w: t.json.width, h: t.json.height }); try { next.set(t.json.imagePath, this.r.texture(bmp)); } finally { bmp.close?.(); } }
+      pages.set(id, next);
+    }
+    for (const prop of this.props) if (prop.blob) { const bmp = await loadImage(prop.blob, this.maxTex); try { props.set(prop.id, this.r.texture(bmp)); } finally { bmp.close?.(); } }
+    for (const [id, next] of pages) this.assets.get(id).pages = next;
+    this.propTex = props;
+    for (const [key, canvas] of this.artworkCanvas) this.artworkTextures.set(key, this.r.texture(canvas));
+    const tear = this.tearBlob; this.tearTex = null; this.tearBlob = null; if (tear) await this.setTearSprite(tear);
+    this.bgCache = new Map(); this.bgTex = null; this.overCam = null;
+    this.lost = false; this.onRecovered?.();
   }
 
   setSize(aspect, short) {
@@ -135,9 +159,9 @@ export class Stage {
     const k = Math.min(1, this.maxTex / Math.max(canvas.width, canvas.height));
     const opts = { premultiplyAlpha: 'premultiply', colorSpaceConversion: 'none' };
     const bmp = await createImageBitmap(canvas, k < 1 ? { ...opts, resizeWidth: Math.round(canvas.width * k), resizeHeight: Math.round(canvas.height * k), resizeQuality: 'medium' } : opts);
-    this.artworkTextures.set(key, this.r.texture(bmp));
+    this.artworkTextures.set(key, this.r.texture(bmp)); this.artworkCanvas.set(key, bmp);
   }
-  dropArtworkCanvas(key) { const t = this.artworkTextures.get(key); if (t) { t.dispose(); this.artworkTextures.delete(key); } }
+  dropArtworkCanvas(key) { this.artworkCanvas?.delete(key); const t = this.artworkTextures.get(key); if (t) { t.dispose(); this.artworkTextures.delete(key); } }
 
   /** merged-outfit armature data of a character (cached) */
   prepOf(charId, skins) {
@@ -337,7 +361,7 @@ export class Stage {
   /** one decoded picture per file: the same file gives the same picture (and the same texture) every time, instead of a new one on every edit */
   bgImage(blob) {
     this.bgImgCache ||= new WeakMap();
-    let p = this.bgImgCache.get(blob); if (!p) { p = loadImage(blob); this.bgImgCache.set(blob, p); p.catch(() => this.bgImgCache.delete(blob)); }
+    let p = this.bgImgCache.get(blob); if (!p) { p = loadImage(blob, this.maxTex); this.bgImgCache.set(blob, p); p.catch(() => this.bgImgCache.delete(blob)); }
     return p;
   }
   bgTexture(preset, image) {
