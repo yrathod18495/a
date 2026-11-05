@@ -560,7 +560,10 @@ body.studio-dark #app .ws .tl2 .tclip.shadow{--k-fill:#1d1f24;--k-edge:#8b909c;b
 .tl2.squeezed .lane2 .pflag:not(.stage){top:-3px}
 /* the path flags (A start, B end) stay inside their layer row: B sits at the bottom edge of the row, never below it */
 .lane2.char{overflow:hidden}
-.lane2 .pflag.b{top:auto !important;bottom:2px !important}
+.lane2.char .pflag.b{top:3px !important;bottom:auto !important;height:28px}
+.lane2.char .pflag.b .pf-pole{height:28px}
+.lane2.char .pflag.b .pf-cloth{top:auto;bottom:0;height:11px;line-height:11px;font-size:8px;padding:0 3px 0 5px}
+.lane2.char .pflag.b .pf-cloth svg{width:7px;height:7px}
 .tl2.squeezed .lane2 .pflag:not(.stage){top:0 !important;height:100%}
 .tl2.squeezed .lane2 .pflag.b{top:auto !important;bottom:0 !important;height:100%}
 .tl2.squeezed .lane2 .pflag .pf-pole{height:100%}
