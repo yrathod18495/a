@@ -25,6 +25,7 @@ import os
 import threading
 import time
 import traceback
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 import firebase_admin
@@ -163,18 +164,21 @@ def worker_loop():
         time.sleep(POLL_SECONDS)
 
 
-app = FastAPI()
 _ready = False
 
 
-@app.on_event("startup")
-def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global _ready
     _ready = init_firebase() and bool(SITE_URL)
     if not _ready:
         log("Worker NOT started (see the message above). Fix the missing secret and restart this Space.")
-        return
-    threading.Thread(target=worker_loop, daemon=True).start()
+    else:
+        threading.Thread(target=worker_loop, daemon=True).start()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/")
@@ -183,3 +187,9 @@ def health(key: str = Query(default="")):
     if not expected or key != expected:
         raise HTTPException(status_code=403, detail="Forbidden")
     return HTMLResponse(f"<pre>ready: {_ready}\nsite: {SITE_URL}</pre>")
+
+
+if __name__ == "__main__":
+    # Hugging Face Docker Spaces run `python app.py` directly — nothing starts the ASGI server unless this does it.
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
