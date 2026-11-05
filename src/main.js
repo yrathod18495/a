@@ -3739,8 +3739,11 @@ async function startCloudExport() {
   if (!id || !uid) { toast('Please wait for this project to finish saving to the cloud, then try again.'); return; }
   if (cloudJob && !['done', 'error', 'cancelled'].includes(cloudJob.status)) return;
   cloudJob = { id: null, status: 'starting', progress: 0 }; cloudJobStop = false; redrawPanel();
+  // the render machine only ever sees what is already saved to the cloud, so the latest edits are pushed first — but a sync
+  // problem (an unrelated bug in that save, or just being offline) must not block cloud export entirely: the project's last
+  // cloud snapshot can still be rendered. Only "nothing has ever been saved" (checked by the server next) should really stop it.
+  try { await syncCurrent(); } catch (e) { console.warn('Cloud export: could not save the latest changes first', e); toast(`Could not save your latest changes first (${e.message}) — rendering the last saved version instead.`, 'warn'); }
   try {
-    await syncCurrent();          // the render machine only ever sees what is already saved to the cloud
     const { seconds, scenes } = exportLength();
     const jobId = await createCloudExport(uid, { projectId: id, seconds, scenes, scope: scenes > 1 ? 'all' : 'current', settings: { quality: S.quality, fps: S.fps, level: S.level, format: S.format } });
     cloudJob = { id: jobId, status: 'pending', progress: 0 }; redrawPanel();

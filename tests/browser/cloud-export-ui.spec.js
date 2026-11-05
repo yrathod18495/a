@@ -54,3 +54,26 @@ test('Cloud export: a failed create shows the error clearly (red box + Try again
   await expect(page.getByRole('button', { name: /Try again/ })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('Cloud export: a failed background save of the latest edits is a warning, not a block — the job is still created', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/projects', (r) => r.fulfill({ json: { error: 'The project details are not valid.', code: 'invalid_project' }, status: 400 }));
+  let created = false;
+  await page.route('**/api/export', async (r) => {
+    const body = JSON.parse(r.request().postData());
+    if (body.action === 'cloudCreate') { created = true; return r.fulfill({ json: { jobId: 'cexp_ok', job: { status: 'pending', progress: 0 } } }); }
+    if (body.action === 'cloudStatus') return r.fulfill({ json: { job: { status: 'rendering', progress: 0.2 } } });
+    return r.fulfill({ json: { error: 'unexpected' }, status: 400 });
+  });
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('SyncFail');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(() => window.__toon.openTab('export'));
+  await page.getByRole('button', { name: /Start cloud export/ }).click();
+  await expect(page.getByText(/Rendering…/)).toBeVisible({ timeout: 5000 });
+  expect(created).toBe(true);        // the cloud job was created despite the save failing
+  expect(errors).toEqual([]);
+});
