@@ -28,7 +28,7 @@ import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as as
 import { pictureUrl } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
-import { createCloudExport, cancelCloudExport, watchCloudExport, cloudExportDownloadUrl } from './cloud-export.js';
+import { createCloudExport, cancelCloudExport, cloudExportStatus, watchCloudExport, cloudExportDownloadUrl } from './cloud-export.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
@@ -978,7 +978,8 @@ const wideStudio = () => matchMedia('(min-width: 1000px)').matches;
 const wideScreen = matchMedia('(min-width: 861px)');
 function placeSelBar() { if (selBar && wideScreen.matches) panelEl?.querySelector('.sheet-close')?.after(selBar); }
 wideScreen.addEventListener?.('change', () => { if (S.ready && tabsEl) drawTabs(); });
-function drawTabs() {
+function drawTabs() { drawTabsInner(); syncCloudPill(); }
+function drawTabsInner() {
   stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
   const advanced = new Set(['motion', 'camera', 'mask', 'ai', 'tears', 'effects', 'grade']);
@@ -3733,7 +3734,39 @@ function tabExport() {
 const redrawPanel = () => { const k = panelEl.scrollTop; drawTabs(); panelEl.scrollTop = k; };
 
 /* ---------------- cloud export: render on a separate machine instead of this device (see docs/CLOUD-EXPORT.md) ---------------- */
-let cloudJob = null, cloudJobStop = false;        // {id, status, progress, hash, size, error} | null
+let cloudJob = null, cloudJobStop = false, cloudPillEl = null;
+const CLOUD_KEY = '12toons-cloud-job';
+const rememberCloudJob = (job) => { try { const uid = projectContext()?.uid; if (job?.id && uid) localStorage.setItem(CLOUD_KEY, JSON.stringify({ uid, id: job.id })); } catch { /* optional */ } };
+/** a small box that stays on screen whatever tab is open (the Export tab can be closed on a phone), so a cloud export is never invisible */
+function syncCloudPill() {
+  const job = cloudJob;
+  if (!job || (S.tab === 'export' && S.panelOpen)) { cloudPillEl?.remove(); cloudPillEl = null; return; }
+  const finished = ['done', 'error', 'cancelled'].includes(job.status), pct = Math.round((job.progress || 0) * 100);
+  const text = job.status === 'done' ? 'Your cloud video is ready.' : job.status === 'error' ? `Cloud export failed: ${job.error || 'please try again.'}` : job.status === 'cancelled' ? 'Cloud export cancelled.' : cloudPhaseText(job, pct);
+  const el = h('div', { class: `export-pill cloud-pill${finished ? '' : ' waiting'}${job.status === 'error' ? ' cp-error' : ''}`, role: 'status', 'aria-live': 'polite' },
+    h('div', { class: 'ep-row' }, icon('cloud'), h('span', { class: 'ep-text' }, text),
+      job.status === 'done' ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: downloadCloudExport }, 'Download') : null,
+      job.status === 'error' ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: startCloudExport }, 'Try again') : null,
+      finished ? h('button', { type: 'button', class: 'ep-cancel', 'aria-label': 'Dismiss', onclick: () => { cloudJob = null; try { localStorage.removeItem(CLOUD_KEY); } catch { /* optional */ } redrawPanel(); } }, '✕') : h('button', { type: 'button', class: 'ep-cancel', onclick: cancelCloudExportJob }, 'Cancel')),
+    finished ? null : h('i', { class: 'ep-bar' }, h('b', { style: pct > 0 ? `width:${pct}%` : '' })));
+  if (!finished && pct > 0) el.classList.remove('waiting');
+  if (cloudPillEl) cloudPillEl.replaceWith(el); else document.body.append(el);
+  cloudPillEl = el;
+}
+async function resumeCloudJob() {
+  let saved; try { saved = JSON.parse(localStorage.getItem(CLOUD_KEY) || 'null'); } catch { saved = null; }
+  const uid = projectContext()?.uid;
+  if (!saved?.id || saved.uid !== uid || cloudJob) return;
+  try {
+    const job = await cloudExportStatus(uid, saved.id);
+    if (!job) throw Error('gone');
+    cloudJob = { id: saved.id, ...job }; cloudJobStop = false; redrawPanel();
+    if (!['done', 'error', 'cancelled'].includes(job.status)) {
+      const final = await watchCloudExport(uid, saved.id, { onUpdate: (j) => { if (j) { cloudJob = { id: saved.id, ...j }; redrawPanel(); } }, stop: () => cloudJobStop });
+      if (final) { cloudJob = { id: saved.id, ...final }; redrawPanel(); }
+    }
+  } catch { try { localStorage.removeItem(CLOUD_KEY); } catch { /* optional */ } }
+}        // {id, status, progress, hash, size, error} | null
 async function startCloudExport() {
   const id = projectContext()?.id, uid = projectContext()?.uid;
   if (!id || !uid) { toast('Please wait for this project to finish saving to the cloud, then try again.'); return; }
@@ -3746,7 +3779,7 @@ async function startCloudExport() {
   try {
     const { seconds, scenes } = exportLength();
     const jobId = await createCloudExport(uid, { projectId: id, seconds, scenes, scope: scenes > 1 ? 'all' : 'current', settings: { quality: S.quality, fps: S.fps, level: S.level, format: S.format } });
-    cloudJob = { id: jobId, status: 'pending', progress: 0 }; redrawPanel();
+    cloudJob = { id: jobId, status: 'pending', progress: 0 }; rememberCloudJob(cloudJob); redrawPanel();
     const final = await watchCloudExport(uid, jobId, { onUpdate: (job) => { if (job) { cloudJob = job; redrawPanel(); } }, stop: () => cloudJobStop });
     if (final) { cloudJob = final; redrawPanel(); if (final.status === 'error') toast(`Cloud export failed: ${final.error || 'unknown error'}`); }
   } catch (e) { toast(e.message); cloudJob = { id: cloudJob?.id || null, status: 'error', progress: 0, error: e.message }; redrawPanel(); }
@@ -4343,7 +4376,7 @@ export async function openStudio() {
   studioTheme.enter();
   $app.hidden = false;
   if (!booted) { booted = true; await boot(); } else { S.characters = (await loadCharacters()).filter(c => c.ske || c.base); await ensureDefs(); drawTabs(); S.dirty = true; }       // characters may have been saved in the Character Editor meanwhile
-  startAutoSync();
+  startAutoSync(); resumeCloudJob();
   S.scenes.forEach((scene) => fillSoloLengths(scene.doc));
   S.ready = true; S.dirty = true; fitEditor(); dockShow('rail'); dockShow('panel');
   const box = document.getElementById('stagebox'); if (box) stageObserver?.observe(box);
@@ -4351,7 +4384,7 @@ export async function openStudio() {
 export async function closeStudio() {
   while(saving)await new Promise(resolve=>setTimeout(resolve,20));
   await tick({ sceneCommit: true }); player?.pause(); stopAll(); pruneTimelineThumbnails(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; studioTheme.leave(); $app.hidden = true; S.ready = false;
-  cloudJobStop = true;          // the cloud export progress poll (every ~2.5s) must not keep running in the background after the project is closed —
+  cloudJobStop = true; cloudPillEl?.remove(); cloudPillEl = null; cloudJob = null;          // the cloud export progress poll (every ~2.5s) must not keep running in the background after the project is closed —
 }                                // on a slow connection it was competing for bandwidth with whatever page opens next, making it look "stuck"
 onSyncStatus(state => { if (!state.projectId || state.projectId === projectContext()?.id) updateSaveStatus(state); });
 

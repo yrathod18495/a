@@ -1016,3 +1016,7 @@ dialog.credit-history-window::backdrop{background:#0009;backdrop-filter:blur(2px
 .busy .busy-cancel.stopping::before{content:"";width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:expSpin .7s linear infinite}
 @keyframes expSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.export-btn.working,.export-btn.working svg{animation:none}}
+.export-pill.cloud-pill{bottom:76px}
+.export-pill.cloud-pill.cp-error{border-color:#7a2e3a}
+.export-pill .ep-cancel.cp-ok{border-color:#3d7a52;background:#1d3a28;color:#9af0b8}
+.export-pill.cloud-pill .ep-cancel+.ep-cancel{margin-left:4px}
