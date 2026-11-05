@@ -52,3 +52,19 @@ test('90 fps: when this device cannot encode it, Render is off and a plain messa
   await box.getByRole('button', { name: '60', exact: true }).click();
   await expect(box.locator('.exp-pop-note')).toBeHidden(); await expect(box.locator('.exp-pop-go')).toBeEnabled();
 });
+
+test('4K at 90 fps shows a plain note that most computers cannot play it smoothly; 4K at 60 fps and 2K at 90 fps do not', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Heavy');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
+  await page.getByRole('button', { name: 'Export', exact: true }).first().click();
+  const box = page.locator('.exp-pop'); await expect(box).toBeVisible();
+  await box.getByRole('button', { name: '4K', exact: true }).click(); await box.getByRole('button', { name: '90', exact: true }).click();
+  await expect(box.locator('.exp-pop-heavy')).toBeVisible();
+  await box.getByRole('button', { name: '60', exact: true }).click(); await expect(box.locator('.exp-pop-heavy')).toBeHidden();
+  await box.getByRole('button', { name: '2K', exact: true }).click(); await box.getByRole('button', { name: '90', exact: true }).click(); await expect(box.locator('.exp-pop-heavy')).toBeHidden();
+});

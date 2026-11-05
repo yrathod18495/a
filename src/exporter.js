@@ -1,6 +1,7 @@
 import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4Target } from 'mp4-muxer';
 import { Muxer as WebmMuxer, ArrayBufferTarget as WebmTarget } from 'webm-muxer';
 import { audibleClips, playClip } from './audio-mix.js';
+import { avcCodecsFor, vp9CodecsFor } from './export-levels.js';
 
 /*
  * Two output formats:
@@ -9,9 +10,9 @@ import { audibleClips, playClip } from './audio-mix.js';
  * Bitrate is per pixel, independent of fps (a 15 fps video keeps the same sharpness per frame).
  */
 export const BITRATE_LEVELS = { mp4: { std: 0.2, high: 0.4, max: 0.7 }, webm: { std: 0.045, high: 0.08, max: 0.16 } };
-export const bitrateFor = (W, H, level = 'high', format = 'webm') => {
-  const k = (BITRATE_LEVELS[format] || BITRATE_LEVELS.mp4)[level] ?? 0.12;
-  return Math.round(Math.min(80_000_000, Math.max(format === 'webm' ? 1_200_000 : 2_500_000, W * H * 30 * k)));
+export const bitrateFor = (W, H, level = 'high', format = 'webm', fps = 30) => {
+  const k = (BITRATE_LEVELS[format] || BITRATE_LEVELS.mp4)[level] ?? 0.12, more = Math.pow(Math.max(1, fps / 30), 0.6);          // more frames per second need more bits (not three times: neighbouring frames are alike)
+  return Math.round(Math.min(fps > 60 ? 110_000_000 : 80_000_000, Math.max(format === 'webm' ? 1_200_000 : 2_500_000, W * H * 30 * k * more)));
 };
 const yieldUI = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = r; c.port2.postMessage(0); });
 const SR = 48000;
@@ -19,8 +20,8 @@ const SR = 48000;
 /** Best codec pair this device can encode for the wanted format (falls back to the other format when needed). */
 async function pickCodecs(W, H, bitrate, FPS, format = 'webm', silent = false) {
   if (!window.VideoEncoder || !window.VideoFrame || (!silent && (!window.AudioEncoder || !window.AudioData))) return null;
-  const vp9 = [['vp9', 'vp09.00.40.08'], ['vp9', 'vp09.00.41.08'], ['vp9', 'vp09.00.50.08']];
-  const avc = [['avc', 'avc1.640028'], ['avc', 'avc1.4d0028'], ['avc', 'avc1.42E028'], ['avc', 'avc1.640032'], ['avc', 'avc1.640033'], ['avc', 'avc1.640034']];          // levels 4.0 ... 5.2: the high ones carry 90 fps at 1080p and 60 fps at 4K
+  // the level in the codec string is chosen from the picture size and the fps (4K at 60 fps is H.264 level 5.2, at 90 fps level 6.0), not one fixed level
+  const vp9 = vp9CodecsFor(W, H, FPS).map((c) => ['vp9', c]), avc = avcCodecsFor(W, H, FPS).map((c) => ['avc', c]);
   const tryOrder = format === 'webm' ? [['webm', vp9], ['mp4', [...avc, ...vp9]]] : [['mp4', [...avc, ...vp9]]];
   for (const [fmt, vlist] of tryOrder) {
     let video = null;
@@ -89,9 +90,9 @@ function mux({ codecs, W, H, FPS }, video, audio) {
 export async function exportOffline({ stage, clips, plan, total, onProgress, cancelled, fps: FPS = 30, level = 'high', format = 'webm', beforeFrame, music = [] }) {
   const W = stage.W, H = stage.H;
   const silent = !hasVoice(clips, music);
-  let codecs = await pickCodecs(W, H, bitrateFor(W, H, level, format), FPS, format, silent);
+  let codecs = await pickCodecs(W, H, bitrateFor(W, H, level, format, FPS), FPS, format, silent);
   if (!codecs) throw new Error('unsupported');
-  const bitrate = bitrateFor(W, H, level, codecs.format), frames = Math.ceil(total * FPS);
+  const bitrate = bitrateFor(W, H, level, codecs.format, FPS), frames = Math.ceil(total * FPS);
   const audioChunks = silent ? [] : await encodeAudio(clips, total, codecs, music);
   const video = []; let failure = null;
   const venc = new VideoEncoder({ output: (c, m) => video.push([c, m]), error: (e) => { failure = e; } });
@@ -128,9 +129,9 @@ export function workerCount() {
 export async function exportParallel({ job, clips, total, onProgress, cancelled, workers, music = [] }) {
   const FPS = job.fps, W = job.W, H = job.H;
   const silent = !hasVoice(clips, music);
-  const codecs = await pickCodecs(W, H, bitrateFor(W, H, job.level, job.format), FPS, job.format, silent);
+  const codecs = await pickCodecs(W, H, bitrateFor(W, H, job.level, job.format, FPS), FPS, job.format, silent);
   if (!codecs) throw new Error('unsupported');
-  const bitrate = bitrateFor(W, H, job.level, codecs.format), frames = Math.ceil(total * FPS);
+  const bitrate = bitrateFor(W, H, job.level, codecs.format, FPS), frames = Math.ceil(total * FPS);
   const audioPromise = silent ? Promise.resolve([]) : encodeAudio(clips, total, codecs, music);   // mixed + encoded here while the workers start up
 
   // slices of ~4 s (at least 3 per worker, so a slower core just takes fewer slices)
