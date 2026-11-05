@@ -53,7 +53,7 @@ const S = {
   step: 3, characters: [], libDefs: new Map(), myBgs: [], props: [], sharedAssets: [], bgId: null, bgClips: [], paths: {}, pathDraw: null, pathEdit: false, grade: { ...DEFAULT_GRADE }, gradeKeys: [], gradeSel: null, bgSel: null, propSel: null, clipboard: null, bgAtTime: false, selectedPropId: null, canvasMode: 'backgrounds', lines: [], speakers: [], order: [],
   ready: false, editorZoom: 1, pps: 30, lineSel: null, script: new Map(), solo: {}, ai: loadAi(), cast: new Map(), shots: new Map(), applyAll: false, panelOpen: true,
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
-  quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
+  quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'mp4',
   manual: {}, mclip: null, addMode: false,            // animations the user placed on the timeline: { <character key>: [{id, kind, ref, start, dur, off}] }
   fx: [], fxSel: null, fxPick: null, charKeys: {}, moveOpen: {}, ckSel: null, motionFor: null,          // movement keyframes per character: { <character key>: [{id, t, x, y, mul, flip, ease}] }
   camKeys: [], camSel: null, camPeek: false,           // camera keyframes: [{id, t, cx, cy, zoom, ease}]
@@ -3699,34 +3699,35 @@ function tabExport() {
   const multi = exportScenes.length > 1, hasAudio = exportScenes.some(scene => scene.doc.lines?.length), soundInVideo = hasAudio || exportScenes.some(scene => scene.doc.music && !scene.doc.music.muted);
   const duration = sequencePlan(exportScenes, sceneAudio).at(-1)?.end || player.total;
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: cur() === k ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', items[i][0] === k)); redrawPanel(); } }, l)));
-  const q = seg([[480, 'Low · 480p'], [720, 'HD · 720p'], [1080, 'Full HD · 1080p'], [1440, '2K · 1440p'], [2160, '4K · 2160p']], () => S.quality, (v) => { S.quality = v; });
-  const m = seg(multi ? [['fast', '⚡ Fast render']] : [['fast', '⚡ Fast render'], ['live', '⏺ Record live']], () => multi ? 'fast' : S.expMethod, (v) => { S.expMethod = v; });
-  const fm = seg([['webm', 'WebM · smaller, sharper'], ['mp4', 'MP4 · plays everywhere']], () => S.format, (v) => { S.format = v; });
-  const lv = seg([['std', 'Standard'], ['high', 'High'], ['max', 'Maximum']], () => S.level, (v) => { S.level = v; });
-  const f = seg([[24, '24 fps'], [30, '30 fps · smooth'], [60, '60 fps · extra smooth'], [90, '90 fps · for 90 Hz screens']], () => S.fps, (v) => { S.fps = v; });
-  const cScenes = h('div', { class: 'card flat' }, h('h2', {}, 'Scenes'), h('select', { 'aria-label': 'Export scenes', onchange: e => { S.exportScope = e.target.value; redrawPanel(); } }, h('option', { value: 'all', selected: S.exportScope === 'all' }, `All scenes (${S.scenes.length})`), h('option', { value: 'current', selected: S.exportScope === 'current' }, 'Current scene only')), h('p', { class: 'sub' }, 'All scenes join in tab order with Fast render, using the current scene’s aspect ratio. Live recording is available for the current scene.'));
-  const cNoAudio = !hasAudio ? h('div', { class: 'card flat' }, h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, `🔇 No audio added — this video will be ${duration.toFixed(1)} seconds long and silent. Add audio any time.`)) : null;
-  const cMethod = h('div', { class: 'card flat' }, h('h2', {}, 'Method'), m,
+  const chips = (items, cur, set) => h('div', { class: 'seg exp-pop-seg' }, items.map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); redrawPanel(); } }, label)));
+  const q = chips([[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; });
+  const f = chips([[24, '24'], [30, '30'], [60, '60'], [90, '90']], () => S.fps, (v) => { S.fps = v; });
+  const lv = chips([['std', 'Standard'], ['high', 'High'], ['max', 'Maximum']], () => S.level, (v) => { S.level = v; });
+  const m = chips(multi ? [['fast', '⚡ Fast render']] : [['fast', '⚡ Fast render'], ['live', '⏺ Record live']], () => multi ? 'fast' : S.expMethod, (v) => { S.expMethod = v; });
+  const { W: outW, H: outH } = sizeFor(), preset = presetMatch(S);
+  const mbps = bitrateFor(outW, outH, S.level, 'mp4', S.fps) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo, ratio: sizeRatio('mp4') });
+  const live = !multi && S.expMethod === 'live', eta = estimateSeconds({ duration, pixels: outW * outH, fps: S.fps, live, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
+  const info = h('div', { class: 'exp-pop-info' },
+    h('div', {}, 'Estimated size', h('b', {}, `about ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)),
+    h('div', {}, 'Picture', h('b', {}, `${outW}×${outH}`)),
+    h('div', {}, 'Length', h('b', {}, `${duration.toFixed(1)} s`)),
+    h('div', {}, 'Time to render', h('b', {}, `about ${prettyTime(eta.seconds)}`)));
+  const scenes = h('div', { class: 'card flat' }, h('h3', {}, 'Scenes'), h('select', { 'aria-label': 'Export scenes', onchange: e => { S.exportScope = e.target.value; redrawPanel(); } }, h('option', { value: 'all', selected: S.exportScope === 'all' }, `All scenes (${S.scenes.length})`), h('option', { value: 'current', selected: S.exportScope === 'current' }, 'Current scene only')), h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'All scenes join in tab order with Fast render, using the current scene’s aspect ratio. Live recording is available for the current scene.'));
+  const noAudio = !hasAudio ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `🔇 No audio added — this video will be ${duration.toFixed(1)} seconds long and silent. Add audio any time.`) : null;
+  return h('div', { class: 'list' },
+    h('div', { class: 'card flat exp-presets-card' }, h('h2', {}, 'Quick setup'),
+      h('div', { class: 'exp-presets' }, EXPORT_PRESETS.map(p => h('button', { type: 'button', 'aria-pressed': String(preset === p.id), onclick: () => { Object.assign(S, { quality: p.quality, format: 'mp4', fps: p.fps, level: p.level }); redrawPanel(); } }, p.label, h('small', {}, p.note)))),
+      h('p', { class: 'sub exp-eta', style: 'font-size:12px;margin:6px 0 0' }, BASIS_TEXT[eta.basis])),
+    h('div', { class: 'card flat exp-pop exp-pop-tab' },
+      h('h3', {}, 'Quality'), q,
+      h('h3', {}, 'Frames per second'), f,
+      info),
+    scenes, noAudio,
+    h('div', { class: 'card flat' }, h('h3', {}, 'Method'), m,
       h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, multi || S.expMethod === 'fast'
         ? `Builds the video frame by frame on ${multi ? 1 : workerCount() || 1} CPU core${!multi && workerCount() > 1 ? 's at the same time' : ''}, as fast as your device can. The result plays at normal speed and is always complete.`
-        : 'Plays the video once in real time and records the screen — takes as long as the video. Use it only if Fast render does not work on your device.'));
-  const cQuality = h('div', { class: 'card flat' }, h('h2', {}, 'Quality'), q, S.quality >= 2160 ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, '4K needs a strong phone or computer and takes longer. Try 1080p first.') : null);
-  const cFormat = h('div', { class: 'card flat' }, h('h2', {}, 'File format'), fm, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, S.format === 'webm' ? 'WebM (VP9): same sharpness in about half the size. Plays in Chrome, Edge, Firefox, VLC and most editors; some phone galleries and WhatsApp may not open it.' : 'MP4 (H.264): opens everywhere — gallery, WhatsApp, editors — but the file is bigger for the same sharpness.'));
-  const cLevel = h('div', { class: 'card flat' }, h('h2', {}, 'Video quality'), lv, (() => { const { W, H } = sizeFor(); const mbps = bitrateFor(W, H, S.level, S.format, S.fps) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo, ratio: sizeRatio(S.format) }); return h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, `${W}×${H} · about ${mbps.toFixed(1)} Mbps → roughly ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB for this video. Higher = sharper picture and a bigger file.`); })());
-  const cFps = h('div', { class: 'card flat' }, h('h2', {}, 'Smoothness'), f, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'Fewer frames per second = faster export.'));
-  const { W: outW, H: outH } = sizeFor(), preset = presetMatch(S);
-  const mbps = bitrateFor(outW, outH, S.level, S.format, S.fps) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: soundInVideo, ratio: sizeRatio(S.format) });
-  const live = !multi && S.expMethod === 'live', eta = estimateSeconds({ duration, pixels: outW * outH, fps: S.fps, live, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
-  const group = (key, icon, title, ...body) => h('details', { class: 'exp-group', open: S.expOpen[key], ontoggle: e => { S.expOpen[key] = e.currentTarget.open; } }, h('summary', {}, h('span', { 'aria-hidden': 'true' }, icon), title), h('div', { class: 'exp-body' }, ...body));
-  const stat = (label, value) => h('div', {}, label, h('b', {}, value));
-  return h('div', { class: 'list' },
-    group('quick', '⚡', 'Quick setup',
-      h('div', { class: 'exp-summary' }, stat('Resolution', `${outW}×${outH}`), stat(`Length · ${exportScenes.length} scene${exportScenes.length > 1 ? 's' : ''}`, `${duration.toFixed(1)} s`), stat('Format', `${S.format.toUpperCase()} · ${S.fps} fps`), stat('Approx. size', `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`), stat('Approx. time', `about ${prettyTime(eta.seconds)}`)),
-      h('p', { class: 'sub exp-eta', style: 'font-size:12px;margin:6px 0 0' }, BASIS_TEXT[eta.basis]),
-      h('div', { class: 'exp-presets' }, EXPORT_PRESETS.map(p => h('button', { type: 'button', 'aria-pressed': String(preset === p.id), onclick: () => { Object.assign(S, { quality: p.quality, format: p.format, fps: p.fps, level: p.level }); redrawPanel(); } }, p.label, h('small', {}, p.note))))),
-    group('out', '🎞', 'Scenes & method', cScenes, cNoAudio, cMethod),
-    group('pic', '🖼', 'Picture', cQuality, cFps),
-    group('file', '📦', 'File', cFormat, cLevel),
+        : 'Plays the video once in real time and records the screen — takes as long as the video. Use it only if Fast render does not work on your device.')),
+    h('div', { class: 'card flat' }, h('h3', {}, 'Detail'), lv, h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'Higher = sharper picture and a bigger file. Always renders as MP4, so it opens everywhere.')),
     renderSection());
 }
 const redrawPanel = () => { const k = panelEl.scrollTop; drawTabs(); panelEl.scrollTop = k; };
@@ -4130,7 +4131,7 @@ async function restoreProject() {
       if (!a) continue;
       try { const buffer = await audioCtx.decodeAudioData(a.raw.slice(0)); S.lines.push({ ...m, raw: a.raw, buffer, visemes: analyse(buffer) }); sceneAudio.set(m.id, S.lines.at(-1)); savedAudio.add(m.id); } catch { /* skip broken audio */ }
     }
-    Object.assign(S, { quality: rec.ui.v >= 2 ? (rec.ui.quality ?? S.quality) : Math.max(720, rec.ui.quality ?? 720), /* older saves defaulted to 480p on phones */ expMethod: rec.ui.expMethod ?? S.expMethod, fps: rec.ui.fps ?? S.fps, level: rec.ui.level ?? S.level, format: rec.ui.format ?? S.format, applyAll: !!rec.ui.applyAll, tab: rec.ui.tab ?? S.tab, lineSel: rec.ui.lineSel ?? null, animFor: rec.ui.animFor ?? null });
+    Object.assign(S, { quality: rec.ui.v >= 2 ? (rec.ui.quality ?? S.quality) : Math.max(720, rec.ui.quality ?? 720), /* older saves defaulted to 480p on phones */ expMethod: rec.ui.expMethod ?? S.expMethod, fps: rec.ui.fps ?? S.fps, level: rec.ui.level ?? S.level, format: 'mp4', applyAll: !!rec.ui.applyAll, tab: rec.ui.tab ?? S.tab, lineSel: rec.ui.lineSel ?? null, animFor: rec.ui.animFor ?? null });
     await loadDoc(rec.doc);
     S.step = 3;
     await prepareStudio();
