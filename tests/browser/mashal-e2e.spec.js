@@ -74,7 +74,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.locator('.cp-kind').first().click().catch(() => {}); for (const kind of ['Male', 'Female']) { const tab = page.getByRole('tab', { name: kind }); if (await tab.count()) { await tab.click(); if (await page.locator('.cp-card').filter({ hasText: new RegExp(`^${WHO}$`) }).count()) break; } }
+  await page.locator('.cp-kind').first().click().catch(() => {}); for (const kind of ['Male', 'Female']) { const tab = page.getByRole('tab', { name: kind, exact: true }); if (await tab.count()) { await tab.click(); if (await page.locator('.cp-card').filter({ hasText: new RegExp(`^${WHO}$`) }).count()) break; } }
   await page.locator('.cp-card').filter({ hasText: new RegExp(`^${WHO}$`) }).click(); await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
   await page.waitForTimeout(1500); console.log('STEP maya on stage');
@@ -92,7 +92,8 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   await page.waitForTimeout(800);
   // 4. it really sits at the palm and it animates (the picture around it changes with time)
   const geo = await page.evaluate(() => { const { stage, S } = window.__toon, p = S.props[0], pl = stage.propPlacement(p, 0), l = stage.layers[0]; return { pl, palm: (() => { const bone = ['R_Palm', 'right_grip', 'right_palm_jt'].map((n) => l.arm.getBone(n)).find(Boolean); if (!bone) return null; const m = bone.globalTransformMatrix, M = l.mat; return { x: M[0] * m.tx + M[2] * m.ty + M[4], y: M[1] * m.tx + M[3] * m.ty + M[5] }; })(), W: stage.W, H: stage.H }; });
-  console.log('GEO', JSON.stringify(geo)); console.log('BONES', JSON.stringify(await page.evaluate(() => window.__toon.stage.layers[0].arm.getBones().map((b) => b.name))));
+  console.log('GEO', JSON.stringify(geo));
+  expect(Math.abs(Math.sin(geo.pl.a))).toBeLessThan(0.05); console.log('BONES', JSON.stringify(await page.evaluate(() => window.__toon.stage.layers[0].arm.getBones().map((b) => b.name))));
   expect(geo.pl).not.toBeNull(); expect(geo.palm).not.toBeNull();
   expect(Math.hypot(geo.pl.cx - geo.palm.x, geo.pl.cy - geo.palm.y)).toBeLessThan(geo.pl.h * 0.6);          // the torch sits at the hand (its middle within the palm's reach)
   const frame = (t) => page.evaluate((time) => { const { stage } = window.__toon; stage.propClock = null; stage.render(time, 0, [], []); const c = document.createElement('canvas'); c.width = stage.out.width; c.height = stage.out.height; const g = c.getContext('2d'); g.drawImage(stage.out, 0, 0); return c.toDataURL('image/png'); }, t);
@@ -109,6 +110,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
     const g = await page.evaluate((time) => { const { stage, S } = window.__toon, l = stage.layers[0]; stage.propClock = null; stage.render(time, 0, [], []); const p = S.props[0], pl = stage.propPlacement(p, time), bone = ['R_Palm', 'right_grip', 'right_palm_jt'].map((n) => l.arm.getBone(n)).find(Boolean), m = bone.globalTransformMatrix, M = l.mat, palm = { x: M[0] * m.tx + M[2] * m.ty + M[4], y: M[1] * m.tx + M[3] * m.ty + M[5] };
       const c = document.createElement('canvas'); c.width = stage.out.width; c.height = stage.out.height; c.getContext('2d').drawImage(stage.out, 0, 0); return { pl, palm, png: c.toDataURL('image/png'), grip: p.grip }; }, t);
     writeFileSync(OUT + `walk-${WHO}-${t}.png`, Buffer.from(g.png.split(',')[1], 'base64'));
+    expect(Math.abs(Math.sin(g.pl.a))).toBeLessThan(0.05); expect(Math.hypot(g.pl.cx - g.palm.x, g.pl.cy - g.palm.y)).toBeLessThan(g.pl.h * 0.3);          // upright and at the palm in every frame of the walk
     console.log('WALK', WHO, t, JSON.stringify({ cx: +g.pl.cx.toFixed(1), cy: +g.pl.cy.toFixed(1), a: +g.pl.a.toFixed(2), palm: [+g.palm.x.toFixed(1), +g.palm.y.toFixed(1)], grip: g.grip, h: +g.pl.h.toFixed(1) }));
   }
   // 5. tap it on the canvas: the box and its tools (Edit) open; drag it forward / up

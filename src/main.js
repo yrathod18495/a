@@ -1750,11 +1750,11 @@ function openPropEdit(pr) {
       { key: 'turn', label: 'Turn', min: -180, max: 180, unit: '°', get: () => pr.rotation || 0, set: (v) => { pr.rotation = v; } },
       { key: 'opacity', label: 'Opacity', min: 10, max: 100, unit: '%', get: () => (pr.opacity ?? 1) * 100, set: (v) => { pr.opacity = +(v / 100).toFixed(2); } },
     ],
-    extras: (key, { redraw }) => [...(isHeld(pr) ? [h('div', { class: 'ed-row' }, ['L', 'R'].map((hand) => h('button', { type: 'button', class: `ed-chip sm${pr.attach.hand === hand ? ' on' : ''}`, 'data-hand': hand, 'aria-pressed': String(pr.attach.hand === hand), onclick: () => { pr.attach = { ...pr.attach, hand }; pr.rotation = uprightInHand(pr.attach); save(); redraw(); } }, icon('hand'), hand === 'L' ? ' Left hand' : ' Right hand')), h('span', { class: 'ed-hint' }, 'or drag it on the picture'))] : []), h('div', { class: 'ed-row' },
+    extras: (key, { redraw }) => [...(isHeld(pr) ? [h('div', { class: 'ed-row' }, ['L', 'R'].map((hand) => h('button', { type: 'button', class: `ed-chip sm${pr.attach.hand === hand ? ' on' : ''}`, 'data-hand': hand, 'aria-pressed': String(pr.attach.hand === hand), onclick: () => { pr.attach = { ...pr.attach, hand }; pr.rotation = pr.follow === false ? 0 : uprightInHand(pr.attach); save(); redraw(); } }, icon('hand'), hand === 'L' ? ' Left hand' : ' Right hand')), h('button', { type: 'button', class: `ed-chip sm${pr.follow === false ? '' : ' on'}`, 'aria-pressed': String(pr.follow !== false), 'aria-label': 'Follow the hand', title: 'On: it turns with the hand (a bat, a stick). Off: it stays upright while the arm swings (a torch, a bag).', onclick: () => { if (pr.follow === false) { delete pr.follow; pr.rotation = uprightInHand(pr.attach); } else { pr.follow = false; pr.rotation = 0; } save(); redraw(); } }, 'Follow hand'), h('span', { class: 'ed-hint' }, 'or drag it on the picture'))] : []), h('div', { class: 'ed-row' },
       ...looks.map(([id, text]) => h('button', { type: 'button', class: `ed-chip sm${(pr.blend || 'normal') === id ? ' on' : ''}`, 'data-look': id, 'aria-pressed': String((pr.blend || 'normal') === id), onclick: () => { if (id === 'normal') delete pr.blend; else pr.blend = id; save(); redraw(); } }, text)),
       h('button', { type: 'button', class: `ed-chip sm${pr.behind ? ' on' : ''}`, 'aria-pressed': String(!!pr.behind), 'aria-label': 'Behind the characters', onclick: () => { if (pr.behind) delete pr.behind; else pr.behind = true; save(); redraw(); } }, 'Behind'),
       h('button', { type: 'button', class: 'ed-chip sm ed-shadow-btn', 'aria-label': 'Shadow', onclick: () => openShadowDock('prop', pr) }, icon('shadow'), ' Shadow'))],
-    onReset: () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = isHeld(pr) ? uprightInHand(pr.attach) : 0; delete pr.holdOff; delete pr.opacity; delete pr.blend; delete pr.behind; save(); },
+    onReset: () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = isHeld(pr) && pr.follow !== false ? uprightInHand(pr.attach) : 0; delete pr.holdOff; delete pr.opacity; delete pr.blend; delete pr.behind; save(); },
   });
 }
 /** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
@@ -3383,7 +3383,7 @@ async function addLibraryProp(asset, hold = null) {
     const blob = await libraryBlob(asset);
     let prop = propFromAsset(asset, blob, crypto.randomUUID());
     if (!isEffect(prop)) { const size = await imageSize(blob, prop.sheet); prop = placeProp(prop, size.w, size.h, aspectOf(S.aspect)); }      // a prop keeps the size and shape of its picture
-    if (hold && !isEffect(prop)) prop = { ...prop, rotation: uprightInHand(hold), grip: { x: 0.5, y: 0.7 }, attach: { key: hold.key, hand: hold.hand } };              // a hand prop starts upright in the chosen hand, held by the lower part of its picture
+    if (hold && !isEffect(prop)) prop = { ...prop, rotation: 0, follow: false, grip: { x: 0.5, y: 0.7 }, attach: { key: hold.key, hand: hold.hand } };              // a hand prop starts upright and stays upright while the arm swings; it is held by the lower part of its picture ("Follow hand" makes it turn with the hand)
     await putProp(prop); return prop;
   }
   catch (e) { toast(`Could not add the ${asset.type === 'effect' ? 'effect' : 'prop'}: ${friendlyError(e)}`); }

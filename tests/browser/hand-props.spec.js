@@ -42,7 +42,7 @@ test('hand props stay out of the Objects list and appear in the Props tab of a s
   await page.locator('.edit-dock .ed-hand[data-hand="R"]').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
   const cup = await page.evaluate(() => window.__toon.S.props[0]);
-  expect([cup.name, cup.assetId, cup.attach, cup.rotation]).toEqual(['Cup', 'prop-cup', { key: 'actor1', hand: 'R' }, -90]);
+  expect([cup.name, cup.assetId, cup.attach, cup.rotation, cup.follow]).toEqual(['Cup', 'prop-cup', { key: 'actor1', hand: 'R' }, 0, false]);          // upright, and it stays upright while the arm swings
   // an object is placed on the stage, not in a hand
   await page.evaluate(() => window.__toon.openTab('props'));
   await page.locator('.tile').filter({ hasText: 'Chair' }).click();
