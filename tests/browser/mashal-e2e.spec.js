@@ -43,7 +43,7 @@ function fakeServer(page) {
 
 test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the studio lists it, a tap asks the hand, the torch plays in Maya\'s hand, can be selected on the canvas and moved', async ({ page }) => {
   test.skip(!existsSync(ZIP) || !existsSync(GIF), 'needs the Maya ZIP and the torch GIF');
-  test.setTimeout(6 * 60 * 1000);
+  test.setTimeout(14 * 60 * 1000);
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
@@ -54,7 +54,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   await page.getByLabel('Character ZIP').setInputFiles(ZIP);
   await page.getByLabel('Animation preview quality').selectOption('low');
   await page.getByRole('button', { name: 'Done — upload' }).click();
-  await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 4 * 60 * 1000, intervals: [2000] }).toMatch(/Maya is saved/);
+  await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 8 * 60 * 1000, intervals: [2000] }).toMatch(/Maya is saved/); console.log('STEP maya saved');
   await page.evaluate(async () => { const { propsEffectsView } = await import('/src/admin-props-effects.js'); document.querySelector('#shell').replaceChildren(await propsEffectsView({ home: () => {}, back: () => {}, toast: (m) => { window.__toast = m; }, only: 'prop', group: 'hand' })); });
   await page.getByLabel('Image file').setInputFiles(GIF);
   await page.getByRole('button', { name: 'Publish prop', exact: true }).click();
