@@ -4341,6 +4341,7 @@ export async function openStudio() {
 export async function closeStudio() {
   while(saving)await new Promise(resolve=>setTimeout(resolve,20));
   await tick({ sceneCommit: true }); player?.pause(); stopAll(); pruneTimelineThumbnails(); stageObserver?.disconnect(); cancelAnimationFrame(frameId); frameId = 0; studioTheme.leave(); $app.hidden = true; S.ready = false;
-}
+  cloudJobStop = true;          // the cloud export progress poll (every ~2.5s) must not keep running in the background after the project is closed —
+}                                // on a slow connection it was competing for bandwidth with whatever page opens next, making it look "stuck"
 onSyncStatus(state => { if (!state.projectId || state.projectId === projectContext()?.id) updateSaveStatus(state); });
 
