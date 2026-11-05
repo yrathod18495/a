@@ -1141,7 +1141,8 @@ function drawTimeline() {
       const ln = h('div', { class: 'lane2 char', style: `height:${LH}px;--track-color:${s.color}` });
       ln.addEventListener('click', (e) => { if (e.target === ln) selectChar(s.key); });          // empty space on the character's row too
       // many tiny automatic clips in a row (one per spoken sound) would be unreadable: three or more are drawn as one block
-      const autos = plan.clips.filter((x) => x.kind === kind && !x.manual).sort((a, b) => a.start - b.start), tiny = (c) => c.dur * pps < 44, items = [];
+      const ownBody = kind === 'body' && !player.clips.length && (S.manual[s.key] || []).some((m) => m.kind === 'body');          // the user placed their own animation: no automatic "stand" block after it, the character simply rests
+      const autos = ownBody ? [] : plan.clips.filter((x) => x.kind === kind && !x.manual).sort((a, b) => a.start - b.start), tiny = (c) => c.dur * pps < 44, items = [];
       for (let k = 0; k < autos.length;) {
         let end = k + 1;
         while (tiny(autos[end - 1]) && autos[end] && tiny(autos[end]) && autos[end].start - (autos[end - 1].start + autos[end - 1].dur) < 0.15) end++;
