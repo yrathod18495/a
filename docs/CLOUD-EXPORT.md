@@ -107,8 +107,16 @@ scheme).
 - Renders the **current scene only** (not "export all scenes together"); the Export tab's Scenes dropdown does not apply to
   cloud export yet. Fast-render / live-recording toggle does not apply either — cloud export always renders offline (the whole
   point of doing it on a dedicated machine).
-- `MAX_CONCURRENT` in `app.py` (2) is how many videos one Space instance renders at once; raise it if the Space's own
-  CPU/RAM can take it, or run more than one Space and let each pick up whatever is still `pending`.
+- `MAX_CONCURRENT` in `app.py` (set with the `MAX_CONCURRENT` Space secret/variable, default **1**) is how many videos one
+  Space instance renders at once. A free/basic Space has no real GPU, so Chromium renders WebGL in **software** — many times
+  slower than on a real phone or computer, and running jobs in parallel splits that already-limited CPU between them, making
+  every one of them slower still (this is what made a 77 s video alone take over 9 minutes and still time out — see below).
+  Raise `MAX_CONCURRENT` only on a Space with real CPU/GPU headroom to spare (or run more than one Space, each picking up
+  whatever is still `pending`).
+- Because of that same software rendering, `job_timeout_seconds()` in `app.py` gives a render up to `20× the video's own
+  length + 180 s` (floor 300 s) before giving up and marking it failed — a 1080p/60fps video can genuinely take that long on
+  a CPU-only machine. If real exports are still timing out, lower the quality/fps the project's own export settings allow
+  (cloud export renders with whatever the Export popup was last set to), or move the Space to a GPU tier.
 - A job nobody picks up, or that never finishes, auto-fails after a few hours (`TTL_MS` in `server/cloud-export-store.js`) so
   it never looks like it is "still going" forever.
 

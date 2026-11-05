@@ -17,6 +17,9 @@ Secrets this Space needs (Settings -> Variables and secrets -> add as "Secret", 
   SITE_URL                       the deployed website's base URL, e.g. https://a-two-roan-17.vercel.app (no trailing slash).
   HQ_ACCESS_KEY                  (optional) a password of your choosing; visiting this Space's root URL with ?key=<that password>
                                   shows a tiny status page. Leave it unset to leave that page closed to everyone.
+  MAX_CONCURRENT                 (optional) how many videos to render at once; default 1. This machine has no real GPU, so
+                                  WebGL is rendered in software — much slower than a real phone/computer — and raising this
+                                  only helps if the Space has real CPU headroom to spare (see docs/CLOUD-EXPORT.md).
 
 See ../docs/CLOUD-EXPORT.md for how to create this Space, what to put in each secret, and how to test the whole pipeline once.
 """
@@ -36,7 +39,12 @@ from playwright.sync_api import sync_playwright
 
 SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
 POLL_SECONDS = 4          # how often this worker checks the database for new jobs
-MAX_CONCURRENT = 2        # how many renders run in parallel on this machine
+# A Hugging Face Space's free/basic CPU tier has no real GPU, so Chromium renders WebGL in software (SwiftShader) — many times
+# slower than on a real phone or computer, and that slowdown gets WORSE the more renders share the same CPU at once. Running
+# jobs one at a time (instead of 2+ in parallel) keeps each one as fast as the machine allows, instead of several of them
+# fighting over the same CPU and each taking far longer, which is what made a 77 s video alone take over 9 minutes and still
+# time out. Raise this only on a Space with real CPU/GPU headroom to spare — see docs/CLOUD-EXPORT.md.
+MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT", "1"))
 TERMINAL = {"done", "error", "cancelled"}
 
 
@@ -61,9 +69,11 @@ def init_firebase():
 
 
 def job_timeout_seconds(job):
-    # a generous ceiling so a stuck render does not tie up this worker forever: the video's own length, generously padded, plus a fixed floor
+    # a generous ceiling so a stuck render does not tie up this worker forever: the video's own length, generously padded, plus a
+    # fixed floor. The multiplier is large on purpose — software-rendered WebGL (see MAX_CONCURRENT above) can easily take 10-20x
+    # real time on a CPU-only machine, especially at a high quality/fps the owner picked without knowing this machine has no GPU.
     seconds = float(job.get("seconds") or 30)
-    return max(180, seconds * 6 + 120)
+    return max(300, seconds * 20 + 180)
 
 
 def render_one(uid, job_id, job):
@@ -76,7 +86,10 @@ def render_one(uid, job_id, job):
     log(f"Rendering {job_id} for {uid} -> {url}")
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+            # --enable-unsafe-swiftshader: this machine has no real GPU, so WebGL only works at all through software rendering
+            # (SwiftShader). Newer Chromium builds no longer fall back to it silently (the "deprecated" warning in the logs) and
+            # need this flag, or WebGL — and so every render — could stop working outright after a future browser update.
+            browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--enable-unsafe-swiftshader", "--use-gl=swiftshader", "--disable-gpu-sandbox"])
             page = browser.new_page(viewport={"width": 960, "height": 720})
             page.on("console", lambda m: log(f"[{job_id}] page: {m.text[:300]}"))
             page.on("pageerror", lambda e: log(f"[{job_id}] page error: {e}"))
@@ -87,7 +100,11 @@ def render_one(uid, job_id, job):
                 status = current.get("status", "pending")
                 if status in TERMINAL:
                     break
-                time.sleep(POLL_SECONDS)
+                # page.wait_for_timeout (not time.sleep): a plain Python sleep blocks this thread without ever handing control
+                # back to Playwright's own driver, so console/pageerror messages queued by the browser sat unprinted — sometimes
+                # for the ENTIRE render — until the next real Playwright call (browser.close()) finally flushed them all at once.
+                # This still waits the same POLL_SECONDS; it's purely so the logs above show up while the render is happening.
+                page.wait_for_timeout(POLL_SECONDS * 1000)
             if status not in TERMINAL:
                 log(f"{job_id} timed out after {job_timeout_seconds(job):.0f}s — marking it failed")
                 ref.update({"status": "error", "error": "The render machine took too long and gave up.", "updatedAt": int(time.time() * 1000)})
