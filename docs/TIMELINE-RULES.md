@@ -12,3 +12,4 @@ These rules were asked for repeatedly by the owner. Do not break them in any cha
 2. **The "◆ move" lane of a character is collapsible.** It is open while that character is selected, shut otherwise; a lane the user opened by hand stays open until the user shuts it (`S.moveOpen`, `moveLaneOpen()`).
 3. **The phone bottom bar shows full labels** (no text cut off): rules for `.tabs-scroll > button` in `src/studio-icons.css`.
 4. **The preview must survive the phone going to the background**: `Stage` handles `webglcontextlost` / `restored` and replaces a dead canvas (`src/db/stage.js`, test `tests/browser/context-restore.spec.js`).
+5. **Effect rows (FX)** are normal layer rows (height 38, label + lock) and are shrunk by `fitRows()` like every other row. See `docs/EFFECTS.md`.

@@ -30,14 +30,14 @@ for (const tab of ['props', 'canvas']) test(`${tab}: the first tile is "+", it o
   await page.locator('.tile-grid').first().screenshot({ path: `/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/tiles-${tab}.png` });
 });
 
-test('phone: no floating toolbar over the character; the timeline has a thick scrollbar of its own and no extra bar', async ({ page }) => {
+test('phone: no floating toolbar over the character; the timeline has no scroll bar (it moves with a swipe, the wheel or the playhead) and no extra bar', async ({ page }) => {
   await open(page, 390);
   expect(await page.evaluate(() => getComputedStyle(document.querySelector('.sel-tools')).display)).toBe('none');
   expect(await page.locator('.tl-slide').count()).toBe(0);
   await page.evaluate(() => { window.__toon.S.pps = 120; window.__toon.drawTimeline(); });
   // the test browser hides scrollbars, so the style is checked instead of the painted size
   const bar = await page.evaluate(() => { const t = document.querySelector('.tl-scroll'); return { h: getComputedStyle(t, '::-webkit-scrollbar').height, width: getComputedStyle(t).scrollbarWidth, room: t.scrollWidth - t.clientWidth }; });
-  expect(parseFloat(bar.h)).toBeGreaterThanOrEqual(14); expect(bar.width).toBe('auto'); expect(bar.room).toBeGreaterThan(50);
+  expect(parseFloat(bar.h) || 0).toBe(0); expect(bar.width).toBe('none'); expect(bar.room).toBeGreaterThan(50);          // the bar is gone, the timeline still scrolls sideways
 });
 
 test('Background tab: "+" and the backgrounds, then the plain colours; a picture or colour becomes a 5 s clip at the playhead (no questions)', async ({ page }) => {
@@ -99,7 +99,7 @@ test('search by name hides the other pictures in Props (Backgrounds has no searc
   expect(await names()).toEqual(['Lamp']);
 });
 
-test('hold a background tile: effects (None, Night second ...) apply to it, and Delete removes it', async ({ page }) => {
+test('hold a background tile: a way to the Effects tab and Delete (the looks themselves are Effects, they colour the characters too)', async ({ page }) => {
   await open(page, 390);
   await page.evaluate(async () => {
     const { S } = window.__toon, png = await (await fetch('data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==')).blob();
@@ -112,14 +112,16 @@ test('hold a background tile: effects (None, Night second ...) apply to it, and 
   const b = await tile.boundingBox();
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
   const sheet = page.locator('.modal'); await expect(sheet).toBeVisible();
-  await expect(sheet.locator('.bg-fx')).toHaveText(['None', 'Night', 'Evening', 'Dawn', 'Gloomy']);          // Night is second
+  await expect(sheet.locator('.bg-fx')).toHaveCount(0);          // no Night / Evening chips here any more: Night is an Effect on the whole scene
   expect(await page.evaluate(() => window.__toon.S.bgClips.length)).toBe(0);          // holding did not add it
-  await sheet.locator('.bg-fx[data-fx="night"]').click();
-  await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.map((c) => [c.bgId, c.fx, c.dur]))).toEqual([['g1', 'night', 5]]);
+  await sheet.getByRole('button', { name: /Open Effects/ }).click();
+  await expect(page.locator('.fx-tile')).toHaveCount(19);
+  await page.locator('.fx-tile[data-fx="night"]').click();
+  expect(await page.evaluate(() => window.__toon.S.fx.map((f) => [f.tpl, f.target]))).toEqual([['night', 'scene']]);
   // a normal tap still adds a plain 5 s clip
+  await page.evaluate(() => window.__toon.openTab('canvas'));
   await page.locator('.tile', { hasText: 'Palace hall' }).click();
-  await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(2);
-  expect(await page.evaluate(() => window.__toon.S.bgClips[1].fx)).toBeUndefined();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(1);
   // Delete from the same sheet
   await expect(page.locator('.tile', { hasText: 'Palace hall' })).toBeVisible(); await page.waitForTimeout(400);          // the list is drawn again after a tap
   const b2 = await page.locator('.tile', { hasText: 'Palace hall' }).boundingBox();
@@ -129,7 +131,7 @@ test('hold a background tile: effects (None, Night second ...) apply to it, and 
   expect(await page.evaluate(() => window.__toon.S.myBgs.map((r) => r.id))).toEqual(['g1']);
 });
 
-test('a background with the Night effect is really drawn darker and bluer', async ({ page }) => {
+test('a background clip of an older project with the Night look is still drawn darker and bluer (it also becomes a scene effect)', async ({ page }) => {
   await open(page, 390);
   const px = await page.evaluate(async () => {
     const { S, stage, player, drawTimeline } = window.__toon;

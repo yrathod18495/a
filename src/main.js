@@ -31,7 +31,8 @@ import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError, currentPlan, refreshPlan } from './export-plan.js';
-import { BG_EFFECTS, bgEffectId } from '../shared/bg-effects.js';
+import { FX_TEMPLATES, FX_TEMPLATE_GROUPS, FX_CONTROLS, FX_GROUPS, newFx, cleanFx, fxActive, fxTemplate, scaleFx, targetKind, targetId } from '../shared/fx.js';
+import { fxThumb } from './db/renderer.js';
 import { animatedToSheet } from './animated-image.js';
 import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp, propActive, heldAt } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
@@ -52,7 +53,7 @@ const S = {
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
   manual: {}, mclip: null, addMode: false,            // animations the user placed on the timeline: { <character key>: [{id, kind, ref, start, dur, off}] }
-  charKeys: {}, moveOpen: {}, ckSel: null, motionFor: null,          // movement keyframes per character: { <character key>: [{id, t, x, y, mul, flip, ease}] }
+  fx: [], fxSel: null, fxPick: null, charKeys: {}, moveOpen: {}, ckSel: null, motionFor: null,          // movement keyframes per character: { <character key>: [{id, t, x, y, mul, flip, ease}] }
   camKeys: [], camSel: null, camPeek: false,           // camera keyframes: [{id, t, cx, cy, zoom, ease}]
 };
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -768,7 +769,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Effects', 'zap'], ['export', 'Export', 'download']];
+const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Overlays', 'zap'], ['fx', 'Effects', 'wand'], ['export', 'Export', 'download']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri icon-btn play-btn', title: 'Play (Space)', 'aria-label': 'Play', onclick: togglePlay }, icon('play'));
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -1003,15 +1004,15 @@ function drawTabs() {
     const railBtn = (key, step) => { const [, text, ic] = byKey[key], active = S.tab === key; return h('button', { type: 'button', class: `rail-btn${active ? ' on' : ''}${step && done[key] ? ' done' : ''}`, 'aria-pressed': String(active), onclick: () => { S.tab = key; S.panelOpen = true; drawTabs(); S.dirty = true; dockShow('panel'); } },
       h('span', { class: 'rb-ico', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'rb-label' }, text), step ? h('span', { class: 'rb-step', 'aria-hidden': 'true' }, done[key] ? '✓' : String(step)) : null); };
     tabsEl.replaceChildren(h('div', { class: 'rail-title' }, 'Start here'), railBtn('audio', 1), railBtn('chars', 2), railBtn('anim', 3),
-      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props', 'shadow'].map((key) => railBtn(key)),
+      h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props', 'shadow', 'fx'].map((key) => railBtn(key)),
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
       h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
   } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'),
-    h('div', { class: 'tabs-scroll' }, upload, ...['chars', 'anim', 'handprops', 'props', 'shadow', 'canvas'].map(key => button(byKey[key])), more));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
+    h('div', { class: 'tabs-scroll' }, upload, ...['chars', 'anim', 'handprops', 'props', 'shadow', 'fx', 'canvas'].map(key => button(byKey[key])), more));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
   panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
+    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   placeSelBar();
@@ -1029,7 +1030,7 @@ function rulerSteps(pps) {
 }
 function selectLine(id, seek = true) {
   if (!id) return;
-  S.lineSel = id; S.mclip = S.bgSel = S.propSel = S.shadowSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
+  S.lineSel = id; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
   const L = lineById(id);
   if (seek && L) { player.seek(L.start + 0.01); }
   drawTimeline(); drawLineBox(); drawClipBar(); S.dirty = true;
@@ -1132,7 +1133,7 @@ function drawTimeline() {
     el.addEventListener('pointerdown', (e) => dragPropRange(e, prop, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
       rowEls.push(el);
     }
-    labels.push(h('div', { class: 'rl char', style: 'height:42px' }, h('span', { class: 'lt face' }, isEffect(rowProps[0]) ? 'Effect' : 'Prop'), lockBtn(`prop:${rowProps[0].lane || rowProps[0].id}`, 'this row')));
+    labels.push(h('div', { class: 'rl char', style: 'height:42px' }, h('span', { class: 'lt face' }, isEffect(rowProps[0]) ? 'Overlay' : 'Prop'), lockBtn(`prop:${rowProps[0].lane || rowProps[0].id}`, 'this row')));
     lanes.push(h('div', { class: 'lane2 prop', style: 'height:42px' }, ...rowEls));
   }
   for (const { id, kind, o, name } of shadowOwners()) {          // each shadow is a layer of its own: select it, lock it, delete it
@@ -1140,6 +1141,13 @@ function drawTimeline() {
     const clip = h('div', { 'data-key': key, class: `tclip shadow mine ${S.shadowSel === id ? 'sel' : ''}${locked ? ' locked' : ''}`, title: `Shadow · ${name}`, style: `left:${start * pps}px;width:${Math.max(6, (end - start) * pps)}px`, onclick: () => { selectOnly('shadow', id); drawTimeline(); } }, h('span', { class: 'tn' }, icon('shadow'), ` ${name}`));
     labels.push(h('div', { class: 'rl char', style: 'height:38px' }, h('span', { class: 'lt face' }, icon('shadow'), ' Shadow'), lockBtn(`shadow:${id}`, `the shadow of ${name}`)));
     lanes.push(h('div', { class: 'lane2 prop shadow', style: 'height:38px' }, clip));
+  }
+  for (const fx of S.fx) {          // each effect is a layer of its own: where it starts and ends, what it is on; select, lock, delete it
+    const key = keyOf('fx', fx.id), locked = isKeyLocked(key), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
+    const clip = h('div', { 'data-key': key, class: `tclip fxl mine ${S.fxSel === fx.id ? 'sel' : ''}${locked ? ' locked' : ''}${fx.visible === false ? ' off' : ''}`, title: `${fx.name} on ${fxTargetName(fx.target)} — drag to move, drag an edge to resize`, style: `left:${fx.start * pps}px;width:${Math.max(6, (fx.end - fx.start) * pps)}px` }, lz, h('span', { class: 'tn' }, icon('wand'), ` ${fx.name} · ${fxTargetName(fx.target)}`), rz);
+    clip.addEventListener('pointerdown', (e) => dragFxRange(e, fx, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', clip));
+    labels.push(h('div', { class: 'rl char', style: 'height:38px' }, h('span', { class: 'lt face', title: 'Effect' }, icon('wand'), ' FX'), lockBtn(`fx:${fx.id}`, `the effect ${fx.name}`)));
+    lanes.push(h('div', { class: 'lane2 prop fx-lane', style: 'height:38px' }, clip));
   }
   laneClips.clear();
   const KIND_ICON = { body: '🎬', hand: '✋', legs: '🦵', face: '🙂' }, LH = 56;
@@ -1317,11 +1325,12 @@ const lockKeyOf = (key) => {
   if (kind === 'prop') { const p = S.props.find((x) => x.id === id); return p ? `prop:${p.lane || p.id}` : null; }
   if (kind === 'clip') { const f = findManual(id); return f ? `char:${f.s?.key}` : null; }
   if (kind === 'shadow') return `shadow:${id}`;
+  if (kind === 'fx') return `fx:${id}`;
   return null;
 };
 const isLocked = (lock) => !!(lock && S.locks?.[lock]);
 /** one item can be locked on its own too (`locked`): a background clip, a prop or an animation clip; a layer lock (the button on the left of the timeline) locks the whole row */
-const itemLocked = (key) => { const i = key.indexOf(':'), kind = key.slice(0, i), id = key.slice(i + 1); return kind === 'bg' ? !!S.bgClips.find((x) => x.id === id)?.locked : kind === 'prop' ? !!S.props.find((x) => x.id === id)?.locked : kind === 'clip' ? !!findManual(id)?.m?.locked : kind === 'shadow' ? !!shadowOwnerOf(id)?.o.shadow?.locked : false; };
+const itemLocked = (key) => { const i = key.indexOf(':'), kind = key.slice(0, i), id = key.slice(i + 1); return kind === 'bg' ? !!S.bgClips.find((x) => x.id === id)?.locked : kind === 'prop' ? !!S.props.find((x) => x.id === id)?.locked : kind === 'clip' ? !!findManual(id)?.m?.locked : kind === 'shadow' ? !!shadowOwnerOf(id)?.o.shadow?.locked : kind === 'fx' ? !!S.fx.find((x) => x.id === id)?.locked : false; };
 const isKeyLocked = (key) => isLocked(lockKeyOf(key)) || itemLocked(key);
 const bgLockedNow = (c) => !!c && (isLocked('bg') || !!c.locked), propLockedNow = (p) => !!p && (isLocked(`prop:${p.lane || p.id}`) || !!p.locked), charLockedNow = (key) => isLocked(`char:${key}`);
 function toggleLock(lock) {
@@ -1356,7 +1365,7 @@ function paintMulti() { tlInner?.querySelectorAll('.tclip[data-key]').forEach((n
 function clearMulti() { if (!multi.size) return; multi.clear(); paintMulti(); updateEditTools(); }
 function setMulti(keys) {
   multi.clear(); for (const k of keys) multi.add(k);
-  if (multi.size >= 2) { S.mclip = S.bgSel = S.propSel = S.shadowSel = null; S.lineSel = null; tlInner?.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); clipBar && (clipBar.hidden = true); }
+  if (multi.size >= 2) { S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null; S.lineSel = null; tlInner?.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); clipBar && (clipBar.hidden = true); }
   paintMulti(); updateEditTools(); updateBgSel(); S.dirty = true;
 }
 function toggleMulti(key) {
@@ -1528,7 +1537,7 @@ async function retimeAudio() {
   await prepareStudio({ quiet: true });
   player.seek(Math.min(at, player.total)); S.dirty = true;
 }
-const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; S.shadowSel = kind === 'shadow' ? id : null; S.selectedPropId = kind === 'prop' ? id : null; if (kind === 'prop') S.sel = null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
+const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; S.shadowSel = kind === 'shadow' ? id : null; S.fxSel = kind === 'fx' ? id : null; S.selectedPropId = kind === 'prop' ? id : null; if (kind === 'prop' || kind === 'fx') S.sel = null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
 function dragClip(e, m, mode, el) {
   dragItem(e, mode === 'size' ? 'right' : mode, el, {
     id: m.id, key: keyOf('clip', m.id), lock: `char:${findManual(m.id)?.s?.key}`,
@@ -1594,6 +1603,7 @@ function nudgeSelected(which, delta) {
   const r = (v) => +v.toFixed(2);
   if (it.kind === 'clip') { const m = it.f.m; if (which === 'start') m.start = Math.max(0, r(m.start + delta)); else m.dur = Math.max(0.2, r(m.dur + delta)); setTimeout(commitClips, 0); }
   else if (it.kind === 'bg') { const c = it.bc; if (which === 'start') c.start = Math.max(0, r(c.start + delta)); else c.dur = Math.max(MIN_CLIP, r(c.dur + delta)); syncBgClips(); setTimeout(commitClips, 0); }
+  else if (it.kind === 'fx') { const f = it.fx, len = f.end - f.start; if (which === 'start') { f.start = Math.max(0, r(f.start + delta)); f.end = r(f.start + len); } else f.end = r(f.start + Math.max(MIN_CLIP, len + delta)); syncFx(); redrawFxPanel(); setTimeout(commitClips, 0); }
   else if (it.kind === 'prop') {
     const pr = it.pr, len = (pr.end ?? player.total) - (pr.start || 0);
     if (which === 'start') { pr.start = Math.max(0, r((pr.start || 0) + delta)); if (pr.end != null) pr.end = r(pr.start + len); } else pr.end = r((pr.start || 0) + Math.max(MIN_CLIP, len + delta));
@@ -1601,8 +1611,8 @@ function nudgeSelected(which, delta) {
   }
 }
 /** true when a clip, background clip, prop or group was selected (and now is not): choosing a character, or tapping empty space, leaves the clip tools */
-const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || S.shadowSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = S.shadowSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
-const clearClipSelection = () => { S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = S.shadowSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
+const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || S.shadowSel || S.fxSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
+const clearClipSelection = () => { S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
 /** phone: what you can do with the selected clip (Split, Copy, Duplicate, Path, Delete and a More list) sits in the bottom bar, in place of the menu, instead of rows at the top */
 /** Crop of a background clip, like cropping a photo: a box with handles on the picture, ratios below (Free, Original, 1:1, 4:5, 9:16), a tick to apply. The kept part fills the frame (zoomed, never stretched). */
 const CROP_RATIOS = [['free', 'Free', null], ['orig', 'Original', 'orig'], ['1:1', '1:1', 1], ['4:5', '4:5', 4 / 5], ['9:16', '9:16', 9 / 16]];
@@ -1686,7 +1696,7 @@ function openEditDock(cfg) {
   const state = { key: cfg.params[0].key };
   const head = h('div', { class: 'ed-head' }), chips = h('div', { class: 'ed-chips' }), slide = h('div', { class: 'ed-slide' }), extra = h('div', { class: 'ed-extra' });
   const param = () => cfg.params.find((q) => q.key === state.key);
-  const show = (q) => `${Math.round(q.get())}${q.unit || ''}`;
+  const show = (q) => (q.fmt ? q.fmt(q.get()) : `${Math.round(q.get())}${q.unit || ''}`);
   const drawSlide = () => {
     const q = param(), val = h('b', { class: 'ed-val' }, show(q));
     const input = h('input', { type: 'range', min: q.min, max: q.max, step: q.step || 1, value: Math.round(q.get()), 'aria-label': q.label, oninput: (e) => { q.set(+e.target.value); val.textContent = show(q); const chip = chips.querySelector(`[data-k="${q.key}"] b`); if (chip) chip.textContent = show(q); cfg.onChange?.(); } });
@@ -1742,6 +1752,102 @@ function openShadowDock(kind, o) {
     head: () => [h('button', { type: 'button', class: 'ed-text', onclick: () => { const a = sh().angle; let n = 0; for (const x of shadowOwners()) if (x.o !== o) { x.o.shadow.angle = a; applyShadow(x.kind, x.o); n++; } toast(n ? `The light is the same for ${n} other shadow${n > 1 ? 's' : ''} now.` : 'There is no other shadow in the scene yet.'); } }, 'Same light for all')],
     extras: (key, { redraw }) => key !== 'angle' ? [] : [h('div', { class: 'ed-dirs' }, dirs.map(([deg, arrow]) => h('button', { type: 'button', class: `ed-dir${Math.round(sh().angle) === deg ? ' on' : ''}`, 'data-deg': deg, 'aria-label': `Shadow falls ${deg}°`, onclick: () => { sh().angle = deg; applyShadow(kind, o); redraw(); } }, arrow)))],
     onReset: () => { Object.assign(sh(), { ...SHADOW_DEFAULT }); applyShadow(kind, o); },
+  });
+}
+/* ---------- Effects: ready-made looks (Night, Ghost, Blur ...) on the timeline, for the whole scene or for one picture ---------- */
+const syncFx = () => { if (stage) stage.fx = S.fx; S.dirty = true; };
+const redrawFxPanel = () => { if (S.tab === 'fx' && S.panelOpen) redrawPanel(); };
+const fxTargetName = (target) => {
+  const kind = targetKind(target), id = targetId(target);
+  if (kind === 'bg') return 'Background';
+  if (kind === 'char') return sOf(id)?.name || 'Character';
+  if (kind === 'prop') return S.props.find((p) => p.id === id)?.name || 'Picture';
+  return 'Whole scene';
+};
+const fxTargetStillThere = (target) => { const kind = targetKind(target), id = targetId(target); return kind === 'char' ? !!sOf(id)?.charId : kind === 'prop' ? S.props.some((p) => p.id === id) : true; };
+/** what the user is working on: the selected character, prop or background; otherwise the whole scene (a chip in the Effects tab changes it) */
+const currentFxTarget = () => (S.fxPick && fxTargetStillThere(S.fxPick) ? S.fxPick : S.sel && sOf(S.sel)?.charId ? `char:${S.sel}` : S.propSel ? `prop:${S.propSel}` : S.bgSel ? 'bg' : 'scene');
+/** the time range a new effect starts with: the whole scene, or the span of the picture it is put on (the user trims it on the timeline afterwards) */
+function fxSpan(target) {
+  const kind = targetKind(target);
+  if (kind === 'prop') { const p = S.props.find((x) => x.id === targetId(target)); if (p) return { start: p.start || 0, end: p.end ?? Math.max(1, player.total) }; }
+  if (kind === 'bg') { const c = S.bgClips.find((x) => x.id === S.bgSel) || S.bgClips.find((x) => player.time >= x.start && player.time < x.start + x.dur); if (c) return { start: c.start, end: c.start + c.dur }; }
+  return { start: 0, end: Math.max(1, player.total) };
+}
+function addFx(tplId, target) {
+  const { start, end } = fxSpan(target), fx = newFx(tplId, { id: uid(), target, start: +start.toFixed(2), end: +end.toFixed(2), ramp: Math.min(0.3, (end - start) / 4) });
+  S.fx.push(fx); syncFx(); selectOnly('fx', fx.id); updateTotal(); drawTimeline(); redrawFxPanel(); commitClips();
+  if (!wideStudio() && S.panelOpen && S.tab === 'fx') { S.panelOpen = false; drawTabs(); }          // phone: show the stage with the effect on it (the Edit button is in the bar below the timeline)
+  return fx;
+}
+function duplicateFx() {
+  const it = selectedItem(); if (it?.kind !== 'fx') return;
+  const len = it.fx.end - it.fx.start, at = Math.min(snapTo(player.time), Math.max(0, player.total - 0.3)), copy = { ...clone(it.fx), id: uid(), start: at, end: +(at + len).toFixed(2) };
+  delete copy.locked; S.fx.push(copy); syncFx(); selectOnly('fx', copy.id); drawTimeline(); redrawFxPanel();
+}
+function dragFxRange(e, fx, mode, el) {
+  dragItem(e, mode, el, {
+    id: fx.id, key: keyOf('fx', fx.id), lock: `fx:${fx.id}`, room: Infinity,
+    get: () => ({ start: fx.start, dur: Math.max(MIN_CLIP, fx.end - fx.start), off: 0 }),
+    set: (r) => { fx.start = r.start; fx.end = +(r.start + r.dur).toFixed(2); },
+    select: () => { selectOnly('fx', fx.id); el.classList.add('sel'); },
+    after: () => { syncFx(); redrawFxPanel(); },
+  });
+}
+/** a small picture of what the effect will be put on, taken from the preview without any effect: the whole frame, or a crop around the character / prop */
+function fxSnapshot(target) {
+  if (!stage || S.exporting) return null;
+  const saved = stage.fx;
+  try {
+    stage.fx = [];
+    stage.render(player.time, 0, player.clips, shotPlan());
+    const W = stage.out.width, H = stage.out.height, b = stage.boundsOf(target, player.time);
+    let box = { x: 0, y: 0, w: W, h: H };
+    if (b && b.w > 8 && b.h > 8) {
+      const pad = Math.max(b.w, b.h) * 0.12, x0 = Math.max(0, b.x - pad), y0 = Math.max(0, b.y - pad), x1 = Math.min(W, b.x + b.w + pad), y1 = Math.min(H, b.y + b.h + pad);
+      if (x1 - x0 > 8 && y1 - y0 > 8) box = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    const k = Math.min(1, 200 / Math.max(box.w, box.h)), c = document.createElement('canvas'); c.width = Math.max(8, Math.round(box.w * k)); c.height = Math.max(8, Math.round(box.h * k));
+    c.getContext('2d').drawImage(stage.out, box.x, box.y, box.w, box.h, 0, 0, c.width, c.height);
+    return c;
+  } catch (e) { console.warn('Effects preview unavailable:', e.message); return null; }
+  finally { stage.fx = saved; S.dirty = true; }
+}
+const fxThumbOf = (snap, params, name) => {
+  const box = h('span', { class: 'fx-pic' });
+  if (!snap) { box.append(h('i', { class: 'fx-dot' })); return box; }
+  try { box.append(fxThumb(snap, params, snap.width, snap.height)); } catch (e) { console.warn(`Effect preview failed (${name}):`, e.message); }
+  return box;
+};
+/** the Effects tab: where it goes (chips), the 19 looks with a preview made from the real picture, and the effects already in the scene */
+function tabFx() {
+  const target = currentFxTarget(), snap = fxSnapshot(target), name = fxTargetName(target);
+  const targets = [['scene', 'Whole scene'], ['bg', 'Background'], ...S.speakers.filter((x) => x.charId).map((x) => [`char:${x.key}`, x.name]), ...S.props.filter((p) => p.visible !== false).slice(0, 12).map((p) => [`prop:${p.id}`, p.name])];
+  const chips = h('div', { class: 'fx-targets', role: 'group', 'aria-label': 'Put the effect on' }, targets.map(([id, label]) => h('button', { type: 'button', class: `ed-chip${id === target ? ' on' : ''}`, 'data-target': id, 'aria-pressed': String(id === target), onclick: () => { S.fxPick = id; redrawPanel(); } }, label)));
+  const grid = (group) => h('div', { class: 'tile-grid fx-grid' }, FX_TEMPLATES.filter((t) => t.group === group).map((t) => h('button', { type: 'button', class: 'tile fx-tile', 'data-fx': t.id, title: `${t.name} on ${name}`, onclick: () => addFx(t.id, target) },
+    h('span', { class: 'tile-pic' }, fxThumbOf(snap, cleanFx(t.params), t.name)), h('span', { class: 'tile-name' }, h('b', {}, t.name)))));
+  const inScene = S.fx.length ? h('div', { class: 'card flat fx-list' }, h('h2', {}, 'In the scene'), ...S.fx.map((f) => h('div', { class: `fx-row${f.id === S.fxSel ? ' on' : ''}`, 'data-id': f.id },
+    h('button', { type: 'button', class: 'fx-row-main', onclick: () => { selectOnly('fx', f.id); drawTimeline(); redrawPanel(); } }, h('b', {}, f.name), h('small', {}, `${fxTargetName(f.target)} · ${f.start.toFixed(1)}–${f.end.toFixed(1)}s`)),
+    h('button', { type: 'button', class: 'ib', title: f.visible === false ? 'Show' : 'Hide', 'aria-label': f.visible === false ? 'Show this effect' : 'Hide this effect', onclick: () => { f.visible = f.visible === false ? true : false; syncFx(); redrawPanel(); } }, icon(f.visible === false ? 'eye-off' : 'eye')),
+    h('button', { type: 'button', class: 'ib', title: 'Edit', 'aria-label': `Edit ${f.name}`, onclick: () => { selectOnly('fx', f.id); drawTimeline(); openFxDock(f); } }, icon('pencil')),
+    h('button', { type: 'button', class: 'ib', title: 'Delete', 'aria-label': `Delete ${f.name}`, onclick: () => { selectOnly('fx', f.id); deleteSelected(); } }, icon('trash')))))
+    : null;
+  return h('div', { class: 'list' },
+    h('div', { class: 'card flat' }, h('h2', {}, 'Effects'), h('p', { class: 'sub studio-help' }, `Tap a look to put it on: ${name}. Then drag it on the timeline to choose where it starts and ends, and tap Edit to change anything.`), chips),
+    ...FX_TEMPLATE_GROUPS.map((g) => h('div', { class: 'card flat' }, h('h3', { class: 'fx-h' }, g), grid(g))),
+    inScene);
+}
+/** the editor of one effect: every number, with the same preview on the stage while the slider moves */
+function openFxDock(fx) {
+  if (isKeyLocked(keyOf('fx', fx.id))) { lockedToast(); return; }
+  if (!wideStudio() && S.panelOpen) { S.panelOpen = false; drawTabs(); }          // on a phone the panel would cover the stage: the effect is watched on the stage while the sliders move
+  const P = () => (fx.params = cleanFx(fx.params)), scale = (c) => (c.key === 'hue' ? 1 : 100), fmt = (c) => (v) => (c.key === 'hue' ? `${Math.round(v)}°` : (v / 100).toFixed(2));
+  const params = [{ key: 'ramp', label: 'Fade in / out', min: 0, max: 300, get: () => (fx.ramp ?? 0.3) * 100, set: (v) => { fx.ramp = v / 100; }, fmt: (v) => `${(v / 100).toFixed(1)}s` },
+    ...FX_CONTROLS.filter((c) => !(c.key === 'opacity' && targetKind(fx.target) === 'scene')).map((c) => ({ key: c.key, label: c.label, min: c.min * scale(c), max: c.max * scale(c), step: Math.max(0.5, (c.step || 0.01) * scale(c)), get: () => P()[c.key] * scale(c), set: (v) => { P()[c.key] = v / scale(c); }, fmt: fmt(c) }))];
+  openEditDock({
+    title: `${fx.name} · ${fxTargetName(fx.target)}`, params, onChange: () => syncFx(), onClose: () => { drawTimeline(); redrawFxPanel(); commitClips(false); },
+    extras: (key) => (key !== 'tintAmount' ? [] : [h('label', { class: 'ed-colour' }, 'Tint colour ', h('input', { type: 'color', value: P().tint, 'aria-label': 'Tint colour', oninput: (e) => { P().tint = e.target.value; syncFx(); } }))]),
+    onReset: () => { const t = fxTemplate(fx.tpl); fx.params = cleanFx(t?.params); fx.ramp = 0.3; syncFx(); },
   });
 }
 /** a hand prop was tapped: which hand holds it? (a small bar at the bottom; the prop goes into that palm and its editor opens) */
@@ -1823,7 +1929,7 @@ function holdButton(btn, step) {
 /** lock / unlock the selected item on its own (a background clip, a prop or an animation clip) */
 function toggleItemLock() {
   const it = selectedItem(); if (!it) return;
-  const o = it.kind === 'clip' ? it.f.m : it.kind === 'bg' ? it.bc : it.kind === 'prop' ? it.pr : it.kind === 'shadow' ? it.sh.o.shadow : null; if (!o) return;
+  const o = it.kind === 'clip' ? it.f.m : it.kind === 'bg' ? it.bc : it.kind === 'prop' ? it.pr : it.kind === 'shadow' ? it.sh.o.shadow : it.kind === 'fx' ? it.fx : null; if (!o) return;
   o.locked = !o.locked; if (!o.locked) delete o.locked;
   if (it.kind === 'prop') dbPut('props', o); S.dirty = true; drawTimeline(); drawClipBar(); updateSel(); updateBgSel();
   toast(o.locked ? 'Locked: it cannot be moved, resized or deleted until you unlock it.' : 'Unlocked.');
@@ -1834,8 +1940,8 @@ function drawClipNav() {
   if (S.cropDraw) { drawCropNav(); return; }
   const many = multi.size >= 2, it = selectedItem();
   if (!it && !many) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }
-  const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop'].includes(kind);
-  const itemLockedNow = !many && isKeyLocked(kind === 'clip' ? keyOf('clip', m?.id) : kind === 'bg' ? keyOf('bg', it.bc?.id) : kind === 'prop' ? keyOf('prop', it.pr?.id) : kind === 'shadow' ? keyOf('shadow', it.sh?.id) : 'x:x'), hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, it?.bc?.id, it?.pr?.id, it?.sh?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath, itemLockedNow].join('|');
+  const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop', 'fx'].includes(kind);
+  const itemLockedNow = !many && isKeyLocked(kind === 'clip' ? keyOf('clip', m?.id) : kind === 'bg' ? keyOf('bg', it.bc?.id) : kind === 'prop' ? keyOf('prop', it.pr?.id) : kind === 'shadow' ? keyOf('shadow', it.sh?.id) : kind === 'fx' ? keyOf('fx', it.fx?.id) : 'x:x'), hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, it?.bc?.id, it?.pr?.id, it?.sh?.id, it?.fx?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath, itemLockedNow].join('|');
   clipNav.hidden = false;
   if (clipNav.dataset.sig === sig) return;
   clipNav.dataset.sig = sig;
@@ -1845,20 +1951,22 @@ function drawClipNav() {
     holdButton(h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move later' : 'Longer' }, icon('chevron-right')), (k) => nudgeSelected(which, NUDGE * k)));
   clipNav.replaceChildren(
     h('div', { class: 'cb-list' },
-      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : [btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected)]),
+      ...(kind === 'fx' ? [btn('pencil', 'Edit', () => openFxDock(it.fx), { title: 'Opacity, blur, contrast, saturation, tint and more' })] : []),
+      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected)]),
       ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
       ...(kind === 'prop' ? [btn('pencil', 'Edit', () => openPropEdit(it.pr), { title: 'Size, turn, opacity, glow, in front of or behind the characters' })] : []),
-      ...(kind !== 'bg' && kind !== 'clip' && kind !== 'prop' && kind !== 'shadow' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
+      ...(kind === 'fx' ? [btn('layers', 'Duplicate', duplicateFx)] : []),
+      ...(kind !== 'bg' && kind !== 'clip' && kind !== 'prop' && kind !== 'shadow' && kind !== 'fx' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
       btn('trash', 'Delete', deleteSelected, { class: 'cb-btn danger' })),
     h('details', { class: 'char-more' },
       h('summary', { title: 'More', 'aria-label': 'More clip tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
         ...(canNudge ? [nudge('Move', 'start'), nudge('Length', 'dur')] : []),
-        ...(kind === 'shadow' ? [] : [btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard })]),          // Prev / Next are already in the row above the timeline
+        ...(kind === 'shadow' || kind === 'fx' ? [] : [btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard })]),          // Prev / Next are already in the row above the timeline
         ...(kind === 'bg' || kind === 'clip' || kind === 'prop' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
-        ...(['clip', 'bg', 'prop', 'shadow'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
+        ...(['clip', 'bg', 'prop', 'shadow', 'fx'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
         btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))));
@@ -1892,6 +2000,7 @@ function copySelected() {
   if (f) S.clipboard = { type: 'clip', key: f.s?.key, data: clone(f.m) };
   else if (bc) S.clipboard = { type: 'bg', data: clone(bc) };
   else if (pr) S.clipboard = { type: 'prop', data: { ...pr } };
+  else if (S.fxSel && S.fx.some((x) => x.id === S.fxSel)) S.clipboard = { type: 'fx', data: clone(S.fx.find((x) => x.id === S.fxSel)) };
   else if (S.lineSel && lineModel(S.lineSel)) S.clipboard = { type: 'line', data: { id: S.lineSel } };      // an audio line is copied by reference to its sound
   else { toast('Please choose a clip on the timeline first, then copy it.'); return false; }
   // the hint is shown the first time only (and kept short); after that the Paste button / Ctrl+V are enough
@@ -1900,13 +2009,14 @@ function copySelected() {
 }
 /* ---------- the always-visible edit toolbar: split / copy / paste / duplicate / delete / jump between clips ---------- */
 /** is the one selected item on a locked layer? */
-const selectedLocked = () => { if (multi.size >= 2) return false; if (S.mclip) return isKeyLocked(keyOf('clip', S.mclip)); if (S.bgSel) return isKeyLocked(keyOf('bg', S.bgSel)); if (S.propSel) return isKeyLocked(keyOf('prop', S.propSel)); if (S.shadowSel) return isKeyLocked(keyOf('shadow', S.shadowSel)); if (S.lineSel && !S.mclip) return isLocked('audio'); return false; };
+const selectedLocked = () => { if (multi.size >= 2) return false; if (S.mclip) return isKeyLocked(keyOf('clip', S.mclip)); if (S.bgSel) return isKeyLocked(keyOf('bg', S.bgSel)); if (S.propSel) return isKeyLocked(keyOf('prop', S.propSel)); if (S.shadowSel) return isKeyLocked(keyOf('shadow', S.shadowSel)); if (S.fxSel) return isKeyLocked(keyOf('fx', S.fxSel)); if (S.lineSel && !S.mclip) return isLocked('audio'); return false; };
 const selectedItem = () => {
   const f = S.mclip && findManual(S.mclip), bc = S.bgSel && S.bgClips.find((x) => x.id === S.bgSel), pr = S.propSel && S.props.find((x) => x.id === S.propSel);
   if (f) return { kind: 'clip', f };
   if (bc) return { kind: 'bg', bc };
   if (pr) return { kind: 'prop', pr };
   const sh = S.shadowSel && shadowOwnerOf(S.shadowSel); if (sh) return { kind: 'shadow', sh };
+  const fx = S.fxSel && S.fx.find((x) => x.id === S.fxSel); if (fx) return { kind: 'fx', fx };
   const line = S.lineSel && lineById(S.lineSel);          // nothing else is picked: the audio line under the playhead
   return line ? { kind: 'line', line } : null;
 };
@@ -1924,7 +2034,7 @@ function copyOfLine(src, patch = {}) {
 }
 /** after the audio lines changed: split / duplicate / paste keep the zoom and the playhead; a delete also refreshes the speakers */
 async function lineEdited(selectId, { full = false } = {}) {
-  S.lineSel = selectId; S.mclip = S.bgSel = S.propSel = S.shadowSel = null;
+  S.lineSel = selectId; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null;
   if (full) await afterAudioChange();
   else { await retimeAudio(); drawTimeline(); drawLineBox(); drawTabs(); }
   drawClipBar(); S.dirty = true;
@@ -1990,8 +2100,9 @@ async function deleteSelected() {
   if (it.kind === 'line') { await deleteLine(it.line); return; }
   if (it.kind === 'clip') { it.f.list.splice(it.f.list.indexOf(it.f.m), 1); S.mclip = null; commitClips(); return; }
   if (it.kind === 'bg') { S.bgClips = S.bgClips.filter((x) => x !== it.bc); S.bgSel = null; await syncBgClips(); commitClips(); return; }
-  if (it.kind === 'shadow') { const { kind, o } = it.sh; delete o.shadow; S.shadowSel = null; applyShadow(kind, o); drawClipBar(); return; }
-  await dbDel('props', it.pr.id); S.props = S.props.filter((p) => p.id !== it.pr.id); S.propSel = S.shadowSel = null; await stage.setProps(S.props); S.dirty = true; commitClips();
+  if (it.kind === 'fx') { S.fx = S.fx.filter((x) => x !== it.fx); S.fxSel = null; syncFx(); S.editDock?.close(); drawTimeline(); drawClipBar(); redrawFxPanel(); commitClips(); return; }
+  if (it.kind === 'shadow') { const { kind, o } = it.sh; delete o.shadow; S.shadowSel = S.fxSel = null; applyShadow(kind, o); drawClipBar(); return; }
+  await dbDel('props', it.pr.id); S.props = S.props.filter((p) => p.id !== it.pr.id); S.propSel = S.shadowSel = S.fxSel = null; await stage.setProps(S.props); S.dirty = true; commitClips();
 }
 /** every start / end of a clip on the timeline, sorted: "previous / next edit" jumps between them */
 function clipEdges() {
@@ -2038,6 +2149,8 @@ async function pasteClip() {
     if (!s?.charId) { toast('The character for this clip is not in the scene.'); return; }
     const m = { ...clone(cb.data), id: uid(), start: at }; (S.manual[s.key] ||= []).push(m); selectOnly('clip', m.id);
     const b = busy('Pasting clip…'); try { await applyLayers(); } catch (e) { toast(`Could not paste the clip: ${e.message}`); } finally { b.done(); }
+  } else if (cb.type === 'fx') {
+    const len = cb.data.end - cb.data.start, f = { ...clone(cb.data), id: uid(), start: at, end: +(at + len).toFixed(2) }; delete f.locked; S.fx.push(f); selectOnly('fx', f.id); syncFx();
   } else if (cb.type === 'bg') {
     const c = { ...clone(cb.data), id: uid(), start: at }; S.bgClips.push(c); selectOnly('bg', c.id); await syncBgClips();
   } else {
@@ -2058,7 +2171,7 @@ function rangeBar(bc, pr) {
     arrows('Length', () => (bc ? bc.dur : (pr.end ?? player.total) - (pr.start || 0)), (v) => { if (bc) bc.dur = Math.max(MIN_CLIP, +v.toFixed(2)); else pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }, () => { if (bc) syncBgClips(); else { stage.setProps(S.props); dbPut('props', pr); } setTimeout(commitClips, 0); }),
     ...(bc ? [] : [btn('↔ Whole scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Remove start / end: show through the whole scene')]),
     btn('🗑 Delete', deleteSelected, bc ? 'Remove this background clip' : 'Remove this prop'),
-    btn('✕', () => { S.bgSel = null; S.propSel = S.shadowSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
+    btn('✕', () => { S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
 }
 
 /* ---------- movement keyframes of a character (position, size, facing) ---------- */
@@ -2778,7 +2891,7 @@ function saveXf(l) {
 const moveLaneOpen = (key) => (key in S.moveOpen ? S.moveOpen[key] : S.sel === key);
 let moveSel;
 function updateSel() {
-  if (moveSel !== S.sel) { const had = moveSel; moveSel = S.sel; for (const k of [had, S.sel]) if (k && S.moveOpen[k] === false) delete S.moveOpen[k]; if (Object.keys(S.charKeys).length) drawTimeline(); }
+  if (moveSel !== S.sel) { const had = moveSel; moveSel = S.sel; S.fxPick = null; if (S.tab === 'fx') setTimeout(redrawFxPanel, 0); for (const k of [had, S.sel]) if (k && S.moveOpen[k] === false) delete S.moveOpen[k]; if (Object.keys(S.charKeys).length) drawTimeline(); }
   if (S.sel) S.handHolder = S.sel;          // the Props tab keeps offering the hand of the last chosen character while a prop is selected
   syncStart(); updateBgSel();
   if (stage.overflow) { selEl && (selEl.hidden = true); Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (propSelEl) propSelEl.hidden = true; return; }
@@ -3551,21 +3664,11 @@ function tabCanvas() {
     drawTabs();
     updateTotal(); drawTimeline(); S.dirty = true;
   };
-  /** hold a background: effects for it (Night, Evening ...) and Delete */
-  const applyBgFx = async (rec, fxId) => {
-    const fx = bgEffectId(fxId), usable = (c) => c.bgId === rec.id;
-    let c = S.bgClips.find((x) => x.id === S.bgSel && usable(x)) || S.bgClips.find((x) => usable(x) && player.time >= x.start && player.time < x.start + x.dur);
-    if (!c) { await addBgClip(rec); c = S.bgClips.find((x) => x.id === S.bgSel && usable(x)) || S.bgClips.at(-1); }
-    if (!c) return;
-    if (fx) c.fx = fx; else delete c.fx;
-    S.bgSel = c.id; await syncBgClips(); S.dirty = true; commitClips(); drawTabs();
-  };
+  /** hold a background: Delete (and a way to the Effects tab) */
   const openBgOptions = (rec) => {
-    const cur = S.bgClips.find((x) => x.id === S.bgSel && x.bgId === rec.id)?.fx || 'none';
     let close;
-    const chips = BG_EFFECTS.map((e) => h('button', { type: 'button', class: `btn sm bg-fx${cur === e.id ? ' pri' : ''}`, 'data-fx': e.id, 'aria-pressed': String(cur === e.id), onclick: async () => { close(); await applyBgFx(rec, e.id); } }, h('i', { class: 'fx-dot', style: `background:${e.dot}` }), e.name));
-    close = modal(rec.name.replace(/\.[^.]+$/, ''), h('div', {}, h('h3', { style: 'margin:0 0 8px' }, 'Effects'), h('div', { class: 'bg-fx-row' }, chips),
-      h('div', { class: 'row', style: 'margin-top:14px' }, h('button', { type: 'button', class: 'btn sm danger bg-delete', onclick: async () => { close(); await removeBg(rec); } }, icon('trash'), ' Delete this background'))));
+    close = modal(rec.name.replace(/\.[^.]+$/, ''), h('div', {}, h('p', { class: 'sub' }, 'Looks like Night or Blur are in the Effects tab: they can colour the whole scene, the characters too.'),
+      h('div', { class: 'row', style: 'margin-top:14px' }, h('button', { type: 'button', class: 'btn sm', onclick: () => { close(); openTab('fx'); } }, icon('wand'), ' Open Effects'), h('button', { type: 'button', class: 'btn sm danger bg-delete', onclick: async () => { close(); await removeBg(rec); } }, icon('trash'), ' Delete this background'))));
   };
   // one list: "+" first (opens the device's files), then the pictures this project already has, the generated ones and the admin's shared scenes
   const mine = h('div', { class: 'tile-grid' },
@@ -3670,7 +3773,7 @@ async function exportJob(W, H) {
       aspect: S.aspect, short: S.quality, fps: S.fps, level: S.level, format: S.format, W, H, maxTex: S.quality >= 2160 ? 4096 : 2048,
       chars: ids.map((id) => { const d = S.characters.find((c) => c.id === id) || S.libDefs.get(id); return { id, ske: d.ske, tex: d.tex }; }),
       tearSprite: layers.some(layer => layer.tears?.style) ? await loadTearSprite() : null,
-      bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), bgBlank: bgBlankOutside(), grade: gradeActive(S.grade) ? { ...S.grade } : null, gradeKeys: S.gradeKeys.map((k) => ({ t: k.t, grade: k.grade })), props: S.props.map((prop) => ({ ...prop })),
+      bg: { preset: stage.bg.preset, image: S.bgId ? S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null : null }, bgClips: bgClipJobs(), bgBlank: bgBlankOutside(), grade: gradeActive(S.grade) ? { ...S.grade } : null, gradeKeys: S.gradeKeys.map((k) => ({ t: k.t, grade: k.grade })), fx: clone(S.fx), props: S.props.map((prop) => ({ ...prop })),
       layers, plan: shotPlan(), camKeys: stage.camKeys, voice: player.clips.map((c) => ({ speaker: c.speaker, start: c.start, end: c.end, visemes: c.visemes })),
     };
   return job;
@@ -3798,6 +3901,14 @@ let historyDepth = 0, historyPointer = null, historyQueued = false, historyGroup
 let hdrUndo, hdrRedo, savedEl, lastSaved = '', saving = false, savedTimer;
 const savedAudio = new Set();
 
+/** projects from before Effects: a Night / Evening ... on a background clip only darkened the picture. It becomes a scene effect, which also colours the characters. */
+function migrateBgEffects() {
+  for (const c of S.bgClips) {
+    if (!c.fx) continue;
+    if (fxTemplate(c.fx)) S.fx.push(newFx(c.fx, { id: uid(), target: 'scene', start: +c.start.toFixed(2), end: +(c.start + c.dur).toFixed(2) }));
+    delete c.fx;
+  }
+}
 /** the part of the project that undo / redo travels through */
 function sceneDoc() {
   for (const line of S.lines) sceneAudio.set(line.id, line);
@@ -3809,6 +3920,7 @@ function sceneDoc() {
     speakers: S.speakers.map((s) => ({ skins: s.skins || null, manual: !!s.manual, key: s.key, name: s.name, narrator: !!s.narrator, color: s.color, charId: s.charId, flip: !!s.flip, _flipSet: !!s._flipSet, _chosen: !!s._chosen, visible: s.visible !== false, xf: s.xf || null, mask: s.mask ? { ...s.mask } : null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', tears: s.tears ? tearConfig(s.tears) : null })),
     order: [...S.order], cast: clone(Object.fromEntries(S.cast)), shots: clone(Object.fromEntries(S.shots)), script: Object.fromEntries(S.script), solo: clone(S.solo), manual: clone(S.manual), charKeys: clone(S.charKeys), paths: clone(S.paths), grade: gradeActive(S.grade) ? clone(S.grade) : null, gradeKeys: clone(S.gradeKeys), camKeys: clone(S.camKeys), aspect: S.aspect, bgId: S.bgId, bgClips: clone(S.bgClips), bgPreset: stage?.bg.preset ?? 0,
     props: S.props.map((prop) => ({ ...prop, blob: bid(prop.blob) })),
+    fx: clone(S.fx),
   };
 }
 function docOf() {
@@ -3872,7 +3984,9 @@ async function loadSceneDoc(doc) {
   syncCam(); syncChars();
   if (doc.aspect && doc.aspect !== S.aspect) { S.aspect = doc.aspect; stage.setSize(S.aspect, S.preview); }
   S.bgId = doc.bgId ?? null; stage.bg.preset = doc.bgPreset ?? 0;
-  S.bgClips = JSON.parse(JSON.stringify(doc.bgClips || [])); S.bgSel = null; S.propSel = S.shadowSel = null;
+  S.bgClips = JSON.parse(JSON.stringify(doc.bgClips || [])); S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null;
+  S.fx = (Array.isArray(doc.fx) ? clone(doc.fx) : []).filter((f) => f && f.id && Number.isFinite(f.start) && Number.isFinite(f.end)).map((f) => ({ ...f, params: cleanFx(f.params) }));
+  migrateBgEffects(); syncFx();
   await stage.setBackgroundImage(S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null);
   await syncBgClips();
   await ensureDefs();
@@ -4088,7 +4202,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, propHit, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { S, addFx, openFxDock, migrateBgEffects, syncFx, propHit, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;

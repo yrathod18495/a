@@ -572,3 +572,27 @@ body.studio-dark #app .ws .tl2 .tclip.shadow{--k-fill:#1d1f24;--k-edge:#8b909c;b
 /* no scroll bar under the timeline: it took a whole row. Move along with the playhead (drag it near an edge), the wheel, or a swipe. */
 #app .ws .tl2 .tl-scroll,:root[data-theme] body #app .ws .tl2 .tl-scroll{scrollbar-width:none !important}
 #app .ws .tl2 .tl-scroll::-webkit-scrollbar{display:none !important;width:0;height:0}
+
+/* ---- Effects: a layer on the timeline, the tab with previews ---- */
+.tl2 .tclip.fxl{--k-fill:#4a2f7a;--k-edge:#b18cff;background:var(--k-fill) !important;border:1px solid var(--k-edge) !important;border-radius:8px !important;color:#f6f0ff !important}
+body.studio-dark #app .ws .tl2 .tclip.fxl{--k-fill:#4a2f7a;--k-edge:#b18cff}
+.tl2 .tclip.fxl.off{opacity:.45}
+.tl2 .tclip.fxl .tn{display:flex;align-items:center;gap:5px}
+.tl2 .tclip.fxl .tn .ic{width:13px;height:13px}
+.fx-targets{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:4px 0}
+.fx-targets::-webkit-scrollbar{display:none}
+.fx-targets .ed-chip{flex:0 0 auto;min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:99px;background:var(--card2);color:var(--text);font-size:12.5px;font-weight:650;white-space:nowrap}
+.fx-targets .ed-chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.fx-h{margin:0 0 8px;font-size:13px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.fx-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+.fx-tile .tile-pic{display:grid;place-items:center;overflow:hidden;background:#0d0e10;aspect-ratio:16/10}
+.fx-pic{display:grid;place-items:center;width:100%;height:100%}
+.fx-pic canvas{max-width:100%;max-height:100%;width:auto;height:100%;object-fit:contain;display:block}
+.fx-dot{width:26px;height:26px;border-radius:50%;background:var(--acc)}
+.fx-list .fx-row{display:flex;align-items:center;gap:6px;padding:6px 4px;border-radius:10px}
+.fx-list .fx-row.on{background:var(--card2)}
+.fx-row-main{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;background:none;border:0;color:var(--text);padding:4px 6px}
+.fx-row-main small{color:var(--mute)}
+.edit-dock .ed-colour{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text)}
+@media (max-width:860px){ .fx-grid{grid-template-columns:repeat(3,minmax(0,1fr))} .fx-grid .tile-name b{font-size:11.5px} }
+body.studio-dark #app .ws .tl2 .tclip.fxl.fxl.fxl,#app .ws .tl2 .tclip.fxl.fxl.fxl{--k-fill:#4a2f7a;--k-edge:#b18cff;background:var(--k-fill) !important;border-color:var(--k-edge) !important}

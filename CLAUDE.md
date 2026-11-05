@@ -28,3 +28,7 @@ This also applies to how Claude talks to the user in chat for this project: repl
 ## Timeline and phone-studio rules (permanent rule)
 
 Every layer must stay visible on a short timeline (rows shrink together), the character "◆ move" lane is collapsible, and the phone bottom bar must never cut its labels. Details, the code that does it and the tests: `docs/TIMELINE-RULES.md`. Read it before changing the timeline.
+
+## Effects (permanent rule)
+
+Effects are layers on the timeline for the whole scene (characters too) or for one picture. How they work, where to add a look and the rules: `docs/EFFECTS.md`. Read it before changing effects, the Colour grade or the renderer passes.

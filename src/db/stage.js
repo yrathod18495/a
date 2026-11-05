@@ -2,6 +2,7 @@
 // Characters are DragonBones armatures (src/db/glslot.js) drawn by our WebGL renderer (src/db/renderer.js).
 import { bgTint } from '../../shared/bg-effects.js';
 import { gradeAt } from '../../shared/color-grade.js';
+import { fxAt, mergeFx, cleanFx } from '../../shared/fx.js';
 import { bindTearEyes, drawTears } from './tears.js';
 import { GLFactory } from './glslot.js';
 import { prepareArmature, assemble } from './prep.js';
@@ -91,6 +92,7 @@ export class Stage {
     this.grade = null; this.gradeKeys = []; this.bgTex = null; this.bgCache = new Map(); this.bgClips = []; this.imgIds = new WeakMap(); this.imgSeq = 0;   // backgrounds can change over time: one texture per (colour, picture, size)
     this.prepCache = new Map(); this.uid = 0;
     this.artworkCanvas = new Map();
+    this.fx = [];             // effects on the timeline: [{ id, target: 'scene' | 'char:<key>' | 'prop:<id>' | 'bg', start, end, ramp, params, visible }]
     // a phone takes the graphics memory back when the page goes to the background (or memory runs short): the picture then turns blank / white.
     // Keep the context alive (preventDefault) and, when it comes back, load every picture to the graphics card again.
     this.watchContext(this.out);
@@ -537,7 +539,9 @@ export class Stage {
       if(l.maskFollow){const bone=l.arm.getBone(l.maskFollow);if(bone){const m=bone.globalTransformMatrix, p={x:l.mat[0]*m.tx+l.mat[2]*m.ty+l.mat[4],y:l.mat[1]*m.tx+l.mat[3]*m.ty+l.mat[5]};l.mask={...l.mask,x:(p.x-l.mask.w*this.W/2)/this.W,y:(p.y-l.mask.h*this.H/2)/this.H};}}
     }
     this.ensureBackground(th);
-    r.target(this.gradeKeys.length ? gradeAt(this.gradeKeys, t, this.grade) : this.grade, W, H);                             // colour grade on: the scene goes into a texture first
+    const fxNow = fxAt(this.fx, th), base = this.gradeKeys.length ? gradeAt(this.gradeKeys, t, this.grade) : this.grade;
+    r.target(fxNow.scene ? mergeFx([...(base ? [cleanFx(base)] : []), fxNow.scene]) : base, W, H);                             // colour grade / effects on: the scene goes into a texture first
+    this.fxItems = fxNow.items;
     r.clear(...(this.userCam ? [0.93, 0.95, 0.97] : this.overflow ? [0.1, 0.11, 0.13] : [0, 0, 0]));
     const cam = this.cameraAt(plan, t), vw = W / cam.zoom, vh = H / cam.zoom;
     this.camZoom = cam.zoom;
@@ -545,20 +549,24 @@ export class Stage {
     this.view = { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh };      // the part of the canvas on screen (the editor maps pen lines through it)
     r.begin(W, H, { x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
     r.setMask(null, W, H);
+    const bgFx = this.fxItems.get('bg'); if (bgFx) r.itemBegin(W, H);
     const bx = this.bgXf;
     const tint = this.bgFx ? bgTint(this.bgFx) : [1, 1, 1];          // the effect of this background (Night, Evening ...)
     if (bx && (bx.s !== 1 || bx.x || bx.y)) { const w = W * bx.s, hh = H * bx.s; r.quad(this.bgTex, 0, 0, W, H, tint.map((v) => v * 0.4));          // a shrunk or moved background: the rest of the frame shows a dimmed copy of it (never black)
       r.quad(this.bgTex, W / 2 + bx.x * W - w / 2, H / 2 + bx.y * H - hh / 2, w, hh, tint); }
     else r.quad(this.bgTex, 0, 0, W, H, tint);
+    if (bgFx) r.itemEnd(bgFx, Math.floor(t * 30));
     this.drawShadows(th);                                  // cast shadows lie on the ground, under everything else
     this.drawProps(th, true);                               // props placed behind the characters
     const list = [];
     for (const layer of this.layers) layer.tearAnchors = {};
     for (const l of this.layers) if (l.visible !== false && l.shown !== false) {
+      const lf = this.fxItems.get(`char:${l.key}`); if (lf) r.itemBegin(W, H);
       r.setMask(l.mask, W, H);
       list.length = 0; this.collect(l, list);
       for (const it of list) r.add(it, l.tex.get(it.atlas.imagePath) || this.assets.get(l.charId).pages.get(it.atlas.imagePath), l.mat);
       drawTears(r, this.tearTex, l, list, t);
+      if (lf) { r.setMask(null, W, H); r.itemEnd(lf, Math.floor(t * 30)); }
     }
     r.setMask(null, W, H);
     this.drawProps(th, false);
@@ -596,6 +604,15 @@ export class Stage {
       for (const [dx, dy] of offsets) for (const it of list) r.add(it, l.tex.get(it.atlas.imagePath) || this.assets.get(l.charId).pages.get(it.atlas.imagePath), [F[0], F[1], F[2], F[3], F[4] + dx, F[5] + dy], al, true);
     }
   }
+  /** the rectangle of the preview picture (in its pixels) that a character or prop covers at time t; null for the whole scene and the background. Used to crop the Effects previews to what the user is working on. */
+  boundsOf(target, t) {
+    const kind = String(target).split(':')[0], id = String(target).slice(kind.length + 1); let b = null;
+    if (kind === 'char') { const l = this.layers.find((x) => x.key === id); if (l?.box && l.shown !== false) b = { x0: l.box.x0, y0: l.box.y0, x1: l.box.x1, y1: l.box.y1 }; }
+    else if (kind === 'prop') { const p = this.props.find((x) => x.id === id), pl = p && this.propPlacement(p, t); if (pl) { const r = Math.max(pl.w, pl.h) / 2; b = { x0: pl.cx - r, y0: pl.cy - r, x1: pl.cx + r, y1: pl.cy + r }; } }
+    if (!b) return null;
+    const v = this.view || { x: 0, y: 0, w: this.W, h: this.H }, f = this.W / v.w;
+    return { x: (b.x0 - v.x) * f, y: (b.y0 - v.y) * f, w: (b.x1 - b.x0) * f, h: (b.y1 - b.y0) * f };
+  }
   /** where a prop is drawn: centre, size and turn in canvas pixels. A held prop follows the palm of its character; null while that character is off screen. */
   propPlacement(prop, t) {
     const { W, H } = this, w = Math.max(8, (prop.w || 0.18) * W), h = Math.max(8, (prop.h || 0.18) * H);
@@ -614,12 +631,14 @@ export class Stage {
       const tex = this.propTex.get(prop.id);
       if (!tex || !propActive(prop, t) || (prop.behind === true && prop.kind !== 'effect') !== behind) continue;
       const pl = this.propPlacement(prop, t); if (!pl) continue;
+      const pf = this.fxItems?.get(`prop:${prop.id}`); if (pf) r.itemBegin(W, H);
       const { w, h, cx, cy, a, flip } = pl;
       const c = Math.cos(a), s = Math.sin(a);
       const m = [c, s, -s, c, cx - c * w / 2 + s * h / 2, cy - s * w / 2 - c * h / 2];
       let [u0, v0, u1, v1] = sheetUv(prop.sheet, this.propClock ?? (t - (prop.start || 0)));       // sprite-sheet effects play their frames
       if (flip) [u0, u1] = [u1, u0];
       r.add({ verts: new Float32Array([0, 0, w, 0, w, h, 0, h]), uvs: new Float32Array([u0, v0, u1, v0, u1, v1, u0, v1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: Math.min(1, Math.max(0, prop.opacity ?? 1)), r: 1, g: 1, b: 1, blend: EFFECT_BLENDS[prop.blend] ?? 0 }, tex, m);
+      if (pf) { r.setMask(null, W, H); r.itemEnd(pf, Math.floor(t * 30)); }
     }
   }
 

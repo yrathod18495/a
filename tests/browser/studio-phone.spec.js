@@ -41,11 +41,11 @@ test('the "..." menu opens inside the screen', async ({ page }) => {
   expect(panel.x).toBeGreaterThanOrEqual(0); expect(panel.x + panel.width).toBeLessThanOrEqual(360); await expect(page.getByRole('button', { name: /Reset this project/ })).toBeVisible();
 });
 
-test('the bottom bar: Upload, Characters, Animations, Props, Objects, Shadow, Background, More (the whole bar scrolls sideways, nothing is pinned); Export is the last item of Advanced', async ({ page }) => {
+test('the bottom bar: Upload, Characters, Animations, Props, Objects, Shadow, Effects, Background, More (the whole bar scrolls sideways, nothing is pinned); Export is the last item of Advanced', async ({ page }) => {
   await phone(page, 390);
   const bar = page.locator('#app .tabs.big');
   const items = await bar.evaluate((el) => [...el.querySelectorAll(':scope > button, :scope > details, :scope > .tabs-scroll > button, :scope > .tabs-scroll > details')].map((c) => ({ label: c.tagName === 'DETAILS' ? c.querySelector('summary').textContent.trim() : c.textContent.trim() })));
-  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Props', 'Objects', 'Shadow', 'Background', 'More']);
+  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Props', 'Objects', 'Shadow', 'Effects', 'Background', 'More']);
   const barBox = await bar.boundingBox(), sc = await bar.locator('.tabs-scroll').evaluate((e) => ({ scrolls: e.scrollWidth > e.clientWidth, x: getComputedStyle(e).overflowX }));
   expect(sc.x).toBe('auto');                                                                    // the middle slides sideways
   const first = await bar.locator('.tabs-scroll > :first-child').evaluate((e) => e.textContent.trim()), last = await bar.locator('.tabs-scroll > :last-child > summary').evaluate((e) => e.textContent.trim());
@@ -61,7 +61,7 @@ test('the bottom bar: Upload, Characters, Animations, Props, Objects, Shadow, Ba
   // Advanced ends with Export
   await bar.locator('summary[title="More tools"]').click();
   const names = await bar.locator('.advanced-tools-list button').evaluateAll((b) => b.map((x) => x.title));
-  expect(names.at(-1)).toBe('Export'); expect(names).toEqual(['Tears', 'Effects', 'Colour', 'Move', 'Camera', 'Mask', 'AI', 'Export']);
+  expect(names.at(-1)).toBe('Export'); expect(names).toEqual(['Tears', 'Overlays', 'Colour', 'Move', 'Camera', 'Mask', 'AI', 'Export']);
   await bar.locator('.advanced-tools-list button[title="Export"]').click();
   expect(await tab()).toBe('export'); await expect(page.locator('.panel')).toContainText(/Export/);
   await expect(bar.locator('.advanced-tools')).toHaveClass(/has-active/);                                    // Advanced shows it is the open one
