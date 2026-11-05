@@ -39,10 +39,14 @@ export const objectExists = head;
 /** deleting is free on R2 */
 export const deleteKey = (key) => client().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key })).catch(() => {});
 
-const putUrl = async (key, size) => ({
+export const putUrl = async (key, size) => ({
   url: await getSignedUrl(client(), new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: 'application/octet-stream', ContentLength: size }), { expiresIn: UPLOAD_TTL }),
   headers: { 'Content-Type': 'application/octet-stream' },
 });
+/** cloud-export videos live outside the 300 MB project-asset quota and are deleted after VIDEO_TTL_MS */
+export const MAX_VIDEO = 1024 * 1024 * 1024, MAX_VIDEOS_TOTAL = 3 * 1024 * 1024 * 1024, VIDEO_TTL_MS = 3 * 24 * 3600 * 1000;
+export const videoKey = (uid, jobId) => `u/${uid}/v/${jobId}.mp4`;
+export const videoUrl = (key, filename) => getSignedUrl(client(), new GetObjectCommand({ Bucket: bucket(), Key: key, ResponseContentType: 'video/mp4', ResponseContentDisposition: `attachment; filename="${filename}"` }), { expiresIn: DOWNLOAD_TTL });
 export const getUrl = (key) => getSignedUrl(client(), new GetObjectCommand({ Bucket: bucket(), Key: key }), { expiresIn: DOWNLOAD_TTL });
 
 function cleanItems(items, max = MAX_ITEMS) {

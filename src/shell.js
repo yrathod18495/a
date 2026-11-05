@@ -294,6 +294,7 @@ function profileMenu() {
       moon: 'M21 12.8A9 9 0 0 1 11.2 3 9 9 0 1 0 21 12.8Z',
       sun: 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5',
       affiliate: 'M4 17l6-6 4 4 6-10m-6 0h6v6',
+      cloud: 'M7 18a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9H7Z',
       admin: 'M4 7h16M4 17h16M8 4v6m8 4v6',
       logout: 'M10 4H4v16h6m4-12 4 4-4 4M8 12h10',
       coins: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.5h-3a1.7 1.7 0 0 0 0 3.5h4',
@@ -325,6 +326,7 @@ function profileMenu() {
       h('div', { class: 'sh-account-copy' }, h('span', { class: 'sh-menu-kicker' }, 'YOUR ACCOUNT'), h('b', {}, name), h('small', {}, user.email || ''), h('span', { class: 'sh-plan' }, 'Free plan'))),
     h('div', { class: 'sh-menu-section' }, themeItem,
       item('coins', 'Buy Coins', 'Explore packs, balance and payment history', () => go('#/credits')),
+      item('cloud', 'My cloud videos', 'Download your cloud exports (kept 3 days)', async () => { const m = await import('./cloud-videos.js'); m.openCloudVideos(user.uid); }),
       item('affiliate', 'Affiliate dashboard', 'Your referrals and earnings', () => go('#/affiliate-dashboard')),
       ...(role === 'admin' ? [item('admin', 'Admin panel', 'Manage your workspace', () => go('#/admin'))] : [])),
     h('div', { class: 'sh-menu-footer' }, item('logout', 'Log out', 'Sign out of this account', async () => { await signOutUser(); go('#/'); }, 'sh-mi-logout')));

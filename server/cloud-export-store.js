@@ -13,11 +13,11 @@ export const jobPath = (uid, id) => `cloudExports/${uid}/${id}`;
 const isId = (v) => typeof v === 'string' && /^[a-zA-Z0-9_-]{6,64}$/.test(v);
 
 /** a new job id + a random, unguessable secret (the only thing that lets the anonymous render page act on this job) */
-export async function createJob(store, uid, { projectId, sceneId = null, settings, seconds, scenes, scope }) {
+export async function createJob(store, uid, { projectId, projectName = '', sceneId = null, settings, seconds, scenes, scope }) {
   const id = 'cexp_' + crypto.randomBytes(12).toString('hex'), secret = crypto.randomBytes(24).toString('hex');
   const job = {
-    uid, projectId, sceneId, settings, seconds, scenes, scope,
-    secret, status: 'pending', progress: 0, hash: null, size: null, error: null,
+    uid, projectId, projectName, sceneId, settings, seconds, scenes, scope,
+    secret, status: 'pending', progress: 0, size: null, error: null,
     createdAt: Date.now(), updatedAt: Date.now(),
   };
   await store.set(jobPath(uid, id), job);
@@ -48,4 +48,14 @@ export async function cancelJob(store, uid, id) {
   if (TERMINAL.has(job.status)) return job;
   await updateJob(store, uid, id, { status: 'cancelled' });
   return { ...job, status: 'cancelled' };
+}
+
+/** finished videos stay for 3 days (listed in cloudVideos/<uid>/<jobId>), then are deleted from R2 and from this list */
+export const videosPath = (uid) => `cloudVideos/${uid}`;
+export async function listVideos(store, uid, deleteFile) {
+  const rows = (await store.get(videosPath(uid))) || {}, now = Date.now(), live = [];
+  for (const [id, v] of Object.entries(rows)) {
+    if (v.expiresAt <= now) { await deleteFile(id); await store.remove(`${videosPath(uid)}/${id}`); } else live.push({ id, ...v });
+  }
+  return live.sort((a, b) => b.createdAt - a.createdAt);
 }

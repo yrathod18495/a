@@ -9,14 +9,14 @@ import { AccessError } from '../server/security-policy.js';
 import { effectiveTier, setTier } from '../server/entitlements.js';
 import { EXPORT_LIMIT_SECONDS, limitFor, withinLimit, limitMessage } from '../shared/export-limits.js';
 import { kv } from '../server/rtdb.js';
-import { assetKey, stateKey, getUrl, readText, objectExists, confirmAssets, signUploads, MAX_FILE } from '../server/r2-storage.js';
-import { createJob, getJob, jobBySecret, updateJob, cancelJob, publicJob, TERMINAL } from '../server/cloud-export-store.js';
+import { assetKey, stateKey, getUrl, readText, objectExists, confirmAssets, signUploads, putUrl, videoKey, videoUrl, deleteKey, MAX_FILE, MAX_VIDEO, MAX_VIDEOS_TOTAL, VIDEO_TTL_MS } from '../server/r2-storage.js';
+import { createJob, getJob, jobBySecret, updateJob, cancelJob, publicJob, listVideos, videosPath, TERMINAL } from '../server/cloud-export-store.js';
 
 const MAX_SECONDS = 24 * 3600;
 const validGrant = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{4,40}$/.test(value);
 const validUid = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
 const idOK = (v) => typeof v === 'string' && /^[a-zA-Z0-9_-]{6,128}$/.test(v);
-const QUALITIES = new Set([480, 720, 1080, 1440, 2160]), FPS = new Set([24, 30, 60, 90]), LEVELS = new Set(['std', 'high', 'max']), FORMATS = new Set(['webm', 'mp4']);
+const QUALITIES = new Set([480, 720, 1080, 1440, 2160]), FPS = new Set([24, 30, 40, 60, 90]), LEVELS = new Set(['std', 'high', 'max']), FORMATS = new Set(['webm', 'mp4']);
 function cleanSettings(s) {
   if (!s || typeof s !== 'object') throw new AccessError('invalid_settings', 'The export settings are not valid.', 400);
   const quality = QUALITIES.has(+s.quality) ? +s.quality : 1080, fps = FPS.has(+s.fps) ? +s.fps : 30;
@@ -47,10 +47,11 @@ export default async function handler(req, res) {
         return send(res, 200, { settings: job.settings, scope: job.scope, meta: { id: job.projectId, kind: 'animation', revision: proj.revision, updatedAt: proj.updatedAt || Date.now() }, manifest, assetUrls });
       }
       if (b.action === 'cloudPresign') {
-        const hash = String(b.hash || ''), size = Number(b.size);
-        if (!/^[a-f0-9]{64}$/.test(hash) || !Number.isSafeInteger(size) || size < 1 || size > MAX_FILE) throw new AccessError('invalid_file', 'The rendered video is not valid.', 400);
-        const signed = await signUploads(job.uid, store, { items: [{ hash, size }] });
-        return send(res, 200, { upload: signed.upload[hash] || null, have: signed.have.includes(hash) });
+        const size = Number(b.size);
+        if (!Number.isSafeInteger(size) || size < 1 || size > MAX_VIDEO) throw new AccessError('invalid_file', 'The rendered video is too large to store (limit 1 GB). Please choose a lower quality.', 400);
+        const kept = await listVideos(store, job.uid, (id) => deleteKey(videoKey(job.uid, id)));
+        if (kept.reduce((n, v) => n + v.size, 0) + size > MAX_VIDEOS_TOTAL) throw new AccessError('quota_exceeded', 'Your saved cloud videos are using all the space. Please delete an old one and try again.', 413);
+        return send(res, 200, { upload: await putUrl(videoKey(job.uid, b.jobId), size) });
       }
       if (b.action === 'cloudProgress') {
         const patch = { status: 'rendering' };
@@ -60,11 +61,13 @@ export default async function handler(req, res) {
         return send(res, 200, { ok: true });
       }
       if (b.action === 'cloudComplete') {
-        const hash = String(b.hash || ''), size = Number(b.size);
-        if (!/^[a-f0-9]{64}$/.test(hash) || !Number.isSafeInteger(size) || size < 1 || size > MAX_FILE) throw new AccessError('invalid_file', 'The rendered video is not valid.', 400);
-        if (!(await objectExists(assetKey(job.uid, hash))).exists) throw new AccessError('incomplete_upload', 'The video upload did not finish. Please try again.', 409);
-        await confirmAssets(job.uid, store, [{ hash, size }]);
-        await updateJob(store, b.uid, b.jobId, { status: 'done', progress: 1, hash, size });
+        const size = Number(b.size);
+        if (!Number.isSafeInteger(size) || size < 1 || size > MAX_VIDEO) throw new AccessError('invalid_file', 'The rendered video is not valid.', 400);
+        const head = await objectExists(videoKey(job.uid, b.jobId));
+        if (!head.exists || head.size !== size) throw new AccessError('incomplete_upload', 'The video upload did not finish. Please try again.', 409);
+        const now = Date.now(), s2 = job.settings || {};
+        await store.set(`${videosPath(job.uid)}/${b.jobId}`, { projectId: job.projectId, projectName: job.projectName || '', size, seconds: job.seconds, quality: s2.quality, fps: s2.fps, createdAt: now, expiresAt: now + VIDEO_TTL_MS });
+        await updateJob(store, b.uid, b.jobId, { status: 'done', progress: 1, size });
         return send(res, 200, { ok: true });
       }
       if (b.action === 'cloudFail') {
@@ -73,7 +76,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const who = await access(req, { write: ['authorize', 'complete', 'cloudCreate', 'cloudCancel'].includes(b.action), admin: b.action === 'adminSetTier' });
+    const who = await access(req, { write: ['authorize', 'complete', 'cloudCreate', 'cloudCancel', 'cloudDelete'].includes(b.action), admin: b.action === 'adminSetTier' });
     if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     if (b.action === 'status') {
       const tier = await effectiveTier(db, who);
@@ -109,7 +112,7 @@ export default async function handler(req, res) {
       const store = kv(services());
       const proj = await store.get(`projects/${who.uid}/${b.projectId}`);
       if (!proj || proj.deleted) throw new AccessError('project_not_found', 'This project was not found. Please save it to the cloud first.', 404);
-      const { id, job } = await createJob(store, who.uid, { projectId: b.projectId, settings: cleanSettings(b.settings), seconds, scenes, scope });
+      const { id, job } = await createJob(store, who.uid, { projectId: b.projectId, projectName: String(proj.name || proj.title || '').slice(0, 80), settings: cleanSettings(b.settings), seconds, scenes, scope });
       return send(res, 200, { jobId: id, job: publicJob(id, job) });
     }
     if (b.action === 'cloudCancel') {
@@ -123,6 +126,17 @@ export default async function handler(req, res) {
       const store = kv(services()), job = await getJob(store, who.uid, b.jobId);
       if (job.uid !== who.uid) throw new AccessError('not_found', 'This export job was not found.', 404);
       return send(res, 200, { job: publicJob(b.jobId, job) });
+    }
+    if (b.action === 'cloudList') {
+      const store = kv(services());
+      return send(res, 200, { videos: await listVideos(store, who.uid, (id) => deleteKey(videoKey(who.uid, id))) });
+    }
+    if (b.action === 'cloudDownload' || b.action === 'cloudDelete') {
+      if (!idOK(b.jobId)) throw new AccessError('invalid_job', 'The export job is not valid.', 400);
+      const store = kv(services()), row = await store.get(`${videosPath(who.uid)}/${b.jobId}`);
+      if (!row || row.expiresAt <= Date.now()) throw new AccessError('video_gone', 'This video is no longer available. Cloud videos are kept for 3 days.', 404);
+      if (b.action === 'cloudDelete') { await deleteKey(videoKey(who.uid, b.jobId)); await store.remove(`${videosPath(who.uid)}/${b.jobId}`); return send(res, 200, { ok: true }); }
+      return send(res, 200, { url: await videoUrl(videoKey(who.uid, b.jobId), `toon-${(row.quality || 'video')}p-${b.jobId.slice(-6)}.mp4`) });
     }
     throw new AccessError('unknown_action', 'This export action was not recognized.', 400);
   } catch (e) { return failure(res, e); }

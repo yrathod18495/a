@@ -16,7 +16,7 @@ db.data.set('securityUsers/' + uid, { status: 'active' });
 db.data.set('securitySessions/' + uid, { sid: 'ok', expiresAt: Date.now() + 100000, revoked: false });
 mock.module('../server/firebase-admin.js', { exports: { services: () => ({ db, rtdb, auth: { verifyIdToken: async () => ({ uid, email_verified: true, sid: 'ok' }) } }) } });
 const { default: handler } = await import('../api/export.js');
-const { stateKey, assetKey } = await import('../server/r2-storage.js');
+const { stateKey, videoKey } = await import('../server/r2-storage.js');
 
 const projectId = 'proj_abcdef123', opId = 'op_1234567890';
 const manifest = { version: 1, records: [{ store: 'project', value: { id: 'current' } }], assets: [] };
@@ -49,14 +49,21 @@ test('the render worker can only act on a job with the right secret, and never s
   await call({ action: 'cloudProgress', uid, jobId, secret: realSecret, progress: 0.4 }, false);
   assert.equal((await rtdb.ref(`cloudExports/${uid}/${jobId}`).get()).val().progress, 0.4);
   // complete: the uploaded video must really be in R2 first
-  const hash = 'b'.repeat(64);
-  const notUploaded = await call({ action: 'cloudComplete', uid, jobId, secret: realSecret, hash, size: 10 }, false);
+  const notUploaded = await call({ action: 'cloudComplete', uid, jobId, secret: realSecret, size: 10 }, false);
   assert.equal(notUploaded.statusCode, 409);
-  objects.set(assetKey(uid, hash), Buffer.alloc(10));
-  const done = await call({ action: 'cloudComplete', uid, jobId, secret: realSecret, hash, size: 10 }, false);
+  const presign = await call({ action: 'cloudPresign', uid, jobId, secret: realSecret, size: 10 }, false);
+  assert.equal(presign.statusCode, 200); assert.ok(presign.body.upload.url);
+  objects.set(videoKey(uid, jobId), 10);
+  const done = await call({ action: 'cloudComplete', uid, jobId, secret: realSecret, size: 10 }, false);
   assert.equal(done.statusCode, 200);
   const job = (await rtdb.ref(`cloudExports/${uid}/${jobId}`).get()).val();
-  assert.deepEqual([job.status, job.hash, job.size], ['done', hash, 10]);
+  assert.deepEqual([job.status, job.size], ['done', 10]);
+  // the finished video is listed for the owner (kept 3 days), downloadable, and deletable
+  const listed = await call({ action: 'cloudList' });
+  assert.equal(listed.body.videos.length, 1); assert.equal(listed.body.videos[0].id, jobId);
+  assert.ok((await call({ action: 'cloudDownload', jobId })).body.url);
+  await rtdb.ref(`cloudVideos/${uid}/${jobId}`).update({ expiresAt: Date.now() - 1 });
+  assert.equal((await call({ action: 'cloudList' })).body.videos.length, 0);                 // expired ones disappear
   // the owner can now read it back through the normal, signed-in call (no secret involved)
   const status = await call({ action: 'cloudStatus', jobId });
   assert.equal(status.body.job.status, 'done');

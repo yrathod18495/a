@@ -3776,10 +3776,10 @@ async function cancelCloudExportJob() {
   try { cloudJob = await cancelCloudExport(uid, cloudJob.id); } catch (e) { toast(e.message); } redrawPanel();
 }
 async function downloadCloudExport() {
-  if (!cloudJob?.hash) return;
+  if (!cloudJob?.id) return;
   const uid = projectContext()?.uid; if (!uid) return;
   try {
-    const url = await cloudExportDownloadUrl(uid, cloudJob.hash);
+    const url = await cloudExportDownloadUrl(uid, cloudJob.id);
     const a = h('a', { href: url, download: `toon-cloud-${Date.now()}.mp4` });
     document.body.append(a); a.click(); a.remove();
   } catch (e) { toast(`Could not get the download link: ${e.message}`); }
@@ -3810,8 +3810,10 @@ function cloudRenderTile() {
     h('p', { class: 'exp-opt-msg' }, cloudPhaseText(cloudJob, pct)),
     h('button', { type: 'button', class: 'btn exp-opt-btn exp-opt-cancel', onclick: cancelCloudExportJob }, 'Cancel'));
 }
+async function openMyCloudVideos() { const uid = projectContext()?.uid; if (!uid) return; (await import('./cloud-videos.js')).openCloudVideos(uid); }
 function renderSection() {
-  return h('div', { class: 'card flat exp-render' }, h('h2', {}, 'Render'), h('div', { class: 'exp-opts' }, deviceRenderTile(), cloudRenderTile()));
+  return h('div', { class: 'card flat exp-render' }, h('h2', {}, 'Render'), h('div', { class: 'exp-opts' }, deviceRenderTile(), cloudRenderTile()),
+    projectContext()?.uid ? h('button', { type: 'button', class: 'btn-link exp-videos', onclick: openMyCloudVideos }, 'My cloud videos (kept 3 days)') : null);
 }
 
 async function togglePlay() {
@@ -4026,18 +4028,17 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
       console.warn('Cloud export: parallel render failed, using one thread', e);
       res = await exportOffline({ stage, clips: player.clips, plan: shotPlan(), total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, fps: S.fps, level: S.level, format: S.format });
     }
-    const { blob, ext } = res, hash = await hashBlobSha256(blob), size = blob.size;
+    const { blob, ext } = res, size = blob.size;
     await jobCall(uid, jobId, secret, 'cloudProgress', { progress: 1, phase: 'uploading' }).catch(() => {});
-    const { upload, have } = await jobCall(uid, jobId, secret, 'cloudPresign', { hash, size });
-    if (!have) { const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: blob }); if (!put.ok) throw Error(`The rendered video could not be uploaded (${put.status}).`); }
-    await jobCall(uid, jobId, secret, 'cloudComplete', { hash, size });
+    const { upload } = await jobCall(uid, jobId, secret, 'cloudPresign', { size });
+    const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: blob }); if (!put.ok) throw Error(`The rendered video could not be uploaded (${put.status}).`);
+    await jobCall(uid, jobId, secret, 'cloudComplete', { size });
     console.log(`Cloud export done: ${ext.toUpperCase()}, ${(size / 1e6).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(0)}s`);
   } catch (e) {
     console.error('Cloud export failed', e);
     try { await jobCall(uid, jobId, secret, 'cloudFail', { message: e.message }); } catch { /* best effort */ }
   } finally { S.exporting = false; }
 }
-const hashBlobSha256 = async (blob) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 /* ---------------- autosave, undo / redo, reset ---------------- */
 const blobIds = new WeakMap(), blobReg = new Map();

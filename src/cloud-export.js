@@ -12,11 +12,13 @@ export async function cancelCloudExport(uid, jobId) {
   const r = await apiCall('/api/export', { action: 'cloudCancel', jobId }, uid);
   return r.job;
 }
-/** once a job is done, a short-lived download link for its video (reuses the same signed-URL endpoint every other file in the app uses) */
-export async function cloudExportDownloadUrl(uid, hash) {
-  const r = await apiCall('/api/r2', { action: 'urls', hashes: [hash] }, uid);
-  return r.urls[hash];
+/** a short-lived download link for a finished video (cloud videos are kept for 3 days) */
+export async function cloudExportDownloadUrl(uid, jobId) {
+  const r = await apiCall('/api/export', { action: 'cloudDownload', jobId }, uid);
+  return r.url;
 }
+export async function listCloudVideos(uid) { return (await apiCall('/api/export', { action: 'cloudList' }, uid)).videos; }
+export async function deleteCloudVideo(uid, jobId) { await apiCall('/api/export', { action: 'cloudDelete', jobId }, uid); }
 export async function cloudExportStatus(uid, jobId) {
   const r = await apiCall('/api/export', { action: 'cloudStatus', jobId }, uid);
   return r.job;

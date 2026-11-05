@@ -80,3 +80,28 @@ test('Cloud export: a failed background save of the latest edits is a warning, n
   expect(created).toBe(true);        // the cloud job was created despite the save failing
   expect(errors).toEqual([]);
 });
+
+test('My cloud videos: lists finished videos with a Download and Delete button', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  let deleted = null;
+  await page.route('**/api/export', async (r) => {
+    const body = JSON.parse(r.request().postData());
+    if (body.action === 'cloudList') return r.fulfill({ json: { videos: [{ id: 'cexp_v1', projectName: 'My Toon', quality: 1080, fps: 60, seconds: 30, size: 5242880, projectId: 'p', createdAt: Date.now(), expiresAt: Date.now() + 2.5 * 86400000 }] } });
+    if (body.action === 'cloudDelete') { deleted = body.jobId; return r.fulfill({ json: { ok: true } }); }
+    return r.fulfill({ json: { error: 'unexpected' }, status: 400 });
+  });
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Vids');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(async () => { (await import('/src/store.js')).selectProject('debug-uid', 'proj_v'); window.__toon.openTab('export'); });
+  await page.getByRole('button', { name: /My cloud videos/ }).click();
+  const row = page.locator('.cv-row');
+  await expect(row).toContainText('My Toon'); await expect(row).toContainText('1080p'); await expect(row).toContainText('2 d');
+  await expect(row.getByRole('button', { name: 'Download' })).toBeVisible();
+  await row.getByRole('button', { name: /Delete/ }).click();
+  await expect(row).toHaveCount(0); expect(deleted).toBe('cexp_v1');
+  expect(errors).toEqual([]);
+});

@@ -120,6 +120,17 @@ scheme).
 - A job nobody picks up, or that never finishes, auto-fails after a few hours (`TTL_MS` in `server/cloud-export-store.js`) so
   it never looks like it is "still going" forever.
 
+## Where finished videos live (kept 3 days)
+
+A finished cloud video is **not** a normal project asset. It is stored at `u/<uid>/v/<jobId>.mp4` in R2 (limit 1 GB per
+video, 3 GB per user in total) and does **not** count against the 300 MB project-asset quota. The job record in
+`cloudExports/` is deleted by the worker after 15 minutes, so the long-lived record is `cloudVideos/<uid>/<jobId>` (project name,
+size, quality, `expiresAt` = 3 days). `cloudList` / `cloudDownload` / `cloudDelete` (all in `api/export.js`) power the
+**My cloud videos** window (`src/cloud-videos.js`) in the profile menu and the Export tab. Expired videos are deleted
+lazily whenever that user lists videos or finishes a new one. **To make the 3-day deletion exact even for users who never come
+back, add an R2 lifecycle rule once** (Cloudflare dashboard -> R2 -> the bucket -> Settings -> Object lifecycle rules): prefix
+`u/` is too broad — use one rule per prefix pattern your plan allows, or simply expire objects whose key contains `/v/` after 3 days.
+
 ## Cost safety: the worker cleans up after itself
 
 The worker re-downloads the *whole* `cloudExports` node on every single poll (every `POLL_SECONDS`), because the Realtime
