@@ -569,3 +569,6 @@ body.studio-dark #app .ws .tl2 .tclip.shadow{--k-fill:#1d1f24;--k-edge:#8b909c;b
 .tl2.squeezed .lane2 .pflag .pf-pole{height:100%}
 .tl2.squeezed .lane2 .pflag .pf-cloth{height:min(15px,100%);line-height:1;font-size:9px}
 .tl2.squeezed .lane2 .pflag.b .pf-cloth{bottom:0}
+/* no scroll bar under the timeline: it took a whole row. Move along with the playhead (drag it near an edge), the wheel, or a swipe. */
+#app .ws .tl2 .tl-scroll,:root[data-theme] body #app .ws .tl2 .tl-scroll{scrollbar-width:none !important}
+#app .ws .tl2 .tl-scroll::-webkit-scrollbar{display:none !important;width:0;height:0}

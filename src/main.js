@@ -777,6 +777,7 @@ function viewStudio() {
   tlInner = h('div', { class: 'tl-inner' }); wireBoxSelect();
   tlScroll = h('div', { class: 'tl-scroll' }, tlInner);
   new ResizeObserver(() => requestAnimationFrame(fitRows)).observe(tlScroll);
+  tlScroll.addEventListener('wheel', (e) => { if (!e.ctrlKey && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { tlScroll.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });          // no scroll bar: the wheel moves the timeline sideways
   tlBox = h('div', { class: 'tl2' }, tlLabels, tlScroll);
   // phone: a grip above the timeline. Tap = bigger timeline / back; drag up or down = any size in between
   const grip = h('button', { type: 'button', class: 'tl-size-grip', 'aria-label': 'Make the timeline bigger or smaller', title: 'Tap to make the timeline bigger or smaller, or drag it up and down' }, icon('chevron-up'));
@@ -1052,8 +1053,15 @@ let tlRows = null; const MIN_ROW = 18;
 function fitRows() {
   if (!tlRows || !tlScroll) return;
   const { labels, lanes } = tlRows, avail = tlScroll.clientHeight;
-  if (avail < 40) return;
+  if (avail < 8) return;
   const nat = labels.map((l, i) => +(l.dataset.nat || (l.dataset.nat = parseFloat(l.style.height) || l.offsetHeight || 40)));
+  // the timeline box itself is never shorter than what holds every layer at the smallest row height: it grows by the missing part (up to 60 % of the screen)
+  const need = nat[0] + (labels.length - 1) * MIN_ROW + 4;
+  if (avail < need - 1) {
+    let el = tlBox; while (el.parentElement && !el.parentElement.classList.contains('studio')) el = el.parentElement;
+    const cap = Math.round(innerHeight * 0.6), next = Math.min(cap, el.offsetHeight + (need - avail));
+    if (next > el.offsetHeight + 1) { wsEl()?.style.setProperty('--tl-h', `${next}px`); requestAnimationFrame(fitRows); return; }
+  }
   const rest = nat.slice(1).reduce((x, y) => x + y, 0), room = avail - nat[0], k = rest > room && room > 0 ? room / rest : 1;
   tlBox.classList.toggle('squeezed', k < 1);
   labels.forEach((l, i) => { const px = i && k < 1 ? Math.max(MIN_ROW, Math.floor(nat[i] * k)) : nat[i]; l.style.setProperty('height', `${px}px`, i && k < 1 ? 'important' : ''); if (lanes[i]) lanes[i].style.setProperty('height', `${px}px`, i && k < 1 ? 'important' : ''); });
@@ -1078,7 +1086,7 @@ function drawTimeline() {
   }
   const ruler = h('div', { class: 'ruler', style: `height:${RULER}px` }, ticks);
   let scrubbing = false;
-  const scrub = (e) => { player.seek(Math.min(total, Math.max(0, (e.clientX - tlInner.getBoundingClientRect().left) / pps))); S.dirty = true; followLine(); };
+  const scrub = (e) => { const sr = tlScroll.getBoundingClientRect(); if (e.clientX > sr.right - 36) tlScroll.scrollLeft += 18; else if (e.clientX < sr.left + 36) tlScroll.scrollLeft -= 18; player.seek(Math.min(total, Math.max(0, (e.clientX - tlInner.getBoundingClientRect().left) / pps))); S.dirty = true; followLine(); };
   ruler.addEventListener('pointerdown', (e) => { if (S.exporting) return; scrubbing = true; ruler.setPointerCapture(e.pointerId); scrub(e); });
   ruler.addEventListener('pointermove', (e) => scrubbing && scrub(e));
   ruler.addEventListener('pointerup', () => { scrubbing = false; });

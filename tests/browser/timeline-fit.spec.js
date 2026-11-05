@@ -17,11 +17,12 @@ test('all layer rows stay inside the visible timeline when it is made short', as
   });
   const rows = () => page.evaluate(() => { const sc = document.querySelector('.tl-scroll').getBoundingClientRect(), ls = [...document.querySelectorAll('.tl-labels .rl')].map((e) => e.getBoundingClientRect()); return { box: [sc.top, sc.bottom], n: ls.length, last: ls.at(-1).bottom, tops: ls.map((r) => Math.round(r.top)) }; });
   const tall = await rows();
-  await page.evaluate(() => { const w = document.querySelector('.tl2'); w.style.height = '200px'; w.style.maxHeight = '200px'; });
+  await page.evaluate(() => { document.querySelector('.ws').style.setProperty('--tl-h', '110px'); });
   await page.waitForTimeout(400);
   const small = await rows();
   await page.screenshot({ path: '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/tl.png', clip: { x: 230, y: 480, width: 840, height: 220 } });
   expect(small.last).toBeLessThanOrEqual(small.box[1] + 1);
   expect(small.n).toBe(tall.n);
+  expect(await page.evaluate(() => { const e = document.querySelector('.tl-scroll'); return e.offsetHeight - e.clientHeight; })).toBe(0);          // no scroll bar under the timeline
   expect(errors).toEqual([]);
 });
