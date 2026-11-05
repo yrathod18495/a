@@ -92,15 +92,22 @@ async function syncSupportWidget() {
 }
 let routing = Promise.resolve();
 let routeSeq = 0;
+// One stuck navigation (a network call inside renderRoute that never settles) must never silently block every navigation after
+// it — "routing" chains each call onto the one before it, so without this, a single hang here made the whole app look randomly
+// broken: it kept opening fine right up until one bad load, then every further tap on a link or the back/forward buttons did
+// nothing at all, forever, with no error on screen (routing was just waiting on a promise that would never resolve).
+const withTimeout = (p, ms, label) => Promise.race([p, new Promise((_, reject) => setTimeout(() => reject(Object.assign(Error(`${label} took too long.`), { code: 'route_timeout' })), ms))]);
 function route() {
   const key = `route-${++routeSeq}`, hash = (location.hash || '#/').split('/').slice(0, 2).join('/');
   if (ready) startRoute(key, { studio: (hash === '#/toons' || hash === '#/characters') && !!(location.hash || '').split('/')[2] });
-  routing = routing.then(renderRoute).then(syncPhoneNav).then(syncSupportWidget).catch(e => {
+  const next = routing.catch(() => {}).then(() => withTimeout(renderRoute(), 20000, 'Opening the page')).then(syncPhoneNav).then(syncSupportWidget).catch(e => {
     if (reloadForNewVersion(e)) return;
+    if (e?.code === 'route_timeout' && reloadForNewVersion(Error('dynamically imported module'))) return;   // a hang this long is almost always a stale chunk after a redeploy
     console.error('Could not open the page', e?.stack || e);
     toast(`Could not open the page: ${e.message}`);
   }).finally(() => { doneRoute(key); if (ready) doneRoute('boot'); });
-  return routing;
+  routing = next;
+  return next;
 }
 // After a redeploy, an already-open tab still points at old hashed chunks that no longer exist.
 // Reload once to pick up the new build; the guard stops a reload loop if the chunk is truly missing.
