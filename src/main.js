@@ -3635,11 +3635,15 @@ function generatedTiles(pick, grid) {
     })); filterTiles(grid);
   }).catch(() => { /* the other backgrounds still show */ });
 }
+const MAX_BG_BYTES = 3 * 1048576;          // a picture a user adds as a background: 3 MB at most (bigger ones slow the studio, the sync and cloud export)
 function tabCanvas() {
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: String(cur()) === String(k) ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', String(items[i][0]) === String(k))); } }, l)));
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => {
     let last = null;
-    for (const f of e.target.files) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: f.name, blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); last = rec; }
+    const picked = [...e.target.files]; e.target.value = '';
+    const tooBig = picked.filter((f) => f.size > MAX_BG_BYTES);
+    if (tooBig.length) toast(`${tooBig.length > 1 ? 'Some pictures are' : `"${tooBig[0].name}" is`} larger than ${MAX_BG_BYTES / 1048576} MB (${(Math.max(...tooBig.map((f) => f.size)) / 1048576).toFixed(1)} MB). Please choose a smaller picture or compress it first.`, 'warn');
+    for (const f of picked.filter((f) => f.size <= MAX_BG_BYTES)) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: f.name, blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); last = rec; }
     S.dirty = true; if (last) await addBgClip(last); else drawTabs();          // the new picture goes on the timeline as a 5 s clip
   } });
   const addBgClip = async (rec, preset = 0) => {
