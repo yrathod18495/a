@@ -439,10 +439,18 @@ async function start() {
   $shell.replaceChildren(loadingSplash('Getting things ready…'));
   const maintenanceAtStart = maintenanceStatus();   // starts now and runs while the sign-in redirect is finished
   if (DEBUG) { try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
-  await finishRedirect();
+  const redirectResult = await finishRedirect();
   try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; }
   let first = true;
+  // On a sign-in that just came back from Google's redirect page (popup blocked, or a browser like Telegram's in-app one that
+  // does not support popups), the account can take a moment longer to become the current Firebase user than this listener's
+  // very first firing — Firebase can call it once with "nobody" before the redirect's session is applied, then again moments
+  // later with the real account. Without this, that first, momentary "nobody" sent the user straight to the plain login card
+  // (route() below), which looked exactly like the sign-in had silently failed or frozen, even though it was still finishing.
+  // A bounded grace window keeps the animated loading screen up instead, until either the real account arrives or it expires.
+  let redirectGrace = redirectResult?.user ? setTimeout(() => { if (first) { first = false; redirectGrace = null; route(); } }, 8000) : null;
   onUser(async (u) => {
+    if (first && redirectGrace && !u) return;   // still waiting for the redirect's account to settle — keep the loading screen up
     if (ready && user && u && user.uid !== u.uid) { location.reload(); return; }   // only a real account switch forces a reload; a momentary null (mobile auth hiccup) must not nuke unsaved work
     user = u; setCoinUser(u?.uid || null);
     if (u) {
@@ -472,7 +480,7 @@ async function start() {
     await syncSupportWidget();
     guardSession(u);
     if (u) { ensureProfile(u); syncAll().catch(e=>console.warn('Pending cloud sync:',e.message)); }
-    if (first) { first = false; route(); } else if (!u && PRIVATE.includes(location.hash)) go('#/login'); else if (u && location.hash === '#/login') go('#/hub'); else route();
+    if (first) { clearTimeout(redirectGrace); redirectGrace = null; first = false; route(); } else if (!u && PRIVATE.includes(location.hash)) go('#/login'); else if (u && location.hash === '#/login') go('#/hub'); else route();
   });
 }
 start();
