@@ -98,6 +98,13 @@ def render_one(uid, job_id, job):
             while time.time() < deadline:
                 current = (ref.get() or {})
                 status = current.get("status", "pending")
+                seen = (current.get("phase"), round(float(current.get("progress") or 0), 2))
+                if seen != last_seen:
+                    last_seen, last_change = seen, time.time()
+                    log(f"[{job_id}] phase={seen[0]} progress={seen[1]:.0%}")
+                elif time.time() - last_change > 120:
+                    log(f"[{job_id}] no progress for 2 min at phase={seen[0]} progress={seen[1]:.0%} (still waiting)")
+                    last_change = time.time()
                 if status in TERMINAL:
                     break
                 # page.wait_for_timeout (not time.sleep): a plain Python sleep blocks this thread without ever handing control
