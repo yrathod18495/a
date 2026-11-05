@@ -602,7 +602,7 @@ body.studio-dark #app .ws .tl2 .tclip.fxl.fxl.fxl,#app .ws .tl2 .tclip.fxl.fxl.f
 .exp-render{padding:14px}
 .exp-render h2{margin:0 0 10px}
 .exp-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media (max-width:420px){.exp-opts{grid-template-columns:1fr}}
+.exp-compact .exp-opt{padding:9px;gap:7px}.exp-compact .exp-opt-head small{display:none}.exp-compact .exp-line{font-size:12px;margin:6px 0 0}.exp-compact .exp-opt-btn{padding:10px 6px}
 .exp-opt{display:flex;flex-direction:column;gap:9px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .exp-opt-head{display:flex;align-items:center;gap:9px}
 .exp-opt-ico{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:9px;background:var(--card2);color:var(--acc)}

@@ -187,7 +187,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
 }
 
 /* ---------- fallback for browsers without WebCodecs (older Safari / Firefox): real-time recording ---------- */
-const TYPES = ['video/webm;codecs=vp9,opus', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'];
+const TYPES = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
 export const pickType = () => (window.MediaRecorder && TYPES.find((t) => MediaRecorder.isTypeSupported(t))) || null;
 
 export function exportRealtime({ canvas, stage, audioStream, player, onProgress, level = 'high' }) {
