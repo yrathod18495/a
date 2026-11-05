@@ -615,3 +615,28 @@ body.studio-dark #app .ws .tl2 .tclip.fxl.fxl.fxl,#app .ws .tl2 .tclip.fxl.fxl.f
 .exp-opt-msg-error{padding:7px 9px;border-radius:8px;background:#3a1d22;color:#ff9aa8;font-weight:600;font-size:12.5px}
 .exp-opt-cancel{color:#ff8f8f}
 .exp-opt-busy{opacity:.85}
+
+/* ---- iPhone-style polish for the Export tab: soft glass tiles, springy presses, a shimmering progress bar, a pop on success ---- */
+.exp-compact .exp-opt{position:relative;overflow:hidden;gap:10px;padding:14px 12px;border:1px solid #ffffff14;border-radius:22px;background:linear-gradient(160deg,#ffffff10,#ffffff05);box-shadow:0 8px 24px #0005,inset 0 1px 0 #ffffff14;animation:expRise .45s cubic-bezier(.2,.9,.3,1.2) both}
+.exp-compact .exp-opt:nth-child(2){animation-delay:.07s}
+.exp-compact .exp-opt-head{flex-direction:column;align-items:flex-start;gap:8px}
+.exp-compact .exp-opt-ico{width:40px;height:40px;border-radius:13px;color:#fff;background:linear-gradient(145deg,#a597ff,#6f5cf0);box-shadow:0 6px 16px #6f5cf066}
+.exp-compact .exp-opt:nth-child(2) .exp-opt-ico{background:linear-gradient(145deg,#6ec6ff,#4a7cf0);box-shadow:0 6px 16px #4a7cf066}
+.exp-compact .exp-opt-ico .ic{width:20px;height:20px}
+.exp-compact .exp-opt-head b{font-size:15px;letter-spacing:.2px}
+.exp-compact .exp-opt-btn{border-radius:999px;padding:12px 8px;font-weight:700;transition:transform .18s cubic-bezier(.3,1.6,.5,1),filter .2s}
+.exp-compact .exp-opt-btn:active:not(:disabled){transform:scale(.94)}
+.exp-compact .exp-opt-btn:disabled{opacity:.45}
+.exp-compact .exp-opt-bar{height:8px;border-radius:99px;background:#ffffff14;overflow:hidden}
+.exp-compact .exp-opt-bar i{position:relative;display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#7c6cf5,#a597ff);transition:width .6s cubic-bezier(.3,.9,.3,1)}
+.exp-compact .exp-opt-bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#ffffff66,transparent);transform:translateX(-100%);animation:expShine 1.4s linear infinite}
+.exp-compact .exp-opt:has(.exp-opt-bar) .exp-opt-ico{animation:expPulse 1.6s ease-in-out infinite}
+.exp-compact .exp-opt:has(.ok.exp-opt-btn:not(:disabled)) .exp-opt-ico{animation:expPop .5s cubic-bezier(.3,1.7,.5,1) both}
+.exp-compact .exp-pop-seg button{border-radius:14px;transition:transform .16s cubic-bezier(.3,1.6,.5,1),background .2s}
+.exp-compact .exp-pop-seg button:active{transform:scale(.93)}
+.exp-compact .exp-pop-seg button.on{box-shadow:0 6px 16px #6f5cf055}
+@keyframes expRise{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes expShine{to{transform:translateX(100%)}}
+@keyframes expPulse{50%{transform:scale(1.1);filter:brightness(1.15)}}
+@keyframes expPop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.exp-compact *{animation:none !important;transition:none !important}}
