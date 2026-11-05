@@ -45,7 +45,7 @@ function fakeServer(page) {
 test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the studio lists it, a tap asks the hand, the torch plays in Maya\'s hand, can be selected on the canvas and moved', async ({ page }) => {
   test.skip(!existsSync(ZIP) || !existsSync(GIF), 'needs the Maya ZIP and the torch GIF');
   test.setTimeout(16 * 60 * 1000);
-  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  const errors = []; page.on('pageerror', (e) => { errors.push(e.message); console.log('PAGEERR', e.message, (e.stack || '').split('\n').slice(0, 5).join(' | ')); }); page.on('console', (m) => { if (m.text().includes('append') || m.type() === 'error' && !/404/.test(m.text())) console.log('CONSOLE', m.text().slice(0, 300)); });
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   const cloud = fakeServer(page); page.setDefaultTimeout(30000);
@@ -68,6 +68,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 60000 }).toMatch(/published/i);
   await expect(page.locator('.admin-asset-card', { hasText: 'mashal' })).toHaveCount(1); console.log('STEP mashal published');
   // 2. the studio: Maya on the stage
+  if (process.env.PHONE) await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Mashal');
@@ -79,7 +80,7 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);
   await page.waitForTimeout(1500); console.log('STEP maya on stage');
   // 3. Props tab: the torch is listed with nobody selected; tap it, choose the right hand
-  await page.locator('#app .tabs.big').getByRole('button', { name: 'Props', exact: true }).click();
+  if (process.env.PHONE) await page.evaluate(() => window.__toon.openTab('handprops')); else await page.locator('#app .tabs.big').getByRole('button', { name: 'Props', exact: true }).click();
   const card = page.locator('.hand-card', { hasText: 'mashal' }); await expect(card).toBeVisible({ timeout: 20000 });
   await card.click();
   await expect(page.locator('.edit-dock .ed-title')).toContainText('which hand');
@@ -126,6 +127,11 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   const after = await page.evaluate(() => ({ ...window.__toon.S.props[0].holdOff }));
   expect(after.x).not.toBe(before.x);
   await page.locator('.stagewrap').screenshot({ path: OUT + 'moved.png' });
+  if (process.env.PHONE) {          // the project is reopened (as after a refresh): nothing may throw, the prop is still held
+    await page.evaluate(() => { const T = window.__toon; T.S.props[0].shadow = { on: true, angle: 40, length: 1, soft: 0.3, opacity: 0.5 }; T.S.dirty = true; });
+    await page.waitForTimeout(3500);
+    for (let i = 0; i < 2; i++) { await page.reload(); await page.waitForTimeout(4000); console.log('RELOADED', i, JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent))), await page.evaluate(() => window.__toon?.S.props.length)); }
+  }
   // 6. the timeline has its layer, the Props tab lists it under In the scene
   await expect(page.locator('.lane2.prop .tclip.prop')).toHaveCount(1);
   expect(errors).toEqual([]);

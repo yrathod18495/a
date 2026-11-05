@@ -97,6 +97,7 @@ function route() {
   if (ready) startRoute(key, { studio: (hash === '#/toons' || hash === '#/characters') && !!(location.hash || '').split('/')[2] });
   routing = routing.then(renderRoute).then(syncPhoneNav).then(syncSupportWidget).catch(e => {
     if (reloadForNewVersion(e)) return;
+    console.error('Could not open the page', e?.stack || e);
     toast(`Could not open the page: ${e.message}`);
   }).finally(() => { doneRoute(key); if (ready) doneRoute('boot'); });
   return routing;

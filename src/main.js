@@ -52,7 +52,7 @@ const S = {
   aspect: '16:9', previewMode: initialPreviewMode, preview: PREVIEW_MODES[initialPreviewMode].short, exporting: false, dirty: true, maxStep: 1, tab: 'audio', animFor: null, sel: null,
   quality: 720, expMethod: 'fast', fps: 30, level: 'high', format: 'webm',
   manual: {}, mclip: null, addMode: false,            // animations the user placed on the timeline: { <character key>: [{id, kind, ref, start, dur, off}] }
-  charKeys: {}, ckSel: null, motionFor: null,          // movement keyframes per character: { <character key>: [{id, t, x, y, mul, flip, ease}] }
+  charKeys: {}, moveOpen: {}, ckSel: null, motionFor: null,          // movement keyframes per character: { <character key>: [{id, t, x, y, mul, flip, ease}] }
   camKeys: [], camSel: null, camPeek: false,           // camera keyframes: [{id, t, cx, cy, zoom, ease}]
 };
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -1171,8 +1171,9 @@ function drawTimeline() {
     });
     const cks = (S.charKeys[s.key] || []).filter((k) => !k.pathKey);          // the keyframes a path makes are not drawn: the path is the two flags on the layer
     if (cks.length) {
-      const kl = h('div', { class: 'lane2 cam move', style: 'height:30px' });
-      for (const k of cks.slice().sort((a, b) => a.t - b.t)) {
+      const open = moveLaneOpen(s.key), flip = () => { S.moveOpen[s.key] = !open; drawTimeline(); };
+      const kl = h('div', { class: `lane2 cam move${open ? '' : ' collapsed'}`, style: `height:${open ? 30 : 18}px` });
+      for (const k of open ? cks.slice().sort((a, b) => a.t - b.t) : []) {
         const d = h('i', { class: `kf mv ${k.id === S.ckSel ? 'sel' : ''}`, title: `${s.name} · ${k.t.toFixed(2)}s — right-click to delete`, style: `left:${k.t * pps}px;background:${s.color}` });
         d.addEventListener('pointerdown', (e) => dragCharKey(e, s, k, d));
         d.addEventListener('contextmenu', (e) => {
@@ -1183,7 +1184,7 @@ function drawTimeline() {
         });
         kl.append(d);
       }
-      labels.push(h('div', { class: 'rl char', style: 'height:30px' }, h('span', { class: 'lt face' }, '◆ move'))); lanes.push(kl);
+      labels.push(h('div', { class: 'rl char move-label', style: `height:${open ? 30 : 18}px;cursor:pointer`, title: open ? 'Hide the move keyframes' : 'Show the move keyframes', 'aria-expanded': String(open), onclick: flip }, icon(open ? 'chevron-down' : 'chevron-right'), h('span', { class: 'lt face' }, `◆ move${open ? '' : ` (${cks.length})`}`))); lanes.push(kl);
     }
   }
   if (S.gradeKeys.length) {
@@ -2743,7 +2744,11 @@ function saveXf(l) {
   }
   const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf };
 }
+/** the "◆ move" lane of a character: open while that character is selected, shut otherwise; a lane the user opened (or shut) by hand stays that way until they change it */
+const moveLaneOpen = (key) => (key in S.moveOpen ? S.moveOpen[key] : S.sel === key);
+let moveSel;
 function updateSel() {
+  if (moveSel !== S.sel) { const had = moveSel; moveSel = S.sel; for (const k of [had, S.sel]) if (k && S.moveOpen[k] === false) delete S.moveOpen[k]; if (Object.keys(S.charKeys).length) drawTimeline(); }
   if (S.sel) S.handHolder = S.sel;          // the Props tab keeps offering the hand of the last chosen character while a prop is selected
   syncStart(); updateBgSel();
   if (stage.overflow) { selEl && (selEl.hidden = true); Object.values(handleEls).forEach((e) => { e.hidden = true; }); if (propSelEl) propSelEl.hidden = true; return; }
