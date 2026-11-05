@@ -38,6 +38,7 @@ from firebase_admin import credentials, db
 from playwright.sync_api import sync_playwright
 
 SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
+PROFILE_DIR = os.environ.get("PROFILE_DIR", "/tmp/12toons-render-profile")
 POLL_SECONDS = 4          # how often this worker checks the database for new jobs
 # A Hugging Face Space's free/basic CPU tier has no real GPU, so Chromium renders WebGL in software (SwiftShader) — many times
 # slower than on a real phone or computer, and that slowdown gets WORSE the more renders share the same CPU at once. Running
@@ -89,8 +90,11 @@ def render_one(uid, job_id, job):
             # --enable-unsafe-swiftshader: this machine has no real GPU, so WebGL only works at all through software rendering
             # (SwiftShader). Newer Chromium builds no longer fall back to it silently (the "deprecated" warning in the logs) and
             # need this flag, or WebGL — and so every render — could stop working outright after a future browser update.
-            browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--enable-unsafe-swiftshader", "--use-gl=swiftshader", "--disable-gpu-sandbox"])
-            page = browser.new_page(viewport={"width": 960, "height": 720})
+            # One browser profile kept on this machine for every job: the character pictures and files the render page downloads
+            # are cached in it (the Cache API), so the next job with the same characters skips those downloads — less load on the
+            # database and on storage, and a faster "Preparing scene" step. Only this worker's own renders use this profile.
+            browser = p.chromium.launch_persistent_context(PROFILE_DIR, headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--enable-unsafe-swiftshader", "--use-gl=swiftshader", "--disable-gpu-sandbox"], viewport={"width": 960, "height": 720})
+            page = browser.pages[0] if browser.pages else browser.new_page()
             page.on("console", lambda m: log(f"[{job_id}] page: {m.text[:300]}"))
             page.on("pageerror", lambda e: log(f"[{job_id}] page error: {e}"))
             page.goto(url, wait_until="load", timeout=60_000)
