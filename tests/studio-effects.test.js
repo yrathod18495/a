@@ -114,3 +114,11 @@ test('"who can use it": paid accounts only unless marked free; only free is stor
   assert.equal(lockedFor(undefined, 'free'), false);
   assert.match(PAID_MESSAGE, /paid accounts/); assert.match(PAID_MESSAGE, /Buy Coins/);
 });
+
+test('a rig with other hand bone names (right_grip / right_palm_jt) holds the prop too; the first known name wins', () => {
+  const maya = layer([1, 0, 0, 1, 0, 0], { right_palm_jt: { a: 0, b: 1, tx: 50, ty: 60 }, right_grip: { a: 0, b: 1, tx: 55, ty: 70 } });
+  const h = heldAt(maya, 'R');
+  assert.deepEqual([h.x, h.y], [55, 70]);                        // the grip joint comes before the palm joint
+  assert.equal(heldAt(layer([1, 0, 0, 1, 0, 0], { right_palm_jt: { a: 0, b: 1, tx: 5, ty: 6 } }), 'R').x, 5);
+  assert.equal(heldAt(layer([1, 0, 0, 1, 0, 0], {}), 'R'), null);          // no hand bone at all: it is not placed in a hand
+});

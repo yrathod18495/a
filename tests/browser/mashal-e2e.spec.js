@@ -90,9 +90,10 @@ test('MASHAL end to end: the admin uploads an animated GIF as a hand prop, the s
   await page.evaluate(() => { document.querySelector('.panel')?.classList.remove('open'); window.__toon.S.sel = null; });
   await page.waitForTimeout(800);
   // 4. it really sits at the palm and it animates (the picture around it changes with time)
-  const geo = await page.evaluate(() => { const { stage, S } = window.__toon, p = S.props[0], pl = stage.propPlacement(p, 0), l = stage.layers[0]; return { pl, palm: (() => { const bone = l.arm.getBone('R_Palm'); if (!bone) return null; const m = bone.globalTransformMatrix, M = l.mat; return { x: M[0] * m.tx + M[2] * m.ty + M[4], y: M[1] * m.tx + M[3] * m.ty + M[5] }; })(), W: stage.W, H: stage.H }; });
-  console.log('GEO', JSON.stringify(geo));
-  expect(geo.pl).not.toBeNull();
+  const geo = await page.evaluate(() => { const { stage, S } = window.__toon, p = S.props[0], pl = stage.propPlacement(p, 0), l = stage.layers[0]; return { pl, palm: (() => { const bone = ['R_Palm', 'right_grip', 'right_palm_jt'].map((n) => l.arm.getBone(n)).find(Boolean); if (!bone) return null; const m = bone.globalTransformMatrix, M = l.mat; return { x: M[0] * m.tx + M[2] * m.ty + M[4], y: M[1] * m.tx + M[3] * m.ty + M[5] }; })(), W: stage.W, H: stage.H }; });
+  console.log('GEO', JSON.stringify(geo)); console.log('BONES', JSON.stringify(await page.evaluate(() => window.__toon.stage.layers[0].arm.getBones().map((b) => b.name))));
+  expect(geo.pl).not.toBeNull(); expect(geo.palm).not.toBeNull();
+  expect(Math.hypot(geo.pl.cx - geo.palm.x, geo.pl.cy - geo.palm.y)).toBeLessThan(geo.pl.h * 0.6);          // the torch sits at the hand (its middle within the palm's reach)
   const frame = (t) => page.evaluate((time) => { const { stage } = window.__toon; stage.render(time, 0, [], []); const c = document.createElement('canvas'); c.width = stage.out.width; c.height = stage.out.height; const g = c.getContext('2d'); g.drawImage(stage.out, 0, 0); return c.toDataURL('image/png'); }, t);
   const f0 = await frame(0.0), f1 = await frame(0.07), f2 = await frame(0.35);
   writeFileSync(OUT + 'f0.png', Buffer.from(f0.split(',')[1], 'base64')); writeFileSync(OUT + 'f1.png', Buffer.from(f1.split(',')[1], 'base64')); writeFileSync(OUT + 'f2.png', Buffer.from(f2.split(',')[1], 'base64'));

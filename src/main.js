@@ -33,7 +33,7 @@ import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError, currentPlan, refreshPlan } from './export-plan.js';
 import { BG_EFFECTS, bgEffectId } from '../shared/bg-effects.js';
 import { animatedToSheet } from './animated-image.js';
-import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp, propActive } from '../shared/studio-effects.js';
+import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp, propActive, heldAt } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
 import { thin, pathLength, pathKeys, simplify, insertAt, anchorPath, DEPTH_DEFAULT } from '../shared/motion-path.js';
@@ -1750,11 +1750,11 @@ function openPropEdit(pr) {
       { key: 'turn', label: 'Turn', min: -180, max: 180, unit: '°', get: () => pr.rotation || 0, set: (v) => { pr.rotation = v; } },
       { key: 'opacity', label: 'Opacity', min: 10, max: 100, unit: '%', get: () => (pr.opacity ?? 1) * 100, set: (v) => { pr.opacity = +(v / 100).toFixed(2); } },
     ],
-    extras: (key, { redraw }) => [...(isHeld(pr) ? [h('div', { class: 'ed-row' }, ['L', 'R'].map((hand) => h('button', { type: 'button', class: `ed-chip sm${pr.attach.hand === hand ? ' on' : ''}`, 'data-hand': hand, 'aria-pressed': String(pr.attach.hand === hand), onclick: () => { pr.attach = { ...pr.attach, hand }; save(); redraw(); } }, icon('hand'), hand === 'L' ? ' Left hand' : ' Right hand')), h('span', { class: 'ed-hint' }, 'or drag it on the picture'))] : []), h('div', { class: 'ed-row' },
+    extras: (key, { redraw }) => [...(isHeld(pr) ? [h('div', { class: 'ed-row' }, ['L', 'R'].map((hand) => h('button', { type: 'button', class: `ed-chip sm${pr.attach.hand === hand ? ' on' : ''}`, 'data-hand': hand, 'aria-pressed': String(pr.attach.hand === hand), onclick: () => { pr.attach = { ...pr.attach, hand }; pr.rotation = uprightInHand(pr.attach); save(); redraw(); } }, icon('hand'), hand === 'L' ? ' Left hand' : ' Right hand')), h('span', { class: 'ed-hint' }, 'or drag it on the picture'))] : []), h('div', { class: 'ed-row' },
       ...looks.map(([id, text]) => h('button', { type: 'button', class: `ed-chip sm${(pr.blend || 'normal') === id ? ' on' : ''}`, 'data-look': id, 'aria-pressed': String((pr.blend || 'normal') === id), onclick: () => { if (id === 'normal') delete pr.blend; else pr.blend = id; save(); redraw(); } }, text)),
       h('button', { type: 'button', class: `ed-chip sm${pr.behind ? ' on' : ''}`, 'aria-pressed': String(!!pr.behind), 'aria-label': 'Behind the characters', onclick: () => { if (pr.behind) delete pr.behind; else pr.behind = true; save(); redraw(); } }, 'Behind'),
       h('button', { type: 'button', class: 'ed-chip sm ed-shadow-btn', 'aria-label': 'Shadow', onclick: () => openShadowDock('prop', pr) }, icon('shadow'), ' Shadow'))],
-    onReset: () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = isHeld(pr) ? -90 : 0; delete pr.holdOff; delete pr.opacity; delete pr.blend; delete pr.behind; save(); },
+    onReset: () => { pr.w = pr.w0; pr.h = pr.h0; pr.rotation = isHeld(pr) ? uprightInHand(pr.attach) : 0; delete pr.holdOff; delete pr.opacity; delete pr.blend; delete pr.behind; save(); },
   });
 }
 /** Replace: the next background picked in the Background tab takes the place of this clip's picture (same time and length) */
@@ -3369,6 +3369,13 @@ async function putProp(prop) {
   await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel();
   selectOnly('prop', prop.id); drawTimeline();          // its layer shows on the timeline at once and its tools open
 }
+/** the turn that makes a prop stand upright on the screen while it is in this hand (rigs differ in how their hand bone is turned) */
+function uprightInHand(hold) {
+  const layer = stage.layers.find((x) => x.key === hold.key), at = layer && heldAt(layer, hold.hand);
+  if (!at || at === 'hidden') return -90;
+  const deg = Math.round((-at.angle * 180) / Math.PI * (at.mirrored ? -1 : 1));
+  return ((deg + 180) % 360 + 360) % 360 - 180;
+}
 async function addLibraryProp(asset, hold = null) {
   if (!hold && S.props.some((p) => p.assetId === asset.id)) return;                       // the same picture is added once
   const loading = busy(asset.type === 'effect' ? 'Applying effect…' : 'Applying prop…');
@@ -3376,7 +3383,7 @@ async function addLibraryProp(asset, hold = null) {
     const blob = await libraryBlob(asset);
     let prop = propFromAsset(asset, blob, crypto.randomUUID());
     if (!isEffect(prop)) { const size = await imageSize(blob, prop.sheet); prop = placeProp(prop, size.w, size.h, aspectOf(S.aspect)); }      // a prop keeps the size and shape of its picture
-    if (hold && !isEffect(prop)) prop = { ...prop, rotation: -90, attach: { key: hold.key, hand: hold.hand } };              // a hand prop starts in the chosen hand of the selected character
+    if (hold && !isEffect(prop)) prop = { ...prop, rotation: uprightInHand(hold), grip: { x: 0.5, y: 0.7 }, attach: { key: hold.key, hand: hold.hand } };              // a hand prop starts upright in the chosen hand, held by the lower part of its picture
     await putProp(prop); return prop;
   }
   catch (e) { toast(`Could not add the ${asset.type === 'effect' ? 'effect' : 'prop'}: ${friendlyError(e)}`); }
