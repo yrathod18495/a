@@ -113,3 +113,20 @@ test('the Props tab lists the hand props even when no character is selected; a t
   await page.locator('.edit-dock .ed-hand[data-hand="R"]').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props[0]?.attach)).toEqual({ key: 'actor2', hand: 'R' });
 });
+
+test('wide screen: the selected character\'s bar is in the side panel, so the canvas keeps its size when a character is picked and dropped', async ({ page }) => {
+  await open(page, 1366, 800);
+  await page.evaluate(() => {
+    const { S, stage } = window.__toon;
+    S.speakers.push({ key: 'actor1', name: 'Asha', color: '#f00', charId: 'lib:test', visible: true }); S.order.push('actor1');
+    stage.layers.push({ key: 'actor1', visible: true, mul: 1, arm: { getBone: () => null }, mat: [1, 0, 0, 1, 0, 0], anchor: { x: 100, y: 300 }, box: { x0: 60, x1: 140, y0: 100, y1: 300 }, anim: new Set() });
+    window.__toon.openTab('handprops');
+  });
+  const size = () => page.locator('.stagebox').boundingBox();
+  const before = await size();
+  await page.evaluate(() => window.__toon.openCharTool('actor1', 'handprops'));
+  await expect(page.locator('.panel .selbar')).toBeVisible();                                       // in the side panel ...
+  const after = await size(); expect(Math.abs(after.height - before.height)).toBeLessThan(2); expect(Math.abs(after.width - before.width)).toBeLessThan(2);          // ... the canvas did not change
+  await page.evaluate(() => { window.__toon.S.sel = null; window.__toon.S.dirty = true; window.__toon.openTab('handprops'); });
+  const dropped = await size(); expect(Math.abs(dropped.height - before.height)).toBeLessThan(2);
+});

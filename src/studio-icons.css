@@ -539,3 +539,10 @@ body.studio-dark #app .ws .tl2 .tclip.shadow{--k-fill:#1d1f24;--k-edge:#8b909c;b
 .edit-dock .ed-hand svg{width:26px;height:26px}
 .edit-dock .ed-hand[data-hand="L"] svg{transform:scaleX(-1)}
 .edit-dock .ed-hint{align-self:center;font-size:12px;color:var(--mute);white-space:nowrap}
+/* the character bar inside the side panel (wide screens) */
+@media (min-width:861px){
+  #app .ws .panel .selbar{margin:8px 10px 2px;flex-wrap:wrap;overflow:visible;gap:6px 8px;padding:8px 10px;min-height:0}
+  #app .ws .panel .selbar .character-name{flex:1 1 130px;width:auto;min-width:0}
+  #app .ws .panel .selbar input[type=range]{order:5;flex:1 1 100%;min-width:0}
+  #app .ws .panel .selbar .pct,#app .ws .panel .selbar .dot{display:initial}
+}

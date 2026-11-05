@@ -958,6 +958,10 @@ window.addEventListener('resize', () => {
 });
 
 const wideStudio = () => matchMedia('(min-width: 1000px)').matches;
+/** wide screen: the selected character's bar (name, size, flip, delete) lives at the top of the side panel, so the canvas never changes size when a character is picked */
+const wideScreen = matchMedia('(min-width: 861px)');
+function placeSelBar() { if (selBar && wideScreen.matches) panelEl?.querySelector('.sheet-close')?.after(selBar); }
+wideScreen.addEventListener?.('change', () => { if (S.ready && tabsEl) drawTabs(); });
 function drawTabs() {
   stopAll();
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
@@ -1000,6 +1004,7 @@ function drawTabs() {
     { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
+  placeSelBar();
   S.dirty = true; syncLayoutUi();
 }
 
