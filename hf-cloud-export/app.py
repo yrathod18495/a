@@ -2,7 +2,7 @@
 12toons Cloud Export worker.
 
 What this is: a FastAPI app whose only real job runs in a background thread — it watches the Realtime Database for cloud-export
-jobs the website created (api/cloud-export.js, action "create") and opens each one in a headless Chromium tab pointed at a private
+jobs the website created (api/export.js, action "cloudCreate") and opens each one in a headless Chromium tab pointed at a private
 render link on the website itself (#/cloudrender/<uid>/<jobId>/<secret>). That page is part of the normal 12toons code: it loads
 the project, renders the video with the exact same code a real export uses, uploads it to R2 and marks the job done — all over
 HTTP calls the page makes itself. This worker never touches the video, the project data, or Cloudflare R2 at all; it only:
@@ -99,6 +99,7 @@ def render_one(uid, job_id, job):
             page.on("pageerror", lambda e: log(f"[{job_id}] page error: {e}"))
             page.goto(url, wait_until="load", timeout=60_000)
             status = "pending"
+            last_seen, last_change = None, time.time()
             while time.time() < deadline:
                 current = (ref.get() or {})
                 status = current.get("status", "pending")
