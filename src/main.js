@@ -83,10 +83,13 @@ const toast = (msg, kind = '') => {
   if (r?.width) { document.querySelectorAll('.toast.in-row').forEach((x) => x.remove()); t.classList.add('in-row'); Object.assign(t.style, { left: `${r.left + r.width / 2}px`, top: `${r.top}px`, bottom: 'auto', width: `${r.width}px`, maxWidth: 'none' }); }
 };
 const busy = (msg, onCancel) => {
-  const bar = h('i'), txt = h('div', {}, msg), el = h('div', { class: 'busy' }, h('div', { class: 'card' }, txt, h('div', { class: 'bar', style: 'margin:12px 0 0' }, bar),
-    onCancel && h('button', { class: 'btn sm', style: 'margin-top:14px', onclick: onCancel }, 'Cancel')));
+  let stopping = false;
+  const bar = h('i'), barBox = h('div', { class: 'bar', style: 'margin:12px 0 0' }, bar), txt = h('div', {}, msg);
+  // Cancel answers at once: the button says "Stopping…" with a spinner and the bar keeps moving, while the work winds down
+  const cancel = onCancel && h('button', { class: 'btn sm busy-cancel', style: 'margin-top:14px', onclick: (e) => { if (stopping) return; stopping = true; cancel.disabled = true; cancel.classList.add('stopping'); cancel.textContent = 'Stopping…'; txt.textContent = 'Stopping…'; barBox.classList.add('indet'); onCancel(e); } }, 'Cancel');
+  const el = h('div', { class: 'busy' }, h('div', { class: 'card' }, txt, barBox, cancel));
   document.body.append(el);
-  return { set: (m, p) => { txt.textContent = m; if (p != null) bar.style.width = `${Math.round(p * 100)}%`; }, done: () => el.remove() };
+  return { set: (m, p) => { if (stopping) return; txt.textContent = m; if (p != null) bar.style.width = `${Math.round(p * 100)}%`; }, done: () => el.remove() };
 };
 
 function modal(title, body, onClose) {
@@ -3783,13 +3786,19 @@ async function exportJob(W, H) {
 }
 /* ---- background export: the render workers get a snapshot of the scene, so the editor stays free while the video is made ---- */
 let bgExport = null;
-function exportPill() {
+function exportPill(onCancel) {
+  let stopped = false;
   const text = h('span', { class: 'ep-text' }, 'Preparing the export…'), fill = h('b', {}), bar = h('i', { class: 'ep-bar' }, fill);
-  const cancel = h('button', { type: 'button', class: 'ep-cancel', onclick: () => { if (bgExport) { bgExport.stop = true; text.textContent = 'Stopping…'; } } }, 'Cancel');
-  const el = h('div', { class: 'export-pill', role: 'status', 'aria-live': 'polite' }, h('div', { class: 'ep-row' }, icon('download'), text, cancel), bar);
+  const cancel = h('button', { type: 'button', class: 'ep-cancel', onclick: () => {
+    if (stopped) return; stopped = true; el.classList.add('stopping'); el.classList.remove('waiting'); cancel.disabled = true; cancel.textContent = 'Stopping…'; text.textContent = 'Stopping the export…';
+    if (onCancel) onCancel(); else if (bgExport) bgExport.stop = true;
+  } }, 'Cancel');
+  const el = h('div', { class: 'export-pill waiting', role: 'status', 'aria-live': 'polite' }, h('div', { class: 'ep-row' }, icon('download'), text, cancel), bar);
   document.body.append(el);
-  return { set(t, p) { text.textContent = t; fill.style.width = `${Math.round(Math.max(0, Math.min(1, p || 0)) * 100)}%`; }, done() { el.remove(); } };
+  return { set(t, p) { if (stopped) return; text.textContent = t; if (p > 0) el.classList.remove('waiting'); fill.style.width = `${Math.round(Math.max(0, Math.min(1, p || 0)) * 100)}%`; }, done() { el.remove(); } };
 }
+/** the Download button in the top bar moves while an export is being prepared and made, so the user sees at once that the tap was understood */
+const setExportBusy = (on) => { exportBtn?.classList.toggle('working', !!on); exportBtn?.setAttribute('aria-busy', String(!!on)); };
 const silentExport = () => !(player.clips.length || musicForExport().length);
 async function backgroundExportPossible() {
   if (bgExport || S.expMethod !== 'fast' || (S.exportScope === 'all' && S.scenes.length > 1) || workerCount() < 1) return false;
@@ -3811,23 +3820,27 @@ async function runBackgroundExport(grant) {
     document.body.append(a); a.click(); a.remove(); exported = true;
     toast(`Your video is ready (${took.toFixed(0)} s) · ${ext.toUpperCase()} · ${info}`);
   } catch (e) { if (e.message === 'cancelled') toast('Export was stopped.'); else failed = e; console.error(e); }
-  finally { pill.done(); bgExport = null; finishExport(grant.grantId, exported); if (S.step === 3) { drawTabs(); } }
+  finally { pill.done(); setExportBusy(false); bgExport = null; finishExport(grant.grantId, exported); if (S.step === 3) { drawTabs(); } }
   if (failed) { toast('The video could not be made in the background, so it is being rendered with the editor locked instead.'); await doExport({ foreground: true }); }
 }
 async function doExport({ foreground = false } = {}) {
   if (bgExport) { toast('An export is already running. You can follow it in the box at the bottom left.'); return; }
   if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
   // the server decides how long a video this account may export (free 2 min, paid 10 min) before any rendering starts
+  let prepStop = false; const prep = exportPill(() => { prepStop = true; }); setExportBusy(true);          // feedback from the very first tap: the button moves and a "Preparing" box appears
+  const abort = () => { prep.done(); setExportBusy(false); };
   exportChecking = true; let grant;
   try {
     const { seconds, scenes } = exportLength();
     grant = await authorizeExport({ seconds, scenes, scope: scenes > 1 ? 'all' : 'current' });
   } catch (error) {
-    toast(error.message); if (error instanceof ExportLimitError) { openTab('export'); }
+    abort(); toast(error.message); if (error instanceof ExportLimitError) { openTab('export'); }
     return;
   } finally { exportChecking = false; }
-  if (S.exporting || previewChanging || sceneChanging) return;
-  if (!foreground && await backgroundExportPossible()) { await runBackgroundExport(grant); return; }
+  if (prepStop) { abort(); finishExport(grant.grantId, false); toast('Export was stopped.'); return; }
+  if (S.exporting || previewChanging || sceneChanging) { abort(); return; }
+  if (!foreground && await backgroundExportPossible()) { prep.done(); await runBackgroundExport(grant); return; }
+  prep.done();
   let exported = false;
   setOverflow(false); S.exporting = true; requestStudioFrame(); player.pause(); player.seek(0); if (selEl) selEl.hidden = true; stage.fullView = false; syncCam();
   rememberScene();
@@ -3890,7 +3903,7 @@ async function doExport({ foreground = false } = {}) {
   wl?.release?.().catch(() => {});
   try { await stage.setTextureLimit(PREVIEW_MODES[S.previewMode].maxTex); await applyLayers(); } catch (error) { toast(`Could not restore the preview textures: ${error.message}`); }
   finishExport(grant.grantId, exported);
-  b.done(); S.exporting = false; if (sequence) render(); stage.setSize(S.aspect, S.preview); player.pause(); player.seek(0); fitEditor(); S.dirty = true;
+  b.done(); setExportBusy(false); S.exporting = false; if (sequence) render(); stage.setSize(S.aspect, S.preview); player.pause(); player.seek(0); fitEditor(); S.dirty = true;
 }
 
 /* ---------------- autosave, undo / redo, reset ---------------- */

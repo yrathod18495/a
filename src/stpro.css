@@ -882,7 +882,7 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .tclip.music.muted{opacity:.45;filter:grayscale(.6)}
 
 /* the box for an export that runs in the background */
-.export-pill{position:fixed;left:16px;bottom:16px;z-index:60;width:min(340px,calc(100vw - 32px));padding:10px 12px;border:1px solid #4a4c55;border-radius:14px;background:#1d1e22f2;color:#f2f3f5;box-shadow:0 10px 30px #0008;backdrop-filter:blur(6px);font:600 13px/1.3 system-ui,sans-serif}
+.export-pill{position:fixed;left:16px;bottom:16px;z-index:2000;width:min(340px,calc(100vw - 32px));padding:10px 12px;border:1px solid #4a4c55;border-radius:14px;background:#1d1e22f2;color:#f2f3f5;box-shadow:0 10px 30px #0008;backdrop-filter:blur(6px);font:600 13px/1.3 system-ui,sans-serif}
 .export-pill .ep-row{display:flex;align-items:center;gap:8px}
 .export-pill .ep-row svg{width:16px;height:16px;flex:none}
 .export-pill .ep-text{flex:1;min-width:0}
@@ -1001,3 +1001,18 @@ dialog.credit-history-window::backdrop{background:#0009;backdrop-filter:blur(2px
 .admin-character-card>.btn{grid-column:1/-1;justify-self:end}
 .admin-character-thumb{width:72px;height:72px;border-radius:12px;overflow:hidden;background:#101114}.admin-character-thumb img{width:100%;height:100%;object-fit:contain}
 .admin-character-copy{display:grid;gap:2px;min-width:0}.admin-character-copy small{color:var(--mute);font-size:12px}
+
+/* ---- export feedback: the Download button moves while an export is prepared and made; Cancel answers at once ---- */
+.export-btn.working{position:relative;animation:expPulse 1.1s ease-in-out infinite}
+.export-btn.working svg{animation:expArrow .9s ease-in-out infinite}
+@keyframes expPulse{0%,100%{box-shadow:0 0 0 0 #7c6cf59a}60%{box-shadow:0 0 0 10px #7c6cf500}}
+@keyframes expArrow{0%,100%{transform:translateY(-2px)}50%{transform:translateY(3px)}}
+.export-pill.waiting .ep-bar b,.export-pill.stopping .ep-bar b{width:38% !important;animation:expSlide 1.1s ease-in-out infinite}
+@keyframes expSlide{0%{transform:translateX(-110%)}100%{transform:translateX(280%)}}
+.export-pill.stopping .ep-bar b{background:linear-gradient(90deg,#c0505f,#ff9aa8)}
+.export-pill .ep-cancel:disabled{opacity:.75;cursor:default}
+.busy .bar.indet i{width:38% !important;animation:expSlide 1.1s ease-in-out infinite}
+.busy .busy-cancel.stopping{display:inline-flex;align-items:center;gap:8px;opacity:.85}
+.busy .busy-cancel.stopping::before{content:"";width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:expSpin .7s linear infinite}
+@keyframes expSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.export-btn.working,.export-btn.working svg{animation:none}}

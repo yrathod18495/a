@@ -104,8 +104,8 @@ export async function exportOffline({ stage, clips, plan, total, onProgress, can
     stage.render(frame.time, i === 0 ? 0 : 1 / FPS, frame.clips, frame.plan);
     const vf = new VideoFrame(stage.out, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
     venc.encode(vf, { keyFrame: i % (FPS * 2) === 0 }); vf.close();
-    while (venc.encodeQueueSize > 6) await new Promise((r) => setTimeout(r, 4)); // back-pressure keeps memory flat
-    if (i % 6 === 0) { onProgress(i / frames); await yieldUI(); }
+    while (venc.encodeQueueSize > 6) { if (cancelled()) throw new Error('cancelled'); await new Promise((r) => setTimeout(r, 4)); } // back-pressure keeps memory flat; still checked here so Cancel is not stuck behind a full encoder queue
+    await yieldUI(); if (i % 6 === 0) onProgress(i / frames);          // yield every frame so the tab stays responsive (Cancel, repaint) during a heavy single-thread export; the percentage itself need not update as often
   }
   await venc.flush(); venc.close();
   if (failure) throw failure;
@@ -142,9 +142,11 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
   const killAll = () => pool.forEach((w) => w.terminate());
   const jobMsg = { type: 'init', job: { ...job, codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode } };
 
+  let watch = 0;
   await new Promise((resolve, reject) => {
     let running = workers;
     const fail = (m) => { if (!failed) { failed = new Error(m); killAll(); reject(failed); } };
+    watch = setInterval(() => { if (cancelled()) fail('cancelled'); }, 80);          // Cancel works at once: the workers are stopped now, not when they finish their slice
     for (let k = 0; k < workers; k++) {
       let w;
       try { w = new Worker(new URL('./exportWorker.js', import.meta.url), { type: 'module' }); } catch (e) { fail(`worker: ${e.message}`); return; }
@@ -165,7 +167,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
       w.onerror = (e) => fail(e.message || 'worker crashed');
       w.postMessage(jobMsg);
     }
-  });
+  }).finally(() => clearInterval(watch));
   killAll();
 
   // stitch the slices in order

@@ -63,7 +63,7 @@ select:focus{outline:2px solid var(--acc)}
 .bar{height:8px;border-radius:9px;background:var(--card2);overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));width:0}
 .foot{display:flex;gap:10px;margin-top:16px;justify-content:space-between}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#edeefb;border:0;padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;box-shadow:0 8px 24px #0b0d1e44}
-.busy{position:fixed;inset:0;background:#16171a99;display:grid;place-items:center;z-index:8}.busy .card{min-width:260px;text-align:center}
+.busy{position:fixed;inset:0;background:#16171a99;display:grid;place-items:center;z-index:2000}.busy .card{min-width:260px;text-align:center}
 @media(max-width:860px){.studio{grid-template-columns:1fr}.grid2,.spk{grid-template-columns:1fr}.steps{margin-left:0}h1{font-size:22px}.stagebox canvas{max-height:56vh}}
 @media(max-width:420px){.fields{grid-template-columns:1fr}}
 .modal{position:fixed;inset:0;background:#16171a99;z-index:50;display:grid;place-items:center;padding:16px}
@@ -81,7 +81,7 @@ select:focus{outline:2px solid var(--acc)}
 .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
 .tabs button{flex:none;padding:7px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card2);cursor:pointer;color:var(--text);font-size:13px;white-space:nowrap}
 .tabs button.on{background:var(--acc);border-color:var(--acc)}.tabs small{margin-left:6px;opacity:.7}
-.busy{z-index:9}
+.busy{z-index:2000}
 /* studio layout: preview stays on top on phones */
 .studio{display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-areas:"prev side" "tl side";gap:14px 16px;align-items:start}
 .prev{grid-area:prev}.tlwrap{grid-area:tl}.side{grid-area:side;min-width:0}
