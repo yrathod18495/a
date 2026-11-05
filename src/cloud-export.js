@@ -34,3 +34,18 @@ export async function watchCloudExport(uid, jobId, { onUpdate, stop = () => fals
     await new Promise((r) => setTimeout(r, intervalMs));
   }
 }
+
+/**
+ * Saves a finished video as a proper "<name>.mp4" file. A normal link to another web address ignores the page's chosen file name
+ * (the browser then used the storage file name, which has no ending), so smaller videos are fetched and saved from here with the
+ * right name and type; a big one (a phone cannot hold it in memory) opens the signed link, which also names the file.
+ */
+export async function saveCloudVideo(uid, jobId, name, size = 0) {
+  const url = await cloudExportDownloadUrl(uid, jobId);
+  let href = url, revoke = null;
+  if (size && size < 150 * 1048576) {
+    try { const r = await fetch(url); if (r.ok) { href = URL.createObjectURL(new Blob([await r.blob()], { type: 'video/mp4' })); revoke = href; } } catch { /* the link itself still works */ }
+  }
+  const a = document.createElement('a'); a.href = href; a.download = name; document.body.append(a); a.click(); a.remove();
+  if (revoke) setTimeout(() => URL.revokeObjectURL(revoke), 60000);
+}

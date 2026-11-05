@@ -27,7 +27,7 @@ import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as as
 import { pictureUrl } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
-import { createCloudExport, cancelCloudExport, cloudExportStatus, watchCloudExport, cloudExportDownloadUrl } from './cloud-export.js';
+import { createCloudExport, cancelCloudExport, cloudExportStatus, watchCloudExport, saveCloudVideo } from './cloud-export.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 
 import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
@@ -3778,11 +3778,8 @@ async function cancelCloudExportJob() {
 async function downloadCloudExport() {
   if (!cloudJob?.id) return;
   const uid = projectContext()?.uid; if (!uid) return;
-  try {
-    const url = await cloudExportDownloadUrl(uid, cloudJob.id);
-    const a = h('a', { href: url, download: `toon-cloud-${Date.now()}.mp4` });
-    document.body.append(a); a.click(); a.remove();
-  } catch (e) { toast(`Could not get the download link: ${e.message}`); }
+  try { await saveCloudVideo(uid, cloudJob.id, `toon-${S.quality}p-${cloudJob.id.slice(-6)}.mp4`, cloudJob.size); }
+  catch (e) { toast(`Could not get the download link: ${e.message}`); }
 }
 /** the device tile of the Render section: one button, states it plainly instead of a row of separate controls */
 function deviceRenderTile() {
