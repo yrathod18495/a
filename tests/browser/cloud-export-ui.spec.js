@@ -33,3 +33,24 @@ test('Cloud export: Start submits a job, progress polling shows it, and Cancel s
   await expect(page.getByRole('button', { name: /Start cloud export/ })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('Cloud export: a failed create shows the error clearly (red box + Try again), never silently reverting to looking untouched', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/export', async (r) => {
+    const body = JSON.parse(r.request().postData());
+    if (body.action === 'cloudCreate') return r.fulfill({ json: { error: 'This project was not found. Please save it to the cloud first.' }, status: 404 });
+    return r.fulfill({ json: { error: 'unexpected' }, status: 400 });
+  });
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('CloudErr');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(async () => { const store = await import('/src/store.js'); store.selectProject('debug-uid', 'proj_err'); });
+  await page.evaluate(() => window.__toon.openTab('export'));
+  await page.getByRole('button', { name: /Start cloud export/ }).click();
+  await expect(page.getByRole('alert')).toContainText('This project was not found');
+  await expect(page.getByRole('button', { name: /Try again/ })).toBeVisible();
+  expect(errors).toEqual([]);
+});

@@ -3764,18 +3764,28 @@ async function downloadCloudExport() {
   } catch (e) { toast(`Could not get the download link: ${e.message}`); }
 }
 function cloudExportCard() {
-  const active = cloudJob && !['done', 'error', 'cancelled'].includes(cloudJob.status);
   const pct = Math.round((cloudJob?.progress || 0) * 100);
+  const body = !cloudJob
+    ? h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, '☁ Start cloud export')
+    : cloudJob.status === 'error'
+      ? h('div', {},
+          h('p', { role: 'alert', style: 'font-size:13px;margin:0 0 10px;padding:8px 10px;border-radius:8px;background:#3a1d22;color:#ff9aa8;font-weight:600' }, '⚠ ' + (cloudJob.error || 'This export failed.')),
+          h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, '↻ Try again'))
+      : cloudJob.status === 'cancelled'
+        ? h('div', {},
+            h('p', { style: 'font-size:12px;margin:0 0 10px;color:var(--mute)' }, 'Cancelled.'),
+            h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, '☁ Start cloud export'))
+        : cloudJob.status === 'done'
+          ? h('div', {},
+              h('p', { style: 'font-size:12px;margin:0 0 10px;color:#9de2a8' }, '✓ Your video is ready.'),
+              h('button', { type: 'button', class: 'btn sm ok', onclick: downloadCloudExport }, '⬇ Download the video'))
+          : h('div', {},                        // starting / pending / rendering
+              h('div', { class: 'bar', style: 'margin:4px 0 8px' }, h('i', { style: `width:${pct}%` })),
+              h('p', { style: 'font-size:12px;margin:0 0 8px;color:var(--text)' }, cloudJob.status === 'starting' || cloudJob.status === 'pending' ? 'Waiting for a render machine…' : `Rendering… ${pct}%`),
+              h('button', { type: 'button', class: 'btn sm', style: 'color:#ff8f8f', onclick: cancelCloudExportJob }, 'Cancel'));
   return h('div', { class: 'card flat' }, h('h2', {}, 'Cloud export'),
     h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Renders on a separate machine, using the settings above — your project does not need to stay open, but it is slower to start.'),
-    !cloudJob || cloudJob.status === 'done' || cloudJob.status === 'error' || cloudJob.status === 'cancelled'
-      ? h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, '☁ Start cloud export')
-      : h('div', {},
-          h('div', { class: 'bar', style: 'margin:4px 0 8px' }, h('i', { style: `width:${pct}%` })),
-          h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, cloudJob.status === 'starting' || cloudJob.status === 'pending' ? 'Waiting for a render machine…' : `Rendering… ${pct}%`),
-          h('button', { type: 'button', class: 'btn sm', style: 'color:#ff8f8f', onclick: cancelCloudExportJob }, 'Cancel')),
-    cloudJob?.status === 'done' ? h('button', { type: 'button', class: 'btn sm ok', style: 'margin-top:8px', onclick: downloadCloudExport }, '⬇ Download the video') : null,
-    cloudJob?.status === 'error' ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0;color:#ff9aa8' }, cloudJob.error || 'This export failed.') : null);
+    body);
 }
 
 async function togglePlay() {
