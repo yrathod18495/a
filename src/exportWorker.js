@@ -34,23 +34,28 @@ async function segment({ id, from, to }) {
   });
   enc.configure({ codec, width: W, height: H, bitrate, framerate: fps, latencyMode: 'quality', bitrateMode: job.bitrateMode, ...(job.hardwareAcceleration ? { hardwareAcceleration: job.hardwareAcceleration } : {}) });
   // hair / cloth physics need a moment to settle, so warm up a little before the first frame we keep
-  const warm = Math.min(from, Math.round(fps * 0.75));
+  const warm = Math.min(from, Math.round(fps * 0.75)), clock = { warm: 0, render: 0, submit: 0, wait: 0, flush: 0 }, now = () => performance.now();
+  let t = now();
   for (let i = from - warm; i < from; i++) stage.render(i / fps, dt, voice, plan);
+  clock.warm = now() - t;
   // Keep the hardware encoder fed without allowing unbounded frame memory.
   // 4K frames are large; 1080p and below can safely pipeline more frames.
   const queueLimit = W * H >= 3840 * 2160 ? 4 : W * H >= 1920 * 1080 ? 8 : 12;
   for (let i = from; i < to; i++) {
     if (failure) throw failure;
-    stage.render(i / fps, i === from && !warm ? 0 : dt, voice, plan);
+    t = now(); stage.render(i / fps, i === from && !warm ? 0 : dt, voice, plan); clock.render += now() - t;
+    t = now();
     const vf = new VideoFrame(stage.out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
     enc.encode(vf, { keyFrame: i === from || i % (fps * 2) === 0 }); vf.close();
+    clock.submit += now() - t; t = now();
     while (enc.encodeQueueSize > queueLimit) await new Promise((r) => setTimeout(r, 2));
+    clock.wait += now() - t;
     if ((i - from) % 2 === 1) self.postMessage({ type: 'progress', frames: 2 });
   }
-  await enc.flush(); enc.close();
+  t = now(); await enc.flush(); clock.flush = now() - t; enc.close();
   if (failure) throw failure;
   self.postMessage({ type: 'progress', frames: (to - from) % 2 });
-  self.postMessage({ type: 'segment', id, chunks, config }, chunks.map((c) => c.data));
+  self.postMessage({ type: 'segment', id, chunks, config, clock, frames: to - from }, chunks.map((c) => c.data));
 }
 
 self.onmessage = async (e) => {

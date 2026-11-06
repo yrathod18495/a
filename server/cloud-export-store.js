@@ -59,3 +59,20 @@ export async function listVideos(store, uid, deleteFile) {
   }
   return live.sort((a, b) => b.createdAt - a.createdAt);
 }
+
+/**
+ * A progress update from the render page. Updates are sent without waiting for each other and can arrive out of order (separate server
+ * instances), which made the bar and the phase text jump back and forth. Each update carries a number (`seq`) from the page: an older
+ * one that arrives late is ignored, and the percentage never goes down.
+ */
+export async function applyProgress(store, uid, id, { progress, phase, seq } = {}) {
+  await store.transact(jobPath(uid, id), (cur) => {
+    if (!cur || TERMINAL.has(cur.status)) return undefined;
+    if (Number.isInteger(seq) && seq <= (cur.seq || 0)) return undefined;
+    const next = { ...cur, status: 'rendering', updatedAt: Date.now() };
+    if (progress !== undefined) next.progress = Math.max(cur.progress || 0, progress);
+    if (phase) next.phase = phase;
+    if (Number.isInteger(seq)) next.seq = seq;
+    return next;
+  });
+}

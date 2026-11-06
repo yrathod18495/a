@@ -203,7 +203,7 @@ def render_one(uid, job_id, job, slot=0):
                 use_gpu = False
                 browser = p.chromium.launch_persistent_context(job_profile, headless=True, args=chromium_launch_args(False), viewport={"width": 960, "height": 720})
                 page = browser.pages[0] if browser.pages else browser.new_page()
-            page.on("console", lambda m: log(f"[{job_id}] page: {m.text[:300]}"))
+            page.on("console", lambda m: None if "dragonbones.com" in m.text.lower() or m.text.startswith("DragonBones:") else log(f"[{job_id}] page: {m.text[:300]}"))          # the DragonBones banner is printed by every worker: it only floods the log
             page.on("pageerror", lambda e: log(f"[{job_id}] page error: {e}"))
             page.goto(url, wait_until="load", timeout=60_000)
             status = "pending"

@@ -7,7 +7,9 @@ import { restoreSnapshot, selectProject } from './store.js';
 import { setCloudRenderAuth } from './session.js';
 
 /** a secret-authenticated call to /api/export (cloud export shares this endpoint — see docs/CLOUD-EXPORT.md) — no Firebase sign-in involved at all */
+let progressSeq = 0;          // numbers the progress updates in the order they were made, so the server can drop one that arrives late
 async function jobCall(uid, jobId, secret, action, extra = {}) {
+  if (action === 'cloudProgress') extra = { ...extra, seq: ++progressSeq };
   const r = await fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, uid, jobId, secret, ...extra }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const e = Error(j.error || 'The cloud export request failed.'); e.code = j.code; throw e; }

@@ -10,7 +10,7 @@ import { effectiveTier, setTier } from '../server/entitlements.js';
 import { EXPORT_LIMIT_SECONDS, limitFor, withinLimit, limitMessage } from '../shared/export-limits.js';
 import { kv } from '../server/rtdb.js';
 import { assetKey, stateKey, getUrl, readText, objectExists, confirmAssets, signUploads, putUrl, videoKey, videoUrl, deleteKey, MAX_FILE, MAX_VIDEO, MAX_VIDEOS_TOTAL, VIDEO_TTL_MS } from '../server/r2-storage.js';
-import { createJob, getJob, jobBySecret, updateJob, cancelJob, publicJob, listVideos, videosPath, TERMINAL } from '../server/cloud-export-store.js';
+import { createJob, getJob, jobBySecret, updateJob, cancelJob, publicJob, listVideos, videosPath, applyProgress, TERMINAL } from '../server/cloud-export-store.js';
 
 const MAX_SECONDS = 24 * 3600;
 const validGrant = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{4,40}$/.test(value);
@@ -60,10 +60,9 @@ export default async function handler(req, res) {
         return send(res, 200, { upload: await putUrl(videoKey(job.uid, b.jobId), size) });
       }
       if (b.action === 'cloudProgress') {
-        const patch = { status: 'rendering' };
-        if (b.progress !== undefined) patch.progress = Math.max(0, Math.min(1, Number(b.progress) || 0));
-        if (['loading', 'preparing', 'rendering', 'uploading'].includes(b.phase)) patch.phase = b.phase;
-        await updateJob(store, b.uid, b.jobId, patch);
+        const progress = b.progress === undefined ? undefined : Math.max(0, Math.min(1, Number(b.progress) || 0));
+        const phase = ['loading', 'preparing', 'rendering', 'uploading'].includes(b.phase) ? b.phase : undefined;
+        await applyProgress(store, b.uid, b.jobId, { progress, phase, seq: Number.isInteger(b.seq) ? b.seq : undefined });
         return send(res, 200, { ok: true });
       }
       if (b.action === 'cloudComplete') {

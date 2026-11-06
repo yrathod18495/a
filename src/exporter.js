@@ -187,6 +187,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
     : Math.max(FPS * 2, Math.min(FPS * 6, Math.ceil(frames / (workers * 3))));          // phones and computers keep the original split
   const queue = []; for (let from = 0, id = 0; from < frames; from += segLen, id++) queue.push({ id, from, to: Math.min(frames, from + segLen) });
   const results = new Map(); let done = 0, failed = null;
+  const clockTotal = {}, startedAt = performance.now();          // where the workers spent their time: shows whether drawing or encoding is the slow part
   const pool = [];
   const killAll = () => pool.forEach((w) => w.terminate());
   const jobMsg = { type: 'init', job: { ...job, codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode, ...(codecs.video.hardwareAcceleration ? { hardwareAcceleration: codecs.video.hardwareAcceleration } : {}) } };
@@ -210,7 +211,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
         const m = e.data;
         if (m.type === 'ready') next();
         else if (m.type === 'progress') { done += m.frames; onProgress(Math.min(0.99, done / frames)); }
-        else if (m.type === 'segment') { results.set(m.id, m); next(); }
+        else if (m.type === 'segment') { results.set(m.id, m); if (m.clock) for (const k of Object.keys(m.clock)) clockTotal[k] = (clockTotal[k] || 0) + m.clock[k]; next(); }
         else if (m.type === 'error') fail(m.message);
       };
       w.onerror = (e) => fail(e.message || 'worker crashed');
@@ -229,6 +230,10 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
       video.push([new EncodedVideoChunk({ type: c.type, timestamp: c.timestamp, duration: c.duration, data: c.data }), meta]);
       first = false;
     }
+  }
+  if (isCloudRenderPage()) {
+    const sum = Object.values(clockTotal).reduce((a, b) => a + b, 0) || 1, pct = (k) => `${Math.round(((clockTotal[k] || 0) / sum) * 100)}%`, secs = (performance.now() - startedAt) / 1000;
+    console.info(`Cloud export timing: ${frames} frames in ${secs.toFixed(1)} s (${(frames / secs).toFixed(1)} fps) on ${workers} worker(s) · worker time: drawing ${pct('render')}, handing frames to the encoder ${pct('submit')}, waiting for a busy encoder ${pct('wait')}, finishing the encoder ${pct('flush')}, warm-up ${pct('warm')}`);
   }
   const res = mux({ codecs, W, H, FPS }, video, await audioPromise);
   onProgress(1);
