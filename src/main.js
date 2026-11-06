@@ -18,6 +18,7 @@ import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
 import { Player, buildTimeline, GAP, LEAD } from './player.js';
 import { characterPicker } from './charpick.js';
+import { gpuEncodeConfig } from './gpu-encode.js';
 import { exportOffline, exportParallel, exportDistributed, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
 import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext, listBgLibrary } from './store.js';
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
@@ -4082,7 +4083,7 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
       const job = await exportJob(stage.W, stage.H);
       const workers = Math.max(1, workerCount());
       console.log(`Cloud export: using ${workers} parallel frame worker(s); hardware video encoding is preferred when supported.`);
-      const alone = new URLSearchParams(location.search).get('dist') === '0';          // ?dist=0: this machine renders the whole video by itself
+      const alone = new URLSearchParams(location.search).get('dist') === '0' || !!gpuEncodeConfig();          // ?dist=0: this machine renders the whole video by itself. With a GPU encoder (?gpuenc=) it must: only the single-machine path (exportParallel) sends frames to the encoder, the shared-slice path never did
       let handled = false;
       if (!alone) {
         // Several machines can work on one video: this one claims slices from the shared list (see server/cloud-export-store.js). If the list cannot be used, it renders everything itself.

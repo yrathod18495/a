@@ -212,3 +212,6 @@ runs on every poll and prevents it two ways:
 
 Net effect: the node can only ever hold jobs from roughly the last couple of hours, so its size (and the cost of polling it)
 stays flat no matter how long the Space has been running.
+
+### GPU encoding and the shared-slice path
+Only the single-machine path (`exportParallel`) sends frames to the worker's GPU encoder. The shared-slice path (`exportDistributed`) packs browser-encoded slices and never used `?gpuenc=`. So when the page address has `gpuenc`, `runCloudExportJob` renders alone (same as `?dist=0`); without `gpuenc`, nothing changes. A worker log line `Cloud export: GPU encoder connected (h264_nvenc)` confirms the bridge is in use.
