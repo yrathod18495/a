@@ -9,6 +9,9 @@ import { cleanAssetMeta } from '../shared/studio-effects.js';
 import { lockedFor, LOCKABLE_TYPES, PAID_MESSAGE } from '../shared/asset-access.js';
 import { effectiveTier } from '../server/entitlements.js';
 import { characterAction, CHARACTER_BODY_MAX } from '../server/characters-api.js';
+import { converse, bedrockConfigured, MAX_PROMPT_CHARS } from '../server/bedrock.js';
+
+const aiLast = new Map();                              // uid -> time of the last AI request (best effort, per server instance)
 
 // The bundled character library (public/12toons) was removed, so no built-in rig is a valid animation target any more.
 // Importing that deleted file crashed this whole function (props, backgrounds, effects and the library list all failed).
@@ -23,6 +26,16 @@ export default async function handler(req, res) {
     // characters uploaded by the admin share this function (a Vercel Hobby plan allows 12); their files may be up to 600 KB, everything else stays small
     const b = await bodyOf(req, CHARACTER_BODY_MAX);
     if (typeof b.action === 'string' && b.action.startsWith('character:')) return characterAction(req, res, { ...b, action: b.action.slice(10) });
+    if (b.action === 'ai:status') { await access(req); return send(res, 200, { bedrock: bedrockConfigured() }); }
+    if (b.action === 'ai:chat') {                    // AI director on Amazon Bedrock (Claude Haiku); signed-in accounts only, the key stays on the server
+      const who = await access(req);
+      if (!who.admin && await maintenanceOn()) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+      const now = Date.now();
+      if (now - (aiLast.get(who.uid) || 0) < 1500) throw new AccessError('rate_limited', 'Please wait a moment before the next AI request.', 429);
+      aiLast.set(who.uid, now); if (aiLast.size > 5000) aiLast.clear();
+      if (typeof b.user !== 'string' || b.user.length > MAX_PROMPT_CHARS) throw new AccessError('invalid_prompt', 'The AI request is empty or too large.', 400);
+      return send(res, 200, { text: await converse({ system: typeof b.system === 'string' ? b.system : '', user: b.user, json: b.json === true }) });
+    }
     if (JSON.stringify(b).length > 16_000) throw new AccessError('too_large', 'The request is too large.', 413);
     const isAdminAction = ['save', 'delete', 'update'].includes(b.action);
     const who = await access(req, { write: isAdminAction, admin: isAdminAction });

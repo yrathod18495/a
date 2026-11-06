@@ -3380,7 +3380,7 @@ function applyDirection(L, res, libs) {
 }
 async function runDirector(lines) {
   const ai = S.ai;
-  if (!ai.key) { toast('Please enter your OpenRouter API key first.'); return; }
+  if (ai.provider !== 'bedrock' && !ai.key) { toast('Please enter your OpenRouter API key first.'); return; }
   const onStage = S.speakers.filter((s) => s.charId && charOf(s));
   if (!onStage.length) { toast('Please place at least one character on the stage first.'); return; }
   const need = new Set();
@@ -3407,7 +3407,7 @@ async function runDirector(lines) {
   } catch (e) { if (e.name !== 'AbortError') { console.error(e); toast(`AI: ${e.message}`); } } finally { b.done(); }
 }
 async function runTranscribe(lines) {
-  if (!S.ai.key) { toast('Please enter your OpenRouter API key first.'); return; }
+  if (!S.ai.key) { toast(S.ai.provider === 'bedrock' ? 'Writing the script from audio needs an OpenRouter key (Amazon Bedrock cannot listen to audio). Please add the script text or an OpenRouter key.' : 'Please enter your OpenRouter API key first.'); return; }
   const ctrl = new AbortController(), b = busy('AI is writing the script…', () => ctrl.abort());
   let done = 0, next = 0, failed = null;
   const worker = async () => {
@@ -3507,10 +3507,14 @@ function tabAi() {
     h('details', { class: 'card flat' }, h('summary', { style: 'cursor:pointer;font-weight:600' }, 'Script text (used in the brief — edit only to fix)'),
       h('div', { class: 'ailines' }, rows)),
     h('details', { class: 'card flat' }, h('summary', { style: 'cursor:pointer;font-weight:700' }, 'Or direct inside the app with OpenRouter (needs an API key)'),
-    h('div', { class: 'card flat' }, h('h2', {}, '1 · OpenRouter'),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Your key stays in this browser only and is sent only to openrouter.ai.'),
+    h('div', { class: 'card flat' }, h('h2', {}, '1 · AI provider'),
+      h('select', { onchange: (e) => { set({ provider: e.target.value }); redrawPanel(); } },
+        h('option', { value: 'openrouter', selected: ai.provider !== 'bedrock' }, 'OpenRouter (your own key)'),
+        h('option', { value: 'bedrock', selected: ai.provider === 'bedrock' }, 'Amazon Bedrock · Claude Haiku (no key needed)')),
+      ai.provider === 'bedrock' ? h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0 0' }, 'Directing runs on Amazon Bedrock through 12toons; you do not need a key. Turning audio into script text still uses an OpenRouter key below, or paste the script yourself.') : null,
+      h('p', { class: 'sub', style: 'font-size:12px;margin:8px 0' }, 'Your OpenRouter key stays in this browser only and is sent only to openrouter.ai.'),
       h('input', { type: 'password', placeholder: 'OpenRouter API key (sk-or-…)', value: ai.key, autocomplete: 'off', onchange: (e) => set({ key: e.target.value.trim() }) }),
-      h('input', { type: 'text', style: 'margin-top:8px', list: 'ai-models', placeholder: 'Model id', value: ai.model, onchange: (e) => set({ model: e.target.value.trim() || ai.model }) }), dl,
+      ai.provider === 'bedrock' ? null : h('input', { type: 'text', style: 'margin-top:8px', list: 'ai-models', placeholder: 'Model id', value: ai.model, onchange: (e) => set({ model: e.target.value.trim() || ai.model }) }), dl,
       h('button', { class: 'btn sm', style: 'margin-top:8px', onclick: async (e) => {
         const btn = e.currentTarget; btn.disabled = true;
         try { const ids = await listModels(); dl.replaceChildren(...ids.map((id) => h('option', { value: id }))); toast(`${ids.length} Gemini models found — tap the model field to pick the flash one.`); } catch (er) { toast(`Could not load models: ${er.message}`); }

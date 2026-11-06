@@ -1,13 +1,16 @@
 // AI director (client side only): talks to OpenRouter straight from the browser with the user's own key.
 // The key is kept in this browser's localStorage and is only ever sent to openrouter.ai.
+import { auth } from './firebase.js';
+import { apiCall } from './session.js';
+
 const LS = 'toon-ai';
 const API = 'https://openrouter.ai/api/v1';
 export const DEFAULT_MODEL = 'google/gemini-3.8-flash';
 
 export function loadAi() {
-  try { return { key: '', model: DEFAULT_MODEL, ...JSON.parse(localStorage.getItem(LS) || '{}') }; } catch { return { key: '', model: DEFAULT_MODEL }; }
+  try { return { key: '', model: DEFAULT_MODEL, provider: 'openrouter', ...JSON.parse(localStorage.getItem(LS) || '{}') }; } catch { return { key: '', model: DEFAULT_MODEL, provider: 'openrouter' }; }
 }
-export function saveAi(cfg) { try { localStorage.setItem(LS, JSON.stringify({ key: cfg.key, model: cfg.model })); } catch { /* private mode */ } }
+export function saveAi(cfg) { try { localStorage.setItem(LS, JSON.stringify({ key: cfg.key, model: cfg.model, provider: cfg.provider })); } catch { /* private mode */ } }
 
 /** public list of models (no key needed), used to suggest the exact id of the flash model */
 export async function listModels() {
@@ -16,7 +19,17 @@ export async function listModels() {
   return ((await r.json()).data || []).map((m) => m.id).filter((id) => /gemini/i.test(id)).sort().reverse();
 }
 
+/** Amazon Bedrock (Claude Haiku): goes through our server, which holds the AWS key. Text only (it cannot listen to audio). */
+async function bedrockChat(messages, { json }) {
+  const owner = auth.currentUser?.uid;
+  if (!owner) throw new Error('Please sign in to use Amazon Bedrock.');
+  const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n');
+  const user = messages.filter((m) => m.role === 'user').map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n');
+  return (await apiCall('/api/studio-assets', { action: 'ai:chat', system, user, json }, owner)).text;
+}
+
 async function chat(cfg, messages, { json = false, signal } = {}) {
+  if (cfg.provider === 'bedrock') return bedrockChat(messages, { json });
   if (!cfg.key) throw new Error('Please enter your OpenRouter API key first.');
   const body = { model: cfg.model || DEFAULT_MODEL, messages, temperature: json ? 0.5 : 0.1 };
   if (json) body.response_format = { type: 'json_object' };
@@ -50,7 +63,7 @@ function wavBase64(buffer) {
 
 /** audio line -> text (in the language that is spoken) */
 export async function transcribe(cfg, buffer, signal) {
-  const out = await chat(cfg, [{ role: 'user', content: [
+  const out = await chat({ ...cfg, provider: 'openrouter' }, [{ role: 'user', content: [
     { type: 'text', text: 'Transcribe this short audio line exactly as spoken, in the language and script it is spoken in (Hindi stays Hindi). Reply with the spoken words only, no quotes, no notes.' },
     { type: 'input_audio', input_audio: { data: wavBase64(buffer), format: 'wav' } },
   ] }], { signal });
