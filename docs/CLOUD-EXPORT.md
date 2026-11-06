@@ -113,6 +113,18 @@ For NVIDIA cloud rendering, WebCodecs is asked to `prefer-hardware` video encodi
 
 Benchmark one unchanged project at one, two and (only if resources permit) three workers. Compare the complete `Cloud export done` duration and verify audio/video sync and scene continuity. The fastest stable setting is the right setting; 100% GPU utilization is not itself the objective.
 
+## GPU video encoding (ffmpeg + NVENC)
+
+Chrome has no NVENC on Linux, so the render page's own H.264 encoder runs on the CPU; on a GPU machine with few cores (a Colab T4 has 2)
+that CPU encoder is the bottleneck while the GPU idles. When the worker finds a working NVIDIA GPU **and** an ffmpeg that can encode with
+`h264_nvenc`, `hf-cloud-export/gpu_encode.py` starts a local WebSocket server and `app.py` adds `?gpuenc=<port>.<one-time token>` to the
+render page's address. The page (`src/gpu-encode.js`, `exportParallel`, `exportWorker.js`) then sends every raw frame of each slice to
+ffmpeg instead of encoding it: one ffmpeg per slice, the slices joined with `-c copy`, the mixed audio encoded to AAC, and the finished MP4
+sent back to the page, which uploads it as before. No ordering buffer is needed, the output is a normal H.264/AAC MP4, and nothing
+changes for phones/computers (the address has no `gpuenc`). If the GPU encoder cannot start, or fails mid-render, the page falls back to its own
+encoder (the cloud job code already retries on one thread). `GPU_ENCODE=0` switches it off; `GPUENC_CODEC=libx264` runs the same path
+without a GPU (used by `tests/browser/gpu-encode.spec.js`). The `Cloud export timing (GPU encode)` log line shows where the time goes.
+
 ## Limits (v1)
 - Renders the **current scene only** (not "export all scenes together"); the Export tab's Scenes dropdown does not apply to
   cloud export yet. Fast-render / live-recording toggle does not apply either — cloud export always renders offline (the whole

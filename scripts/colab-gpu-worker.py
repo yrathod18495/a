@@ -29,12 +29,14 @@ def valid_key(path):
     except Exception:
         return None
 
-print("Upload the LATEST app.py and your Firebase key .json now (both together). If nothing new is needed, just cancel the dialog and the files already in Colab are used.")
+print("Upload the LATEST app.py + gpu_encode.py + your Firebase key .json now (all together). If nothing new is needed, just cancel the dialog and the files already in Colab are used.")
 incoming = files.upload()
 for name, content in incoming.items():
     base = pathlib.Path(name).name
     if re.fullmatch(r"app(?: \(\d+\))?\.py", base, re.I):
         APP_PATH.write_bytes(content)
+    elif re.fullmatch(r"gpu_encode(?: \(\d+\))?\.py", base, re.I):
+        (ROOT / "gpu_encode.py").write_bytes(content)
     elif base.lower().endswith(".json"):
         try:
             d = json.loads(content.decode("utf-8-sig"))
@@ -62,10 +64,16 @@ pathlib.Path(os.environ["PROFILE_DIR"]).mkdir(parents=True, exist_ok=True)
 
 if subprocess.run(["nvidia-smi"], capture_output=True).returncode != 0:
     raise RuntimeError("No NVIDIA GPU: Runtime > Change runtime type > T4 GPU.")
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "firebase-admin", "fastapi", "uvicorn", "playwright", "psutil"], check=True)
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "firebase-admin", "fastapi", "uvicorn", "playwright", "psutil", "websockets"], check=True)
 subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
 import psutil
 
+sys.path.insert(0, str(ROOT))          # app.py imports gpu_encode.py from here
+try:
+    import gpu_encode
+    print("GPU video encoding:", "READY (ffmpeg " + gpu_encode.CODEC + ")" if gpu_encode.encoder_works() else "OFF: ffmpeg cannot use " + gpu_encode.CODEC + " here (the browser's CPU encoder is used)")
+except ImportError:
+    print("GPU video encoding: OFF (gpu_encode.py was not uploaded)")
 spec = importlib.util.spec_from_file_location("twelvetoons_worker", str(APP_PATH))
 worker = importlib.util.module_from_spec(spec); spec.loader.exec_module(worker)
 for old in list(worker.firebase_admin._apps.values()):

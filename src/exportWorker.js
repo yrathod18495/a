@@ -1,6 +1,7 @@
 // Renders and encodes frame slices in parallel. The parent chooses a bounded worker count
 // for the render machine; each worker owns an independent DragonBones/WebGL stage and encoder.
 import { Stage } from './db/stage.js';
+import { connectGpuEncoder } from './gpu-encode.js';
 
 let stage, job;
 
@@ -21,7 +22,41 @@ async function init(msg) {
   if (stage.W !== job.W || stage.H !== job.H) throw new Error('size mismatch');
 }
 
+const PIX = { RGBA: 'rgba', RGBX: 'rgb0', BGRA: 'bgra', BGRX: 'bgr0' };          // what a canvas frame can be, named the way ffmpeg names it
+let link = null;
+/** the GPU-encoder version of a slice: the raw frames go to ffmpeg (on the GPU) instead of through this worker's own video encoder */
+async function gpuSegment({ id, from, to }) {
+  const { fps, bitrate, W, H, voice, plan } = job, dt = 1 / fps, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const clock = { warm: 0, render: 0, submit: 0, wait: 0, flush: 0 }, now = () => performance.now();
+  link ||= await connectGpuEncoder(job.gpuenc);
+  const probe = new VideoFrame(stage.out, { timestamp: 0 }), pix = PIX[probe.format], size = probe.allocationSize(); probe.close();
+  if (!pix) throw new Error(`The picture format ${probe.format} cannot be sent to the GPU encoder.`);
+  link.send({ t: 'slice', id, w: W, h: H, fps, pix, bitrate });
+  const warm = Math.min(from, Math.round(fps * 0.75));
+  let t = now();
+  for (let i = from - warm; i < from; i++) stage.render(i / fps, dt, voice, plan);
+  clock.warm = now() - t;
+  const rowBytes = W * 4;
+  for (let i = from; i < to; i++) {
+    t = now(); stage.render(i / fps, i === from && !warm ? 0 : dt, voice, plan); clock.render += now() - t;
+    t = now();
+    const vf = new VideoFrame(stage.out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
+    let bytes = new Uint8Array(size); const layout = await vf.copyTo(bytes); vf.close();
+    if (layout[0].stride !== rowBytes) { const packed = new Uint8Array(rowBytes * H); for (let y = 0; y < H; y++) packed.set(bytes.subarray(y * layout[0].stride, y * layout[0].stride + rowBytes), y * rowBytes); bytes = packed; }
+    link.send(bytes);
+    clock.submit += now() - t; t = now();
+    while (link.ws.bufferedAmount > size * 6) { if (link.closed) throw new Error('The GPU encoder connection closed.'); await sleep(1); }          // the encoder is the slower side: wait instead of filling memory
+    clock.wait += now() - t;
+    if ((i - from) % 2 === 1) self.postMessage({ type: 'progress', frames: 2 });
+  }
+  t = now(); link.send({ t: 'end', id }); const done = await link.wait('sliceDone'); clock.flush = now() - t;
+  if (!done.ok) throw new Error(`GPU encoder: ${done.error || 'a slice failed'}`);
+  self.postMessage({ type: 'progress', frames: (to - from) % 2 });
+  self.postMessage({ type: 'segment', id, chunks: [], config: null, clock, frames: to - from });
+}
+
 async function segment({ id, from, to }) {
+  if (job.gpuenc) return gpuSegment({ id, from, to });
   const { fps, codec, bitrate, W, H, voice, plan } = job, dt = 1 / fps;
   const chunks = []; let config = null, failure = null;
   const enc = new VideoEncoder({

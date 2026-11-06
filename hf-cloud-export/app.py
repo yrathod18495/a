@@ -139,6 +139,19 @@ def chromium_launch_args(use_gpu):
     ]
 
 
+def gpu_encoder_job():
+    """(encoder, port, token) for this job when GPU encoding is available, else None. Needs gpu_encode.py next to this file."""
+    try:
+        import gpu_encode
+        enc = gpu_encode.get_encoder()
+        if not enc:
+            return None
+        return enc, enc.port, enc.new_job()
+    except Exception:
+        log("GPU encoding is not available:\n" + traceback.format_exc())
+        return None
+
+
 def webgl_is_hardware(page):
     """True when this browser has a working WebGL that is not a software renderer (SwiftShader / llvmpipe)."""
     try:
@@ -149,12 +162,14 @@ def webgl_is_hardware(page):
     return bool(renderer) and not re.search(r"swiftshader|llvmpipe|software", renderer, re.I)
 
 
-def cloud_render_url(uid, job_id, secret):
+def cloud_render_url(uid, job_id, secret, gpuenc=None):
     """Build a hash-route URL and preserve an optional ?workers=N query."""
     parts = urlsplit(SITE_URL)
     query = dict(parse_qsl(parts.query, keep_blank_values=True))
     if 1 <= CLOUD_RENDER_WORKERS <= 8:
         query["workers"] = str(CLOUD_RENDER_WORKERS)
+    if gpuenc:
+        query["gpuenc"] = gpuenc          # "<local port>.<one-time token>": tells the render page where to send frames for GPU encoding
     path = parts.path.rstrip("/") + "/"
     base = urlunsplit((parts.scheme, parts.netloc, path, urlencode(query), ""))
     return f"{base}#/cloudrender/{uid}/{job_id}/{secret}"
@@ -164,6 +179,7 @@ def render_one(uid, job_id, job, slot=0):
     """Opens the render page for one job and waits for it to finish (or be cancelled), using the admin SDK the whole time — never
     the page's own state. Runs in its own thread so several jobs can render at once (MAX_CONCURRENT)."""
     secret = job.get("secret", "")
+    gpu_job = None
     url = cloud_render_url(uid, job_id, secret)
     ref = db.reference(f"cloudExports/{uid}/{job_id}")
     deadline = time.time() + job_timeout_seconds(job)
@@ -173,6 +189,11 @@ def render_one(uid, job_id, job, slot=0):
         with sync_playwright() as p:
             use_gpu = nvidia_gpu_available()
             log("NVIDIA GPU detected; enabling hardware WebGL." if use_gpu else "No NVIDIA GPU detected; using SwiftShader software WebGL.")
+            # With an NVIDIA GPU the video is encoded by ffmpeg (NVENC) instead of the browser's CPU encoder, if gpu_encode.py can do it here.
+            if use_gpu:
+                gpu_job = gpu_encoder_job()
+                if gpu_job:
+                    url = cloud_render_url(uid, job_id, secret, f"{gpu_job[1]}.{gpu_job[2]}")
             # One persistent profile per render SLOT (0..MAX_CONCURRENT-1): concurrent Chromiums never share a directory, and the next
             # job in the same slot reuses its cache. (A new thread id per job would have left a new profile folder behind every time.)
             job_profile = os.path.join(PROFILE_DIR, f"slot-{slot}")
@@ -237,6 +258,9 @@ def render_one(uid, job_id, job, slot=0):
             ref.update({"status": "error", "error": "The render machine ran into an unexpected problem.", "updatedAt": int(time.time() * 1000)})
         except Exception:
             pass
+    finally:
+        if gpu_job:
+            gpu_job[0].end_job(gpu_job[2])
 
 
 # A job record that is never deleted would make the whole `cloudExports` node grow forever, and this worker re-downloads that

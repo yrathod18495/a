@@ -2,3 +2,4 @@ fastapi
 uvicorn
 firebase-admin>=6.5.0
 playwright==1.48.0
+websockets>=12

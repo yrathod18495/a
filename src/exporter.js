@@ -1,3 +1,4 @@
+import { gpuEncodeConfig, connectGpuEncoder } from './gpu-encode.js';
 import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4Target } from 'mp4-muxer';
 import { Muxer as WebmMuxer, ArrayBufferTarget as WebmTarget } from 'webm-muxer';
 import { audibleClips, playClip } from './audio-mix.js';
@@ -174,10 +175,13 @@ export function workerCount() {
 export async function exportParallel({ job, clips, total, onProgress, cancelled, workers, music = [] }) {
   const FPS = job.fps, W = job.W, H = job.H;
   const silent = !hasVoice(clips, music);
-  const codecs = await pickCodecs(W, H, bitrateFor(W, H, job.level, job.format, FPS), FPS, job.format, silent);
+  // On the cloud machine the worker can offer a GPU video encoder (ffmpeg + NVENC): frames go there instead of this browser's CPU encoder.
+  let gpu = null; const gpuCfg = gpuEncodeConfig();
+  if (gpuCfg) { try { gpu = await connectGpuEncoder(gpuCfg); console.info(`Cloud export: GPU encoder connected (${gpu.codec}).`); } catch (e) { console.warn('GPU encoder not available, using the browser encoder:', e.message); } }
+  const codecs = gpu ? { format: 'mp4', video: { name: 'avc', codec: 'gpu' }, audio: null, bitrateMode: 'constant' } : await pickCodecs(W, H, bitrateFor(W, H, job.level, job.format, FPS), FPS, job.format, silent);
   if (!codecs) throw new Error('unsupported');
   const bitrate = bitrateFor(W, H, job.level, codecs.format, FPS), frames = Math.ceil(total * FPS);
-  const audioPromise = silent ? Promise.resolve([]) : encodeAudio(clips, total, codecs, music);   // mixed + encoded here while the workers start up
+  const audioPromise = gpu || silent ? Promise.resolve([]) : encodeAudio(clips, total, codecs, music);   // mixed + encoded here while the workers start up
 
   // slices of ~4 s (at least 3 per worker, so a slower core just takes fewer slices)
   // 4–8 second slices balance worker scheduling against repeated per-slice
@@ -191,7 +195,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
   const pool = [];
   const killAll = () => pool.forEach((w) => w.terminate());
   // the cloud machine encodes in software on few CPU cores (Chrome has no NVENC on Linux): the lighter 'realtime' mode costs the CPU much less than 'quality'
-  const jobMsg = { type: 'init', job: { ...job, latencyMode: isCloudRenderPage() ? 'realtime' : 'quality', codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode, ...(codecs.video.hardwareAcceleration ? { hardwareAcceleration: codecs.video.hardwareAcceleration } : {}) } };
+  const jobMsg = { type: 'init', job: { ...job, ...(gpu ? { gpuenc: gpuCfg } : {}), latencyMode: isCloudRenderPage() ? 'realtime' : 'quality', codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode, ...(codecs.video.hardwareAcceleration ? { hardwareAcceleration: codecs.video.hardwareAcceleration } : {}) } };
 
   let watch = 0;
   await new Promise((resolve, reject) => {
@@ -218,8 +222,9 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
       w.onerror = (e) => fail(e.message || 'worker crashed');
       w.postMessage(jobMsg);
     }
-  }).finally(() => clearInterval(watch));
+  }).catch((e) => { gpu?.close(); throw e; }).finally(() => clearInterval(watch));
   killAll();
+  if (gpu) return finishOnGpu({ gpu, results, clips, total, music, silent, onProgress, frames, workers, W, H, clockTotal, startedAt });
 
   // stitch the slices in order
   const video = [];
@@ -239,6 +244,29 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
   const res = mux({ codecs, W, H, FPS }, video, await audioPromise);
   onProgress(1);
   return { ...res, info: `${res.info} · ${workers} workers${codecs.video.hardwareAcceleration ? ' · hardware encode preferred' : ''}` };
+}
+
+/** the slices are encoded: send the sound, ask the worker to join everything, and take the finished MP4 back */
+async function finishOnGpu({ gpu, results, clips, total, music, silent, onProgress, frames, workers, W, H, clockTotal, startedAt }) {
+  try {
+    if (!silent) {
+      const mix = await mixAudio(clips, total, music), n = mix.length, inter = new Float32Array(n * 2), left = mix.getChannelData(0), right = mix.getChannelData(1);
+      for (let i = 0; i < n; i++) { inter[2 * i] = left[i]; inter[2 * i + 1] = right[i]; }
+      gpu.send({ t: 'audio' }); gpu.send(inter.buffer);
+    }
+    const pieces = []; let got = 0, want = Infinity, whenAll = null;
+    const all = new Promise((resolve) => { whenAll = resolve; });
+    gpu.onBinary = (buffer) => { pieces.push(buffer); got += buffer.byteLength; if (got >= want) whenAll(); };
+    gpu.send({ t: 'finish', slices: [...results.keys()].sort((a, b) => a - b) });
+    const head = await gpu.wait('final');
+    if (!head.ok) throw new Error(`GPU encoder: ${head.error || 'could not join the video'}`);
+    want = head.size; if (got >= want) whenAll();
+    await all;
+    const sum = Object.values(clockTotal).reduce((a, b) => a + b, 0) || 1, pct = (k) => `${Math.round(((clockTotal[k] || 0) / sum) * 100)}%`, secs = (performance.now() - startedAt) / 1000;
+    console.info(`Cloud export timing (GPU encode): ${frames} frames in ${secs.toFixed(1)} s (${(frames / secs).toFixed(1)} fps) on ${workers} worker(s) · worker time: drawing ${pct('render')}, copying + sending frames ${pct('submit')}, waiting for the GPU encoder ${pct('wait')}, finishing slices ${pct('flush')}, warm-up ${pct('warm')}`);
+    onProgress(1);
+    return { blob: new Blob(pieces, { type: 'video/mp4' }), ext: 'mp4', info: `H.264${silent ? ' · no sound' : '/AAC'} ${W}×${H} · GPU encode (${gpu.codec}) · ${workers} workers` };
+  } finally { gpu.close(); }
 }
 
 /* ---------- fallback for browsers without WebCodecs (older Safari / Firefox): real-time recording ---------- */
