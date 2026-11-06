@@ -31,23 +31,47 @@ def log(msg):
     print(f"[gpu-encode] {msg}", flush=True)
 
 
-def codec_args(bitrate):
+LEVEL = 0                                  # which encoder settings the start-up test found working (see selftest)
+
+
+def codec_args(bitrate, level=None):
+    level = LEVEL if level is None else level
     if CODEC.endswith("nvenc"):
-        return ["-preset", "p4", "-tune", "hq", "-rc", "vbr", "-b:v", str(bitrate), "-maxrate", str(int(bitrate * 1.25)),
-                "-bufsize", str(int(bitrate * 2)), "-profile:v", "high"]
+        if level == 0:
+            return ["-preset", "p4", "-tune", "hq", "-rc", "vbr", "-b:v", str(bitrate), "-maxrate", str(int(bitrate * 1.25)),
+                    "-bufsize", str(int(bitrate * 2)), "-profile:v", "high"]
+        if level == 1:                       # older ffmpeg / driver: the older preset names, no tuning
+            return ["-preset", "fast", "-b:v", str(bitrate), "-maxrate", str(int(bitrate * 1.25)), "-bufsize", str(int(bitrate * 2))]
+        return ["-b:v", str(bitrate)]
     return ["-preset", "ultrafast", "-b:v", str(bitrate)]
 
 
-def encoder_works():
-    """True only if ffmpeg exists and really encodes a frame with CODEC (listing an encoder is not enough: NVENC fails without a GPU)."""
+def selftest():
+    """Runs the REAL path once at start-up (JPEG frames in, the chosen encoder out) with each set of encoder settings until one works.
+    Listing an encoder is not enough: NVENC can exist and still refuse the settings of an older ffmpeg or a different driver."""
+    global LEVEL
     if not shutil.which("ffmpeg"):
+        log("ffmpeg is not installed")
         return False
     try:
-        r = subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=320x240:d=0.3:r=10",
-                            "-pix_fmt", "yuv420p", "-c:v", CODEC, "-f", "null", "-"], capture_output=True, timeout=30)
-        return r.returncode == 0
-    except Exception:
-        return False
+        gen = subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=40", "-frames:v", "4",
+                              "-f", "image2pipe", "-c:v", "mjpeg", "-"], capture_output=True, timeout=30)
+        if gen.returncode != 0 or not gen.stdout:
+            log("ffmpeg could not make test JPEG frames: " + gen.stderr.decode("utf-8", "replace")[-300:])
+            return False
+        levels = 3 if CODEC.endswith("nvenc") else 1
+        for level in range(levels):
+            r = subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "image2pipe", "-c:v", "mjpeg", "-framerate", "40", "-i", "-", "-an",
+                                "-c:v", CODEC, *codec_args(8_000_000, level), "-g", "80", "-bf", "0", "-pix_fmt", "yuv420p", "-f", "null", "-"],
+                               input=gen.stdout, capture_output=True, timeout=60)
+            if r.returncode == 0:
+                LEVEL = level
+                log(f"encoder test passed with {CODEC} settings level {level}")
+                return True
+            log(f"encoder test failed with {CODEC} settings level {level}: " + r.stderr.decode("utf-8", "replace")[-400:])
+    except Exception as e:
+        log(f"encoder test crashed: {e!r}")
+    return False
 
 
 class GpuEncoder:
@@ -85,7 +109,7 @@ class GpuEncoder:
             await asyncio.Future()
 
     async def _handle(self, ws):
-        state = {"proc": None, "slice": None, "audio_next": False, "folder": None}
+        state = {"proc": None, "slice": None, "audio_next": False, "folder": None, "err": None, "frames": 0, "bytes": 0}
         try:
             hello = json.loads(await ws.recv())
             folder = self.jobs.get(hello.get("token"))
@@ -101,6 +125,7 @@ class GpuEncoder:
                         with open(os.path.join(folder, "audio.f32"), "wb") as f:
                             f.write(message)
                     elif state["proc"] and state["proc"].stdin:
+                        state["frames"] += 1; state["bytes"] += len(message)
                         state["proc"].stdin.write(message)
                         await state["proc"].stdin.drain()
                     continue
@@ -115,7 +140,20 @@ class GpuEncoder:
                 elif kind == "finish":
                     await self._finish(ws, folder, msg)
         except Exception as e:
-            log(f"connection ended: {e}")
+            err = ""
+            proc = state["proc"]
+            if proc and proc.returncode is None:
+                proc.kill()
+            if state["err"] is not None:
+                try:
+                    err = (await asyncio.wait_for(state["err"], 2)).decode("utf-8", "replace")[-500:]
+                except Exception:
+                    pass
+            log(f"connection ended after {state['frames']} frames ({state['bytes']} bytes) of slice {state['slice']}: {e!r} | ffmpeg said: {err or '(nothing)'}")
+            try:
+                await ws.send(json.dumps({"t": "error", "error": err or repr(e)}))
+            except Exception:
+                pass
         finally:
             proc = state["proc"]
             if proc and proc.returncode is None:
@@ -132,14 +170,15 @@ class GpuEncoder:
         cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *source,
                "-an", "-c:v", CODEC, *codec_args(int(msg["bitrate"])), "-g", str(fps * 2), "-bf", "0", "-pix_fmt", "yuv420p", path]
         state["proc"] = await asyncio.create_subprocess_exec(*cmd, stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        state["slice"] = int(msg["id"])
+        state["slice"] = int(msg["id"]); state["frames"] = 0; state["bytes"] = 0
+        state["err"] = asyncio.ensure_future(state["proc"].stderr.read())          # read while it runs, so ffmpeg's complaint is never lost
 
     async def _end_slice(self, state, msg):
         proc = state["proc"]
         if not proc:
             return {"t": "sliceDone", "id": msg.get("id"), "ok": False, "error": "no slice"}
         proc.stdin.close()
-        err = (await proc.stderr.read()).decode("utf-8", "replace")[-400:]
+        err = (await state["err"]).decode("utf-8", "replace")[-400:]
         code = await proc.wait()
         state["proc"] = None
         return {"t": "sliceDone", "id": msg.get("id"), "ok": code == 0, "error": err if code else ""}
@@ -190,8 +229,8 @@ def get_encoder():
         except ImportError:
             log("the 'websockets' package is missing: GPU encoding is off (pip install websockets)")
             return None
-        if not encoder_works():
-            log(f"ffmpeg cannot encode with {CODEC} here: the render page keeps its own encoder")
+        if not selftest():
+            log(f"GPU encoding is off: ffmpeg could not encode the test frames with {CODEC}; the render page keeps its own encoder")
             return None
         _encoder = GpuEncoder()
         log(f"ready on 127.0.0.1:{_encoder.port} using {CODEC}")

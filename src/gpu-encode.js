@@ -13,10 +13,12 @@ class Link {
     ws.binaryType = 'arraybuffer';
     ws.onmessage = (e) => {
       if (typeof e.data !== 'string') { this.onBinary?.(e.data); return; }
-      const msg = JSON.parse(e.data), at = this.waiters.findIndex((w) => w.t === msg.t);
+      const msg = JSON.parse(e.data);
+      if (msg.t === 'error') { this.error = msg.error; console.warn('GPU encoder error:', msg.error); return; }          // ffmpeg's own words, so a failure can be understood from the log
+      const at = this.waiters.findIndex((w) => w.t === msg.t);
       if (at >= 0) this.waiters.splice(at, 1)[0].resolve(msg); else this.queued.push(msg);
     };
-    const gone = () => { this.closed = true; this.waiters.splice(0).forEach((w) => w.reject(Error('The GPU encoder connection closed.'))); };
+    const gone = () => { this.closed = true; this.waiters.splice(0).forEach((w) => w.reject(Error(this.error ? `The GPU encoder stopped: ${String(this.error).slice(0, 300)}` : 'The GPU encoder connection closed.'))); };
     ws.onclose = gone; ws.onerror = gone;
   }
   send(data) { this.ws.send(typeof data === 'string' || data instanceof ArrayBuffer || ArrayBuffer.isView(data) ? data : JSON.stringify(data)); }

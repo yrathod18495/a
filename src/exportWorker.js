@@ -53,7 +53,7 @@ async function gpuSegment({ id, from, to }) {
     }
     link.send(bytes);
     clock.submit += now() - t; t = now();
-    while (link.ws.bufferedAmount > Math.max(2e6, (jpeg ? bytes.length : size) * 4)) { if (link.closed) throw new Error('The GPU encoder connection closed.'); await sleep(1); }          // the encoder is the slower side: wait instead of filling memory
+    while (link.ws.bufferedAmount > Math.max(2e6, (jpeg ? bytes.length : size) * 4)) { if (link.closed) throw new Error(link.error ? `The GPU encoder stopped: ${String(link.error).slice(0, 300)}` : 'The GPU encoder connection closed.'); await sleep(1); }          // the encoder is the slower side: wait instead of filling memory
     clock.wait += now() - t;
     if ((i - from) % 2 === 1) self.postMessage({ type: 'progress', frames: 2 });
   }
