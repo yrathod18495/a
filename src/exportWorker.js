@@ -1,5 +1,5 @@
-// Renders and encodes slices of the video in parallel (one of these runs per CPU core).
-// Receives the whole scene once ('init'), then renders frame ranges ('segment') and sends the encoded chunks back.
+// Renders and encodes frame slices in parallel. The parent chooses a bounded worker count
+// for the render machine; each worker owns an independent DragonBones/WebGL stage and encoder.
 import { Stage } from './db/stage.js';
 
 let stage, job;
@@ -32,16 +32,19 @@ async function segment({ id, from, to }) {
     },
     error: (e) => { failure = e; },
   });
-  enc.configure({ codec, width: W, height: H, bitrate, framerate: fps, latencyMode: 'quality', bitrateMode: job.bitrateMode });
+  enc.configure({ codec, width: W, height: H, bitrate, framerate: fps, latencyMode: 'quality', bitrateMode: job.bitrateMode, ...(job.hardwareAcceleration ? { hardwareAcceleration: job.hardwareAcceleration } : {}) });
   // hair / cloth physics need a moment to settle, so warm up a little before the first frame we keep
   const warm = Math.min(from, Math.round(fps * 0.75));
   for (let i = from - warm; i < from; i++) stage.render(i / fps, dt, voice, plan);
+  // Keep the hardware encoder fed without allowing unbounded frame memory.
+  // 4K frames are large; 1080p and below can safely pipeline more frames.
+  const queueLimit = W * H >= 3840 * 2160 ? 4 : W * H >= 1920 * 1080 ? 8 : 12;
   for (let i = from; i < to; i++) {
     if (failure) throw failure;
     stage.render(i / fps, i === from && !warm ? 0 : dt, voice, plan);
     const vf = new VideoFrame(stage.out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
     enc.encode(vf, { keyFrame: i === from || i % (fps * 2) === 0 }); vf.close();
-    while (enc.encodeQueueSize > 4) await new Promise((r) => setTimeout(r, 2));
+    while (enc.encodeQueueSize > queueLimit) await new Promise((r) => setTimeout(r, 2));
     if ((i - from) % 2 === 1) self.postMessage({ type: 'progress', frames: 2 });
   }
   await enc.flush(); enc.close();

@@ -103,6 +103,16 @@ the render page if you open `#/cloudrender/...` directly with a job's real value
 `runCloudExportJob` do); and that `SITE_URL` in the Space's secrets exactly matches the deployed site (no trailing slash, right
 scheme).
 
+## GPU frame-slice parallelism
+
+The cloud-render page uses the same `exportParallel()` path as normal offline export. One video is divided into ordered frame slices; several `exportWorker.js` workers each render and encode their assigned slices, and the page muxes those chunks into one MP4/WebM with the original audio timeline. This is **parallel rendering of one video**, not merely several independent cloud-export jobs.
+
+On the anonymous `#/cloudrender` route, `workerCount()` checks the WebGL renderer. When it detects NVIDIA hardware, it uses up to the machine's reported logical CPU count (capped at four) rather than the conservative `floor(cores / 2)` used for ordinary devices. A query override remains available for controlled tests: `?workers=2`, `?workers=3`, or `?workers=4` (the worker can add it with the optional `CLOUD_RENDER_WORKERS` environment variable, default `0` for automatic selection). Do not raise it blindly: every worker owns a complete DragonBones/WebGL scene and a video encoder, so more workers can increase CPU/GPU contention and memory use instead of reducing render time.
+
+For NVIDIA cloud rendering, WebCodecs is asked to `prefer-hardware` video encoding when that codec/resolution/FPS configuration reports support; the browser's default encoder selection is retried otherwise. `exportWorker.js` applies bounded encoder back-pressure (smaller queues at 4K, larger queues at 1080p and below). Frame rate, resolution, selected quality level, bitrate calculation, audio mix and muxed timeline are unchanged by worker-count selection.
+
+Benchmark one unchanged project at one, two and (only if resources permit) three workers. Compare the complete `Cloud export done` duration and verify audio/video sync and scene continuity. The fastest stable setting is the right setting; 100% GPU utilization is not itself the objective.
+
 ## Limits (v1)
 - Renders the **current scene only** (not "export all scenes together"); the Export tab's Scenes dropdown does not apply to
   cloud export yet. Fast-render / live-recording toggle does not apply either — cloud export always renders offline (the whole

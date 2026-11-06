@@ -17,16 +17,53 @@ export const bitrateFor = (W, H, level = 'high', format = 'webm', fps = 30) => {
 const yieldUI = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = r; c.port2.postMessage(0); });
 const SR = 48000;
 
+function isCloudRenderPage() {
+  return typeof location !== 'undefined' && /^#\/cloudrender(?:\/|$)/.test(location.hash);
+}
+
+let cachedNvidiaWebGL;
+function hasNvidiaWebGL() {
+  if (cachedNvidiaWebGL !== undefined) return cachedNvidiaWebGL;
+  cachedNvidiaWebGL = false;
+  if (typeof document === 'undefined') return false;
+  let gl;
+  try {
+    const canvas = document.createElement('canvas');
+    gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if (!gl) return false;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    cachedNvidiaWebGL = /nvidia|tesla\s+t4/i.test(String(renderer));
+  } catch { cachedNvidiaWebGL = false; }
+  finally {
+    try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* best effort */ }
+  }
+  return cachedNvidiaWebGL;
+}
+
 /** Best codec pair this device can encode for the wanted format (falls back to the other format when needed). */
 async function pickCodecs(W, H, bitrate, FPS, format = 'webm', silent = false) {
   if (!window.VideoEncoder || !window.VideoFrame || (!silent && (!window.AudioEncoder || !window.AudioData))) return null;
+  // Cloud rendering on an NVIDIA GPU should prefer the hardware encoder (e.g. T4 NVENC).
+  // If the browser cannot support that preference for this codec/size/fps, retry its default selection.
+  const acceleration = isCloudRenderPage() && hasNvidiaWebGL() ? ['prefer-hardware', null] : [null];
   // the level in the codec string is chosen from the picture size and the fps (4K at 60 fps is H.264 level 5.2, at 90 fps level 6.0), not one fixed level
   const vp9 = vp9CodecsFor(W, H, FPS).map((c) => ['vp9', c]), avc = avcCodecsFor(W, H, FPS).map((c) => ['avc', c]);
   const tryOrder = format === 'webm' ? [['webm', vp9], ['mp4', [...avc, ...vp9]]] : [['mp4', [...avc, ...vp9]]];
   for (const [fmt, vlist] of tryOrder) {
     let video = null;
     for (const [name, codec] of vlist) {
-      try { if ((await VideoEncoder.isConfigSupported({ codec, width: W, height: H, bitrate, framerate: FPS })).supported) { video = { name, codec }; break; } } catch { /* try next */ }
+      for (const hardwareAcceleration of acceleration) {
+        const config = { codec, width: W, height: H, bitrate, framerate: FPS, ...(hardwareAcceleration ? { hardwareAcceleration } : {}) };
+        try {
+          if ((await VideoEncoder.isConfigSupported(config)).supported) {
+            video = { name, codec, ...(hardwareAcceleration ? { hardwareAcceleration } : {}) };
+            if (isCloudRenderPage()) console.info(`Cloud export: ${name} encoder selected${hardwareAcceleration ? ' (hardware preferred)' : ' (browser default)'}.`);
+            break;
+          }
+        } catch { /* try default or next codec */ }
+      }
+      if (video) break;
     }
     if (!video) continue;
     if (silent) return { format: fmt, video, audio: null, bitrateMode: fmt === 'webm' ? 'variable' : 'constant' };
@@ -96,7 +133,7 @@ export async function exportOffline({ stage, clips, plan, total, onProgress, can
   const audioChunks = silent ? [] : await encodeAudio(clips, total, codecs, music);
   const video = []; let failure = null;
   const venc = new VideoEncoder({ output: (c, m) => video.push([c, m]), error: (e) => { failure = e; } });
-  venc.configure({ codec: codecs.video.codec, width: W, height: H, bitrate, framerate: FPS, latencyMode: 'quality', bitrateMode: codecs.bitrateMode });
+  venc.configure({ codec: codecs.video.codec, width: W, height: H, bitrate, framerate: FPS, latencyMode: 'quality', bitrateMode: codecs.bitrateMode, ...(codecs.video.hardwareAcceleration ? { hardwareAcceleration: codecs.video.hardwareAcceleration } : {}) });
   for (let i = 0; i < frames; i++) {
     if (cancelled()) throw new Error('cancelled');
     if (failure) throw failure;
@@ -116,9 +153,17 @@ export async function exportOffline({ stage, clips, plan, total, onProgress, can
 /** how many parallel renderers this device can reasonably run */
 export function workerCount() {
   if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') return 0;
-  const q = new URLSearchParams(location.search).get('workers'), forced = q === null ? NaN : +q; // e.g. ?workers=4 to experiment, ?workers=0 = one thread
-  if (forced >= 0 && forced <= 8) return forced;
-  const cores = navigator.hardwareConcurrency || 4, coarse = matchMedia('(pointer: coarse)').matches;
+  const q = new URLSearchParams(location.search).get('workers'), forced = q === null ? NaN : +q; // ?workers=4 overrides; ?workers=0 forces single-thread mode
+  if (Number.isInteger(forced) && forced >= 0 && forced <= 8) return forced;
+  const cores = Math.max(1, navigator.hardwareConcurrency || 2), coarse = matchMedia('(pointer: coarse)').matches;
+  // The cloud renderer is a dedicated GPU machine, not a phone. On NVIDIA WebGL,
+  // use up to the available logical CPUs (capped at four) for frame-slice workers.
+  // This is what lets a two-vCPU Colab T4 use two workers instead of floor(2 / 2) = one.
+  if (isCloudRenderPage() && hasNvidiaWebGL()) {
+    const count = Math.max(1, Math.min(4, cores));
+    console.info(`Cloud export: NVIDIA WebGL detected; using ${count} frame worker(s) on ${cores} logical CPU(s).`);
+    return count;
+  }
   return Math.max(1, Math.min(coarse ? 3 : 4, Math.floor(cores / 2)));
 }
 
@@ -135,12 +180,16 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
   const audioPromise = silent ? Promise.resolve([]) : encodeAudio(clips, total, codecs, music);   // mixed + encoded here while the workers start up
 
   // slices of ~4 s (at least 3 per worker, so a slower core just takes fewer slices)
-  const segLen = Math.max(FPS * 2, Math.min(FPS * 6, Math.ceil(frames / (workers * 3))));
+  // 4–8 second slices balance worker scheduling against repeated per-slice
+  // DragonBones/cloth warm-up. More workers still receive at least ~2 slices each.
+  const segLen = isCloudRenderPage()
+    ? Math.max(FPS * 4, Math.min(FPS * 8, Math.ceil(frames / (workers * 2))))
+    : Math.max(FPS * 2, Math.min(FPS * 6, Math.ceil(frames / (workers * 3))));          // phones and computers keep the original split
   const queue = []; for (let from = 0, id = 0; from < frames; from += segLen, id++) queue.push({ id, from, to: Math.min(frames, from + segLen) });
   const results = new Map(); let done = 0, failed = null;
   const pool = [];
   const killAll = () => pool.forEach((w) => w.terminate());
-  const jobMsg = { type: 'init', job: { ...job, codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode } };
+  const jobMsg = { type: 'init', job: { ...job, codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode, ...(codecs.video.hardwareAcceleration ? { hardwareAcceleration: codecs.video.hardwareAcceleration } : {}) } };
 
   let watch = 0;
   await new Promise((resolve, reject) => {
@@ -183,7 +232,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
   }
   const res = mux({ codecs, W, H, FPS }, video, await audioPromise);
   onProgress(1);
-  return { ...res, info: `${res.info} · ${workers} workers` };
+  return { ...res, info: `${res.info} · ${workers} workers${codecs.video.hardwareAcceleration ? ' · hardware encode preferred' : ''}` };
 }
 
 /* ---------- fallback for browsers without WebCodecs (older Safari / Firefox): real-time recording ---------- */

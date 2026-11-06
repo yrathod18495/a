@@ -4076,7 +4076,9 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
     let res;
     try {
       const job = await exportJob(stage.W, stage.H);
-      res = await exportParallel({ job, clips: player.clips, total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, workers: Math.max(1, workerCount()) });
+      const workers = Math.max(1, workerCount());
+      console.log(`Cloud export: using ${workers} parallel frame worker(s); hardware video encoding is preferred when supported.`);
+      res = await exportParallel({ job, clips: player.clips, total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, workers });
     } catch (e) {
       console.warn('Cloud export: parallel render failed, using one thread', e);
       res = await exportOffline({ stage, clips: player.clips, plan: shotPlan(), total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, fps: S.fps, level: S.level, format: S.format });
@@ -4086,7 +4088,7 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
     const { upload } = await jobCall(uid, jobId, secret, 'cloudPresign', { size });
     const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: blob }); if (!put.ok) throw Error(`The rendered video could not be uploaded (${put.status}).`);
     await jobCall(uid, jobId, secret, 'cloudComplete', { size });
-    console.log(`Cloud export done: ${ext.toUpperCase()}, ${(size / 1e6).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(0)}s`);
+    console.log(`Cloud export done: ${ext.toUpperCase()}, ${(size / 1e6).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(0)}s · ${res.info || 'render complete'}`);
   } catch (e) {
     console.error('Cloud export failed', e);
     try { await jobCall(uid, jobId, secret, 'cloudFail', { message: e.message }); } catch { /* best effort */ }
