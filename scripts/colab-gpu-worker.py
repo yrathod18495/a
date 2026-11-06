@@ -48,10 +48,17 @@ for name, content in incoming.items():
                 KEY_PATH.write_text(json.dumps(d)); KEY_PATH.chmod(0o600)
         except Exception:
             pass
+NEEDED = ("def render_one(uid, job_id, job, slot=0)", "def nvidia_gpu_available", "def webgl_is_hardware")
+def app_is_current():
+    return APP_PATH.exists() and all(n in APP_PATH.read_text(encoding="utf-8-sig") for n in NEEDED)
+if not app_is_current():
+    print("The app.py in Colab is OLD. Upload the LATEST app.py now (the file named app.py that was sent with this script).")
+    for name, content in files.upload().items():
+        if re.fullmatch(r"app(?: \(\d+\))?\.py", pathlib.Path(name).name, re.I):
+            APP_PATH.write_bytes(content)
+    if not app_is_current():
+        raise RuntimeError("That app.py is still the old one. Use the latest hf-cloud-export/app.py (commit 1c3fecb or newer).")
 src = APP_PATH.read_text(encoding="utf-8-sig")
-for needed in ("def render_one(uid, job_id, job, slot=0)", "def nvidia_gpu_available", "def webgl_is_hardware"):
-    if needed not in src:
-        raise RuntimeError("This is an OLD app.py. Upload the latest hf-cloud-export/app.py from GitHub (commit 1c3fecb or newer).")
 if not valid_key(KEY_PATH):
     raise RuntimeError("Firebase service account JSON missing.")
 
