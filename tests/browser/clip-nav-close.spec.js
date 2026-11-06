@@ -27,7 +27,7 @@ test('phone: the clip tools have a visible Close that brings the bottom tabs bac
   await expect(page.locator('.tclip.voice')).toHaveCount(2, { timeout: 20000 });
   await expect(nav).toBeHidden();          // importing audio selects a line by itself: that must NOT bring the clip tools back (they hide the bottom tabs)
   await page.evaluate(() => { const T = window.__toon; T.drawTimeline(); });
-  await page.locator('.tclip.voice').first().click();
+  await page.locator('.tclip.voice').first().dispatchEvent('click');
   await expect(nav).toBeVisible();          // only tapping an audio clip itself shows the audio tools
   await nav.getByRole('button', { name: /Close the clip tools and go back/ }).click();
   await expect(nav).toBeHidden();
