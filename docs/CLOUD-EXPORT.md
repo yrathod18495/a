@@ -132,6 +132,22 @@ JPEG compressing + decoding it. With only two cores that outweighs what NVENC sa
 high resolutions; measure with the timing lines first (`Cloud export timing so far:` prints per-frame milliseconds for drawing / encoder
 hand-over / waiting for the encoder after every slice).
 
+## Several machines render one video (leader + helpers)
+
+Any number of worker machines (a Colab T4, free Hugging Face CPU Spaces, ...) can run the same worker; they all read the same `cloudExports`
+queue and none of them needs to be reachable from outside. The render page splits the video into slices of about 4 s and every page that opens
+the job claims slices from a shared list (`cloudExports/<uid>/<job>/parts`, code in `server/cloud-export-store.js`, actions `cloudInitParts` /
+`cloudClaimPart` / `cloudPartBeat` / `cloudPartPresign` / `cloudPartDone` / `cloudParts` / `cloudPartUrls` in `api/export.js`):
+- The first page to create the list is the **leader**: it renders slices too, waits for all of them, joins them with the sound (`exportDistributed`
+  in `src/exporter.js`) and uploads the video as before. Every other page is a **helper**: it renders and uploads slices (a small file under
+  `u/<uid>/j/<job>/part-N.bin`, deleted when the job is done) and leaves when none is left. A helper can never fail the job.
+- A claimed slice has a 150 s lease that its machine renews every 5 s; a machine that vanishes loses its slice to another one.
+- Slices from a machine whose encoder differs (so they would not play as one stream) are rendered again by the leader.
+- `worker_loop` / `joinable_jobs()` in `app.py` make an idle machine take a queued job or **help** a running one that still has free slices
+  (`HELP_OTHERS=0` stops a machine helping). `?dist=0` on the render page makes one machine render everything alone. The Colab cell uses the same functions.
+- Tested with two real browser pages and the real list code on an in-memory database (`tests/browser/cloud-distributed.spec.js`): the joined video has every
+  frame exactly once. Not tested on real separate machines (no second machine here).
+
 ## Limits (v1)
 - Renders the **current scene only** (not "export all scenes together"); the Export tab's Scenes dropdown does not apply to
   cloud export yet. Fast-render / live-recording toggle does not apply either — cloud export always renders offline (the whole

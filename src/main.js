@@ -18,7 +18,7 @@ import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
 import { Player, buildTimeline, GAP, LEAD } from './player.js';
 import { characterPicker } from './charpick.js';
-import { exportOffline, exportParallel, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
+import { exportOffline, exportParallel, exportDistributed, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
 import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext, listBgLibrary } from './store.js';
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
@@ -4058,7 +4058,7 @@ async function doExport({ foreground = false } = {}) {
 export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall }) {
   Object.assign(S, settings);
   S.exporting = true;
-  let t0 = performance.now(), lastSent = 0;
+  let t0 = performance.now(), lastSent = 0, role = null;
   const progress = async (p) => {
     const now = performance.now();
     if (p < 1 && now - lastSent < 2000) return;        // the job's own progress field is a cloud write: a couple of seconds apart is plenty
@@ -4078,7 +4078,32 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
       const job = await exportJob(stage.W, stage.H);
       const workers = Math.max(1, workerCount());
       console.log(`Cloud export: using ${workers} parallel frame worker(s); hardware video encoding is preferred when supported.`);
-      res = await exportParallel({ job, clips: player.clips, total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, workers });
+      const alone = new URLSearchParams(location.search).get('dist') === '0';          // ?dist=0: this machine renders the whole video by itself
+      let handled = false;
+      if (!alone) {
+        // Several machines can work on one video: this one claims slices from the shared list (see server/cloud-export-store.js). If the list cannot be used, it renders everything itself.
+        const who = Math.random().toString(36).slice(2, 10) + Date.now().toString(36), call = (action, extra = {}) => jobCall(uid, jobId, secret, action, { who, ...extra });
+        const ended = (r) => { if (r?.status) throw new Error('cancelled'); return r; };          // the job already finished or was cancelled
+        const api = {
+          initParts: (plan) => call('cloudInitParts', plan),
+          claim: async () => ended(await call('cloudClaimPart')).part,
+          beat: (parts) => call('cloudPartBeat', { parts }),
+          parts: async () => ended(await call('cloudParts')).parts,
+          presign: (part, size) => call('cloudPartPresign', { part, size }),
+          done: (part, extra) => call('cloudPartDone', { part, ...extra }),
+          urls: async (ids) => (await call('cloudPartUrls', { parts: ids })).urls,
+        };
+        try {
+          res = await exportDistributed({ job, clips: player.clips, total: player.total, music: musicForExport(), onProgress: (p) => { if (role !== 'helper') progress(p); }, cancelled: () => false, workers, api, onRole: (r) => { role = r; console.log(`Cloud export: this machine is the ${r}.`); } });
+          handled = true;
+        } catch (e) {
+          if (e.message === 'cancelled') { console.log('Cloud export: the job ended while this machine was working on it.'); return; }
+          if (role === 'helper') { console.warn('Cloud export: helper stopped:', e.message); return; }
+          console.warn('Cloud export: shared rendering failed, rendering everything on this machine', e);
+        }
+        if (handled && res.helper) { console.log('Cloud export helper finished'); return; }
+      }
+      if (!handled) res = await exportParallel({ job, clips: player.clips, total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, workers });
     } catch (e) {
       console.warn('Cloud export: parallel render failed, using one thread', e);
       res = await exportOffline({ stage, clips: player.clips, plan: shotPlan(), total: player.total, music: musicForExport(), onProgress: progress, cancelled: () => false, fps: S.fps, level: S.level, format: S.format });
@@ -4091,6 +4116,7 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
     console.log(`Cloud export done: ${ext.toUpperCase()}, ${(size / 1e6).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(0)}s · ${res.info || 'render complete'}`);
   } catch (e) {
     console.error('Cloud export failed', e);
+    if (role === 'helper') return;          // a helper machine failing must not fail the whole job: its slices are taken over by others
     try { await jobCall(uid, jobId, secret, 'cloudFail', { message: e.message }); } catch { /* best effort */ }
   } finally { S.exporting = false; }
 }

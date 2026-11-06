@@ -179,16 +179,21 @@ def cloud_render_url(uid, job_id, secret, gpuenc=None):
     return f"{base}#/cloudrender/{uid}/{job_id}/{secret}"
 
 
-def render_one(uid, job_id, job, slot=0):
+def render_one(uid, job_id, job, slot=0, helper=False):
     """Opens the render page for one job and waits for it to finish (or be cancelled), using the admin SDK the whole time — never
-    the page's own state. Runs in its own thread so several jobs can render at once (MAX_CONCURRENT)."""
+    the page's own state. Runs in its own thread so several jobs can render at once (MAX_CONCURRENT).
+
+    helper=True: the job is already being rendered by another machine; this one only opens the same page, which then takes slices of the video
+    from the shared list and hands them in. A helper never changes the job's state (it cannot fail it), it just leaves when its page says it is done."""
     secret = job.get("secret", "")
+    helper_done = threading.Event()
+    mode = {"helper": helper}          # a machine that opened a queued job can turn out to be a helper (another machine became the leader first)
     gpu_job = None
     url = cloud_render_url(uid, job_id, secret)
     ref = db.reference(f"cloudExports/{uid}/{job_id}")
     deadline = time.time() + job_timeout_seconds(job)
     # The URL contains the per-job secret. Never print it in worker logs.
-    log(f"Rendering job {job_id} for {uid} (private render URL hidden)")
+    log(f"{'Helping with' if helper else 'Rendering'} job {job_id} for {uid} (private render URL hidden)")
     try:
         with sync_playwright() as p:
             use_gpu = nvidia_gpu_available()
@@ -228,7 +233,16 @@ def render_one(uid, job_id, job, slot=0):
                 use_gpu = False
                 browser = p.chromium.launch_persistent_context(job_profile, headless=True, args=chromium_launch_args(False), viewport={"width": 960, "height": 720})
                 page = browser.pages[0] if browser.pages else browser.new_page()
-            page.on("console", lambda m: None if "dragonbones.com" in m.text.lower() or m.text.startswith("DragonBones:") else log(f"[{job_id}] page: {m.text[:300]}"))          # the DragonBones banner is printed by every worker: it only floods the log
+            def on_console(m):
+                text = m.text
+                if "dragonbones.com" in text.lower() or text.startswith("DragonBones:"):
+                    return          # the DragonBones banner is printed by every worker: it only floods the log
+                if "this machine is the helper" in text:
+                    mode["helper"] = True
+                if "Cloud export helper finished" in text or "Cloud export: helper stopped" in text or "the job ended while this machine" in text:
+                    helper_done.set()
+                log(f"[{job_id}] page: {text[:300]}")
+            page.on("console", on_console)          # the DragonBones banner is printed by every worker: it only floods the log
             page.on("pageerror", lambda e: log(f"[{job_id}] page error: {e}"))
             page.goto(url, wait_until="load", timeout=60_000)
             status = "pending"
@@ -243,14 +257,16 @@ def render_one(uid, job_id, job, slot=0):
                 elif time.time() - last_change > 120:
                     log(f"[{job_id}] no progress for 2 min at phase={seen[0]} progress={seen[1]:.0%} (still waiting)")
                     last_change = time.time()
-                if status in TERMINAL:
+                if status in TERMINAL or (mode["helper"] and helper_done.is_set()):
                     break
                 # page.wait_for_timeout (not time.sleep): a plain Python sleep blocks this thread without ever handing control
                 # back to Playwright's own driver, so console/pageerror messages queued by the browser sat unprinted — sometimes
                 # for the ENTIRE render — until the next real Playwright call (browser.close()) finally flushed them all at once.
                 # This still waits the same POLL_SECONDS; it's purely so the logs above show up while the render is happening.
                 page.wait_for_timeout(POLL_SECONDS * 1000)
-            if status not in TERMINAL:
+            if mode["helper"]:
+                log(f"{job_id}: this machine's help is finished")
+            elif status not in TERMINAL:
                 log(f"{job_id} timed out after {job_timeout_seconds(job):.0f}s — marking it failed")
                 ref.update({"status": "error", "error": "The render machine took too long and gave up.", "updatedAt": int(time.time() * 1000)})
             else:
@@ -258,10 +274,11 @@ def render_one(uid, job_id, job, slot=0):
             browser.close()
     except Exception:
         log(f"{job_id} crashed:\n" + traceback.format_exc())
-        try:
-            ref.update({"status": "error", "error": "The render machine ran into an unexpected problem.", "updatedAt": int(time.time() * 1000)})
-        except Exception:
-            pass
+        if not mode["helper"]:
+            try:
+                ref.update({"status": "error", "error": "The render machine ran into an unexpected problem.", "updatedAt": int(time.time() * 1000)})
+            except Exception:
+                pass
     finally:
         if gpu_job:
             gpu_job[0].end_job(gpu_job[2])
@@ -297,35 +314,70 @@ def cleanup_old_jobs(all_jobs, running):
                 log(f"Could not clean up job {job_id}:\n" + traceback.format_exc())
 
 
+PART_LEASE_SECONDS = 150          # the same lease the website gives a slice (PART_LEASE_MS in server/cloud-export-store.js)
+HELP_ATTEMPTS = 2                 # how many times one machine joins the same running job (a page that keeps failing is left alone)
+HELPERS = os.environ.get("HELP_OTHERS", "1") != "0"          # HELP_OTHERS=0: this machine only renders jobs it takes from the queue itself
+
+
+def free_parts(job, now=None):
+    """True when a running job still has a slice nobody works on (open, or taken by a machine that went silent)."""
+    now = (now or time.time()) * 1000
+    items = ((job.get("parts") or {}).get("items")) or {}
+    if isinstance(items, list):
+        items = {str(i): v for i, v in enumerate(items) if v}
+    for it in items.values():
+        if not isinstance(it, dict):
+            continue
+        if it.get("st") == "open" or (it.get("st") == "taken" and now - (it.get("lease") or 0) > PART_LEASE_SECONDS * 1000):
+            return True
+    return False
+
+
+def joinable_jobs(all_jobs, running, tried):
+    """Jobs this machine can work on: queued ones (it may become the leader, or a helper if another machine got there first) and running ones that still
+    have free slices (it helps). Returns [(uid, job_id, job, helper)]."""
+    out = []
+    for uid, jobs in all_jobs.items():
+        if not isinstance(jobs, dict):
+            continue
+        for job_id, job in jobs.items():
+            key = (uid, job_id)
+            if key in running or not isinstance(job, dict) or not job.get("secret"):
+                continue
+            if job.get("status") == "pending":
+                out.append((uid, job_id, job, False))
+            elif HELPERS and job.get("status") == "rendering" and free_parts(job) and tried.get(key, 0) < HELP_ATTEMPTS:
+                out.append((uid, job_id, job, True))
+    return out
+
+
 def worker_loop():
     running = set()
     slots = set()
+    tried = {}
     log("Cloud export worker started.")
     while True:
         try:
             all_jobs = db.reference("cloudExports").get() or {}
             cleanup_old_jobs(all_jobs, running)
-            for uid, jobs in all_jobs.items():
-                if not isinstance(jobs, dict):
+            for uid, job_id, job, helper in joinable_jobs(all_jobs, running, tried):
+                key = (uid, job_id)
+                if len(running) >= MAX_CONCURRENT:
+                    break
+                if key in running:
                     continue
-                for job_id, job in jobs.items():
-                    key = (uid, job_id)
-                    if key in running or not isinstance(job, dict):
-                        continue
-                    if job.get("status") != "pending":
-                        continue
-                    if len(running) >= MAX_CONCURRENT:
-                        continue
-                    running.add(key)
-                    slot = next(i for i in range(MAX_CONCURRENT) if i not in slots); slots.add(slot)
+                running.add(key)
+                if helper:
+                    tried[key] = tried.get(key, 0) + 1
+                slot = next(i for i in range(MAX_CONCURRENT) if i not in slots); slots.add(slot)
 
-                    def run(uid=uid, job_id=job_id, job=job, key=key, slot=slot):
-                        try:
-                            render_one(uid, job_id, job, slot)
-                        finally:
-                            running.discard(key); slots.discard(slot)
+                def run(uid=uid, job_id=job_id, job=job, key=key, slot=slot, helper=helper):
+                    try:
+                        render_one(uid, job_id, job, slot, helper)
+                    finally:
+                        running.discard(key); slots.discard(slot)
 
-                    threading.Thread(target=run, daemon=True).start()
+                threading.Thread(target=run, daemon=True).start()
         except Exception:
             log("Worker loop error:\n" + traceback.format_exc())
         time.sleep(POLL_SECONDS)

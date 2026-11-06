@@ -251,6 +251,117 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
   return { ...res, info: `${res.info} · ${workers} workers${codecs.video.hardwareAcceleration ? ' · hardware encode preferred' : ''}` };
 }
 
+/* ---------- one video, several machines (cloud export): see server/cloud-export-store.js and docs/CLOUD-EXPORT.md ---------- */
+const b64 = (u8) => { let t = ''; for (let i = 0; i < u8.length; i += 0x8000) t += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(t); };
+const unb64 = (t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
+/** a rendered slice (its encoded chunks + the decoder config) as one file a helper machine can upload */
+export function packSlice({ chunks, config }) {
+  const head = { config: { ...config, description: undefined }, desc: config?.description ? b64(new Uint8Array(config.description)) : null, chunks: chunks.map((c) => ({ type: c.type, timestamp: c.timestamp, duration: c.duration, size: c.data.byteLength })) };
+  const headBytes = new TextEncoder().encode(JSON.stringify(head)), len = new Uint8Array(4); new DataView(len.buffer).setUint32(0, headBytes.length);
+  return new Blob([len, headBytes, ...chunks.map((c) => c.data)]);
+}
+export function unpackSlice(buffer) {
+  const n = new DataView(buffer).getUint32(0), head = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, 4, n)));
+  let at = 4 + n;
+  const chunks = head.chunks.map((c) => { const data = buffer.slice(at, at + c.size); at += c.size; return { type: c.type, timestamp: c.timestamp, duration: c.duration, data }; });
+  return { chunks, config: { ...head.config, description: head.desc ? unb64(head.desc).buffer : undefined } };
+}
+const sameConfig = (a, b) => a.codec === b.codec && a.codedWidth === b.codedWidth && a.codedHeight === b.codedHeight
+  && (a.description ? new Uint8Array(a.description) : new Uint8Array()).join() === (b.description ? new Uint8Array(b.description) : new Uint8Array()).join();
+
+/**
+ * Renders this video together with other machines that opened the same job. Every machine claims slices one at a time (`api.claim`), renders them with
+ * its own frame workers and hands them in. The first machine is the leader: it renders too, waits for all slices, joins them with the sound and returns
+ * the video; the others return { helper: true } when no slice is left. A slice from a machine whose encoder differs (so the pieces would not play as one
+ * stream) is rendered again by the leader.
+ */
+export async function exportDistributed({ job, clips, total, onProgress, cancelled, workers, music = [], api, onRole }) {
+  const FPS = job.fps, W = job.W, H = job.H, silent = !hasVoice(clips, music), sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const codecs = await pickCodecs(W, H, bitrateFor(W, H, job.level, job.format, FPS), FPS, job.format, silent);
+  if (!codecs) throw new Error('unsupported');
+  const bitrate = bitrateFor(W, H, job.level, codecs.format, FPS), frames = Math.ceil(total * FPS), segLen = FPS * 4;
+  const plan = []; for (let from = 0, id = 0; from < frames; from += segLen, id++) plan.push({ id, from, to: Math.min(frames, from + segLen) });
+  const started = await api.initParts({ frames, fps: FPS, slices: plan });
+  if (started.status) throw new Error('cancelled');
+  const leader = started.leader === true; onRole?.(leader ? 'leader' : 'helper');
+  const audioPromise = leader && !silent ? encodeAudio(clips, total, codecs, music) : Promise.resolve([]);
+  const jobMsg = { type: 'init', job: { ...job, latencyMode: isCloudRenderPage() ? 'realtime' : 'quality', codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode } };
+  const own = new Map(), inflight = new Map(), framesIn = new Map(), pool = [];
+  let failed = null;
+  const killAll = () => pool.forEach((w) => w.terminate());
+  const beat = setInterval(() => { api.beat([...inflight.values()].map((id) => ({ id, frames: framesIn.get(id) || 0 }))).catch(() => {}); }, 5000);
+  const progress = leader ? setInterval(() => { api.parts().then((p) => onProgress(Math.min(0.99, p.progress))).catch(() => {}); }, 3000) : 0;
+  const claimNext = async () => {
+    for (;;) {
+      if (cancelled()) throw new Error('cancelled');
+      const part = await api.claim();
+      if (part) return part;
+      if (!leader) return null;
+      if ((await api.parts()).allDone) return null;
+      await sleep(2000);          // the leader waits for the helpers' slices, and takes over any slice whose helper went silent
+    }
+  };
+  const runPool = (nextSlice, onSlice) => new Promise((resolve, reject) => {
+    let running = workers; const fail = (m) => { if (!failed) { failed = new Error(m); killAll(); reject(failed); } };
+    const watch = setInterval(() => { if (cancelled()) fail('cancelled'); }, 80);
+    const done = () => clearInterval(watch);
+    for (let k = 0; k < workers; k++) {
+      let w; try { w = new Worker(new URL('./exportWorker.js', import.meta.url), { type: 'module' }); } catch (e) { fail(`worker: ${e.message}`); return; }
+      pool.push(w);
+      const next = async () => {
+        try {
+          const seg = await nextSlice();
+          if (seg) { inflight.set(k, seg.id); framesIn.set(seg.id, 0); w.postMessage({ type: 'segment', ...seg }); }
+          else { inflight.delete(k); if (--running === 0) { done(); resolve(); } }
+        } catch (e) { fail(e.message); }
+      };
+      w.onmessage = async (e) => {
+        const m = e.data;
+        if (m.type === 'ready') next();
+        else if (m.type === 'progress') { const id = inflight.get(k); if (id !== undefined) framesIn.set(id, (framesIn.get(id) || 0) + m.frames); }
+        else if (m.type === 'segment') { try { await onSlice(m, inflight.get(k)); } catch (err) { fail(err.message); return; } framesIn.delete(inflight.get(k)); next(); }
+        else if (m.type === 'error') fail(m.message);
+      };
+      w.onerror = (e) => fail(e.message || 'worker crashed');
+      w.postMessage(jobMsg);
+    }
+  }).finally(() => { killAll(); pool.length = 0; });
+  const handIn = async (m, id) => {
+    if (leader) { own.set(id, { chunks: m.chunks, config: m.config }); await api.done(id, { local: true }); return; }
+    const blob = packSlice({ chunks: m.chunks, config: m.config }), { upload } = await api.presign(id, blob.size);
+    const put = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: blob });
+    if (!put.ok) throw new Error(`A part of the video could not be uploaded (${put.status}).`);
+    await api.done(id, { size: blob.size });
+  };
+  try {
+    await runPool(claimNext, handIn);
+    if (!leader) return { helper: true };
+    // the leader: collect every slice (its own from memory, the helpers' from storage), check they belong together, join them with the sound
+    const state = await api.parts(), slices = new Map(own);
+    const fetchIds = Object.keys(state.items).map(Number).filter((n) => !slices.has(n));
+    const urls = fetchIds.length ? await api.urls(fetchIds) : {};
+    for (const n of fetchIds) { const r = await fetch(urls[n]); if (!r.ok) throw new Error(`A part of the video could not be downloaded (${r.status}).`); slices.set(n, unpackSlice(await r.arrayBuffer())); }
+    const ids = [...slices.keys()].sort((a, b) => a - b), ref = slices.get(ids[0]).config;
+    const bad = ids.filter((id) => !sameConfig(ref, slices.get(id).config));
+    if (bad.length) {
+      console.warn(`Cloud export: ${bad.length} slice(s) from other machines use a different encoder; rendering them here.`);
+      const again = bad.map((id) => plan[id]);
+      await runPool(async () => again.shift() || null, async (m, id) => { slices.set(id, { chunks: m.chunks, config: m.config }); });
+    }
+    const video = []; let first = true;
+    for (const id of ids) {
+      const seg = slices.get(id);
+      for (const c of seg.chunks) {
+        const meta = first ? { decoderConfig: { ...seg.config, description: seg.config.description ? new Uint8Array(seg.config.description) : undefined } } : undefined;
+        video.push([new EncodedVideoChunk({ type: c.type, timestamp: c.timestamp, duration: c.duration, data: c.data }), meta]); first = false;
+      }
+    }
+    const res = mux({ codecs, W, H, FPS }, video, await audioPromise);
+    onProgress(1);
+    return { ...res, info: `${res.info} · ${workers} workers · ${ids.length} slices${fetchIds.length ? `, ${fetchIds.length} from other machines` : ''}` };
+  } finally { clearInterval(beat); if (progress) clearInterval(progress); killAll(); }
+}
+
 /** the slices are encoded: send the sound, ask the worker to join everything, and take the finished MP4 back */
 async function finishOnGpu({ gpu, results, clips, total, music, silent, onProgress, frames, workers, W, H, clockTotal, startedAt }) {
   try {

@@ -10,7 +10,7 @@ import { effectiveTier, setTier } from '../server/entitlements.js';
 import { EXPORT_LIMIT_SECONDS, limitFor, withinLimit, limitMessage } from '../shared/export-limits.js';
 import { kv } from '../server/rtdb.js';
 import { assetKey, stateKey, getUrl, readText, objectExists, confirmAssets, signUploads, putUrl, videoKey, videoUrl, deleteKey, MAX_FILE, MAX_VIDEO, MAX_VIDEOS_TOTAL, VIDEO_TTL_MS } from '../server/r2-storage.js';
-import { createJob, getJob, jobBySecret, updateJob, cancelJob, publicJob, listVideos, videosPath, applyProgress, TERMINAL } from '../server/cloud-export-store.js';
+import { createJob, getJob, jobBySecret, updateJob, cancelJob, publicJob, listVideos, videosPath, applyProgress, initParts, claimPart, beatParts, finishPart, partsSummary, partsPath, partKey, TERMINAL } from '../server/cloud-export-store.js';
 
 const MAX_SECONDS = 24 * 3600;
 const validGrant = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{4,40}$/.test(value);
@@ -24,7 +24,7 @@ function cleanSettings(s) {
   return { quality, fps, level, format };
 }
 // the anonymous cloud-export render worker never carries a Firebase sign-in — it proves ownership of one job with its secret instead
-const SECRET_ACTIONS = new Set(['cloudStudio', 'cloudFetch', 'cloudPresign', 'cloudProgress', 'cloudComplete', 'cloudFail']);
+const SECRET_ACTIONS = new Set(['cloudStudio', 'cloudFetch', 'cloudPresign', 'cloudProgress', 'cloudComplete', 'cloudFail', 'cloudInitParts', 'cloudClaimPart', 'cloudPartBeat', 'cloudPartPresign', 'cloudPartDone', 'cloudParts', 'cloudPartUrls']);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
@@ -65,6 +65,31 @@ export default async function handler(req, res) {
         await applyProgress(store, b.uid, b.jobId, { progress, phase, seq: Number.isInteger(b.seq) ? b.seq : undefined });
         return send(res, 200, { ok: true });
       }
+      // ---- one video rendered by several machines (see the comment in server/cloud-export-store.js) ----
+      const who = String(b.who || '').slice(0, 40), partNo = Number(b.part);
+      if (b.action === 'cloudInitParts') {
+        const slices = Array.isArray(b.slices) ? b.slices : [];
+        if (!slices.length || slices.length > 600 || !Number.isInteger(b.frames) || !Number.isInteger(b.fps) || slices.some((x) => !Number.isInteger(x?.id) || !Number.isInteger(x?.from) || !Number.isInteger(x?.to) || x.to <= x.from)) throw new AccessError('invalid_parts', 'The render plan is not valid.', 400);
+        return send(res, 200, await initParts(store, b.uid, b.jobId, { frames: b.frames, fps: b.fps, slices: slices.map((x) => ({ id: x.id, from: x.from, to: x.to })) }));
+      }
+      if (b.action === 'cloudClaimPart') return send(res, 200, { part: await claimPart(store, b.uid, b.jobId, who) });
+      if (b.action === 'cloudPartBeat') { await beatParts(store, b.uid, b.jobId, who, (Array.isArray(b.parts) ? b.parts : []).slice(0, 20).map((x) => ({ id: Number(x?.id), frames: Number(x?.frames) || 0 }))); return send(res, 200, { ok: true }); }
+      if (b.action === 'cloudParts') return send(res, 200, { parts: partsSummary(await store.get(partsPath(b.uid, b.jobId))) });
+      if (b.action === 'cloudPartPresign') {
+        const size = Number(b.size);
+        if (!Number.isInteger(partNo) || partNo < 0 || !Number.isSafeInteger(size) || size < 1 || size > 400 * 1024 * 1024) throw new AccessError('invalid_file', 'This part of the video is not valid.', 400);
+        return send(res, 200, { upload: await putUrl(partKey(job.uid, b.jobId, partNo), size) });
+      }
+      if (b.action === 'cloudPartDone') {
+        const size = Number(b.size) || 0, local = b.local === true;
+        if (!Number.isInteger(partNo) || partNo < 0) throw new AccessError('invalid_file', 'This part of the video is not valid.', 400);
+        if (!local) { const head = await objectExists(partKey(job.uid, b.jobId, partNo)); if (!head.exists || head.size !== size) throw new AccessError('incomplete_upload', 'The part upload did not finish. Please try again.', 409); }
+        return send(res, 200, await finishPart(store, b.uid, b.jobId, who, { part: partNo, size, local }));
+      }
+      if (b.action === 'cloudPartUrls') {
+        const ids = (Array.isArray(b.parts) ? b.parts : []).map(Number).filter((n) => Number.isInteger(n) && n >= 0).slice(0, 600);
+        return send(res, 200, { urls: Object.fromEntries(await Promise.all(ids.map(async (n) => [n, await getUrl(partKey(job.uid, b.jobId, n))]))) });
+      }
       if (b.action === 'cloudComplete') {
         const size = Number(b.size);
         if (!Number.isSafeInteger(size) || size < 1 || size > MAX_VIDEO) throw new AccessError('invalid_file', 'The rendered video is not valid.', 400);
@@ -73,6 +98,7 @@ export default async function handler(req, res) {
         const now = Date.now(), s2 = job.settings || {};
         await store.set(`${videosPath(job.uid)}/${b.jobId}`, { projectId: job.projectId, projectName: job.projectName || '', size, seconds: job.seconds, quality: s2.quality, fps: s2.fps, createdAt: now, expiresAt: now + VIDEO_TTL_MS });
         await updateJob(store, b.uid, b.jobId, { status: 'done', progress: 1, size });
+        for (const n of Object.keys((await store.get(partsPath(b.uid, b.jobId)))?.items || {})) await deleteKey(partKey(job.uid, b.jobId, n));          // the slices uploaded by helper machines are no longer needed
         return send(res, 200, { ok: true });
       }
       if (b.action === 'cloudFail') {

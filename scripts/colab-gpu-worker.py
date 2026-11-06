@@ -109,45 +109,46 @@ def monitor():
         stop_monitor.wait(8)
 threading.Thread(target=monitor, daemon=True).start()
 
-def pending_jobs():
+def scan():
+    """(jobs this machine can work on, status counts): queued jobs, and running jobs that still have free slices to help with"""
     data = worker.db.reference("cloudExports").get() or {}
-    jobs, counts = [], {}
-    for uid, rows in data.items():
-        if not isinstance(rows, dict): continue
-        for jid, job in rows.items():
-            if not isinstance(job, dict): continue
-            counts[job.get("status", "?")] = counts.get(job.get("status", "?"), 0) + 1
-            if job.get("status") == "pending" and job.get("secret"): jobs.append((uid, jid, job))
-    return jobs, counts
+    counts = {}
+    for rows in data.values():
+        if isinstance(rows, dict):
+            for job in rows.values():
+                if isinstance(job, dict): counts[job.get("status", "?")] = counts.get(job.get("status", "?"), 0) + 1
+    return data, counts
 
 print(f"\nREADY | jobs at once: {JOBS_AT_ONCE} | frame workers per job: {FRAME_WORKERS or 'auto'} | CPU cores: {os.cpu_count()}")
 input("Start the cloud exports on the website, then press Enter: ")
 
 from concurrent.futures import ThreadPoolExecutor
 pool = ThreadPoolExecutor(max_workers=max(1, JOBS_AT_ONCE))
-running, slots, seen, results = {}, set(), set(), []
-t0 = time.monotonic(); idle_since = None; last_scan = 0; queue = []
+running, slots, tried, results = {}, set(), {}, []
+t0 = time.monotonic(); idle_since = None; last_scan = 0; todo = []
 try:
     while time.monotonic() - t0 < MAX_SESSION_MINUTES * 60:
         for fut in list(running):
             if fut.done():
-                uid, jid, slot, started = running.pop(fut); slots.discard(slot)
+                uid, jid, slot, started, helper = running.pop(fut); slots.discard(slot)
                 try: fut.result()
                 except Exception as e: print("Worker exception:", jid, e)
                 row = worker.db.reference(f"cloudExports/{uid}/{jid}").get() or {}
                 took = time.monotonic() - started
-                results.append((jid, row.get("status"), round(took, 1)))
-                print(f"\nJOB FINISHED {jid}: {row.get('status')} in {took:.0f} s {row.get('error') or ''}")
+                results.append((jid, "helper" if helper else row.get("status"), round(took, 1)))
+                print(f"\nFINISHED {jid} ({'helped' if helper else row.get('status')}) in {took:.0f} s {row.get('error') or ''}")
         if time.monotonic() - last_scan >= POLL_SECONDS:
-            queue, counts = pending_jobs(); last_scan = time.monotonic()
-            print(f"\nQueue: {len(queue)} | statuses: {counts}")
-        for uid, jid, job in queue:
-            if (uid, jid) in seen: continue
+            data, counts = scan(); last_scan = time.monotonic()
+            todo = worker.joinable_jobs(data, {(u, j) for u, j, _, _, _ in running.values()}, tried)
+            print(f"\nTo do here: {len(todo)} | statuses: {counts}")
+        for uid, jid, job, helper in todo:
+            if any((uid, jid) == (u, j) for u, j, _, _, _ in running.values()): continue
             if len(running) >= capacity(): break
-            slot = next(i for i in range(max(1, JOBS_AT_ONCE)) if i not in slots); slots.add(slot); seen.add((uid, jid))
-            running[pool.submit(worker.render_one, uid, jid, job, slot)] = (uid, jid, slot, time.monotonic())
-            print(f"STARTED {jid} in slot {slot} | active {len(running)}")
-        if not running and not [j for j in queue if (j[0], j[1]) not in seen]:
+            slot = next(i for i in range(max(1, JOBS_AT_ONCE)) if i not in slots); slots.add(slot)
+            if helper: tried[(uid, jid)] = tried.get((uid, jid), 0) + 1
+            running[pool.submit(worker.render_one, uid, jid, job, slot, helper)] = (uid, jid, slot, time.monotonic(), helper)
+            print(f"STARTED {'(helping with) ' if helper else ''}{jid} in slot {slot} | active {len(running)}")
+        if not running and not todo:
             idle_since = idle_since or time.monotonic()
             if time.monotonic() - idle_since >= IDLE_STOP_SECONDS: print("\nQueue idle: stopping."); break
         else:
