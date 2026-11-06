@@ -69,9 +69,11 @@ subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], chec
 import psutil
 
 sys.path.insert(0, str(ROOT))          # app.py imports gpu_encode.py from here
+sys.modules.pop("gpu_encode", None); importlib.invalidate_caches()          # a copy of gpu_encode kept in memory from an earlier run of this cell would be used instead of the file just uploaded
 try:
     import gpu_encode
-    print("GPU video encoding:", "READY (ffmpeg " + gpu_encode.CODEC + ")" if gpu_encode.encoder_works() else "OFF: ffmpeg cannot use " + gpu_encode.CODEC + " here (the browser's CPU encoder is used)")
+    print("gpu_encode version:", getattr(gpu_encode, "VERSION", "OLD (no version: restart the runtime and upload again)"))
+    print("GPU video encoding:", "READY (ffmpeg " + gpu_encode.CODEC + ")" if gpu_encode.selftest() else "OFF (see the reason above; the browser's CPU encoder is used)")
 except ImportError:
     print("GPU video encoding: OFF (gpu_encode.py was not uploaded)")
 spec = importlib.util.spec_from_file_location("twelvetoons_worker", str(APP_PATH))

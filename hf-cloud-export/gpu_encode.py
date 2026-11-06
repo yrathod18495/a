@@ -23,6 +23,7 @@ import subprocess
 import tempfile
 import threading
 
+VERSION = "jpeg-selftest-2"                 # printed by the Colab cell so an old copy kept in memory is noticed
 CODEC = os.environ.get("GPUENC_CODEC", "h264_nvenc")          # libx264 can be set to try the whole path on a machine without a GPU
 CHUNK = 4 * 1024 * 1024
 
@@ -72,6 +73,9 @@ def selftest():
     except Exception as e:
         log(f"encoder test crashed: {e!r}")
     return False
+
+
+encoder_works = selftest                   # the old name, still used by older Colab cells
 
 
 class GpuEncoder:
