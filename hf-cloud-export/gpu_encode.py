@@ -124,7 +124,12 @@ class GpuEncoder:
     async def _start_slice(self, state, msg):
         path = os.path.join(state["folder"], f"slice-{int(msg['id'])}.mp4")
         w, h, fps = int(msg["w"]), int(msg["h"]), int(msg["fps"])
-        cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", str(msg["pix"]), "-s", f"{w}x{h}", "-r", str(fps), "-i", "-",
+        if msg["pix"] == "mjpeg":
+            # one JPEG per frame (the render page compresses each frame: raw frames are 3.7 MB at 720p, far too much to move at 40+ fps on 2 CPU cores)
+            source = ["-f", "image2pipe", "-c:v", "mjpeg", "-framerate", str(fps), "-i", "-"]
+        else:
+            source = ["-f", "rawvideo", "-pix_fmt", str(msg["pix"]), "-s", f"{w}x{h}", "-r", str(fps), "-i", "-"]
+        cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *source,
                "-an", "-c:v", CODEC, *codec_args(int(msg["bitrate"])), "-g", str(fps * 2), "-bf", "0", "-pix_fmt", "yuv420p", path]
         state["proc"] = await asyncio.create_subprocess_exec(*cmd, stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         state["slice"] = int(msg["id"])

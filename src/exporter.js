@@ -263,7 +263,7 @@ async function finishOnGpu({ gpu, results, clips, total, music, silent, onProgre
     want = head.size; if (got >= want) whenAll();
     await all;
     const sum = Object.values(clockTotal).reduce((a, b) => a + b, 0) || 1, pct = (k) => `${Math.round(((clockTotal[k] || 0) / sum) * 100)}%`, secs = (performance.now() - startedAt) / 1000;
-    console.info(`Cloud export timing (GPU encode): ${frames} frames in ${secs.toFixed(1)} s (${(frames / secs).toFixed(1)} fps) on ${workers} worker(s) · worker time: drawing ${pct('render')}, copying + sending frames ${pct('submit')}, waiting for the GPU encoder ${pct('wait')}, finishing slices ${pct('flush')}, warm-up ${pct('warm')}`);
+    console.info(`Cloud export timing (GPU encode): ${frames} frames in ${secs.toFixed(1)} s (${(frames / secs).toFixed(1)} fps) on ${workers} worker(s) · worker time: drawing ${pct('render')}, compressing + sending frames ${pct('submit')}, waiting for the GPU encoder ${pct('wait')}, finishing slices ${pct('flush')}, warm-up ${pct('warm')}`);
     onProgress(1);
     return { blob: new Blob(pieces, { type: 'video/mp4' }), ext: 'mp4', info: `H.264${silent ? ' · no sound' : '/AAC'} ${W}×${H} · GPU encode (${gpu.codec}) · ${workers} workers` };
   } finally { gpu.close(); }
