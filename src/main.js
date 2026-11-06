@@ -1975,7 +1975,8 @@ function drawClipNav() {
         ...(['clip', 'bg', 'prop', 'shadow', 'fx'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
-        btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))));
+        btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))),
+    h('button', { type: 'button', class: 'cb-btn cb-close', title: 'Close: back to the Upload / Characters / Animations tabs', 'aria-label': 'Close the clip tools and go back to the tabs', onclick: clearClipSelection }, icon('x'), h('span', {}, 'Close')));
 }
 function drawClipBar() {
   updateEditTools(); updateBgSel(); drawClipNav();
