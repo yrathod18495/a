@@ -29,14 +29,8 @@ def valid_key(path):
     except Exception:
         return None
 
-have_app = APP_PATH.exists(); have_key = KEY_PATH.exists() and valid_key(KEY_PATH)
-incoming = {}
-if have_app and have_key:
-    if input("Enter = reuse existing files | U = upload updated files: ").strip().lower() in ("u", "upload"):
-        incoming = files.upload()
-else:
-    print("Upload the latest app.py and the Firebase service-account JSON.")
-    incoming = files.upload()
+print("Upload the LATEST app.py and your Firebase key .json now (both together). If nothing new is needed, just cancel the dialog and the files already in Colab are used.")
+incoming = files.upload()
 for name, content in incoming.items():
     base = pathlib.Path(name).name
     if re.fullmatch(r"app(?: \(\d+\))?\.py", base, re.I):
