@@ -190,7 +190,8 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
   const clockTotal = {}, startedAt = performance.now();          // where the workers spent their time: shows whether drawing or encoding is the slow part
   const pool = [];
   const killAll = () => pool.forEach((w) => w.terminate());
-  const jobMsg = { type: 'init', job: { ...job, codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode, ...(codecs.video.hardwareAcceleration ? { hardwareAcceleration: codecs.video.hardwareAcceleration } : {}) } };
+  // the cloud machine encodes in software on few CPU cores (Chrome has no NVENC on Linux): the lighter 'realtime' mode costs the CPU much less than 'quality'
+  const jobMsg = { type: 'init', job: { ...job, latencyMode: isCloudRenderPage() ? 'realtime' : 'quality', codec: codecs.video.codec, bitrate, bitrateMode: codecs.bitrateMode, ...(codecs.video.hardwareAcceleration ? { hardwareAcceleration: codecs.video.hardwareAcceleration } : {}) } };
 
   let watch = 0;
   await new Promise((resolve, reject) => {

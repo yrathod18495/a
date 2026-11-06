@@ -32,7 +32,7 @@ async function segment({ id, from, to }) {
     },
     error: (e) => { failure = e; },
   });
-  enc.configure({ codec, width: W, height: H, bitrate, framerate: fps, latencyMode: 'quality', bitrateMode: job.bitrateMode, ...(job.hardwareAcceleration ? { hardwareAcceleration: job.hardwareAcceleration } : {}) });
+  enc.configure({ codec, width: W, height: H, bitrate, framerate: fps, latencyMode: job.latencyMode || 'quality', bitrateMode: job.bitrateMode, ...(job.hardwareAcceleration ? { hardwareAcceleration: job.hardwareAcceleration } : {}) });
   // hair / cloth physics need a moment to settle, so warm up a little before the first frame we keep
   const warm = Math.min(from, Math.round(fps * 0.75)), clock = { warm: 0, render: 0, submit: 0, wait: 0, flush: 0 }, now = () => performance.now();
   let t = now();

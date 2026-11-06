@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyProgress, jobPath } from '../server/cloud-export-store.js';
-const store = (initial) => { let v = initial; return { get v() { return v; }, transact: async (_p, fn) => { const next = fn(v); if (next !== undefined) v = next; } }; };
+// behaves like the Realtime Database: the first call gets null (empty cache); returning undefined aborts, anything else is checked against the real value and the function is called again with it
+const store = (initial) => { let v = initial; return { get v() { return v; }, transact: async (_p, fn) => { const first = fn(null); if (first === undefined) return; const next = fn(v); if (next !== undefined) v = next; } }; };
 test('an older progress update that arrives late is ignored; the percentage never goes down', async () => {
   const s = store({ status: 'pending', progress: 0, seq: 0, secret: 'x' });
   await applyProgress(s, 'u', 'j', { phase: 'loading', seq: 1 });

@@ -67,7 +67,10 @@ export async function listVideos(store, uid, deleteFile) {
  */
 export async function applyProgress(store, uid, id, { progress, phase, seq } = {}) {
   await store.transact(jobPath(uid, id), (cur) => {
-    if (!cur || TERMINAL.has(cur.status)) return undefined;
+    // The first call of a Realtime Database transaction usually gets `null` (nothing cached yet). Returning `undefined` would ABORT it and the update
+    // would be lost, so `null` is handed back: the database then compares with the real value and calls this again with it.
+    if (cur === null) return null;
+    if (TERMINAL.has(cur.status)) return undefined;
     if (Number.isInteger(seq) && seq <= (cur.seq || 0)) return undefined;
     const next = { ...cur, status: 'rendering', updatedAt: Date.now() };
     if (progress !== undefined) next.progress = Math.max(cur.progress || 0, progress);
