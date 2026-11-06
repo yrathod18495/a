@@ -125,6 +125,13 @@ changes for phones/computers (the address has no `gpuenc`). If the GPU encoder c
 encoder (the cloud job code already retries on one thread). `GPU_ENCODE=0` switches it off; `GPUENC_CODEC=libx264` runs the same path
 without a GPU (used by `tests/browser/gpu-encode.spec.js`). The `Cloud export timing (GPU encode)` log line shows where the time goes.
 
+**Measured result (Colab T4, 2 vCPU): it was SLOWER, so it is OFF by default** (`GPU_ENCODE=1` turns it on). The browser's own software
+encoder ran at about 1% per 4 s; with raw frames the path ran at about 1% per minute, and with JPEG frames at about 1% per 13 s (CPU 100%, GPU
+0-5%). The cost per frame that is left is on the CPU either way: drawing/skinning in JavaScript, reading the picture back from the GPU, and now
+JPEG compressing + decoding it. With only two cores that outweighs what NVENC saves. It may pay off on a machine with many cores or at very
+high resolutions; measure with the timing lines first (`Cloud export timing so far:` prints per-frame milliseconds for drawing / encoder
+hand-over / waiting for the encoder after every slice).
+
 ## Limits (v1)
 - Renders the **current scene only** (not "export all scenes together"); the Export tab's Scenes dropdown does not apply to
   cloud export yet. Fast-render / live-recording toggle does not apply either — cloud export always renders offline (the whole

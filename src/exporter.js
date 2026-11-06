@@ -191,7 +191,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
     : Math.max(FPS * 2, Math.min(FPS * 6, Math.ceil(frames / (workers * 3))));          // phones and computers keep the original split
   const queue = []; for (let from = 0, id = 0; from < frames; from += segLen, id++) queue.push({ id, from, to: Math.min(frames, from + segLen) });
   const results = new Map(); let done = 0, failed = null;
-  const clockTotal = {}, startedAt = performance.now();          // where the workers spent their time: shows whether drawing or encoding is the slow part
+  let framesTimed = 0; const clockTotal = {}, startedAt = performance.now();          // where the workers spent their time: shows whether drawing or encoding is the slow part
   const pool = [];
   const killAll = () => pool.forEach((w) => w.terminate());
   // the cloud machine encodes in software on few CPU cores (Chrome has no NVENC on Linux): the lighter 'realtime' mode costs the CPU much less than 'quality'
@@ -216,7 +216,12 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
         const m = e.data;
         if (m.type === 'ready') next();
         else if (m.type === 'progress') { done += m.frames; onProgress(Math.min(0.99, done / frames)); }
-        else if (m.type === 'segment') { results.set(m.id, m); if (m.clock) for (const k of Object.keys(m.clock)) clockTotal[k] = (clockTotal[k] || 0) + m.clock[k]; next(); }
+        else if (m.type === 'segment') {
+          results.set(m.id, m); framesTimed += m.frames || 0;
+          if (m.clock) for (const k of Object.keys(m.clock)) clockTotal[k] = (clockTotal[k] || 0) + m.clock[k];
+          if (isCloudRenderPage() && framesTimed) { const per = (k) => ((clockTotal[k] || 0) / framesTimed).toFixed(1); console.info(`Cloud export timing so far: ${framesTimed} of ${frames} frames · worker ms per frame: drawing ${per('render')}, handing to the encoder ${per('submit')}, waiting for a busy encoder ${per('wait')}, warm-up ${per('warm')}, finishing ${per('flush')} · ${((framesTimed / ((performance.now() - startedAt) / 1000))).toFixed(1)} frames/s overall`); }
+          next();
+        }
         else if (m.type === 'error') fail(m.message);
       };
       w.onerror = (e) => fail(e.message || 'worker crashed');

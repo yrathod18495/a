@@ -13,6 +13,7 @@ from google.colab import files
 # ----------------- settings to experiment with -----------------
 JOBS_AT_ONCE = 1          # how many exports render together (Colab has only 2 CPU cores: 1 is usually fastest per video)
 FRAME_WORKERS = 0         # frame workers inside ONE video: 0 = automatic (min(4, CPU cores)); try 2, 3, 4
+GPU_ENCODE = False        # True = ffmpeg/NVENC encodes (measured SLOWER than the browser's own encoder on Colab's 2 CPU cores); leave False
 POLL_SECONDS = 8
 IDLE_STOP_SECONDS = 120
 MAX_SESSION_MINUTES = 120
@@ -59,7 +60,7 @@ if not valid_key(KEY_PATH):
     raise RuntimeError("Firebase service account JSON missing.")
 
 os.environ.update(FIREBASE_SERVICE_ACCOUNT_KEY=KEY_PATH.read_text(), FIREBASE_DATABASE_URL=FIREBASE_URL, SITE_URL=SITE_URL,
-                  MAX_CONCURRENT=str(JOBS_AT_ONCE), CLOUD_RENDER_WORKERS=str(FRAME_WORKERS), PROFILE_DIR="/tmp/12toons-profiles")
+                  MAX_CONCURRENT=str(JOBS_AT_ONCE), CLOUD_RENDER_WORKERS=str(FRAME_WORKERS), GPU_ENCODE="1" if GPU_ENCODE else "0", PROFILE_DIR="/tmp/12toons-profiles")
 pathlib.Path(os.environ["PROFILE_DIR"]).mkdir(parents=True, exist_ok=True)
 
 if subprocess.run(["nvidia-smi"], capture_output=True).returncode != 0:
@@ -73,7 +74,7 @@ sys.modules.pop("gpu_encode", None); importlib.invalidate_caches()          # a 
 try:
     import gpu_encode
     print("gpu_encode version:", getattr(gpu_encode, "VERSION", "OLD (no version: restart the runtime and upload again)"))
-    print("GPU video encoding:", "READY (ffmpeg " + gpu_encode.CODEC + ")" if gpu_encode.selftest() else "OFF (see the reason above; the browser's CPU encoder is used)")
+    print("GPU video encoding:", "switched OFF in the settings (GPU_ENCODE = False): the browser's own encoder is used" if not GPU_ENCODE else ("READY (ffmpeg " + gpu_encode.CODEC + ")" if gpu_encode.selftest() else "OFF (see the reason above)"))
 except ImportError:
     print("GPU video encoding: OFF (gpu_encode.py was not uploaded)")
 spec = importlib.util.spec_from_file_location("twelvetoons_worker", str(APP_PATH))

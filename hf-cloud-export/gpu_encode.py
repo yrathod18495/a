@@ -23,7 +23,7 @@ import subprocess
 import tempfile
 import threading
 
-VERSION = "jpeg-selftest-2"                 # printed by the Colab cell so an old copy kept in memory is noticed
+VERSION = "jpeg-selftest-3"                 # printed by the Colab cell so an old copy kept in memory is noticed
 CODEC = os.environ.get("GPUENC_CODEC", "h264_nvenc")          # libx264 can be set to try the whole path on a machine without a GPU
 CHUNK = 4 * 1024 * 1024
 
@@ -226,7 +226,7 @@ def get_encoder():
         if _checked:
             return _encoder
         _checked = True
-        if os.environ.get("GPU_ENCODE", "1") == "0":
+        if os.environ.get("GPU_ENCODE", "0") != "1":          # OFF unless asked for: on a 2-core machine it measured SLOWER than the browser encoder (see docs/CLOUD-EXPORT.md)
             return None
         try:
             import websockets  # noqa: F401
