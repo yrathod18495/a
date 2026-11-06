@@ -4086,7 +4086,7 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
       let handled = false;
       if (!alone) {
         // Several machines can work on one video: this one claims slices from the shared list (see server/cloud-export-store.js). If the list cannot be used, it renders everything itself.
-        const who = Math.random().toString(36).slice(2, 10) + Date.now().toString(36), call = (action, extra = {}) => jobCall(uid, jobId, secret, action, { who, ...extra });
+        const who = Math.random().toString(36).slice(2, 10) + Date.now().toString(36), call = async (action, extra = {}) => { try { return await jobCall(uid, jobId, secret, action, { who, ...extra }); } catch (e) { console.warn(`Cloud export: ${action} failed (${e.status || e.code || 'no status'}): ${e.message}`); throw e; } };          // the log names the call that failed
         const ended = (r) => { if (r?.status) throw new Error('cancelled'); return r; };          // the job already finished or was cancelled
         const api = {
           initParts: (plan) => call('cloudInitParts', plan),
