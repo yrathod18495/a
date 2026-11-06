@@ -1036,7 +1036,7 @@ function rulerSteps(pps) {
 }
 function selectLine(id, seek = true) {
   if (!id) return;
-  S.lineSel = id; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
+  S.navDismissed = false; S.lineSel = id; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
   const L = lineById(id);
   if (seek && L) { player.seek(L.start + 0.01); }
   drawTimeline(); drawLineBox(); drawClipBar(); S.dirty = true;
@@ -1543,7 +1543,7 @@ async function retimeAudio() {
   await prepareStudio({ quiet: true });
   player.seek(Math.min(at, player.total)); S.dirty = true;
 }
-const selectOnly = (kind, id) => { if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; S.shadowSel = kind === 'shadow' ? id : null; S.fxSel = kind === 'fx' ? id : null; S.selectedPropId = kind === 'prop' ? id : null; if (kind === 'prop' || kind === 'fx') S.sel = null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
+const selectOnly = (kind, id) => { S.navDismissed = false; if (multi.size) { multi.clear(); paintMulti(); } S.mclip = kind === 'clip' ? id : null; S.bgSel = kind === 'bg' ? id : null; S.propSel = kind === 'prop' ? id : null; S.shadowSel = kind === 'shadow' ? id : null; S.fxSel = kind === 'fx' ? id : null; S.selectedPropId = kind === 'prop' ? id : null; if (kind === 'prop' || kind === 'fx') S.sel = null; document.querySelectorAll('.tclip.sel').forEach((x) => x.classList.remove('sel')); drawClipBar(); if (kind === 'clip' && S.tab === 'anim' && S.panelOpen) redrawPanel(); };
 function dragClip(e, m, mode, el) {
   dragItem(e, mode === 'size' ? 'right' : mode, el, {
     id: m.id, key: keyOf('clip', m.id), lock: `char:${findManual(m.id)?.s?.key}`,
@@ -1618,7 +1618,7 @@ function nudgeSelected(which, delta) {
 }
 /** true when a clip, background clip, prop or group was selected (and now is not): choosing a character, or tapping empty space, leaves the clip tools */
 const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || S.shadowSel || S.fxSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
-const clearClipSelection = () => { S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
+const clearClipSelection = () => { S.navDismissed = true; S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
 /** phone: what you can do with the selected clip (Split, Copy, Duplicate, Path, Delete and a More list) sits in the bottom bar, in place of the menu, instead of rows at the top */
 /** Crop of a background clip, like cropping a photo: a box with handles on the picture, ratios below (Free, Original, 1:1, 4:5, 9:16), a tick to apply. The kept part fills the frame (zoomed, never stretched). */
 const CROP_RATIOS = [['free', 'Free', null], ['orig', 'Original', 'orig'], ['1:1', '1:1', 1], ['4:5', '4:5', 4 / 5], ['9:16', '9:16', 9 / 16]];
@@ -1945,7 +1945,7 @@ function drawClipNav() {
   if (S.pathDraw) { drawPathNav(); return; }
   if (S.cropDraw) { drawCropNav(); return; }
   const many = multi.size >= 2, it = selectedItem();
-  if (!it && !many) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }
+  if ((!it && !many) || (!many && it.kind === 'line' && S.navDismissed)) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }          // Close / Done hides even the automatic "audio line under the playhead" tools, or they would come straight back
   const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop', 'fx'].includes(kind);
   const itemLockedNow = !many && isKeyLocked(kind === 'clip' ? keyOf('clip', m?.id) : kind === 'bg' ? keyOf('bg', it.bc?.id) : kind === 'prop' ? keyOf('prop', it.pr?.id) : kind === 'shadow' ? keyOf('shadow', it.sh?.id) : kind === 'fx' ? keyOf('fx', it.fx?.id) : 'x:x'), hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, it?.bc?.id, it?.pr?.id, it?.sh?.id, it?.fx?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath, itemLockedNow].join('|');
   clipNav.hidden = false;
@@ -1957,6 +1957,7 @@ function drawClipNav() {
     holdButton(h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move later' : 'Longer' }, icon('chevron-right')), (k) => nudgeSelected(which, NUDGE * k)));
   clipNav.replaceChildren(
     h('div', { class: 'cb-list' },
+      btn('x', 'Close', clearClipSelection, { title: 'Close: back to the Upload / Characters / Animations tabs', 'aria-label': 'Close the clip tools and go back to the tabs' }),
       ...(kind === 'fx' ? [btn('pencil', 'Edit', () => openFxDock(it.fx), { title: 'Opacity, blur, contrast, saturation, tint and more' })] : []),
       ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected)]),
       ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
@@ -1975,8 +1976,7 @@ function drawClipNav() {
         ...(['clip', 'bg', 'prop', 'shadow', 'fx'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
-        btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))),
-    h('button', { type: 'button', class: 'cb-btn cb-close', title: 'Close: back to the Upload / Characters / Animations tabs', 'aria-label': 'Close the clip tools and go back to the tabs', onclick: clearClipSelection }, icon('x'), h('span', {}, 'Close')));
+        btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))));
 }
 function drawClipBar() {
   updateEditTools(); updateBgSel(); drawClipNav();
@@ -2041,7 +2041,7 @@ function copyOfLine(src, patch = {}) {
 }
 /** after the audio lines changed: split / duplicate / paste keep the zoom and the playhead; a delete also refreshes the speakers */
 async function lineEdited(selectId, { full = false } = {}) {
-  S.lineSel = selectId; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null;
+  S.navDismissed = false; S.lineSel = selectId; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null;
   if (full) await afterAudioChange();
   else { await retimeAudio(); drawTimeline(); drawLineBox(); drawTabs(); }
   drawClipBar(); S.dirty = true;
@@ -4221,7 +4221,11 @@ function queueHistoryCapture(group) {
 function historyAction(action, group = null) {
   if (!S.ready || hist.busy || S.exporting) return action();
   captureHistory(); historyDepth++; updateHistoryButtons();
-  const done = () => { historyDepth--; updateHistoryButtons(); queueHistoryCapture(group); };
+  // Safety net: if an action's promise never settles (a request that hangs, a dialog that is never answered) historyDepth would stay above 0 for
+  // good — Undo / Redo go grey and autosave (tick) keeps waiting, so the user's work silently stops being saved. After 15 s the lock is released anyway.
+  let finished = false;
+  const release = setTimeout(() => { if (!finished) { console.warn('An action took more than 15 s; releasing the edit lock so saving and Undo keep working.'); done(); } }, 15000);
+  const done = () => { if (finished) return; finished = true; clearTimeout(release); historyDepth--; updateHistoryButtons(); queueHistoryCapture(group); };
   try {
     const result = action();
     if (result?.then) return result.finally(done);
@@ -4368,7 +4372,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { S, addFx, openFxDock, migrateBgEffects, syncFx, propHit, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { historyAction, historyDepth: () => historyDepth, S, addFx, openFxDock, migrateBgEffects, syncFx, propHit, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
