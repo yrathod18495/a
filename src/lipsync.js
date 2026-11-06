@@ -77,7 +77,11 @@ function formants(a) {
 }
 
 /** @returns {Uint8Array} one mouth-shape index (see visemeName) per HOP seconds */
-export function analyse(buffer) {
+const yieldToUi = () => new Promise((resolve) => setTimeout(resolve, 0));
+const CHUNK_FRAMES = 150; // ~3 s of audio: this is heavy per-frame DSP on the main thread, so it is chunked and yields between
+                          // chunks (setTimeout, a real macrotask), or importing/restoring a long line of audio freezes the whole
+                          // page — clicks queue up unanswered, the player's own progress bar stops moving — until it is all done.
+export async function analyse(buffer) {
   const x = toMono16k(buffer), hop = Math.round(SR * HOP), frames = Math.ceil(x.length / hop);
   const f = {
     rms: new Float32Array(frames), diff: new Float32Array(frames), voiced: new Float32Array(frames),
@@ -85,6 +89,7 @@ export function analyse(buffer) {
   };
   const seg = new Float32Array(WIN), r = new Float64Array(ORDER + 1), down = new Float32Array(WIN / 2);
   for (let fr = 0; fr < frames; fr++) {
+    if (fr > 0 && fr % CHUNK_FRAMES === 0) await yieldToUi();
     const s0 = fr * hop - (WIN >> 1);
     let e0 = 0, ed = 0, prev = 0;
     for (let i = 0; i < WIN; i++) {

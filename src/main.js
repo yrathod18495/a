@@ -175,7 +175,7 @@ async function onFiles(files) {
       try {
         const raw = await a.e.read();
         const buffer = await audioCtx.decodeAudioData(raw.slice(0));
-        S.lines.push({ id: crypto.randomUUID(), order: a.order, file: a.file, speaker: a.speaker, raw, buffer, visemes: analyse(buffer) });
+        S.lines.push({ id: crypto.randomUUID(), order: a.order, file: a.file, speaker: a.speaker, raw, buffer, visemes: await analyse(buffer) });
       } catch { toast(`${a.file} could not be decoded`); }
     }
     S.lines.sort((x, y) => x.order - y.order || x.file.localeCompare(y.file, undefined, { numeric: true }));
@@ -565,7 +565,7 @@ async function prepareStudio({ quiet = false } = {}) {
     player.setTimeline(tl); syncMusic();
     await applyLayers();
   } catch (e) { console.error(e); toast(`Setup failed: ${e.message}`); }
-  S.animFor = S.speakers.find((s) => s.charId)?.key ?? null;
+  if (!S.speakers.some((s) => s.key === S.animFor)) S.animFor = S.speakers.find((s) => s.charId)?.key ?? null;          // keep whichever character's Animations panel was open; only pick a default the first time, or if that one is gone
   if (!lineById(S.lineSel)) S.lineSel = player.clips[0]?.id ?? null;
   b.done(); S.dirty = true;
 }
@@ -3636,6 +3636,8 @@ function generatedTiles(pick, grid) {
   }).catch(() => { /* the other backgrounds still show */ });
 }
 const MAX_BG_BYTES = 3 * 1048576;          // a picture a user adds as a background: 3 MB at most (bigger ones slow the studio, the sync and cloud export)
+/** a photo saved from WhatsApp, a gallery app or a file manager is often named a long UUID/hash with no real words in it — "Background N" reads much better on the timeline */
+const friendlyBgName = (name, n) => { const base = name.replace(/\.[^.]+$/, ''); return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|^[0-9a-f]{16,}$/i.test(base) ? `Background ${n}` : name; };
 function tabCanvas() {
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: String(cur()) === String(k) ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', String(items[i][0]) === String(k))); } }, l)));
   const file = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => {
@@ -3643,7 +3645,7 @@ function tabCanvas() {
     const picked = [...e.target.files]; e.target.value = '';
     const tooBig = picked.filter((f) => f.size > MAX_BG_BYTES);
     if (tooBig.length) toast(`${tooBig.length > 1 ? 'Some pictures are' : `"${tooBig[0].name}" is`} larger than ${MAX_BG_BYTES / 1048576} MB (${(Math.max(...tooBig.map((f) => f.size)) / 1048576).toFixed(1)} MB). Please choose a smaller picture or compress it first.`, 'warn');
-    for (const f of picked.filter((f) => f.size <= MAX_BG_BYTES)) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: f.name, blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); last = rec; }
+    for (const f of picked.filter((f) => f.size <= MAX_BG_BYTES)) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: friendlyBgName(f.name, S.myBgs.length + 1), blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); last = rec; }
     S.dirty = true; if (last) await addBgClip(last); else drawTabs();          // the new picture goes on the timeline as a 5 s clip
   } });
   const addBgClip = async (rec, preset = 0) => {
@@ -4167,7 +4169,7 @@ async function restoreProject() {
     for (const m of rec.lines) {
       const a = audio.get(m.id);
       if (!a) continue;
-      try { const buffer = await audioCtx.decodeAudioData(a.raw.slice(0)); S.lines.push({ ...m, raw: a.raw, buffer, visemes: analyse(buffer) }); sceneAudio.set(m.id, S.lines.at(-1)); savedAudio.add(m.id); } catch { /* skip broken audio */ }
+      try { const buffer = await audioCtx.decodeAudioData(a.raw.slice(0)); S.lines.push({ ...m, raw: a.raw, buffer, visemes: await analyse(buffer) }); sceneAudio.set(m.id, S.lines.at(-1)); savedAudio.add(m.id); } catch { /* skip broken audio */ }
     }
     Object.assign(S, { quality: rec.ui.v >= 2 ? (rec.ui.quality ?? S.quality) : Math.max(720, rec.ui.quality ?? 720), /* older saves defaulted to 480p on phones */ expMethod: 'fast', fps: Math.max(40, rec.ui.fps ?? S.fps), level: rec.ui.level ?? S.level, format: 'mp4', applyAll: !!rec.ui.applyAll, tab: rec.ui.tab ?? S.tab, lineSel: rec.ui.lineSel ?? null, animFor: rec.ui.animFor ?? null });
     await loadDoc(rec.doc);
