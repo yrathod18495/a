@@ -13,6 +13,14 @@ import { assetKey, stateKey, getUrl, readText, objectExists, confirmAssets, sign
 import { createJob, getJob, jobBySecret, updateJob, cancelJob, publicJob, listVideos, videosPath, applyProgress, initParts, claimPart, beatParts, finishPart, partsSummary, partsPath, partKey, TERMINAL } from '../server/cloud-export-store.js';
 
 const MAX_SECONDS = 24 * 3600;
+/** A worker Space set to sleep when idle (so a paid GPU only costs money while jobs exist) wakes up when its address is visited.
+ *  CLOUD_WORKER_WAKE_URLS = comma-separated Space addresses (optional). Never blocks a new job for long and never fails it. */
+function wakeWorkers() {
+  const urls = String(process.env.CLOUD_WORKER_WAKE_URLS || '').split(',').map((u) => u.trim()).filter((u) => /^https:\/\//.test(u)).slice(0, 8);
+  if (!urls.length) return Promise.resolve();
+  const visit = urls.map((u) => fetch(u, { method: 'GET', signal: AbortSignal.timeout(2500) }).catch(() => {}));
+  return Promise.race([Promise.all(visit), new Promise((r) => setTimeout(r, 2500))]);
+}
 const validGrant = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{4,40}$/.test(value);
 const validUid = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
 const idOK = (v) => typeof v === 'string' && /^[a-zA-Z0-9_-]{6,128}$/.test(v);
@@ -143,7 +151,9 @@ export default async function handler(req, res) {
       const store = kv(services());
       const proj = await store.get(`projects/${who.uid}/${b.projectId}`);
       if (!proj || proj.deleted) throw new AccessError('project_not_found', 'This project was not found. Please save it to the cloud first.', 404);
+      const woke = wakeWorkers();          // sleeping paid worker Spaces (T4) are woken by a visit to their address; started now, awaited below
       const { id, job } = await createJob(store, who.uid, { projectId: b.projectId, projectName: String(proj.name || proj.title || '').slice(0, 80), settings: cleanSettings(b.settings), seconds, scenes, scope });
+      await woke;
       return send(res, 200, { jobId: id, job: publicJob(id, job) });
     }
     if (b.action === 'cloudCancel') {

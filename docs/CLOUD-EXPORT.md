@@ -148,6 +148,16 @@ the job claims slices from a shared list (`cloudExports/<uid>/<job>/parts`, code
 - Tested with two real browser pages and the real list code on an in-memory database (`tests/browser/cloud-distributed.spec.js`): the joined video has every
   frame exactly once. Not tested on real separate machines (no second machine here).
 
+## Paying for a GPU only while there is work (sleep when idle)
+
+A paid GPU Space (e.g. T4 small) can be set to **sleep after N minutes without activity** (Space settings -> Sleep time). Two things make that safe:
+- While it works on a job, `app.py` visits the Space's own public address once a minute (`keep_awake()`), because only such visits count as activity: the
+  worker's own background thread does not, so without this a render could be cut off by the sleep timer.
+- Nothing wakes a sleeping Space except a visit to its address, so the website does it: when a job is created, `api/export.js` visits every address in the
+  Vercel variable `CLOUD_WORKER_WAKE_URLS` (comma separated, e.g. `https://<owner>-<space>.hf.space`). Waking takes a minute or two; free CPU Spaces that stay
+  awake keep helping meanwhile. The T4 cannot "go to sleep after its GPU part": every slice needs CPU and GPU together, so it works on slices until none are
+  left, and sleeps after the idle time you set.
+
 ## Limits (v1)
 - Renders the **current scene only** (not "export all scenes together"); the Export tab's Scenes dropdown does not apply to
   cloud export yet. Fast-render / live-recording toggle does not apply either — cloud export always renders offline (the whole

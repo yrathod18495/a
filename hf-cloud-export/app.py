@@ -179,6 +179,24 @@ def cloud_render_url(uid, job_id, secret, gpuenc=None):
     return f"{base}#/cloudrender/{uid}/{job_id}/{secret}"
 
 
+_last_ping = 0.0
+
+
+def keep_awake():
+    """A Space set to 'sleep when idle' counts only visits to its public address as activity, not the work of its own background thread: without this
+    a paid GPU Space could be put to sleep in the middle of a render. While a job is being worked on, the Space visits its own address once a minute."""
+    global _last_ping
+    host = os.environ.get("SPACE_HOST")
+    if not host or time.time() - _last_ping < 60:
+        return
+    _last_ping = time.time()
+    try:
+        import urllib.request
+        urllib.request.urlopen(f"https://{host}/", timeout=10).read(1)
+    except Exception:
+        pass          # a 403 page or a short hiccup still counts as a visit
+
+
 def render_one(uid, job_id, job, slot=0, helper=False):
     """Opens the render page for one job and waits for it to finish (or be cancelled), using the admin SDK the whole time — never
     the page's own state. Runs in its own thread so several jobs can render at once (MAX_CONCURRENT).
@@ -259,6 +277,7 @@ def render_one(uid, job_id, job, slot=0, helper=False):
                     last_change = time.time()
                 if status in TERMINAL or (mode["helper"] and helper_done.is_set()):
                     break
+                keep_awake()
                 # page.wait_for_timeout (not time.sleep): a plain Python sleep blocks this thread without ever handing control
                 # back to Playwright's own driver, so console/pageerror messages queued by the browser sat unprinted — sometimes
                 # for the ENTIRE render — until the next real Playwright call (browser.close()) finally flushed them all at once.
