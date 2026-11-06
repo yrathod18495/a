@@ -16,7 +16,7 @@ import { lockedFor, PAID_MESSAGE } from '../shared/asset-access.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
-import { Player, buildTimeline } from './player.js';
+import { Player, buildTimeline, GAP, LEAD } from './player.js';
 import { characterPicker } from './charpick.js';
 import { exportOffline, exportParallel, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
 import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext, listBgLibrary } from './store.js';
@@ -1102,11 +1102,19 @@ function drawTimeline() {
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
     const lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' }), trimmed = (S.lines.find((l) => l.id === c.id)?.trimStart || 0) + (S.lines.find((l) => l.id === c.id)?.trimEnd || 0) > 0;
-    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && S.lineExplicit && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''} ${c.muted ? 'muted' : ''} ${c.solo ? 'solo' : ''} ${isLocked('audio') ? 'locked' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && !voiceMoved && selectLine(c.id, true, true) },
+    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && S.lineExplicit && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''} ${c.muted ? 'muted' : ''} ${c.solo ? 'solo' : ''} ${isLocked('audio') ? 'locked' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: (ev) => { if (S.exporting || voiceMoved) return; selectLine(c.id, false, true); seekToClientX(ev.clientX); } },
       lz, voiceWave(c), h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), c.muted ? h('span', { class: 'vmix' }, 'muted') : c.solo ? h('span', { class: 'vmix' }, 'solo') : null, rz);
     el.addEventListener('pointerdown', (e) => { if (e.button) return; dragVoice(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el); });
     el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
     lane.append(el);
+  });
+  // a gap between two voice lines (left behind by trimming or moving one) gets a button right in the empty space: it closes the gap and every later line follows
+  player.clips.forEach((c, i) => {
+    const prevEnd = i ? player.clips[i - 1].end : 0, gap = c.start - prevEnd;
+    if (gap < (i ? GAP : LEAD) + 0.15 || gap * pps < 22 || isLocked('audio')) return;          // the normal pause between two lines is not a gap to close
+    lane.append(h('button', { type: 'button', class: 'gap-close', title: `Close this ${gap.toFixed(1)} s gap: this line and every later one slide up`, 'aria-label': 'Close the gap and slide the later audio up', style: `left:${(prevEnd + gap / 2) * pps - 14}px`,
+      onpointerdown: (ev) => ev.stopPropagation(),
+      onclick: async (ev) => { ev.stopPropagation(); const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting) return; line.gapBefore = undefined; await retimeAudio(); drawTimeline(); drawLineBox(); } }, icon('chevron-left'), icon('chevron-left')));
   });
   // no audio yet: show only the ruler and the animation lanes (audio can still be added in the Audio tab)
   const hasAudio = player.clips.length > 0;
@@ -1470,12 +1478,24 @@ function dragItem(e, mode, el, io) {
   const exclude = group ? group.map((m) => m.id) : [io.id];
   const points = snapOn() ? snapPoints(exclude) : [];
   const gStart = group ? Math.min(...groupFrom.map((f) => f.start)) : 0, gEnd = group ? Math.max(...groupFrom.map((f) => f.start + f.dur)) : 0;
-  const mv = (ev) => {
-    if (Math.abs(ev.clientX - x0) > 2) moved = true;
+  const sc0 = tlScroll ? tlScroll.scrollLeft : 0, scrolled = () => (tlScroll ? tlScroll.scrollLeft - sc0 : 0);          // the timeline can scroll under a held finger: the item follows that too
+  let lastEv = null, edgeRaf = 0, dragging = true;
+  const mv = (ev) => { lastEv = ev; apply(ev); if (!edgeRaf && dragging) edgeRaf = requestAnimationFrame(edge); };
+  /** InShot-style: holding an item near the left / right edge of the timeline scrolls it, faster the closer to the edge, so the item can be carried to the very end */
+  const edge = () => {
+    edgeRaf = 0;
+    if (!dragging || !lastEv || !tlScroll) return;
+    const box = tlScroll.getBoundingClientRect(), zone = 64, x = lastEv.clientX;
+    const v = x > box.right - zone ? Math.min(1, (x - (box.right - zone)) / zone) : x < box.left + zone ? -Math.min(1, (box.left + zone - x) / zone) : 0;
+    if (v && moved) { const before = tlScroll.scrollLeft; tlScroll.scrollLeft = before + Math.sign(v) * (3 + 22 * v * v); if (tlScroll.scrollLeft !== before) apply(lastEv); }
+    edgeRaf = requestAnimationFrame(edge);
+  };
+  const apply = (ev) => {
+    if (Math.abs(ev.clientX - x0 + scrolled()) > 2) moved = true;
     if (moved && !ghost && !group && mode !== 'move' && el.parentNode) {                                 // while stretching: the clip turns light and dotted, a dotted frame stays where it was
       ghost = h('div', { class: 'tclip-ghost', style: `left:${el.offsetLeft}px;width:${el.offsetWidth}px` }); el.parentNode.append(ghost); el.classList.add('resizing');
     }
-    let delta = (ev.clientX - x0) / pps, at = null;
+    let delta = (ev.clientX - x0 + scrolled()) / pps, at = null;
     const box = group ? { start: gStart, dur: gEnd - gStart } : from;
     if (points.length && !ev.altKey) ({ delta, at } = snapDelta({ mode, start: box.start, dur: box.dur, delta, points, within: 8 / pps }));          // hold Alt to move freely
     showSnapLine(at);
@@ -1494,14 +1514,22 @@ function dragItem(e, mode, el, io) {
     const done = io.after?.(); if (done?.then) await done; commitClips();
   };
   const up = () => {
+    dragging = false; cancelAnimationFrame(edgeRaf); edgeRaf = 0;
     showSnapLine(null); ghost?.remove(); el.classList.remove('resizing'); el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
-    if (!moved) { if (group) { clearMulti(); io.select?.(); } drawClipBar(); return; }                 // a plain click on a selected clip selects just that one
+    if (!moved) { if (group) { clearMulti(); io.select?.(); } drawClipBar(); if (!io.noSeek) seekToClientX(x0); return; }                 // a plain click on a selected clip selects just that one; the playhead goes where it was tapped, so the clip can be cut or trimmed right there
     finish();
   };
   el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
 }
 /** drag the head or tail of a voice line to cut it shorter (or bring back what was cut); later lines slide up, the scene gets shorter */
 let voiceMoved = false;
+/** the playhead jumps to the time under this screen position (a tap on a layer) */
+function seekToClientX(x) {
+  if (!tlInner || !player || S.exporting) return;
+  const t = (x - tlInner.getBoundingClientRect().left) / S.pps;
+  if (!Number.isFinite(t)) return;
+  player.seek(Math.max(0, Math.min(player.total, t))); S.dirty = true; followLine?.();
+}
 function dragVoice(e, c, mode, el) {
   const line = S.lines.find((l) => l.id === c.id);
   if (!line) return;
@@ -1531,8 +1559,17 @@ function dragVoice(e, c, mode, el) {
     get: () => from,
     set: (r) => { result = mode === 'right' ? { ...r, dur: Math.min(r.dur, whole + (line.trimEnd || 0)) } : r; },
     after: async () => {
-      if (mode === 'left') line.trimStart = Math.max(0, +result.off.toFixed(2));
-      else line.trimEnd = Math.max(0, +((line.trimEnd || 0) + whole - result.dur).toFixed(2));
+      // cutting a line shorter leaves the later lines where they are: the freed time stays as a gap (with a button to close it), instead of making the user move every later line by hand
+      const at = S.lines.indexOf(line), next = S.lines[at + 1], gapOf = (l) => (Number.isFinite(l?.gapBefore) ? l.gapBefore : S.lines.indexOf(l) ? GAP : LEAD);          // an unset gap is the normal pause
+      if (mode === 'left') {
+        const trim = Math.max(0, +result.off.toFixed(2)), shift = +(trim - (line.trimStart || 0)).toFixed(2);
+        line.trimStart = trim; line.gapBefore = +Math.max(0, gapOf(line) + shift).toFixed(2);
+      } else {
+        const cut = +(whole - result.dur).toFixed(2);
+        line.trimEnd = Math.max(0, +((line.trimEnd || 0) + cut).toFixed(2));
+        if (next) next.gapBefore = +Math.max(0, gapOf(next) + cut).toFixed(2);
+      }
+      voiceMoved = true; setTimeout(() => { voiceMoved = false; }, 250);
       await retimeAudio();
     },
   });

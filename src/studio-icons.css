@@ -656,3 +656,8 @@ button .ic[data-icon="shadow"] svg ellipse{transform-box:fill-box;transform-orig
 @keyframes icHop{0%,100%{transform:translateY(0)}35%{transform:translateY(-2.6px)}}
 @keyframes icShade{0%,100%{transform:scaleX(1);opacity:.4}35%{transform:scaleX(.7);opacity:.22}}
 @media (prefers-reduced-motion:reduce){button .ic[data-icon] svg,button .ic[data-icon] svg *{animation:none !important}}
+.lane2.audio .gap-close{position:absolute;top:50%;transform:translateY(-50%);z-index:6;display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:1px solid var(--acc);border-radius:50%;background:var(--card);color:var(--acc);cursor:pointer;box-shadow:0 2px 8px #0006;animation:gapPop .25s cubic-bezier(.3,1.6,.5,1) both}
+.lane2.audio .gap-close .ic{width:11px;height:11px;margin:0 -3px}
+.lane2.audio .gap-close .ic svg{width:11px;height:11px}
+.lane2.audio .gap-close:active{transform:translateY(-50%) scale(.9)}
+@keyframes gapPop{from{opacity:0;transform:translateY(-50%) scale(.5)}to{opacity:1;transform:translateY(-50%) scale(1)}}
