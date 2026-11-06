@@ -1034,9 +1034,9 @@ function rulerSteps(pps) {
   const [major, parts] = RULER_STEPS.find(([v]) => v * pps >= 72) || RULER_STEPS.at(-1);
   return { major, parts, minor: major / parts };
 }
-function selectLine(id, seek = true) {
+function selectLine(id, seek = true, explicit = false) {          // explicit: the user tapped that audio clip itself; any other path (a character row, Back to start ...) only moves the playhead's line
   if (!id) return;
-  S.navDismissed = false; S.lineSel = id; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
+  S.navDismissed = false; S.lineExplicit = explicit; S.lineSel = id; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null;        // choosing an audio line un-selects any animation clip, background clip or prop
   const L = lineById(id);
   if (seek && L) { player.seek(L.start + 0.01); }
   drawTimeline(); drawLineBox(); drawClipBar(); S.dirty = true;
@@ -1102,7 +1102,7 @@ function drawTimeline() {
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
     const lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' }), trimmed = (S.lines.find((l) => l.id === c.id)?.trimStart || 0) + (S.lines.find((l) => l.id === c.id)?.trimEnd || 0) > 0;
-    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''} ${c.muted ? 'muted' : ''} ${c.solo ? 'solo' : ''} ${isLocked('audio') ? 'locked' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && !voiceMoved && selectLine(c.id) },
+    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && S.lineExplicit && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''} ${c.muted ? 'muted' : ''} ${c.solo ? 'solo' : ''} ${isLocked('audio') ? 'locked' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: () => !S.exporting && !voiceMoved && selectLine(c.id, true, true) },
       lz, voiceWave(c), h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), c.muted ? h('span', { class: 'vmix' }, 'muted') : c.solo ? h('span', { class: 'vmix' }, 'solo') : null, rz);
     el.addEventListener('pointerdown', (e) => { if (e.button) return; dragVoice(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el); });
     el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
@@ -1618,7 +1618,7 @@ function nudgeSelected(which, delta) {
 }
 /** true when a clip, background clip, prop or group was selected (and now is not): choosing a character, or tapping empty space, leaves the clip tools */
 const dropItemSelection = () => { if (!(S.mclip || S.bgSel || S.propSel || S.shadowSel || S.fxSel || multi.size)) return false; S.mclip = S.bgSel = S.propSel = S.shadowSel = S.fxSel = null; clearMulti(); drawTimeline(); drawClipBar(); return true; };
-const clearClipSelection = () => { S.navDismissed = true; S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
+const clearClipSelection = () => { S.navDismissed = true; S.lineExplicit = false; S.bgReplace = null; S.mclip = null; S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null; clearMulti(); drawTimeline(); drawClipBar(); };
 /** phone: what you can do with the selected clip (Split, Copy, Duplicate, Path, Delete and a More list) sits in the bottom bar, in place of the menu, instead of rows at the top */
 /** Crop of a background clip, like cropping a photo: a box with handles on the picture, ratios below (Free, Original, 1:1, 4:5, 9:16), a tick to apply. The kept part fills the frame (zoomed, never stretched). */
 const CROP_RATIOS = [['free', 'Free', null], ['orig', 'Original', 'orig'], ['1:1', '1:1', 1], ['4:5', '4:5', 4 / 5], ['9:16', '9:16', 9 / 16]];
@@ -1945,7 +1945,7 @@ function drawClipNav() {
   if (S.pathDraw) { drawPathNav(); return; }
   if (S.cropDraw) { drawCropNav(); return; }
   const many = multi.size >= 2, it = selectedItem();
-  if ((!it && !many) || (!many && it.kind === 'line' && S.navDismissed)) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }          // Close / Done hides even the automatic "audio line under the playhead" tools, or they would come straight back
+  if ((!it && !many) || (!many && it.kind === 'line' && (S.navDismissed || !S.lineExplicit))) { clipNav.hidden = true; clipNav.dataset.sig = ''; return; }          // Close / Done hides even the automatic "audio line under the playhead" tools, or they would come straight back
   const f = S.mclip && findManual(S.mclip), s = f?.s, m = f?.m, kind = many ? 'multi' : it.kind, canNudge = !many && ['clip', 'bg', 'prop', 'fx'].includes(kind);
   const itemLockedNow = !many && isKeyLocked(kind === 'clip' ? keyOf('clip', m?.id) : kind === 'bg' ? keyOf('bg', it.bc?.id) : kind === 'prop' ? keyOf('prop', it.pr?.id) : kind === 'shadow' ? keyOf('shadow', it.sh?.id) : kind === 'fx' ? keyOf('fx', it.fx?.id) : 'x:x'), hasPath = !!(s && m && S.paths[s.key]?.clipId === m.id), inPath = !!(s && S.pathDraw?.key === s.key), sig = [kind, m?.id, it?.bc?.id, it?.pr?.id, it?.sh?.id, it?.fx?.id, !!S.clipboard, hasPath, S.sel ? 1 : 0, m?.kind, inPath, itemLockedNow].join('|');
   clipNav.hidden = false;
@@ -1976,7 +1976,7 @@ function drawClipNav() {
         ...(['clip', 'bg', 'prop', 'shadow', 'fx'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
-        btn('x', 'Done', clearClipSelection, { 'aria-label': 'Close the clip tools' }))));
+      )));
 }
 function drawClipBar() {
   updateEditTools(); updateBgSel(); drawClipNav();
@@ -2571,7 +2571,7 @@ function setAspect(a) {
 /** while playing / scrubbing the "line layers" follow the playhead */
 function followLine() {
   const L = lineAt(player.time);
-  if (L && L.id !== S.lineSel) { S.lineSel = L.id; drawTimeline(); drawLineBox(); updateEditTools(); if (S.tab === 'anim' && S.panelOpen) drawTabs(); }
+  if (L && L.id !== S.lineSel) { S.lineSel = L.id; S.lineExplicit = false; drawTimeline(); drawLineBox(); updateEditTools(); if (S.tab === 'anim' && S.panelOpen) drawTabs(); }
 }
 
 /* ---- layers of the selected audio line ---- */
