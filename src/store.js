@@ -140,12 +140,12 @@ export async function reassignProjectId(uid,id) {
  if(active&&active.uid===uid&&active.id===id)active={uid,id:p.id};
  return p;
 }
-export async function restoreSnapshot(uid,meta,records) {
+export async function restoreSnapshot(uid,meta,records,{force=false}={}) {          // force: the cloud render page always wants the cloud copy, whatever an earlier job left behind in this browser profile
  if(!meta?.id||!Array.isArray(records)||records.some(r=>!STORES.includes(r.store)||!r.value?.id))throw Error('The snapshot is not valid');
  await tx(['records','projects','library'],'readwrite',t=>{
   const ps=t.objectStore('projects'),old=ps.get([uid,meta.id]);
   old.onsuccess=()=>{
-   if(old.result?.dirty){t.abort();return;}
+   if(old.result?.dirty&&!force){t.abort();return;}
    const rs=t.objectStore('records'),scan=rs.openCursor();
    scan.onsuccess=()=>{const c=scan.result;if(c){if(c.value.uid===uid&&c.value.project===meta.id)c.delete();c.continue();}else{
     for(const {store,value} of records){

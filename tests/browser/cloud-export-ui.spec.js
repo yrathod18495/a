@@ -120,3 +120,19 @@ test('Cloud render page: shared character/animation library calls go through the
   expect(out.characters[0].id).toBe('c1');
   expect(seen).toEqual([{ action: 'cloudStudio', uid: 'owner1', jobId: 'cexp_x', secret: 'sec', route: 'studio-assets', body: { action: 'character:list' } }]);
 });
+
+test('Cloud render page: a project left "dirty" in a reused browser profile does not block the next render', async ({ page }) => {
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  const out = await page.evaluate(async () => {
+    const s = await import('/src/store.js'), uid = 'u1', meta = { id: 'p_dirty', name: 'x', updatedAt: 1 }, records = [{ store: 'project', value: { id: 'current' } }];
+    s.selectProject(uid, meta.id);
+    await s.restoreSnapshot(uid, meta, records);
+    await s.resetAll();                    // marks the local copy as having unsaved changes
+    let plain = 'ok'; try { await s.restoreSnapshot(uid, meta, records); } catch (e) { plain = e.message; }
+    let forced = 'ok'; try { await s.restoreSnapshot(uid, meta, records, { force: true }); } catch (e) { forced = e.message; }
+    return { plain, forced };
+  });
+  expect(out.plain).toBe('Local save stopped partway through');
+  expect(out.forced).toBe('ok');
+});

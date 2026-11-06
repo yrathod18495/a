@@ -34,7 +34,7 @@ export async function runCloudRenderJob({ uid, jobId, secret }) {
     const download = (key) => fetchBlobByUrl(job.assetUrls[key.slice('assets/'.length)]);
     const records = await unpackRecords(job.manifest, download);
     const meta = { ...job.meta, dirty: false, deleted: false };
-    await restoreSnapshot(uid, meta, records);
+    await restoreSnapshot(uid, meta, records, { force: true });          // a reused browser profile may still hold an earlier job's copy of this project marked as having unsaved changes: that must not block the render
     selectProject(uid, job.meta.id);
     const studio = await import('./main.js');
     studio.setHome?.(() => {});
