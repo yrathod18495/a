@@ -118,7 +118,11 @@ def nvidia_gpu_available():
 
 
 def chromium_launch_args(use_gpu):
-    base = ["--no-sandbox", "--disable-dev-shm-usage"]
+    # The render page (a public https site) must be allowed to open a WebSocket to the GPU encoder on this same machine (127.0.0.1). Newer Chrome blocks
+    # that as a "local network access" request (net::ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS) unless these checks are switched off. Only ONE
+    # --disable-features flag counts, so every feature to disable is listed in this single one.
+    base = ["--no-sandbox", "--disable-dev-shm-usage",
+            "--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults"]
     if use_gpu:
         # Use the machine's real NVIDIA WebGL stack (e.g. a T4) rather than
         # forcing SwiftShader. The render page separately selects parallel
