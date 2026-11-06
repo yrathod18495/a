@@ -644,3 +644,15 @@ body.studio-dark #app .ws .tl2 .tclip.fxl.fxl.fxl,#app .ws .tl2 .tclip.fxl.fxl.f
 
 
 
+
+/* ---- animated tool icons: the Objects balloon floats on its thread, the Shadow person hops and their shadow breathes ---- */
+button .ic[data-icon="log"] svg{overflow:visible;transform-box:fill-box;transform-origin:50% 100%;animation:icBalloon 3.2s ease-in-out infinite}
+button .ic[data-icon="log"] svg path:nth-child(4){transform-box:fill-box;transform-origin:50% 0;animation:icThread 1.6s ease-in-out infinite}
+button .ic[data-icon="shadow"] svg{overflow:visible}
+button .ic[data-icon="shadow"] svg circle,button .ic[data-icon="shadow"] svg path:nth-of-type(1){transform-box:fill-box;transform-origin:50% 100%;animation:icHop 1.7s ease-in-out infinite}
+button .ic[data-icon="shadow"] svg ellipse{transform-box:fill-box;transform-origin:50% 50%;animation:icShade 1.7s ease-in-out infinite}
+@keyframes icBalloon{0%,100%{transform:translateY(1px) rotate(-4deg)}50%{transform:translateY(-2.4px) rotate(4deg)}}
+@keyframes icThread{0%,100%{transform:skewX(-14deg)}50%{transform:skewX(14deg)}}
+@keyframes icHop{0%,100%{transform:translateY(0)}35%{transform:translateY(-2.6px)}}
+@keyframes icShade{0%,100%{transform:scaleX(1);opacity:.4}35%{transform:scaleX(.7);opacity:.22}}
+@media (prefers-reduced-motion:reduce){button .ic[data-icon] svg,button .ic[data-icon] svg *{animation:none !important}}
