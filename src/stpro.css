@@ -1020,3 +1020,10 @@ dialog.credit-history-window::backdrop{background:#0009;backdrop-filter:blur(2px
 .export-pill.cloud-pill.cp-error{border-color:#7a2e3a}
 .export-pill .ep-cancel.cp-ok{border-color:#3d7a52;background:#1d3a28;color:#9af0b8}
 .export-pill.cloud-pill .ep-cancel+.ep-cancel{margin-left:4px}
+
+/* the "please wait" box floats on the page: no card, only the words and the bar over a light veil */
+body .busy{background:#0a0b0d40;backdrop-filter:none}
+body .busy .card{background:transparent !important;border:0 !important;box-shadow:none !important;color:#fff;text-shadow:0 1px 6px #000c,0 0 2px #000a}
+body .busy .bar{background:#ffffff26;box-shadow:0 0 0 1px #ffffff1f}
+:root[data-theme="day"] body .busy{background:#ffffff40}
+:root[data-theme="day"] body .busy .card{color:#1b1c20;text-shadow:0 1px 6px #fffc}
