@@ -38,7 +38,7 @@ worker.py
 ## Code-owned Kaggle defaults (Space Variables ki zaroorat nahi)
 
 - **Concurrent exports: `1` per Kaggle worker**, code mein fixed. Isse 4K jobs ek hi T4 pair aur CPU cores ke liye aapas mein compete nahi karte. Ek job ke andar frame workers parallel rehte hain (4 logical CPUs par up to 4).
-- **Faster boot:** pip + apt run together, and the Chromium download runs while the NVIDIA libraries install (the worker waits for it before the first render).
+- **Faster boot** (set the Space Variable `KAGGLE_FAST_BOOT=0` to go back to the plain one-after-another boot): pip + apt run together, and the Chromium download runs while the NVIDIA libraries install (the worker waits for it before the first render).
 - **Idle shutdown: `20` minutes**, code mein fixed. Worker active jobs finish karke clean exit karta hai. Nayi queue aane par HF Space us account ko phir start karega.
 - **GPU preferred by default.** Kaggle kernel metadata mein GPU enabled hota hai. Normal 4-core Kaggle workers par GPU render path use hota hai. `nvidia-smi` missing/unavailable ho toh worker fail nahi hota; software/CPU renderer par continue karta hai.
 - **Video encoder fallback is not forced.** Chromium `VideoEncoder` APIs are left unmodified. The browser chooses a supported encoder configuration; the worker does not force `hardwareAcceleration="prefer-hardware"`, because an unsupported hardware profile can fail asynchronously during encoder creation and bypass a configure-time try/catch.

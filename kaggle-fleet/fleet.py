@@ -459,15 +459,20 @@ READY = "/kaggle/working/.chromium_ready"
 for stale in (PIP_DONE, READY):
     try: os.remove(stale)
     except OSError: pass
-t_pip = bg("pip install", sys.executable, "-m", "pip", "install", "-q", "playwright", "requests", "psutil", done=PIP_DONE)
-sh("apt packages", "bash", "-lc", "apt-get update -qq && apt-get install -y -qq libvulkan1 libegl1 libgl1 libgles2 xvfb", ok=False)
-t_pip.join()
-if open(PIP_DONE).read().strip() != "0":
-    post(["FAILED at: pip install (worker not started)"], "failed")
-    raise SystemExit(1)
-sh("chromium system libraries", sys.executable, "-m", "playwright", "install-deps", "chromium")
-bg("chromium download", sys.executable, "-m", "playwright", "install", "chromium", done=READY)
-os.environ["CHROMIUM_READY_FILE"] = READY
+if os.environ.get("FAST_BOOT", "1") == "0":          # Space Variable KAGGLE_FAST_BOOT=0: the plain one-after-another boot (about 35 s slower)
+    sh("apt packages", "bash", "-lc", "apt-get update -qq && apt-get install -y -qq libvulkan1 libegl1 libgl1 libgles2 xvfb", ok=False)
+    sh("pip install", sys.executable, "-m", "pip", "install", "-q", "playwright", "requests", "psutil")
+    sh("chromium install", sys.executable, "-m", "playwright", "install", "--with-deps", "chromium")
+else:
+    t_pip = bg("pip install", sys.executable, "-m", "pip", "install", "-q", "playwright", "requests", "psutil", done=PIP_DONE)
+    sh("apt packages", "bash", "-lc", "apt-get update -qq && apt-get install -y -qq libvulkan1 libegl1 libgl1 libgles2 xvfb", ok=False)
+    t_pip.join()
+    if open(PIP_DONE).read().strip() != "0":
+        post(["FAILED at: pip install (worker not started)"], "failed")
+        raise SystemExit(1)
+    sh("chromium system libraries", sys.executable, "-m", "playwright", "install-deps", "chromium")
+    bg("chromium download", sys.executable, "-m", "playwright", "install", "chromium", done=READY)
+    os.environ["CHROMIUM_READY_FILE"] = READY
 open("/kaggle/working/worker.py", "wb").write(base64.b64decode(__WORKER__))
 post(["Starting Kaggle worker; it will report CPU/GPU metrics and job progress."], "starting worker")
 rc = sh("worker", sys.executable, "-u", "/kaggle/working/worker.py", ok=False)
@@ -496,6 +501,7 @@ def _bootstrap(n: int) -> str:
         "HF_SPACE_URL": space_url,
         "HF_ACCESS_TOKEN": hf_token,
         "ACCOUNT_NAME": f"Kaggle {n}",
+        "FAST_BOOT": "0" if os.environ.get("KAGGLE_FAST_BOOT", "1").strip().lower() in {"0", "false", "no", "off"} else "1",
     }
     return BOOT_TMPL.replace("__ENV__", json.dumps(env)).replace(
         "__WORKER__", json.dumps(base64.b64encode(worker).decode())
