@@ -846,6 +846,15 @@ def _schedule_kaggle_accounts(pending_count: int, newest_request_ms: float = 0) 
             _kaggle_start_failed_accounts.discard(selected)
             return False
 
+        # A request newer than the last start attempt gets an attempt of its own, at once: an old attempt (its worker already exited, or it
+        # failed) must not make the Space skip a request that has not had a try yet.
+        newest_s = newest_request_ms / 1000.0
+        if newest_s and selected not in _kaggle_start_inflight_accounts:
+            old_try = _kaggle_start_requested_at.get(selected)
+            if old_try is not None and newest_s > old_try + 1:
+                _kaggle_start_requested_at.pop(selected, None)
+            if selected in _kaggle_start_failed_accounts and newest_s > _kaggle_start_failed_at.get(selected, 0) + 1:
+                _kaggle_start_failed_accounts.discard(selected)
         requested_at = _kaggle_start_requested_at.get(selected)
         if requested_at is not None:
             boot = _fleet_boot.get(selected_name, {})

@@ -612,6 +612,8 @@ def start_kaggle_account(n: int, *, automatic: bool = False) -> dict[str, Any]:
     account = _acct(n)
     name = f"Kaggle {n}"
     now = time.time()
+    if name in _boot:
+        _boot[name]["last_error"] = ""          # an old error (for example a refused poll of the last run) is not shown as the reason for this start
     other_online = [
         str(a.get("name")) for a in _agents.values()
         if str(a.get("name") or "") != name and now - float(a.get("last_seen") or 0) <= OFFLINE_AFTER
