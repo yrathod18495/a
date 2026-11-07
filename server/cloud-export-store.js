@@ -34,10 +34,22 @@ export const publicJob = (id, job) => { const { secret, uid, ...rest } = job; re
 
 /** find a job across every account by its (uid, id) pair proven by the secret — used by every call the anonymous render page makes */
 export async function jobBySecret(store, uid, id, secret) {
-  const job = await getJob(store, uid, id);
-  if (typeof secret !== 'string' || !secret || job.secret !== secret) throw new AccessError('invalid_secret', 'This render link is not valid.', 403);
-  if (Date.now() - job.createdAt > TTL_MS) throw new AccessError('job_expired', 'This export job has expired.', 410);
-  return job;
+  // A read can briefly see a half-written job while another request on this same server instance is updating it (the database client applies a
+  // write locally before the server confirms it): the job then looks missing or the secret looks wrong for a moment. Look again before refusing.
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const job = await getJob(store, uid, id);
+      if (typeof secret !== 'string' || !secret || job.secret !== secret) throw new AccessError('invalid_secret', 'This render link is not valid.', 403);
+      if (Date.now() - job.createdAt > TTL_MS) throw new AccessError('job_expired', 'This export job has expired.', 410);
+      return job;
+    } catch (e) {
+      lastError = e;
+      if (!['job_not_found', 'invalid_secret'].includes(e?.code) || attempt === 2) break;
+      await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 export async function updateJob(store, uid, id, patch) {
   await store.update(jobPath(uid, id), { ...patch, updatedAt: Date.now() });
