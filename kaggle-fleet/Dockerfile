@@ -37,7 +37,7 @@ RUN pip install --upgrade pip \
 RUN python -m playwright install chromium
 
 # App code is copied last, so code-only changes can reuse dependency/browser layers.
-COPY render.py fleet.py fleet.html worker.py gpu_encode.py /app/
+COPY render.py fleet.py fleet.html worker.py /app/
 
 EXPOSE 7860
 CMD ["python", "/app/render.py"]

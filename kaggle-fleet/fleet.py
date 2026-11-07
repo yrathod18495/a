@@ -34,9 +34,11 @@ _starting_accounts: set[int] = set()
 _auto_suppressed_accounts: set[int] = set()
 KAGGLE_SLUG = os.environ.get("KAGGLE_KERNEL_SLUG", "render-worker").strip() or "render-worker"
 # Keep in sync with worker.py. These are code defaults, not Space Secrets.
-KAGGLE_PARALLEL = 4
+KAGGLE_PARALLEL = 1  # One export at a time per Kaggle worker; frame workers remain parallel.
 CPU_ONLY_CORE_THRESHOLD = 40
 _stop_req: set[str] = set()
+_manual_hold: dict[int, float] = {}            # when an account was selected (by hand or by the rotation): it is not rotated away from for a while
+_suppressed_at: dict[int, float] = {}          # when automatic start of an account was switched off (Stop pressed)
 
 
 def _append_fleet_log(name: str, line: str, *, stage: str = "", job_id: str = "") -> None:
@@ -109,6 +111,14 @@ def report(p: dict[str, Any]) -> dict[str, bool]:
         done=p.get("done", 0), failed=p.get("failed", 0), last_took=p.get("last_took"),
     )
     a["hist"].append([round(now), p.get("cpu") or 0, p.get("gpu_util") or 0])
+    match = re.fullmatch(r"Kaggle (\d+)", a["name"])
+    if match:        # count this account's running time (a gap longer than a minute means the worker was away, so it is not counted)
+        number = int(match.group(1)); prev = _usage_prev_report.get(a["name"])
+        _usage_prev_report[a["name"]] = now
+        if prev is not None and now - prev <= 90:
+            usage_add(number, now - prev)
+        if number == selected_account_number():
+            maybe_rotate("running low")
     for old in [k for k, v in _agents.items() if now - v["last_seen"] > FORGET_AFTER]:
         _agents.pop(old, None)
     stop = a["name"] in _stop_req or aid in _stop_req
@@ -186,6 +196,7 @@ def select_kaggle_account(n: int) -> dict[str, Any]:
     with _start_lock:
         previous = _selected_account_number
         _selected_account_number = n
+        _manual_hold[n] = now
         _auto_suppressed_accounts.clear()
         _stop_req.discard(f"Kaggle {n}")
         for aid, agent in list(_agents.items()):
@@ -203,6 +214,138 @@ def select_kaggle_account(n: int) -> dict[str, Any]:
     if previous != n:
         _append_fleet_log(f"Kaggle {n}", f"Selected KAGGLE_{n}. Previous account(s) {stop_requested or 'none'} will finish active jobs and stop before this account starts.", stage="selected")
     return {"selected": n, "draining_accounts": sorted(stop_requested)}
+
+
+# ---------------------------------------------------------------------------------------------------------------------------
+# Free-compute budget per Kaggle account. Kaggle's public API does not say how many weekly GPU hours are left, so the Space counts
+# them itself: every report from a running worker adds its running time, a pushed kernel adds a boot allowance, and the totals of
+# the last 7 days are kept in Firebase (fleetUsage/<n>/<date>) so a Space restart does not forget them. When the selected account
+# is nearly out, the next account with hours left is selected; the old worker finishes its active job and stops.
+# Correct the numbers any time with the "Set used hours" button (read them from your Kaggle profile).
+# ---------------------------------------------------------------------------------------------------------------------------
+KAGGLE_WEEKLY_HOURS = float(os.environ.get("KAGGLE_WEEKLY_HOURS", "30"))
+KAGGLE_SWITCH_MARGIN_MIN = float(os.environ.get("KAGGLE_SWITCH_MARGIN_MINUTES", "45"))   # a finishing job needs time: switch with this much left
+BOOT_ALLOWANCE_S = 90
+USAGE_REF = None                    # set by render.py: lambda path -> Firebase reference
+ON_KERNEL_BOOT = None               # set by render.py: called (n) when a Kaggle kernel reports from the inside that it has started
+_usage: dict[int, dict[str, float]] = {}
+_usage_loaded: set[int] = set()
+_usage_flushed: dict[int, float] = {}
+_usage_prev_report: dict[str, float] = {}
+_exhausted_until: dict[int, float] = {}
+_last_rotate = 0.0
+_usage_lock = threading.RLock()
+
+
+def _today() -> str:
+    return time.strftime("%Y-%m-%d", time.gmtime())
+
+
+def _week_days() -> list[str]:
+    return [time.strftime("%Y-%m-%d", time.gmtime(time.time() - i * 86400)) for i in range(7)]
+
+
+def _usage_load(n: int) -> None:
+    if n in _usage_loaded:
+        return
+    _usage_loaded.add(n)
+    rows: dict[str, float] = {}
+    try:
+        if USAGE_REF:
+            data = USAGE_REF(f"fleetUsage/{n}").get() or {}
+            rows = {str(k): float(v) for k, v in data.items() if isinstance(v, (int, float))}
+    except Exception as exc:
+        _append_fleet_log(f"Kaggle {n}", f"Could not read the saved usage (continuing from zero): {type(exc).__name__}", stage="usage")
+    with _usage_lock:
+        mine = _usage.setdefault(n, {})
+        for day, seconds in rows.items():
+            mine[day] = max(mine.get(day, 0.0), seconds)
+
+
+def _usage_flush(n: int, force: bool = False) -> None:
+    now = time.time()
+    if not force and now - _usage_flushed.get(n, 0) < 60:
+        return
+    _usage_flushed[n] = now
+    try:
+        if USAGE_REF:
+            keep = set(_week_days())
+            with _usage_lock:
+                rows = {day: round(sec, 1) for day, sec in _usage.get(n, {}).items() if day in keep}
+            USAGE_REF(f"fleetUsage/{n}").set(rows)
+    except Exception as exc:
+        print(f"[usage] could not save usage for Kaggle {n}: {exc}", flush=True)
+
+
+def usage_add(n: int, seconds: float) -> None:
+    if seconds <= 0:
+        return
+    _usage_load(n)
+    with _usage_lock:
+        mine = _usage.setdefault(n, {})
+        mine[_today()] = mine.get(_today(), 0.0) + seconds
+    _usage_flush(n)
+
+
+def quota_used_s(n: int) -> float:
+    _usage_load(n)
+    with _usage_lock:
+        days = set(_week_days())
+        return sum(sec for day, sec in _usage.get(n, {}).items() if day in days)
+
+
+def quota_left_s(n: int) -> float:
+    if _exhausted_until.get(n, 0) > time.time():
+        return 0.0
+    return max(0.0, KAGGLE_WEEKLY_HOURS * 3600 - quota_used_s(n))
+
+
+def quota_set_used(n: int, hours: float) -> None:
+    """Make the 7-day total equal `hours` (the number shown on the Kaggle profile) by adjusting today's bucket."""
+    _usage_load(n)
+    target = max(0.0, float(hours)) * 3600
+    with _usage_lock:
+        mine = _usage.setdefault(n, {})
+        others = sum(sec for day, sec in mine.items() if day in set(_week_days()) and day != _today())
+        mine[_today()] = max(0.0, target - others)
+    _exhausted_until.pop(n, None)
+    _usage_flush(n, force=True)
+
+
+
+def _hm(seconds: float) -> str:
+    """Hours and minutes the way Kaggle shows them (28h 53m): minutes are 0-59, never a decimal part of an hour."""
+    total = max(0, int(round(seconds / 60)))
+    return f"{total // 60}h {total % 60:02d}m"
+
+
+def maybe_rotate(reason: str) -> bool:
+    """If the selected account is nearly out of free hours, select the next account that still has some. True when the selection changed."""
+    global _last_rotate
+    now = time.time()
+    if now - _last_rotate < 20:
+        return False
+    cur = selected_account_number()
+    if cur is None or quota_left_s(cur) > KAGGLE_SWITCH_MARGIN_MIN * 60:
+        return False
+    if now - _manual_hold.get(cur, 0) < 1800 and _exhausted_until.get(cur, 0) <= now:
+        return False          # this account was chosen a moment ago (by hand): only Kaggle saying "quota used up" moves away from it
+    _last_rotate = now
+    nxt = next((x for x in _account_numbers() if x != cur and quota_left_s(x) > KAGGLE_SWITCH_MARGIN_MIN * 60), None)
+    if nxt is None:
+        _append_fleet_log(f"Kaggle {cur}", "All Kaggle accounts are nearly out of free hours; keeping the current one until it runs out.", stage="quota")
+        return False
+    _append_fleet_log(f"Kaggle {nxt}", f"Kaggle {cur} has about {_hm(quota_left_s(cur))} of free GPU time left ({reason}); switching to Kaggle {nxt} ({_hm(quota_left_s(nxt))} left).", stage="quota")
+    select_kaggle_account(nxt)
+    return True
+
+
+def mark_exhausted(n: int, why: str) -> None:
+    _exhausted_until[n] = time.time() + 6 * 3600
+    _append_fleet_log(f"Kaggle {n}", f"Kaggle reports that Kaggle {n} is out of free GPU time ({why[:160]}); it is skipped for 6 hours.", stage="quota")
+    if selected_account_number() == n:
+        maybe_rotate("Kaggle said the quota is used up")
+
 
 
 def _kaggle(account: dict[str, str], *args: str, cwd: str | None = None,
@@ -252,7 +395,7 @@ def _space_url() -> str:
     return f"https://{host}" if host else ""
 
 
-BOOT_TMPL = r'''import base64, json, os, subprocess, sys, time, urllib.request
+BOOT_TMPL = r'''import base64, json, os, subprocess, sys, threading, time, urllib.request
 os.environ.update(__ENV__)
 URL = os.environ["HF_SPACE_URL"].rstrip("/"); NAME = os.environ["ACCOUNT_NAME"]
 def post(lines, stage=None):
@@ -301,11 +444,31 @@ if use_gpu:
     sh("GPU check", "bash", "-lc", "if command -v nvidia-smi >/dev/null 2>&1; then nvidia-smi || echo 'nvidia-smi query failed; worker will continue with CPU/software rendering'; else echo 'nvidia-smi not found; worker will continue with CPU/software rendering'; fi", ok=False)
 else:
     post([f"Detected {cpu_cores} logical CPU cores (more-than-40 threshold); selecting CPU-only rendering. nvidia-smi will not be called."], "cpu mode")
+# Boot is sped up by overlapping steps that do not fight over the apt lock:
+#   pip install || apt packages  ->  Chromium system libraries (apt)  ->  worker starts (installs the NVIDIA libraries, apt) || Chromium download (no apt)
+def bg(label, *command, done=None):
+    def run():
+        rc = sh(label, *command, ok=False)
+        if done:
+            with open(done, "w") as f:
+                f.write(str(rc))
+    thread = threading.Thread(target=run); thread.start()
+    return thread
+PIP_DONE = "/kaggle/working/.pip_done"
+READY = "/kaggle/working/.chromium_ready"
+for stale in (PIP_DONE, READY):
+    try: os.remove(stale)
+    except OSError: pass
+t_pip = bg("pip install", sys.executable, "-m", "pip", "install", "-q", "playwright", "requests", "psutil", done=PIP_DONE)
 sh("apt packages", "bash", "-lc", "apt-get update -qq && apt-get install -y -qq libvulkan1 libegl1 libgl1 libgles2 xvfb", ok=False)
-sh("pip install", sys.executable, "-m", "pip", "install", "-q", "playwright", "requests", "psutil", "websockets")
-sh("chromium install", sys.executable, "-m", "playwright", "install", "--with-deps", "chromium")
+t_pip.join()
+if open(PIP_DONE).read().strip() != "0":
+    post(["FAILED at: pip install (worker not started)"], "failed")
+    raise SystemExit(1)
+sh("chromium system libraries", sys.executable, "-m", "playwright", "install-deps", "chromium")
+bg("chromium download", sys.executable, "-m", "playwright", "install", "chromium", done=READY)
+os.environ["CHROMIUM_READY_FILE"] = READY
 open("/kaggle/working/worker.py", "wb").write(base64.b64decode(__WORKER__))
-open("/kaggle/working/gpu_encode.py", "wb").write(base64.b64decode(__GPUENC__))
 post(["Starting Kaggle worker; it will report CPU/GPU metrics and job progress."], "starting worker")
 rc = sh("worker", sys.executable, "-u", "/kaggle/working/worker.py", ok=False)
 post(["Worker exited with code " + str(rc)], "worker exited" if rc == 0 else "failed")
@@ -317,8 +480,6 @@ def _bootstrap(n: int) -> str:
     if not worker_path.exists():
         raise HTTPException(status_code=500, detail="worker.py is missing from the Space build.")
     worker = worker_path.read_bytes()
-    gpuenc_path = Path(__file__).parent / "gpu_encode.py"
-    gpuenc = gpuenc_path.read_bytes() if gpuenc_path.exists() else b""      # optional: without it the browser's own encoder is used
     hf_token = os.environ.get("HF_ACCESS_TOKEN", "").strip()
     if not hf_token:
         raise HTTPException(
@@ -338,7 +499,7 @@ def _bootstrap(n: int) -> str:
     }
     return BOOT_TMPL.replace("__ENV__", json.dumps(env)).replace(
         "__WORKER__", json.dumps(base64.b64encode(worker).decode())
-    ).replace("__GPUENC__", json.dumps(base64.b64encode(gpuenc).decode()))
+    )
 
 
 @router.post("/api/fleet/log")
@@ -347,8 +508,13 @@ def boot_log(p: dict[str, Any]) -> dict[str, bool]:
     stage = str(p.get("stage") or "")[:60]
     if stage == "booting":
         _boot[name] = {"stage": "booting", "ts": time.time(), "logs": deque(maxlen=300), "last_error": ""}
+        if ON_KERNEL_BOOT:          # proof that Kaggle really started the machine (a push alone is not)
+            threading.Thread(target=ON_KERNEL_BOOT, args=(name,), daemon=True).start()
     for line in (p.get("lines") or [])[:30]:
         _append_fleet_log(name, str(line)[:1000], stage=stage, job_id=str(p.get("job_id") or ""))
+        m = re.fullmatch(r"Kaggle (\d+)", name)
+        if m and re.search(r"quota", str(line), re.I) and re.search(r"gpu|accelerator|weekly|exceed|exhaust|used up", str(line), re.I):
+            mark_exhausted(int(m.group(1)), str(line))
     if stage and not (p.get("lines") or []):
         b = _boot.setdefault(name, {"stage": "", "ts": 0.0, "logs": deque(maxlen=300), "last_error": ""})
         b["stage"], b["ts"] = stage, time.time()
@@ -424,6 +590,8 @@ def kaggle_list() -> dict[str, Any]:
             "selected": is_selected, "stage": boot.get("stage", ""),
             "last_error": (agent or {}).get("last_error") or boot.get("last_error", ""),
             "online": online, "auto_start": is_selected and n not in _auto_suppressed_accounts,
+            "quota_limit_h": KAGGLE_WEEKLY_HOURS, "quota_used_h": round(quota_used_s(n) / 3600, 2),
+            "quota_left_h": round(quota_left_s(n) / 3600, 2), "quota_left_text": _hm(quota_left_s(n)), "quota_used_text": _hm(quota_used_s(n)), "quota_skipped": _exhausted_until.get(n, 0) > now,
         })
     return {"selected": selected, "accounts": rows}
 
@@ -437,6 +605,8 @@ def start_kaggle_account(n: int, *, automatic: bool = False) -> dict[str, Any]:
     """Push one selected Kaggle identity. Never start two configured identities together."""
     if not automatic:
         select_kaggle_account(n)
+    elif maybe_rotate("before starting a worker"):
+        return {"ok": False, "note": "Switched to another Kaggle account because this one is nearly out of free hours."}
     if selected_account_number() != n:
         return {"ok": False, "note": f"KAGGLE_{n} is not the selected account."}
     account = _acct(n)
@@ -502,8 +672,11 @@ def start_kaggle_account(n: int, *, automatic: bool = False) -> dict[str, Any]:
             shutil.rmtree(build_dir, ignore_errors=True)
         if code != 0:
             _append_fleet_log(name, "Kaggle push failed: " + (output[-800:] or "unknown error"), stage="failed")
+            if re.search(r"quota", output, re.I):
+                mark_exhausted(n, output[-160:])
             raise HTTPException(status_code=502, detail=output[-800:] or "Kaggle kernel push failed.")
         _status_cache[n] = (time.time(), "queued")
+        usage_add(n, BOOT_ALLOWANCE_S)
         _append_fleet_log(name, "Kernel push accepted. Kaggle is booting the worker.", stage="pushed")
         return {"ok": True, "note": output[-400:] or "Kernel pushed; Kaggle is starting it.", "status": "pushed"}
     except Exception as exc:
@@ -521,6 +694,24 @@ def kaggle_start(n: int) -> dict[str, Any]:
     return start_kaggle_account(n, automatic=False)
 
 
+@router.post("/api/fleet/kaggle/{n}/quota")
+def kaggle_quota(n: int, p: dict[str, Any]) -> dict[str, Any]:
+    """Body {"left_hours": 28.9} (what Kaggle shows as available) or {"used_hours": 1.1}: correct this account's free-hours count."""
+    if n not in _account_numbers():
+        raise HTTPException(status_code=404, detail=f"KAGGLE_{n} is not configured.")
+    try:
+        if p.get("left_hours") is not None:          # what Kaggle shows as "available" (for example 28:53 = 28.88 h)
+            hours = max(0.0, KAGGLE_WEEKLY_HOURS - float(p.get("left_hours")))
+        else:
+            hours = float(p.get("used_hours"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Please send left_hours (or used_hours) as a number, for example 28.9.")
+    if not (0 <= hours <= 1000):
+        raise HTTPException(status_code=400, detail="The hours must be between 0 and 1000.")
+    quota_set_used(n, hours)
+    return {"ok": True, "used_h": round(quota_used_s(n) / 3600, 2), "left_h": round(quota_left_s(n) / 3600, 2), "used_text": _hm(quota_used_s(n)), "left_text": _hm(quota_left_s(n))}
+
+
 @router.post("/api/fleet/kaggle/{n}/stop")
 def kaggle_stop(n: int) -> dict[str, bool]:
     if n not in _account_numbers():
@@ -528,6 +719,7 @@ def kaggle_stop(n: int) -> dict[str, bool]:
     if n != selected_account_number():
         raise HTTPException(status_code=409, detail="Select this Kaggle account before stopping it.")
     _auto_suppressed_accounts.add(n)
+    _suppressed_at[n] = time.time()
     _stop_req.add(f"Kaggle {n}")
     _append_fleet_log(f"Kaggle {n}", "Stop requested; worker will finish active jobs and exit. New jobs will not auto-start this account until Start is pressed.", stage="stop requested")
     return {"ok": True}

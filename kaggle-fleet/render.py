@@ -3,8 +3,8 @@
 The worker watches Firebase cloudExports for pending jobs, opens the site's
 private cloud-render route in headless Chromium, and waits for the website to
 write status/progress updates. Video encoding uses the website/browser's normal
-built-in path; there is no separate gpu_encode.py/NVENC sidecar. If the Space
-exposes NVIDIA hardware it may be used for WebGL rendering only.
+built-in path. If the Space exposes NVIDIA hardware it is used for WebGL
+rendering only.
 """
 from __future__ import annotations
 
@@ -34,10 +34,13 @@ from firebase_admin import credentials, db
 from playwright.sync_api import sync_playwright
 
 from fleet import (
-    KAGGLE_PARALLEL, _agents as _fleet_agents, _auto_suppressed_accounts,
+    KAGGLE_PARALLEL, _agents as _fleet_agents, _auto_suppressed_accounts, _suppressed_at,
     _boot as _fleet_boot, _stop_req, router as fleet_router,
-    selected_account_number, start_kaggle_account,
+    selected_account_number, start_kaggle_account, maybe_rotate, select_kaggle_account, _account_numbers as _fleet_account_numbers,
 )
+import fleet as _fleet_module
+_fleet_module.ON_KERNEL_BOOT = lambda name: _mark_pending_phase("machine_starting")          # the kernel itself said it booted: only now the website may say a machine is starting
+_fleet_module.USAGE_REF = lambda path: db.reference(path)          # where the free-hours counters are saved (Firebase fleetUsage/)
 
 # These defaults can be overridden with Space Variables if project URLs change.
 FIREBASE_DATABASE_URL = os.environ.get(
@@ -82,6 +85,9 @@ _kaggle_claims: dict[str, dict[str, Any]] = {}  # job_id -> {uid, agent_id, clai
 _kaggle_start_requested_at: dict[int, float] = {}
 _kaggle_start_inflight_accounts: set[int] = set()
 _kaggle_start_failed_accounts: set[int] = set()
+_kaggle_start_failed_at: dict[int, float] = {}
+KAGGLE_RETRY_AFTER_SECONDS = 120          # a failed automatic start is tried again after this long while requests are still waiting
+_skip_logged_at: dict[int, float] = {}
 
 # Realtime Database SSE listener: one initial cloudExports snapshot, then only
 # changed paths. All routers/worker loops read this in-memory mirror.
@@ -479,7 +485,7 @@ def run_gpu_health_check() -> dict[str, Any]:
 def chromium_launch_args(use_gpu: bool) -> list[str]:
     base = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-accelerated-video-encode"]
     if use_gpu:
-        # Use available NVIDIA hardware for WebGL/rendering; no custom NVENC encoder is attached.
+        # Use available NVIDIA hardware for WebGL/rendering only.
         return base + ["--enable-gpu", "--enable-webgl", "--ignore-gpu-blocklist",
                        "--use-angle=vulkan", "--enable-features=Vulkan", "--disable-vulkan-surface"]
     # Software WebGL fallback. The page uses its normal built-in encoder path.
@@ -525,7 +531,7 @@ def render_one(uid: str, job_id: str, job: dict[str, Any], slot: int = 0) -> Non
     try:
         with sync_playwright() as playwright:
             use_gpu = nvidia_gpu_available()
-            log("NVIDIA GPU detected; WebGL/rendering acceleration enabled. Video encoding is forced to browser CPU path (NVENC sidecar disabled)." if use_gpu else "No NVIDIA GPU detected; using software WebGL. Video encoding remains on browser CPU path.")
+            log("NVIDIA GPU detected; WebGL/rendering acceleration enabled. Video encoding stays on the browser's own encoder." if use_gpu else "No NVIDIA GPU detected; using software WebGL. Video encoding remains on browser CPU path.")
             profile = os.path.join(PROFILE_DIR, f"slot-{slot}")
             try:
                 browser = playwright.chromium.launch_persistent_context(
@@ -766,6 +772,8 @@ def _restore_kaggle_claim(job_id: str) -> dict[str, Any] | None:
 
 def _any_kaggle_online() -> bool:
     now = time.time()
+    if pending_count > 0:
+        maybe_rotate("a job is waiting")          # skip an account that is out of free hours before starting anything on it
     selected = selected_account_number()
     if selected is None:
         return False
@@ -800,7 +808,12 @@ def _expire_stale_kaggle_claims() -> None:
             log(f"Could not recover stale Kaggle claim {job_id}: {exc}", "ERROR")
 
 
-def _schedule_kaggle_accounts(pending_count: int) -> bool:
+def _mark_start_failed(number: int) -> None:
+    _kaggle_start_failed_accounts.add(number)
+    _kaggle_start_failed_at[number] = time.time()
+
+
+def _schedule_kaggle_accounts(pending_count: int, newest_request_ms: float = 0) -> bool:
     """Start only the selected Kaggle identity; let previous identities drain first."""
     now = time.time()
     selected = selected_account_number()
@@ -841,7 +854,7 @@ def _schedule_kaggle_accounts(pending_count: int) -> bool:
             timed_out = now - requested_at >= KAGGLE_START_GRACE_SECONDS
             if fresh_failure or timed_out:
                 _kaggle_start_requested_at.pop(selected, None)
-                _kaggle_start_failed_accounts.add(selected)
+                _mark_start_failed(selected)
                 if timed_out and not fresh_failure:
                     log(f"Selected KAGGLE_{selected} did not report online within {KAGGLE_START_GRACE_SECONDS}s; HF fallback can take over.", "WARN")
                 return False
@@ -849,7 +862,19 @@ def _schedule_kaggle_accounts(pending_count: int) -> bool:
 
         if selected in _kaggle_start_inflight_accounts:
             return True
+        # A new request is a clear wish to render: an account stopped earlier by hand, or one whose last automatic start failed a while ago,
+        # is started again for it (a stopped/failed account used to stay skipped until Start was pressed on the Fleet page).
+        if selected in _auto_suppressed_accounts and newest_request_ms / 1000.0 > _suppressed_at.get(selected, 0):
+            _auto_suppressed_accounts.discard(selected)
+            log(f"A new request arrived after Stop: automatic start of KAGGLE_{selected} is on again.")
+        if selected in _kaggle_start_failed_accounts and now - _kaggle_start_failed_at.get(selected, 0) >= KAGGLE_RETRY_AFTER_SECONDS:
+            _kaggle_start_failed_accounts.discard(selected)
+            log(f"Trying KAGGLE_{selected} again after {KAGGLE_RETRY_AFTER_SECONDS}s because requests are still waiting.")
         if selected in _kaggle_start_failed_accounts or selected in _auto_suppressed_accounts:
+            if pending_count > 0 and now - _skip_logged_at.get(selected, 0) > 60:
+                _skip_logged_at[selected] = now
+                why = "its last automatic start failed" if selected in _kaggle_start_failed_accounts else "Stop was pressed for it"
+                log(f"Not auto-starting KAGGLE_{selected} for the waiting request: {why}.", "WARN")
             return False
         if pending_count <= 0:
             return False
@@ -863,17 +888,36 @@ def _schedule_kaggle_accounts(pending_count: int) -> bool:
         return True
 
 
+def _mark_pending_phase(phase: str) -> None:
+    """Tell the website what is happening to requests that are still waiting (the owner's page shows this text). Cloud export jobs that
+    have not been claimed yet get `phase`; it is replaced by the page's own phases as soon as a machine picks the job up."""
+    try:
+        now_ms = int(time.time() * 1000)
+        for uid, rows in (_get_queue_snapshot() or {}).items():
+            if not isinstance(rows, dict):
+                continue
+            for job_id, job in rows.items():
+                if isinstance(job, dict) and job.get("status") == "pending" and job.get("phase") != phase:
+                    updates = {"phase": phase, "updatedAt": now_ms}
+                    db.reference(f"cloudExports/{uid}/{job_id}").update(updates)
+                    _patch_cached_job(str(uid), str(job_id), updates)
+    except Exception as exc:
+        log(f"Could not tell the website that a machine is starting: {exc}", "WARN")
+
+
 def _start_account_thread(account_number: int) -> None:
     """Thread target for account starts scheduled while holding the fleet lock."""
     try:
         result = start_kaggle_account(account_number, automatic=True)
         log(f"Automatic Kaggle start for KAGGLE_{account_number}: {result.get('note', 'request accepted')}.")
+        if result.get("ok"):
+            _mark_pending_phase("kernel_requested")          # Kaggle accepted the start request (the machine itself is not up yet)
         if not result.get("ok"):
             with _kaggle_lock:
-                _kaggle_start_failed_accounts.add(account_number)
+                _mark_start_failed(account_number)
     except Exception as exc:
         with _kaggle_lock:
-            _kaggle_start_failed_accounts.add(account_number)
+            _mark_start_failed(account_number)
         log(f"Automatic Kaggle start failed for KAGGLE_{account_number}: {exc}; HF fallback will be used if no Kaggle worker is online.", "ERROR")
     finally:
         with _kaggle_lock:
@@ -907,7 +951,7 @@ def worker_loop() -> None:
                 _queue_count = len(pending_jobs)
                 kaggle_online = _any_kaggle_online()
                 if pending_jobs and AUTO_START_KAGGLE:
-                    waiting_for_kaggle = _schedule_kaggle_accounts(len(pending_jobs))
+                    waiting_for_kaggle = _schedule_kaggle_accounts(len(pending_jobs), max((float(j.get('createdAt') or 0) for _, _, j in pending_jobs), default=0))
                 else:
                     waiting_for_kaggle = False
                     if not pending_jobs:
@@ -997,8 +1041,18 @@ def api_kaggle_next(
 ) -> dict[str, Any]:
     """Long-poll the in-memory Firebase event mirror; does not read cloudExports from Firebase."""
     selected = selected_account_number()
+    # A worker that came up by itself (for example the kernel was run by hand on kaggle.com) while no other Kaggle worker is online is
+    # accepted: its account becomes the selected one, instead of the worker being refused and idling on a quota it burns.
+    match = re.fullmatch(r"Kaggle (\d+)", agent_id)
+    if match and selected is not None and agent_id != f"Kaggle {selected}" and _agent_is_online(agent_id) \
+            and int(match.group(1)) in _fleet_account_numbers() \
+            and not any(_agent_is_online(str(a.get("name") or "")) for a in _fleet_agents.values() if str(a.get("name") or "") not in {agent_id, f"Kaggle {selected}"}) \
+            and not _agent_is_online(f"Kaggle {selected}"):
+        log(f"{agent_id} came online while Kaggle {selected} was selected and not running: selecting {agent_id}.")
+        select_kaggle_account(int(match.group(1)))
+        selected = selected_account_number()
     if selected is None or agent_id != f"Kaggle {selected}" or not _agent_is_online(agent_id):
-        raise HTTPException(status_code=403, detail="This Kaggle worker is not the selected online account.")
+        raise HTTPException(status_code=403, detail=f"This Kaggle worker is not the selected online account (selected: {('Kaggle ' + str(selected)) if selected is not None else 'none'}; this worker: {agent_id}; online: {_agent_is_online(agent_id)}).")
     _expire_stale_kaggle_claims()
     if _worker_state != "running":
         return {"job": None, "reason": "Render router is stopped. Start it from the Space dashboard."}

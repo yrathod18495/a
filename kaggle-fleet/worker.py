@@ -34,8 +34,10 @@ TERMINAL = {"done", "error", "cancelled"}
 HEARTBEAT_INTERVAL_SECONDS = 8
 POLL_WAIT_SECONDS = 10
 # Code-owned Kaggle defaults: no Space Variables/Secrets required for tuning.
-KAGGLE_PARALLEL = 4
-KAGGLE_IDLE_MINUTES = 3
+# One active export per Kaggle worker: overlapping 4K browser contexts contend for
+# the same CPU cores, GPU readback path and encoder bridge, multiplying per-job ETA.
+KAGGLE_PARALLEL = 1  # T4: one export job at a time; frame-level workers still use the available CPU cores.
+KAGGLE_IDLE_MINUTES = 20
 CPU_ONLY_CORE_THRESHOLD = 40
 _HW_MARKERS = ("nvidia", "tesla", "geforce", "quadro", "rtx")
 _BASE_ARGS = [
@@ -49,9 +51,9 @@ _BASE_ARGS = [
 ]
 # Keep the NVIDIA Vulkan/GL path for WebGL drawing only. Do not force
 # Chromium's experimental Linux VA-API/NVIDIA video-encode flags: this Kaggle
-# image exposes NVENC through FFmpeg, but Chromium's WebCodecs hardware encoder
-# is not consistently supported for the app's AVC profile. WebCodecs is left
-# in its native auto-selection mode so it can choose a working software codec.
+# image has no Chromium hardware video encoder for the app's AVC profile.
+# WebCodecs is left in its native auto-selection mode so it can choose a
+# working software codec.
 _VULKAN_ARGS = [
     "--use-gl=angle", "--use-angle=vulkan",
     "--enable-features=Vulkan,DefaultANGLEVulkan,VulkanFromANGLE",
@@ -211,29 +213,6 @@ def _setup_nvidia_graphics(driver: str | None) -> tuple[dict[str, str] | None, s
         return env, note
 
 
-def _with_gpuenc(url: str, value: str) -> str:
-    """Add ?gpuenc=<port>.<token>: the render page then sends its frames to the local ffmpeg/NVENC encoder (gpu_encode.py)."""
-    base, sep, frag = url.partition("#")
-    parts = urlsplit(base)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["gpuenc"] = value
-    out = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), ""))
-    return out + (sep + frag if sep else "")
-
-
-def _gpu_encoder_job():
-    """(encoder, port, token) when ffmpeg NVENC encoding works on this machine (GPU_ENCODE=0 switches it off), else None."""
-    os.environ.setdefault("GPU_ENCODE", "1")
-    try:
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        import gpu_encode
-        enc = gpu_encode.get_encoder()
-        return (enc, enc.port, enc.new_job()) if enc else None
-    except Exception:
-        print("[GPU-ENCODE] not available:\n" + traceback.format_exc(), flush=True)
-        return None
-
-
 def _with_workers(url: str, n: int) -> str:
     """Set the site's ?workers=N frame-worker count (query sits before the #hash route)."""
     base, sep, frag = url.partition("#")
@@ -296,6 +275,24 @@ def _has_webgl(renderer: str) -> bool:
     return "unavailable" not in renderer.lower()
 
 
+def _wait_chromium_ready(log=print) -> None:
+    """On a fresh Kaggle boot Chromium downloads in the background while the NVIDIA libraries install; wait here, before the first browser launch."""
+    marker = os.environ.get("CHROMIUM_READY_FILE", "")
+    if not marker:
+        return
+    started = time.time(); told = False
+    while not os.path.exists(marker):
+        if time.time() - started > 600:
+            raise RuntimeError("Chromium did not finish downloading within 10 minutes.")
+        if not told and time.time() - started > 2:
+            log("Waiting for the Chromium download to finish..."); told = True
+        time.sleep(1)
+    with open(marker) as f:
+        if f.read().strip() != "0":
+            raise RuntimeError("The Chromium download failed. Please restart the Kaggle worker.")
+    os.environ.pop("CHROMIUM_READY_FILE", None)
+
+
 def _launch_software_browser(playwright):
     """Launch Chromium with software WebGL (SwiftShader) and verify WebGL really works."""
     last_exc = None
@@ -325,7 +322,7 @@ def _launch_software_browser(playwright):
     raise RuntimeError(f"No WebGL available in Chromium (GPU and SwiftShader both failed): {last_exc}")
 
 
-BUILD_TAG = "fast-v5-native-webcodecs-fallback"
+BUILD_TAG = "fast-v6-raw420-readback"
 
 _probe_lock = threading.Lock()
 _cached_cfg: dict[str, Any] | None = None  # {"kwargs":..., "renderer":..., "hw":bool}
@@ -411,70 +408,6 @@ def _launch_browser(playwright, use_gpu: bool, driver: str | None = None):
         return browser, f"{renderer} [GPU fallback, {BUILD_TAG}]"
 
 
-def _nvenc_utilization() -> float | None:
-    """Return the highest per-GPU NVENC engine utilization, when NVML exposes it."""
-    smi = shutil.which("nvidia-smi")
-    if not smi:
-        return None
-    try:
-        result = subprocess.run(
-            [smi, "--query-gpu=utilization.encoder", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=5, check=False,
-        )
-        if result.returncode != 0:
-            return None
-        values = []
-        for line in result.stdout.splitlines():
-            try:
-                values.append(float(line.strip().split()[0]))
-            except (ValueError, IndexError):
-                continue
-        return max(values) if values else None
-    except Exception:
-        return None
-
-
-def _probe_ffmpeg_nvenc() -> dict[str, Any]:
-    """Verify FFmpeg NVENC availability; this diagnostic is not the render encoder."""
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        note = "FFmpeg not installed; direct NVENC path not available for benchmark."
-        print(f"[NVENC] {note}", flush=True)
-        return {"available": False, "reason": note}
-    try:
-        encoders = subprocess.run(
-            [ffmpeg, "-hide_banner", "-encoders"], capture_output=True, text=True,
-            timeout=12, check=False,
-        )
-        encoder_text = (encoders.stdout or "") + (encoders.stderr or "")
-        if "h264_nvenc" not in encoder_text:
-            note = "Installed FFmpeg build does not expose h264_nvenc."
-            print(f"[NVENC] {note}", flush=True)
-            return {"available": False, "reason": note}
-        started = time.perf_counter()
-        test = subprocess.run(
-            [ffmpeg, "-hide_banner", "-loglevel", "warning",
-             "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=60",
-             "-frames:v", "120", "-an", "-c:v", "h264_nvenc", "-preset", "p4",
-             "-pix_fmt", "yuv420p", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=45, check=False,
-        )
-        elapsed = time.perf_counter() - started
-        if test.returncode == 0:
-            speed = (120.0 / elapsed / 60.0) if elapsed > 0 else 0.0
-            note = f"H.264 NVENC diagnostic PASS: 120 synthetic 720p frames encoded in {elapsed:.2f}s ({speed:.1f}x 60-fps realtime); this test does not encode the active browser render."
-            print(f"[NVENC] {note}", flush=True)
-            return {"available": True, "elapsed_seconds": round(elapsed, 3), "reason": note}
-        detail = ((test.stderr or test.stdout or "NVENC test failed")[-700:]).strip()
-        note = f"H.264 NVENC encoder listed but smoke test FAILED: {detail}"
-        print(f"[NVENC] {note}", flush=True)
-        return {"available": False, "reason": note}
-    except Exception as exc:
-        note = f"NVENC smoke test error: {type(exc).__name__}: {exc}"
-        print(f"[NVENC] {note}", flush=True)
-        return {"available": False, "reason": note}
-
-
 # Do not monkey-patch VideoEncoder. Earlier builds forced
 # hardwareAcceleration="prefer-hardware" in configure(), even when
 # isConfigSupported() had reported that the hardware profile was unsupported.
@@ -521,10 +454,6 @@ def _fleet_metrics(use_gpu: bool) -> dict[str, Any]:
                     )
             except Exception:
                 pass
-    if use_gpu:
-        encoder_util = _nvenc_utilization()
-        if encoder_util is not None:
-            metrics["gpu_encoder_util"] = encoder_util
     return metrics
 
 
@@ -538,7 +467,7 @@ class KaggleRenderWorker:
         # Prefer the Kaggle GPU on normal 4-core workers. Only switch the
         # Chromium render path to CPU on unusually large (more than 40 logical-core) hosts.
         self.use_gpu = self.cpu_cores <= CPU_ONLY_CORE_THRESHOLD
-        self.parallel = KAGGLE_PARALLEL
+        self.parallel = 1  # Do not let queued exports contend for the same T4 pair / CPU / readback path.
         self.gpu = _gpu_info(self.use_gpu)
         self.account_name = os.environ.get("ACCOUNT_NAME", "").strip() or f"kaggle-{os.uname().nodename[:8]}"
         self.active: dict[str, dict[str, Any]] = {}
@@ -558,7 +487,12 @@ class KaggleRenderWorker:
             method, f"{self.base_url}{path}", headers=self.headers,
             timeout=timeout, **kwargs,
         )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            try:
+                detail = str(response.json().get("detail") or "")
+            except Exception:
+                detail = response.text[:200]
+            raise requests.HTTPError(f"{response.status_code} {detail}".strip(), response=response)          # the Space's own reason, not just "403 Forbidden"
         return response.json() if response.content else {}
 
     def _fleet_report(self) -> None:
@@ -595,12 +529,6 @@ class KaggleRenderWorker:
             **_fleet_metrics(self.use_gpu and self.gpu.get("gpu_available", False)),
         }
         response = self._request("POST", "/api/fleet/report", json=payload, timeout=8)
-        encoder_util = payload.get("gpu_encoder_util")
-        if encoder_util is not None and active_rows:
-            stamp = int(time.time() // 24)  # coarse log throttle: one sample per ~24 seconds
-            if getattr(self, "_last_encoder_log_stamp", None) != stamp:
-                self._last_encoder_log_stamp = stamp
-                self._log(None, f"NVIDIA encoder engine utilization: {encoder_util:.0f}% (0% means no NVENC session activity at sample time).", stage="metrics")
         self.last_report = time.time()
         if isinstance(response, dict) and response.get("stop"):
             if not self.stop_requested:
@@ -647,11 +575,11 @@ class KaggleRenderWorker:
         error_text = ""
         browser = None
         context = None
-        gpu_job = None
         try:
-            self._log(job_id, f"Starting Kaggle render job {job_id}; USE_GPU={int(self.use_gpu)}, PARALLEL={self.parallel}.")
+            self._log(job_id, f"Starting Kaggle render job {job_id}; USE_GPU={int(self.use_gpu)}, concurrent export jobs={self.parallel}.")
             if self.gpu.get("gpu_reason"):
                 self._log(job_id, self.gpu["gpu_reason"], level="WARN")
+            _wait_chromium_ready(lambda m: self._log(job_id, m))
             with sync_playwright() as playwright:
                 browser, renderer = _launch_browser(playwright, self.use_gpu and self.gpu.get("gpu_available", False), self.gpu.get("driver"))
                 state["webgl"] = renderer
@@ -676,14 +604,7 @@ class KaggleRenderWorker:
                 env_workers = os.environ.get("RENDER_FRAME_WORKERS", "").strip()
                 workers = int(env_workers) if env_workers.isdigit() else max(1, self.cpu_cores // concurrent)
                 render_url = _with_workers(render_url, workers)
-                if self.use_gpu and self.gpu.get("gpu_available", False) and any(m in renderer.lower() for m in _HW_MARKERS):
-                    gpu_job = _gpu_encoder_job()
-                    if gpu_job:
-                        render_url = _with_gpuenc(render_url, f"{gpu_job[1]}.{gpu_job[2]}")
-                        self._log(job_id, f"GPU video encoding ON (ffmpeg NVENC, port {gpu_job[1]}). Set GPU_ENCODE=0 to use the browser's own encoder.")
-                    else:
-                        self._log(job_id, "GPU video encoding is not available here; the browser's own encoder is used.", level="WARN")
-                self._log(job_id, f"Frame workers: {max(1, min(8, workers))} ({self.cpu_cores} cores / {concurrent} active job(s)).")
+                self._log(job_id, f"Frame workers requested: {max(1, min(8, workers))} ({self.cpu_cores} cores / {concurrent} active export job(s)); one export at a time is enforced.")
                 page.goto(render_url, wait_until="load", timeout=60_000)
                 try:
                     codec_probe = page.evaluate("""async () => {
@@ -749,11 +670,8 @@ class KaggleRenderWorker:
             error_text = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-2500:]}"
             self._log(job_id, f"Render failed: {type(exc).__name__}: {exc}", level="ERROR")
         finally:
-            if gpu_job:
-                try:
-                    gpu_job[0].end_job(gpu_job[2])
-                except Exception:
-                    pass
+            # Close Chromium first so its control/frame WebSockets are gone and
+            # any interrupted FFmpeg slice is killed before its job directory is removed.
             if context is not None:
                 try:
                     context.close()
@@ -790,13 +708,11 @@ class KaggleRenderWorker:
             _, setup_note = _setup_nvidia_graphics(self.gpu.get("driver"))
             if setup_note:
                 print(f"[GPU-SETUP] {setup_note}", flush=True)
-            self.nvenc_probe = _probe_ffmpeg_nvenc()
         else:
             if not self.use_gpu:
                 print(f"Detected {self.cpu_cores} logical CPU cores (threshold {CPU_ONLY_CORE_THRESHOLD}); selecting CPU-only rendering. nvidia-smi will not be called.", flush=True)
             else:
                 print(self.gpu.get("gpu_reason", "GPU unavailable; CPU fallback selected."), flush=True)
-            self.nvenc_probe = {"available": False, "reason": "GPU not selected or unavailable."}
         if psutil:
             try:
                 psutil.cpu_percent(None)
@@ -806,7 +722,7 @@ class KaggleRenderWorker:
         retry = 2.0
         futures: set[Future] = set()
         with ThreadPoolExecutor(max_workers=self.parallel, thread_name_prefix="kaggle-render") as pool:
-            print(f"Connected as {self.account_name}; PARALLEL={self.parallel}; logical CPUs={self.cpu_cores}; GPU requested={int(self.use_gpu)}; idle exit={self.idle_exit_min:g} min.", flush=True)
+            print(f"Connected as {self.account_name}; concurrent export jobs={self.parallel}; logical CPUs={self.cpu_cores}; GPU requested={int(self.use_gpu)}; idle exit={self.idle_exit_min:g} min.", flush=True)
             while True:
                 futures = {future for future in futures if not future.done()}
                 try:
@@ -832,6 +748,7 @@ class KaggleRenderWorker:
                         "GET", f"/api/kaggle/next?wait={POLL_WAIT_SECONDS}&agent_id={quote(self.account_name, safe='')}",
                         timeout=POLL_WAIT_SECONDS + 15,
                     )
+                    self._unselected_since = None
                     job = result.get("job")
                     if job:
                         self._log(str(job.get("id") or ""), f"Job assigned by Space; {len(futures) + 1}/{self.parallel} slots in use.")
@@ -839,6 +756,12 @@ class KaggleRenderWorker:
                     else:
                         time.sleep(0.3)
                 except requests.RequestException as exc:
+                    if "not the selected" in str(exc):
+                        # refused because another account is selected: do not sit here burning free hours
+                        first = getattr(self, "_unselected_since", None) or time.time(); self._unselected_since = first
+                        if time.time() - first > 180:
+                            self._log(None, "This Kaggle account has not been the selected one for 3 minutes; shutting down to save free hours.", stage="idle")
+                            self.stop_requested = True
                     delay = min(30.0, retry) + random.uniform(0, min(2.0, retry / 3))
                     print(f"[RECONNECT] Space connection failed: {exc}; retrying in {delay:.1f}s", flush=True)
                     time.sleep(delay)

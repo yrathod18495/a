@@ -10,9 +10,9 @@ pinned: false
 
 # 12TOONS Kaggle Render Router — low Firebase reads
 
-Hugging Face Space Firebase ka control plane hai. Pending export par Space Kaggle kernel ko automatically start karta hai. Kaggle online hote hi jobs usko assign hote hain; start/boot fail ho ya configured boot grace expire ho, toh HF renderer fallback leta hai. Kaggle worker 3 minute idle rehne par clean exit karta hai; agla job aane par Space kernel ko phir push/start karega.
+Hugging Face Space Firebase ka control plane hai. Pending export par Space Kaggle kernel ko automatically start karta hai. Kaggle online hote hi jobs usko assign hote hain; start/boot fail ho ya configured boot grace expire ho, toh HF renderer fallback leta hai. Kaggle worker 20 minute idle rehne par clean exit karta hai; agla job aane par Space kernel ko phir push/start karega.
 
-## Sirf ye 7 files rakhein
+## Ye 7 files rakhein
 
 ```text
 README.md
@@ -37,17 +37,33 @@ worker.py
 
 ## Code-owned Kaggle defaults (Space Variables ki zaroorat nahi)
 
-- **Parallel jobs: `4` on the one selected Kaggle account**, code mein fixed. Ek worker 4 concurrent browser renders chala sakta hai. Iska matlab 4 jobs same 4 CPU cores/RAM share karte hain—per job 4 dedicated cores nahi.
-- **Idle shutdown: `3` minutes**, code mein fixed. Worker active jobs finish karke clean exit karta hai. Nayi queue aane par HF Space us account ko phir start karega.
+- **Concurrent exports: `1` per Kaggle worker**, code mein fixed. Isse 4K jobs ek hi T4 pair aur CPU cores ke liye aapas mein compete nahi karte. Ek job ke andar frame workers parallel rehte hain (4 logical CPUs par up to 4).
+- **Faster boot:** pip + apt run together, and the Chromium download runs while the NVIDIA libraries install (the worker waits for it before the first render).
+- **Idle shutdown: `20` minutes**, code mein fixed. Worker active jobs finish karke clean exit karta hai. Nayi queue aane par HF Space us account ko phir start karega.
 - **GPU preferred by default.** Kaggle kernel metadata mein GPU enabled hota hai. Normal 4-core Kaggle workers par GPU render path use hota hai. `nvidia-smi` missing/unavailable ho toh worker fail nahi hota; software/CPU renderer par continue karta hai.
 - **Video encoder fallback is not forced.** Chromium `VideoEncoder` APIs are left unmodified. The browser chooses a supported encoder configuration; the worker does not force `hardwareAcceleration="prefer-hardware"`, because an unsupported hardware profile can fail asynchronously during encoder creation and bypass a configure-time try/catch.
-- **NVENC smoke test is diagnostic only.** A passing `h264_nvenc` test proves FFmpeg can access NVENC for synthetic frames; it does not mean the live Vercel/browser render is encoded by NVENC. The current cloud-render page sends frames to its own WebCodecs encoder and this Kaggle package does not receive those frames for FFmpeg encoding. Do not report the live render as NVENC unless the encoder is integrated with the page's actual frame/output pipeline and verified with non-zero encoder utilization.
 - **CPU-only threshold: more than 40 logical CPU cores.** Worker more than 40 cores detect kare toh Chromium render path CPU-only select karta hai aur `nvidia-smi` call skip karta hai. Agar account ki previous worker telemetry more than 40 cores batati hai toh next kernel metadata mein `enable_gpu: false` bhi set hota hai. First launch par hardware pehle se known nahi hota, isliye GPU request hoti hai; runtime detection phir bhi CPU-only rendering select karega.
 - No `PARALLEL`, `USE_GPU`, or `KAGGLE_IDLE_MINUTES` Secret/Variable required. Defaults code mein hain.
 - `AUTO_START_KAGGLE` is enabled in code by default. `AUTO_START_ROUTER` starts the Firebase listener/router when the Space boots.
 - `KAGGLE_START_GRACE_SECONDS` (default 420) keeps jobs pending while kernels boot; a clear boot failure sends jobs to HF fallback.
 - `KAGGLE_STATUS_CACHE_SECONDS` (default 45) caches Kaggle status CLI checks.
 - `FLEET_SPACE_URL` is only an optional URL override; otherwise the Space uses `SPACE_HOST`.
+
+## Performance changes in this package
+
+- One export at a time per Kaggle worker; frame-level parallelism remains enabled.
+- Video encoding stays on the browser's normal WebCodecs encoder (measured faster than an NVENC bridge on this workload). The T4 is used for WebGL drawing only.
+
+## Free-hours budget and automatic account switching
+
+Kaggle's public API does not tell how many weekly GPU hours are left, so the Space counts them itself (a running worker adds its running time, a pushed kernel adds a 90 s boot allowance) and keeps the last 7 days per account in Firebase (`fleetUsage/<n>/<date>`), so a Space restart does not lose them.
+
+- When the selected account has less than 45 minutes left, the next account that still has more than that is selected. The old worker finishes its active render and stops; the new account starts when the next export arrives (a sleeping account costs nothing).
+- If Kaggle itself says the quota is used up (kernel push error or a boot log line with "quota"), that account is skipped for 6 hours and the next one is used.
+- The tabs show the hours left. Use **Set time left** and type what Kaggle shows as available (for example 28:53) (the count is an estimate; Kaggle's reset day may differ from a rolling 7 days).
+- Space Variables (optional): `KAGGLE_WEEKLY_HOURS` (default `30`), `KAGGLE_SWITCH_MARGIN_MINUTES` (default `45`).
+- **Automatic start from the website:** a new request starts the selected account by itself. An account stopped by hand (Stop selected) is started again by a request that arrives *after* the Stop; one whose last automatic start failed is tried again after 2 minutes while requests are still waiting. If the Space still does not start it, its log says why: `Not auto-starting KAGGLE_n for the waiting request: ...`.
+- **A worker the Space refuses:** the Space only serves the *selected* account. The refusal now says which one is selected (`403 ... selected: Kaggle 2; this worker: Kaggle 1`). A worker that comes up on its own while no other worker is running (for example you pressed Run on kaggle.com) is accepted and its account becomes the selected one. A worker refused for 3 minutes shuts itself down so it does not burn free hours. An account you just selected is not rotated away from for 30 minutes unless Kaggle itself says its quota is used up.
 
 ## Runtime compatibility
 
@@ -75,7 +91,7 @@ Docker base `ubuntu22.04` Python 3.10 use karta hai, isliye `requirements.txt` m
 3. Kaggle boots, reports heartbeat/logs, then long-polls the Space's in-memory queue cache.
 4. HF Space sirf dashboard par selected Kaggle account ko start karta hai. Account switch karne par current worker active jobs finish karke exit karta hai; uske baad selected account start hota hai. Kaggle boot fail/timeout ho aur selected worker online na ho toh HF fallback unassigned jobs claim karta hai.
 5. Selected Kaggle worker up to 4 jobs concurrently execute karta hai. `KAGGLE_N` secrets sirf manual account switching ke liye hain; accounts parallel mein start nahi hote.
-6. No job for 3 minutes → worker process exits normally, Kaggle run completes, and compute session is released by Kaggle. Next job triggers a fresh push.
+6. No job for 20 minutes → worker process exits normally, Kaggle run completes, and compute session is released by Kaggle. Next job triggers a fresh push.
 
 Root `/` and `/fleet` serve the same mobile-first circular Fleet dashboard. Top Kaggle tabs switch the selected identity; selected worker telemetry, job progress, logs, Start/Stop, Kaggle output, Copy logs and Copy health report stay on this page. Hugging Face Private Space perimeter protects the app; there is no custom `X-Bridge-Token` auth layer. Keep the Space Private and restrict collaborators.
 
@@ -101,10 +117,9 @@ Also remove any old `BRIDGE_TOKEN` Space Secret. Do not delete `KEY_JSON`, `KAGG
 - **Private Space 401/404:** make sure Kaggle bootstrap is using the current HF READ token and Space URL.
 - **Internet disabled:** Kaggle Notebook settings → Internet → On.
 - **GPU not visible:** worker reports the missing `nvidia-smi` message and continues with CPU/software rendering; check Kaggle Notebook settings if GPU was expected.
-- **Four parallel jobs:** code default is four per Kaggle account. Jobs share that worker's CPU cores and RAM. Additional `KAGGLE_N` accounts sirf account-switch tabs hain; scheduler ek waqt mein ek hi identity use karta hai.
+- **Only one export should run on a Kaggle worker:** this package enforces one concurrent export per worker. The frame-worker count is separate and remains parallel inside that export.
 - **Orphaned job after Space restart:** after a Space restart, a still-online Kaggle worker claim is restored from Firebase metadata; if the worker is offline beyond `KAGGLE_ORPHAN_CLAIM_SECONDS` (default 180 seconds), the job is marked error instead of sitting in `rendering` for two hours.
 - **HF fallback starts too early:** increase `KAGGLE_START_GRACE_SECONDS`; boot failure messages do not wait for the full grace period.
-
 
 ## Kaggle account selection (single identity active)
 
