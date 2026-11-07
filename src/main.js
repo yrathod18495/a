@@ -3779,7 +3779,7 @@ function syncCloudPill() {
   const finished = ['done', 'error', 'cancelled'].includes(job.status), pct = Math.round((job.progress || 0) * 100);
   const text = job.status === 'done' && cloudDl ? cloudDlText() : job.status === 'done' ? 'Your cloud video is ready.' : job.status === 'error' ? `Cloud export failed: ${job.error || 'please try again.'}` : job.status === 'cancelled' ? 'Cloud export cancelled.' : cloudPhaseText(job, pct);
   const el = h('div', { class: `export-pill cloud-pill${finished ? '' : ' waiting'}${job.status === 'error' ? ' cp-error' : ''}`, role: 'status', 'aria-live': 'polite' },
-    h('div', { class: 'ep-row' }, icon('cloud'), h('span', { class: 'ep-text' }, text),
+    h('div', { class: 'ep-row' }, icon('cloud'), h('span', { class: 'ep-text', ...(finished ? {} : { 'data-cloud-msg': '' }) }, text),
       job.status === 'done' && !cloudDl ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: downloadCloudExport }, 'Download') : null,
       job.status === 'error' ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: startCloudExport }, 'Try again') : null,
       finished ? h('button', { type: 'button', class: 'ep-cancel', 'aria-label': 'Dismiss', onclick: () => { cloudJob = null; try { localStorage.removeItem(CLOUD_KEY); } catch { /* optional */ } redrawPanel(); } }, '✕') : h('button', { type: 'button', class: 'ep-cancel', onclick: cancelCloudExportJob }, 'Cancel')),
@@ -3802,6 +3802,12 @@ async function resumeCloudJob() {
     }
   } catch { try { localStorage.removeItem(CLOUD_KEY); } catch { /* optional */ } }
 }        // {id, status, progress, hash, size, error} | null
+/** while a request waits for its machine, the clock in the message moves every second (without rebuilding the panel) */
+setInterval(() => {
+  if (!cloudJob || !['starting', 'pending'].includes(cloudJob.status)) return;
+  const text = cloudPhaseText(cloudJob, 0);
+  for (const el of document.querySelectorAll('[data-cloud-msg]')) if (el.textContent !== text) el.textContent = text;
+}, 1000);
 /** a poll answer that says nothing new (same state, phase and percent) does not redraw the panel */
 const cloudChanged = (j) => !cloudJob || j.status !== cloudJob.status || j.phase !== cloudJob.phase || Math.round((j.progress || 0) * 100) !== Math.round((cloudJob.progress || 0) * 100) || j.error !== cloudJob.error || j.size !== cloudJob.size;
 async function startCloudExport() {
@@ -3809,7 +3815,7 @@ async function startCloudExport() {
   if (!id || !uid) { toast('Please wait for this project to finish saving to the cloud, then try again.'); return; }
   if (cloudJob && !['done', 'error', 'cancelled'].includes(cloudJob.status)) return;
   const step = (text) => { cloudJob = { id: null, status: 'starting', progress: 0, step: text }; redrawPanel(); };
-  cloudJobStop = false; step('Saving your latest changes…');
+  cloudJobStop = false; cloudWaitSince = Date.now(); step('Saving your latest changes…');
   // the render machine only ever sees what is already saved to the cloud, so the latest edits are pushed first — but a sync
   // problem (an unrelated bug in that save, or just being offline) must not block cloud export entirely: the project's last
   // cloud snapshot can still be rendered. Only "nothing has ever been saved" (checked by the server next) should really stop it.
@@ -3865,9 +3871,14 @@ function cloudEta(job) {
   if (!Number.isFinite(secs) || secs > 6 * 3600) return '';
   return secs < 90 ? ` · about ${Math.max(5, Math.round(secs / 5) * 5)} s left` : ` · about ${Math.round(secs / 60)} min left`;
 }
+let cloudWaitSince = Date.now();
+const waitClock = (job) => { const s = Math.max(0, Math.round((Date.now() - (job.createdAt || cloudWaitSince)) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 function cloudPhaseText(job, pct) {
   if (job.status === 'starting') return job.step || 'Getting ready…';
-  if (job.status === 'pending') return 'Request sent. Waiting for a render machine (it can take about a minute to start)…';
+  if (job.status === 'pending') return job.phase === 'machine_starting'
+    ? `Request received. A render machine is starting (about 1–2 minutes)… ${waitClock(job)}`
+    : `Request received. Waiting for a render machine… ${waitClock(job)}`;
+  if (job.status === 'rendering' && (!job.phase || job.phase === 'machine_starting') && !(job.progress > 0)) return 'A render machine picked up your request and is getting ready…';
   return { loading: 'Starting the render machine and loading your project…', preparing: 'Preparing your scene…', uploading: 'Finishing up: saving the video…' }[job.phase] || `Rendering… ${pct}%${cloudEta(job)}`;
 }
 function cloudRenderTile() {
@@ -3884,7 +3895,7 @@ function cloudRenderTile() {
   if (cloudJob.status === 'done') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn ok exp-opt-btn', onclick: downloadCloudExport }, '⬇ Download'));
   return h('div', { class: 'exp-opt' }, head,
     h('div', { class: `bar exp-opt-bar${pct === 0 ? ' indet' : ''}` }, h('i', { style: pct > 0 ? `width:${pct}%` : '' })),
-    h('p', { class: 'exp-opt-msg' }, cloudPhaseText(cloudJob, pct)),
+    h('p', { class: 'exp-opt-msg', 'data-cloud-msg': '' }, cloudPhaseText(cloudJob, pct)),
     h('button', { type: 'button', class: 'btn exp-opt-btn exp-opt-cancel', onclick: cancelCloudExportJob }, 'Cancel'));
 }
 async function openMyCloudVideos() { const uid = projectContext()?.uid; if (!uid) return; (await import('./cloud-videos.js')).openCloudVideos(uid); }

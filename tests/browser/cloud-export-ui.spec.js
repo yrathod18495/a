@@ -170,3 +170,32 @@ test('Cloud export: download shows a live percentage and saves the file', async 
   await expect(cloudTile.getByRole('button', { name: /Download/ })).toBeVisible();          // back to normal after the save
   expect(errors).toEqual([]);
 });
+
+// While a request waits for a machine the studio says it was received, what is happening and for how long (the clock moves by itself).
+test('Cloud export: waiting shows "request received", the machine state and a moving clock', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  let job = null;
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/export', async (r) => {
+    const req = JSON.parse(r.request().postData());
+    if (req.action === 'cloudCreate') { job = { id: 'cexp_wait1', status: 'pending', progress: 0, phase: 'machine_starting', createdAt: Date.now() - 65000 }; return r.fulfill({ json: { jobId: 'cexp_wait1', job } }); }
+    if (req.action === 'cloudStatus') return r.fulfill({ json: { job } });
+    if (req.action === 'cloudCancel') { job = { ...job, status: 'cancelled' }; return r.fulfill({ json: { job } }); }
+    return r.fulfill({ json: { error: 'unexpected' }, status: 400 });
+  });
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('CloudWait');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(async () => { const store = await import('/src/store.js'); store.selectProject('debug-uid', 'proj_cloudtest'); });
+  await page.evaluate(() => window.__toon.openTab('export'));
+  const tile = page.locator('.exp-opt', { hasText: 'Cloud' });
+  await tile.getByRole('button', { name: 'Render', exact: true }).click();
+  const msg = tile.locator('[data-cloud-msg]');
+  await expect(msg).toContainText(/Request received\. A render machine is starting/, { timeout: 5000 });
+  const first = await msg.textContent();
+  await expect.poll(async () => msg.textContent(), { timeout: 5000 }).not.toBe(first);          // the clock ticked
+  await tile.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(errors).toEqual([]);
+});
