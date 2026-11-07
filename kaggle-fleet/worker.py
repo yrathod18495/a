@@ -749,6 +749,8 @@ class KaggleRenderWorker:
                         timeout=POLL_WAIT_SECONDS + 15,
                     )
                     self._unselected_since = None
+                    if result.get("waiting"):
+                        self.last_busy = time.time()          # requests are waiting for a machine: do not shut down for being idle
                     job = result.get("job")
                     if job:
                         self._log(str(job.get("id") or ""), f"Job assigned by Space; {len(futures) + 1}/{self.parallel} slots in use.")

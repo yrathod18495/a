@@ -1080,6 +1080,15 @@ def api_fleet_queue() -> dict[str, Any]:
     return {"now": now_ms, "processing": processing, "queue": queued}
 
 
+def _pending_count() -> int:
+    """How many requests are waiting for a machine (the worker keeps itself awake while there are some)."""
+    try:
+        return sum(1 for rows in (_get_queue_snapshot() or {}).values() if isinstance(rows, dict)
+                   for job in rows.values() if isinstance(job, dict) and job.get("status") == "pending")
+    except Exception:
+        return 0
+
+
 @app.get("/api/kaggle/next")
 def api_kaggle_next(
     agent_id: str = Query(..., min_length=1, max_length=60),
@@ -1101,7 +1110,7 @@ def api_kaggle_next(
         raise HTTPException(status_code=403, detail=f"This Kaggle worker is not the selected online account (selected: {('Kaggle ' + str(selected)) if selected is not None else 'none'}; this worker: {agent_id}; online: {_agent_is_online(agent_id)}).")
     _expire_stale_kaggle_claims()
     if _worker_state != "running":
-        return {"job": None, "reason": "Render router is stopped. Start it from the Space dashboard."}
+        return {"job": None, "waiting": _pending_count(), "reason": "Render router is stopped. Start it from the Space dashboard."}
 
     deadline = time.time() + wait
     while True:
@@ -1153,7 +1162,7 @@ def api_kaggle_next(
                 if found:
                     return {"job": found}
         if time.time() >= deadline:
-            return {"job": None}
+            return {"job": None, "waiting": _pending_count()}
         _wait_for_queue_change(min(1.0, deadline - time.time()))
         if not _agent_is_online(agent_id):
             return {"job": None, "reason": "Kaggle heartbeat expired."}
