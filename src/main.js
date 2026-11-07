@@ -3879,7 +3879,7 @@ function cloudPhaseText(job, pct) {
     const late = (Date.now() - (job.createdAt || cloudWaitSince)) > 240000 ? ' Taking longer than usual: the machine may not have started, you can cancel and try again.' : '';
     const t = `${waitClock(job)}${job.id ? ` · job #${job.id.slice(-4)}` : ''}`;
     if (job.phase === 'machine_starting') return `Request received. A machine has started and is setting up (about a minute)… ${t}${late}`;
-    if (job.phase === 'kernel_requested') return `Request received. Asking Kaggle to start a machine… ${t}${late}`;
+    if (job.phase === 'kernel_requested') return `Request received. Preparing files for render… ${t}${late}`;
     return `Request received. Waiting for a render machine… ${t}${late}`;
   }
   if (job.status === 'rendering' && (!job.phase || job.phase === 'machine_starting') && !(job.progress > 0)) return 'A render machine picked up your request and is getting ready…';
