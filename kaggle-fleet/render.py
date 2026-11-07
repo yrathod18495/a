@@ -807,8 +807,6 @@ def _restore_kaggle_claim(job_id: str) -> dict[str, Any] | None:
 
 def _any_kaggle_online() -> bool:
     now = time.time()
-    if pending_count > 0:
-        maybe_rotate("a job is waiting")          # skip an account that is out of free hours before starting anything on it
     selected = selected_account_number()
     if selected is None:
         return False
@@ -851,6 +849,8 @@ def _mark_start_failed(number: int) -> None:
 def _schedule_kaggle_accounts(pending_count: int, newest_request_ms: float = 0) -> bool:
     """Start only the selected Kaggle identity; let previous identities drain first."""
     now = time.time()
+    if pending_count > 0:
+        maybe_rotate("a job is waiting")          # skip an account that is out of free hours before starting anything on it
     selected = selected_account_number()
     if selected is None:
         return False
