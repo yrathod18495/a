@@ -692,6 +692,40 @@ def cleanup_old_jobs(all_jobs: dict[str, Any], running: set[tuple[str, str]]) ->
                 log(f"Could not clean up job {job_id}: {exc}", "ERROR")
 
 
+_next_skip_logged = [0.0]
+_router_user_stop = False          # the router was stopped on purpose through /api/stop: the watchdog leaves it alone
+_listener_retry_at = 0.0
+
+
+def _ensure_router() -> None:
+    """Keep the router (the thread that starts Kaggle and hands out jobs) running. If its automatic start at boot did not happen (for
+    example the Firebase listener needed longer than 35 s), requests would wait forever and Kaggle would never be started."""
+    global _listener_retry_at
+    if _router_user_stop or not _firebase_ready:
+        return
+    if os.environ.get("AUTO_START_ROUTER", "1").strip().lower() in {"0", "false", "no", "off"}:
+        return
+    if not _queue_ready.is_set():
+        if time.time() >= _listener_retry_at:
+            _listener_retry_at = time.time() + 60
+            log("The Firebase listener is not ready yet: trying to start it again.", "WARN")
+            threading.Thread(target=start_queue_listener, daemon=True, name="queue-listener-retry").start()
+        return
+    if _worker_thread and _worker_thread.is_alive():
+        return
+    ok, message = start_worker()
+    log(("Router was not running: started it again. " if ok else "Router was not running and could not be started: ") + message, "WARN" if ok else "ERROR")
+
+
+def _router_watchdog() -> None:
+    while True:
+        time.sleep(15)
+        try:
+            _ensure_router()
+        except Exception as exc:
+            log(f"Router watchdog error: {exc}", "ERROR")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     os.makedirs(PROFILE_DIR, exist_ok=True)
@@ -704,6 +738,7 @@ async def lifespan(_: FastAPI):
                 log("Automatic router startup enabled. " + message)
             else:
                 log("Automatic router startup could not start: " + message, "ERROR")
+    threading.Thread(target=_router_watchdog, daemon=True, name="router-watchdog").start()
     gpu = get_gpu_status(force=True)
     if gpu.get("available"):
         log(f"Space GPU visible: {gpu.get('name')} | driver {gpu.get('driver') or 'not reported'} | browser built-in video encoder is used.")
@@ -1077,7 +1112,7 @@ def api_fleet_queue() -> dict[str, Any]:
                                    "queued_s": max(0.0, (claimed - created) / 1000.0), "processing_s": max(0.0, (now_ms - claimed) / 1000.0), "claimed_at": claimed})
     queued.sort(key=lambda j: j["created_at"])
     processing.sort(key=lambda j: j["claimed_at"])
-    return {"now": now_ms, "processing": processing, "queue": queued}
+    return {"now": now_ms, "processing": processing, "queue": queued, "router": {"state": _worker_state, "error": _worker_error or _queue_stream_error, "listener_ready": _queue_ready.is_set(), "firebase_ready": _firebase_ready}}
 
 
 def _pending_count() -> int:
@@ -1110,6 +1145,8 @@ def api_kaggle_next(
         raise HTTPException(status_code=403, detail=f"This Kaggle worker is not the selected online account (selected: {('Kaggle ' + str(selected)) if selected is not None else 'none'}; this worker: {agent_id}; online: {_agent_is_online(agent_id)}).")
     _expire_stale_kaggle_claims()
     if _worker_state != "running":
+        _ensure_router()          # a worker is here and asking: make sure the router is not the thing that is missing
+    if _worker_state != "running":
         return {"job": None, "waiting": _pending_count(), "reason": "Render router is stopped. Start it from the Space dashboard."}
 
     deadline = time.time() + wait
@@ -1130,19 +1167,28 @@ def api_kaggle_next(
                 }
             all_jobs = _get_queue_snapshot()
             found = None
+            skipped = {"no_secret": 0, "taken_by_hf": 0, "already_claimed": 0, "claim_refused": 0}
             for uid, rows in all_jobs.items():
                 if not isinstance(rows, dict):
                     continue
                 for job_id, job in rows.items():
-                    if not isinstance(job, dict) or job.get("status") != "pending" or not job.get("secret"):
+                    if not isinstance(job, dict) or job.get("status") != "pending":
                         continue
-                    if job_id in active_hf_ids or job_id in claimed_ids:
+                    if not job.get("secret"):
+                        skipped["no_secret"] += 1
+                        continue
+                    if job_id in active_hf_ids:
+                        skipped["taken_by_hf"] += 1
+                        continue
+                    if job_id in claimed_ids:
+                        skipped["already_claimed"] += 1
                         continue
                     # A Firebase transaction is the final arbiter: the HF
                     # fallback and every Kaggle account can race on the local
                     # snapshot, but only one can change pending -> rendering.
                     claimed_row = _claim_pending_job(str(uid), str(job_id), "kaggle", agent_id)
                     if claimed_row is None:
+                        skipped["claim_refused"] += 1
                         continue
                     with _kaggle_lock:
                         _kaggle_claims[job_id] = {
@@ -1161,6 +1207,9 @@ def api_kaggle_next(
                     break
                 if found:
                     return {"job": found}
+            if any(skipped.values()) and time.time() - _next_skip_logged[0] > 30:
+                _next_skip_logged[0] = time.time()
+                log(f"{agent_id} is waiting and requests are pending, but none was handed out: {skipped}.", "WARN")
         if time.time() >= deadline:
             return {"job": None, "waiting": _pending_count()}
         _wait_for_queue_change(min(1.0, deadline - time.time()))
@@ -1278,6 +1327,8 @@ def api_logs(after: int = Query(default=0, ge=0)) -> dict[str, Any]:
 
 @app.post("/api/worker/start")
 def api_start() -> dict[str, Any]:
+    global _router_user_stop
+    _router_user_stop = False
     ok, message = start_worker()
     if not ok:
         raise HTTPException(status_code=503, detail=message)
@@ -1286,6 +1337,8 @@ def api_start() -> dict[str, Any]:
 
 @app.post("/api/worker/stop")
 def api_stop() -> dict[str, Any]:
+    global _router_user_stop
+    _router_user_stop = True
     ok, message = stop_worker()
     return {"ok": ok, "message": message}
 
