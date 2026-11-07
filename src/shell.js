@@ -439,9 +439,11 @@ async function start() {
   let badgeTimer = 0;
   new MutationObserver(() => { cancelAnimationFrame(badgeTimer); badgeTimer = requestAnimationFrame(() => mountCreditBadges($shell)); }).observe($shell, { childList: true, subtree: true });
   $shell.replaceChildren(loadingSplash('Getting things ready…'));
+  // if the first screen is still a loading screen after a while, say so and offer a retry instead of hanging silently
+  setTimeout(() => { const sp = $shell.querySelector('.loading-splash'); if (sp && !sp.querySelector('.ls-retry')) sp.append(h('button', { type: 'button', class: 'btn pri ls-retry', onclick: () => location.reload() }, 'Taking longer than usual · Try again')); }, 15000);
   const maintenanceAtStart = maintenanceStatus();   // starts now and runs while the sign-in redirect is finished
   if (DEBUG) { try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
-  const redirectResult = await finishRedirect();
+  const redirectResult = await Promise.race([finishRedirect(), new Promise((r) => setTimeout(() => r(null), 6000))]);   // never wait on the redirect check forever
   try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; }
   let first = true;
   // On a sign-in that just came back from Google's redirect page (popup blocked, or a browser like Telegram's in-app one that
@@ -457,7 +459,7 @@ async function start() {
     user = u; setCoinUser(u?.uid || null);
     if (u) {
       // the two server checks are independent, so they are asked together
-      const [maintenanceNow, adminAnswer] = await Promise.all([maintenanceStatus(), isAdmin(u)]);
+      const [maintenanceNow, adminAnswer] = await Promise.all([first ? maintenanceAtStart : maintenanceStatus(), isAdmin(u)]);   // the first sign-in check reuses the answer already asked at start
       applyFeatures(maintenanceNow); maintenance = maintenanceNow.maintenance === true;
       const admin = adminAnswer === true;
       if (adminAnswer === null) {          // the server could not be asked: keep the login, show a retry instead of the maintenance page
@@ -470,6 +472,7 @@ async function start() {
       role = 'user';
     }
     ready = true;
+    if (user) setTimeout(() => { if ((location.hash || '#/') === '#/hub') import('./main.js').catch(() => {}); }, 2500);   // warm the studio in the background so opening a project feels instant
     if (user) {
       // Temporarily disabled until Firebase Web Push VAPID is configured.
       // import('./notifications.js').then(({ syncReplyNotifications }) => syncReplyNotifications(user)).catch(() => {});

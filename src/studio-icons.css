@@ -661,3 +661,11 @@ button .ic[data-icon="shadow"] svg ellipse{transform-box:fill-box;transform-orig
 .lane2.audio .gap-close .ic svg{width:11px;height:11px}
 .lane2.audio .gap-close:active{transform:translateY(-50%) scale(.9)}
 @keyframes gapPop{from{opacity:0;transform:translateY(-50%) scale(.5)}to{opacity:1;transform:translateY(-50%) scale(1)}}
+
+/* cloud export: the "getting ready" bar fills first (soft colour); when the render starts it is full and the bright render bar runs on top of it */
+.exp-opt-bar.two{position:relative}
+.exp-compact .exp-opt-bar.two i{position:absolute;left:0;top:0;height:100%;width:0}
+.exp-compact .exp-opt-bar.two i.prep{background:linear-gradient(90deg,#7c6cf566,#a597ff88);transition:width 1s linear}
+.exp-compact .exp-opt-bar.two i.prep::after{display:none}
+.exp-compact .exp-opt-bar.two i.run{z-index:1}
+.export-pill.cloud-pill.waiting .ep-bar b{width:var(--pw,10%) !important;animation:none;transition:width 1s linear}

@@ -132,21 +132,30 @@ export async function saveAnimRules(hidden, user) {
 export async function isAdmin(user) {
  if(!user)return false;
  if(user.uid==='debug')return false;
- for(let attempt=0;attempt<3;attempt++){
-  try{return (await withTimeout(apiCall('/api/security',{action:'status'},user.uid), 6000)).admin === true;}
+ for(let attempt=0;attempt<2;attempt++){
+  try{return (await withTimeout(apiCall('/api/security',{action:'status'},user.uid), 5000)).admin === true;}
   catch(e){if(e.status===401||e.status===403)return false;await new Promise(r=>setTimeout(r,500*(attempt+1)));}
  }
  return null;
 }
 
 /** Maintenance is controlled by the server so browser storage or route changes cannot bypass it. */
+const MAINT_KEY = 'toons-maintenance-last';
 export async function maintenanceStatus() {
+ const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 5000);
  try {
-  const r = await fetch('/api/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'maintenanceStatus' }) });
+  const r = await fetch('/api/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'maintenanceStatus' }), signal: ctl.signal });
   if (!r.ok) throw Error('Could not get the maintenance status right now.');
-  return await r.json();
+  const j = await r.json();
+  try { localStorage.setItem(MAINT_KEY, JSON.stringify({ maintenance: j.maintenance === true, features: j.features })); } catch { /* optional */ }
+  return j;
  }
- catch { return { maintenance: true, unavailable: true }; }
+ catch {
+  // a slow or failed check must not leave the app on a loading screen: use the last answer the server gave, if any
+  try { const last = JSON.parse(localStorage.getItem(MAINT_KEY) || 'null'); if (last) return { ...last, unavailable: true }; } catch { /* none */ }
+  return { maintenance: true, unavailable: true };
+ }
+ finally { clearTimeout(timer); }
 }
 
 /* ---------- admin: names + visibility of the Character Editor layers (Firestore config/layers) ---------- */

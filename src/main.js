@@ -977,6 +977,21 @@ window.addEventListener('resize', () => {
 const wideStudio = () => matchMedia('(min-width: 1000px)').matches;
 /** wide screen: the selected character's bar (name, size, flip, delete) lives at the top of the side panel, so the canvas never changes size when a character is picked */
 const wideScreen = matchMedia('(min-width: 861px)');
+/* Phone: the bar at the top of the tool panel is a real handle. Drag up = taller, drag down = shorter, drag far down = close; a tap switches between normal and tall. */
+function toggleSheetSize() { const tall = panelEl.offsetHeight > innerHeight * .78; panelEl.style.height = tall ? '' : `${Math.round(innerHeight * .88 - 64)}px`; panelEl.style.maxHeight = tall ? '' : 'none'; }
+function startSheetDrag(e) {
+  if (wideScreen.matches) return;
+  const grip = e.currentTarget, y0 = e.clientY, h0 = panelEl.offsetHeight, max = innerHeight * .9 - 64;
+  let moved = false;
+  grip.setPointerCapture?.(e.pointerId); panelEl.classList.add('dragging');
+  const mv = (ev) => { const dy = ev.clientY - y0; if (Math.abs(dy) > 4) moved = true; if (!moved) return; const hh = Math.max(60, Math.min(max, h0 - dy)); panelEl.style.maxHeight = 'none'; panelEl.style.height = `${hh}px`; };
+  const up = () => {
+    grip.removeEventListener('pointermove', mv); grip.removeEventListener('pointerup', up); grip.removeEventListener('pointercancel', up); panelEl.classList.remove('dragging');
+    if (!moved) { toggleSheetSize(); return; }
+    if (panelEl.offsetHeight < Math.min(h0, 220) * .6) { panelEl.style.height = ''; panelEl.style.maxHeight = ''; S.panelOpen = false; drawTabs(); }
+  };
+  grip.addEventListener('pointermove', mv); grip.addEventListener('pointerup', up); grip.addEventListener('pointercancel', up);
+}
 function placeSelBar() { if (selBar && wideScreen.matches) panelEl?.querySelector('.sheet-close')?.after(selBar); }
 wideScreen.addEventListener?.('change', () => { if (S.ready && tabsEl) drawTabs(); });
 function drawTabs() { drawTabsInner(); syncCloudPill(); }
@@ -1018,7 +1033,7 @@ function drawTabsInner() {
     h('div', { class: 'tabs-scroll' }, upload, ...['chars', 'anim', 'handprops', 'props', 'shadow', 'fx', 'canvas'].map(key => button(byKey[key])), more));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
-  panelEl.replaceChildren(h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
+  panelEl.replaceChildren(h('div', { class: 'sheet-grip', role: 'button', tabindex: 0, 'aria-label': 'Drag to resize this panel, drag down to close it', onpointerdown: startSheetDrag, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSheetSize(); } } }, h('i')), h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
     { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
@@ -3783,7 +3798,7 @@ function syncCloudPill() {
       job.status === 'done' && !cloudDl ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: downloadCloudExport }, 'Download') : null,
       job.status === 'error' ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: startCloudExport }, 'Try again') : null,
       finished ? h('button', { type: 'button', class: 'ep-cancel', 'aria-label': 'Dismiss', onclick: () => { cloudJob = null; try { localStorage.removeItem(CLOUD_KEY); } catch { /* optional */ } redrawPanel(); } }, '✕') : h('button', { type: 'button', class: 'ep-cancel', onclick: cancelCloudExportJob }, 'Cancel')),
-    finished && !(job.status === 'done' && cloudDl?.total) ? null : h('i', { class: 'ep-bar' }, h('b', { style: job.status === 'done' ? `width:${Math.round(cloudDl.loaded / cloudDl.total * 100)}%` : pct > 0 ? `width:${pct}%` : '' })));
+    finished && !(job.status === 'done' && cloudDl?.total) ? null : h('i', { class: 'ep-bar' }, h('b', { ...(job.status === 'done' || pct > 0 ? {} : { 'data-prep': '' }), style: (() => { const v = job.status === 'done' ? Math.round(cloudDl.loaded / cloudDl.total * 100) : pct > 0 ? pct : Math.round(cloudPrepFrac(job) * 100); return `width:${v}%;--pw:${v}%`; })() })));
   if (!finished && pct > 0) el.classList.remove('waiting');
   if (cloudPillEl) cloudPillEl.replaceWith(el); else document.body.append(el);
   cloudPillEl = el;
@@ -3807,6 +3822,8 @@ setInterval(() => {
   if (!cloudJob || !['starting', 'pending'].includes(cloudJob.status)) return;
   const text = cloudPhaseText(cloudJob, 0);
   for (const el of document.querySelectorAll('[data-cloud-msg]')) if (el.textContent !== text) el.textContent = text;
+  const w = `${Math.round(cloudPrepFrac(cloudJob) * 100)}%`;
+  for (const el of document.querySelectorAll('[data-prep]')) { el.style.width = w; el.style.setProperty('--pw', w); }
 }, 1000);
 /** a poll answer that says nothing new (same state, phase and percent) does not redraw the panel */
 const cloudChanged = (j) => !cloudJob || j.status !== cloudJob.status || j.phase !== cloudJob.phase || Math.round((j.progress || 0) * 100) !== Math.round((cloudJob.progress || 0) * 100) || j.error !== cloudJob.error || j.size !== cloudJob.size;
@@ -3871,7 +3888,17 @@ function cloudEta(job) {
   if (!Number.isFinite(secs) || secs > 6 * 3600) return '';
   return secs < 90 ? ` · about ${Math.max(5, Math.round(secs / 5) * 5)} s left` : ` · about ${Math.round(secs / 60)} min left`;
 }
-let cloudWaitSince = Date.now();
+let cloudWaitSince = Date.now(), cloudPhaseAt = { key: '', at: Date.now() };
+/** how far the "getting ready" stage is (0..1): it fills up while the machine starts and is full when the render begins; the render bar then runs on top of it */
+function cloudPrepFrac(job) {
+  if (!job) return 0;
+  if (job.status === 'rendering' && job.progress > 0) return 1;
+  if (['done', 'error', 'cancelled'].includes(job.status)) return 1;
+  const key = job.status === 'starting' ? 'starting' : job.phase || 'queued';
+  if (cloudPhaseAt.key !== key) cloudPhaseAt = { key, at: Date.now() };
+  const floors = { starting: [.03, .12], queued: [.12, .3], kernel_requested: [.3, .5], machine_starting: [.5, .8], loading: [.8, .92], preparing: [.92, .98] }, [lo, hi] = floors[key] || [.1, .3];
+  return lo + (hi - lo) * (1 - Math.exp(-((Date.now() - cloudPhaseAt.at) / 1000) / 25));
+}
 const waitClock = (job) => { const s = Math.max(0, Math.round((Date.now() - (job.createdAt || cloudWaitSince)) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 function cloudPhaseText(job, pct) {
   if (job.status === 'starting') return job.step || 'Getting ready…';
@@ -3898,7 +3925,7 @@ function cloudRenderTile() {
     h('p', { class: 'exp-opt-msg', role: 'status' }, cloudDlText()));
   if (cloudJob.status === 'done') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn ok exp-opt-btn', onclick: downloadCloudExport }, '⬇ Download'));
   return h('div', { class: 'exp-opt' }, head,
-    h('div', { class: `bar exp-opt-bar${pct === 0 ? ' indet' : ''}` }, h('i', { style: pct > 0 ? `width:${pct}%` : '' })),
+    h('div', { class: 'bar exp-opt-bar two', 'aria-label': pct > 0 ? 'Render progress' : 'Preparing' }, h('i', { class: 'prep', 'data-prep': '', style: `width:${Math.round(cloudPrepFrac(cloudJob) * 100)}%` }), h('i', { class: 'run', style: `width:${pct}%` })),
     h('p', { class: 'exp-opt-msg', 'data-cloud-msg': '' }, cloudPhaseText(cloudJob, pct)),
     h('button', { type: 'button', class: 'btn exp-opt-btn exp-opt-cancel', onclick: cancelCloudExportJob }, 'Cancel'));
 }
