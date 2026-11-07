@@ -4,7 +4,8 @@ export function gpuEncodeConfig() {
   const value = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('gpuenc');
   if (!value) return null;
   const [port, token] = value.split('.');
-  return /^\d{2,5}$/.test(port) && token ? { url: `ws://127.0.0.1:${port}`, token } : null;
+  const q = Number(new URLSearchParams(location.search).get('gpuq'));          // ?gpuq=0.8: JPEG quality of the frames sent to the encoder (lower = less CPU per frame; default 0.95)
+  return /^\d{2,5}$/.test(port) && token ? { url: `ws://127.0.0.1:${port}`, token, quality: q >= 0.5 && q <= 1 ? q : 0.95 } : null;
 }
 
 class Link {

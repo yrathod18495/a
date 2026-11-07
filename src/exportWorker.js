@@ -45,7 +45,7 @@ async function gpuSegment({ id, from, to }) {
     t = now(); stage.render(i / fps, i === from && !warm ? 0 : dt, voice, plan); clock.render += now() - t;
     t = now();
     let bytes;
-    if (jpeg) bytes = new Uint8Array(await (await stage.out.convertToBlob({ type: 'image/jpeg', quality: 0.95 })).arrayBuffer());
+    if (jpeg) bytes = new Uint8Array(await (await stage.out.convertToBlob({ type: 'image/jpeg', quality: job.gpuenc.quality || 0.95 })).arrayBuffer());
     else {
       const vf = new VideoFrame(stage.out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
       bytes = new Uint8Array(size); const layout = await vf.copyTo(bytes); vf.close();
