@@ -27,7 +27,7 @@ let link = null;
 /** the GPU-encoder version of a slice: the raw frames go to ffmpeg (on the GPU) instead of through this worker's own video encoder */
 async function gpuSegment({ id, from, to }) {
   const { fps, bitrate, W, H, voice, plan } = job, dt = 1 / fps, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const clock = { warm: 0, render: 0, submit: 0, wait: 0, flush: 0 }, now = () => performance.now();
+  const clock = { warm: 0, render: 0, submit: 0, wait: 0, flush: 0, jpeg: 0, send: 0 }, now = () => performance.now();
   link ||= await connectGpuEncoder(job.gpuenc);
   // Each frame is compressed to a JPEG here (quality 0.95) and ffmpeg decodes it again: a raw frame is 3.7 MB at 720p and 33 MB at 4K, far more than
   // the few CPU cores of a cloud machine can copy around at 40+ frames a second (measured: 16 fps raw against 60 fps with JPEG), and the picture then
@@ -45,13 +45,13 @@ async function gpuSegment({ id, from, to }) {
     t = now(); stage.render(i / fps, i === from && !warm ? 0 : dt, voice, plan); clock.render += now() - t;
     t = now();
     let bytes;
-    if (jpeg) bytes = new Uint8Array(await (await stage.out.convertToBlob({ type: 'image/jpeg', quality: job.gpuenc.quality || 0.95 })).arrayBuffer());
+    if (jpeg) { const blob = await stage.out.convertToBlob({ type: 'image/jpeg', quality: job.gpuenc.quality || 0.95 }); clock.jpeg += now() - t; bytes = new Uint8Array(await blob.arrayBuffer()); }          // jpeg = the GPU finishing the picture + reading it back + compressing it (not separable from here)
     else {
       const vf = new VideoFrame(stage.out, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
       bytes = new Uint8Array(size); const layout = await vf.copyTo(bytes); vf.close();
       if (layout[0].stride !== rowBytes) { const packed = new Uint8Array(rowBytes * H); for (let y = 0; y < H; y++) packed.set(bytes.subarray(y * layout[0].stride, y * layout[0].stride + rowBytes), y * rowBytes); bytes = packed; }
     }
-    link.send(bytes);
+    const ts = now(); link.send(bytes); clock.send += now() - ts;
     clock.submit += now() - t; t = now();
     while (link.ws.bufferedAmount > Math.max(2e6, (jpeg ? bytes.length : size) * 4)) { if (link.closed) throw new Error(link.error ? `The GPU encoder stopped: ${String(link.error).slice(0, 300)}` : 'The GPU encoder connection closed.'); await sleep(1); }          // the encoder is the slower side: wait instead of filling memory
     clock.wait += now() - t;

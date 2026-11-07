@@ -219,7 +219,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
         else if (m.type === 'segment') {
           results.set(m.id, m); framesTimed += m.frames || 0;
           if (m.clock) for (const k of Object.keys(m.clock)) clockTotal[k] = (clockTotal[k] || 0) + m.clock[k];
-          if (isCloudRenderPage() && framesTimed) { const per = (k) => ((clockTotal[k] || 0) / framesTimed).toFixed(1); console.info(`Cloud export timing so far: ${framesTimed} of ${frames} frames · worker ms per frame: drawing ${per('render')}, handing to the encoder ${per('submit')}, waiting for a busy encoder ${per('wait')}, warm-up ${per('warm')}, finishing ${per('flush')} · ${((framesTimed / ((performance.now() - startedAt) / 1000))).toFixed(1)} frames/s overall`); }
+          if (isCloudRenderPage() && framesTimed) { const per = (k) => ((clockTotal[k] || 0) / framesTimed).toFixed(1); console.info(`Cloud export timing so far: ${framesTimed} of ${frames} frames · worker ms per frame: drawing ${per('render')}, handing to the encoder ${per('submit')}${clockTotal.jpeg ? ` (JPEG ${per('jpeg')}, send ${per('send')})` : ''}, waiting for a busy encoder ${per('wait')}, warm-up ${per('warm')}, finishing ${per('flush')} · ${((framesTimed / ((performance.now() - startedAt) / 1000))).toFixed(1)} frames/s overall`); }
           next();
         }
         else if (m.type === 'error') fail(m.message);
@@ -243,7 +243,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
     }
   }
   if (isCloudRenderPage()) {
-    const sum = Object.values(clockTotal).reduce((a, b) => a + b, 0) || 1, pct = (k) => `${Math.round(((clockTotal[k] || 0) / sum) * 100)}%`, secs = (performance.now() - startedAt) / 1000;
+    const sum = Object.entries(clockTotal).filter(([k]) => k !== 'jpeg' && k !== 'send').reduce((a, [, b]) => a + b, 0) || 1, pct = (k) => `${Math.round(((clockTotal[k] || 0) / sum) * 100)}%`, secs = (performance.now() - startedAt) / 1000;
     console.info(`Cloud export timing: ${frames} frames in ${secs.toFixed(1)} s (${(frames / secs).toFixed(1)} fps) on ${workers} worker(s) · worker time: drawing ${pct('render')}, handing frames to the encoder ${pct('submit')}, waiting for a busy encoder ${pct('wait')}, finishing the encoder ${pct('flush')}, warm-up ${pct('warm')}`);
   }
   const res = mux({ codecs, W, H, FPS }, video, await audioPromise);
@@ -379,7 +379,7 @@ async function finishOnGpu({ gpu, results, clips, total, music, silent, onProgre
     want = head.size; if (got >= want) whenAll();
     await all;
     const sum = Object.values(clockTotal).reduce((a, b) => a + b, 0) || 1, pct = (k) => `${Math.round(((clockTotal[k] || 0) / sum) * 100)}%`, secs = (performance.now() - startedAt) / 1000;
-    console.info(`Cloud export timing (GPU encode): ${frames} frames in ${secs.toFixed(1)} s (${(frames / secs).toFixed(1)} fps) on ${workers} worker(s) · worker time: drawing ${pct('render')}, compressing + sending frames ${pct('submit')}, waiting for the GPU encoder ${pct('wait')}, finishing slices ${pct('flush')}, warm-up ${pct('warm')}`);
+    console.info(`Cloud export timing (GPU encode): ${frames} frames in ${secs.toFixed(1)} s (${(frames / secs).toFixed(1)} fps) on ${workers} worker(s) · worker time: drawing ${pct('render')}, compressing + sending frames ${pct('submit')} (of which GPU finish + readback + JPEG ${pct('jpeg')}, WebSocket send ${pct('send')}), waiting for the GPU encoder ${pct('wait')}, finishing slices ${pct('flush')}, warm-up ${pct('warm')}`);
     onProgress(1);
     return { blob: new Blob(pieces, { type: 'video/mp4' }), ext: 'mp4', info: `H.264${silent ? ' · no sound' : '/AAC'} ${W}×${H} · GPU encode (${gpu.codec}) · ${workers} workers` };
   } finally { gpu.close(); }
