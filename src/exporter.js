@@ -216,6 +216,7 @@ export async function exportParallel({ job, clips, total, onProgress, cancelled,
         const m = e.data;
         if (m.type === 'ready') next();
         else if (m.type === 'progress') { done += m.frames; onProgress(Math.min(0.99, done / frames)); }
+        else if (m.type === 'diagnostic') { if (isCloudRenderPage()) console.info(m.message); }          // the GPU-encoder workers explain what they send and where the time goes
         else if (m.type === 'segment') {
           results.set(m.id, m); framesTimed += m.frames || 0;
           if (m.clock) for (const k of Object.keys(m.clock)) clockTotal[k] = (clockTotal[k] || 0) + m.clock[k];

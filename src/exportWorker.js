@@ -3,7 +3,7 @@
 import { Stage } from './db/stage.js';
 import { connectGpuEncoder } from './gpu-encode.js';
 
-let stage, job;
+let stage, job, rawProbed = false;
 
 async function init(msg) {
   job = msg.job;
@@ -25,6 +25,8 @@ async function init(msg) {
 const PIX = { RGBA: 'rgba', RGBX: 'rgb0', BGRA: 'bgra', BGRX: 'bgr0' };          // what a canvas frame can be, named the way ffmpeg names it
 let link = null;
 /** the GPU-encoder version of a slice: the raw frames go to ffmpeg (on the GPU) instead of through this worker's own video encoder */
+const diagT = { finish: 0, copy: 0, jpeg: 0 };
+let diagN = 0;
 async function gpuSegment({ id, from, to }) {
   const { fps, bitrate, W, H, voice, plan } = job, dt = 1 / fps, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const clock = { warm: 0, render: 0, submit: 0, wait: 0, flush: 0, jpeg: 0, send: 0 }, now = () => performance.now();
@@ -35,6 +37,12 @@ async function gpuSegment({ id, from, to }) {
   const jpeg = typeof stage.out.convertToBlob === 'function';
   let pix = 'mjpeg', size = 0;
   if (!jpeg) { const probe = new VideoFrame(stage.out, { timestamp: 0 }); pix = PIX[probe.format]; size = probe.allocationSize(); probe.close(); if (!pix) throw new Error('This picture format cannot be sent to the GPU encoder.'); }
+  if (!rawProbed) {          // say once, per worker, which frame format really goes to the encoder and why (never claim raw frames when JPEG is what is sent)
+    rawProbed = true;
+    let why = 'not tried';
+    try { const vf = new VideoFrame(stage.out, { timestamp: 0 }); try { why = `canvas frames are ${vf.format}; `; vf.allocationSize({ format: 'NV12' }); why += 'NV12 copy works'; } finally { vf.close(); } } catch (e) { why += `NV12 copy is not supported (${String(e?.message || e).slice(0, 110)})`; }
+    self.postMessage({ type: 'diagnostic', message: `GPU encoder input: ${jpeg ? `JPEG q${job.gpuenc.quality || 0.95}` : `raw ${pix}`} - ${why}. This browser cannot turn a canvas frame into NV12/I420, so JPEG or raw RGB is all it can send.` });
+  }
   link.send({ t: 'slice', id, w: W, h: H, fps, pix, bitrate });
   const warm = Math.min(from, Math.round(fps * 0.75));
   let t = now();
@@ -43,6 +51,12 @@ async function gpuSegment({ id, from, to }) {
   const rowBytes = W * 4;
   for (let i = from; i < to; i++) {
     t = now(); stage.render(i / fps, i === from && !warm ? 0 : dt, voice, plan); clock.render += now() - t;
+    if (job.gpuenc.diag && diagN < 24 && jpeg) {          // ?gpudiag=1: split the 'JPEG' time into GPU finish / RGBA readback / JPEG compress on a few frames
+      let d = now(); stage.gl?.finish?.(); diagT.finish += now() - d;
+      d = now(); const vf = new VideoFrame(stage.out, { timestamp: 0 }); try { const buf = new Uint8Array(vf.allocationSize({ format: 'RGBA' })); await vf.copyTo(buf, { format: 'RGBA' }); } finally { vf.close(); } diagT.copy += now() - d;
+      d = now(); await stage.out.convertToBlob({ type: 'image/jpeg', quality: job.gpuenc.quality || 0.95 }); diagT.jpeg += now() - d;
+      if (++diagN === 24) self.postMessage({ type: 'diagnostic', message: `GPU encoder diagnosis, ms per ${W}x${H} frame over 24 frames: GPU finish ${(diagT.finish / 24).toFixed(1)}, RGBA readback ${(diagT.copy / 24).toFixed(1)}, JPEG compress ${(diagT.jpeg / 24).toFixed(1)}` });
+    }
     t = now();
     let bytes;
     if (jpeg) { const blob = await stage.out.convertToBlob({ type: 'image/jpeg', quality: job.gpuenc.quality || 0.95 }); clock.jpeg += now() - t; bytes = new Uint8Array(await blob.arrayBuffer()); }          // jpeg = the GPU finishing the picture + reading it back + compressing it (not separable from here)
