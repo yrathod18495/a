@@ -215,3 +215,8 @@ stays flat no matter how long the Space has been running.
 
 ### GPU encoding and the shared-slice path
 Only the single-machine path (`exportParallel`) sends frames to the worker's GPU encoder. The shared-slice path (`exportDistributed`) packs browser-encoded slices and never used `?gpuenc=`. So when the page address has `gpuenc`, `runCloudExportJob` renders alone (same as `?dist=0`); without `gpuenc`, nothing changes. A worker log line `Cloud export: GPU encoder connected (h264_nvenc)` confirms the bridge is in use.
+
+### What the Export tab shows (owner's side)
+- Clicking Render names each step before anything is sent: "Saving your latest changes…", "Sending your render request…", then "Request sent. Waiting for a render machine…" (a sleeping machine needs about a minute to start).
+- Polling asks less often while the job waits for a machine (4 s) or the tab is hidden (10 s), and the panel only redraws when the state, phase or percent changed. The render machine writes progress only when the percent moved and at least 2 s have passed.
+- Download: a video under 150 MB is fetched by the page with a live percentage and MB count, then saved as `<name>.mp4`. A bigger one opens the signed link and the browser shows its own progress (the tile says so). `saveCloudVideo(..., onProgress)` reports `(loaded, total)`, or `(null, 0, 'browser')`.

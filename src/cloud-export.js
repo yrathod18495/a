@@ -31,21 +31,48 @@ export async function watchCloudExport(uid, jobId, { onUpdate, stop = () => fals
     try { job = await cloudExportStatus(uid, jobId); } catch (e) { onUpdate?.(null, e); await new Promise((r) => setTimeout(r, intervalMs)); continue; }
     onUpdate?.(job, null);
     if (['done', 'error', 'cancelled'].includes(job.status)) return job;
-    await new Promise((r) => setTimeout(r, intervalMs));
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';          // nobody is looking: ask less often
+    await new Promise((r) => setTimeout(r, hidden ? Math.max(intervalMs, 10000) : job.status === 'pending' ? Math.max(intervalMs, 4000) : intervalMs));
   }
 }
 
+/** reads a response into a Blob while reporting how much has arrived: onProgress(loadedBytes, totalBytes) (total is 0 when unknown) */
+async function readWithProgress(response, size, onProgress, signal) {
+  const total = Number(response.headers.get('content-length')) || size || 0;
+  if (!response.body?.getReader) { onProgress?.(0, total); const blob = await response.blob(); onProgress?.(blob.size, blob.size); return blob; }
+  const reader = response.body.getReader(), chunks = []; let got = 0, last = 0;
+  onProgress?.(0, total);
+  for (;;) {
+    if (signal?.aborted) { try { await reader.cancel(); } catch { /* already closed */ } throw new DOMException('The download was cancelled.', 'AbortError'); }
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value); got += value.length;
+    const now = performance.now();
+    if (now - last > 200) { last = now; onProgress?.(got, total); }
+  }
+  onProgress?.(got, total || got);
+  return new Blob(chunks, { type: 'video/mp4' });
+}
 /**
- * Saves a finished video as a proper "<name>.mp4" file. A normal link to another web address ignores the page's chosen file name
- * (the browser then used the storage file name, which has no ending), so smaller videos are fetched and saved from here with the
- * right name and type; a big one (a phone cannot hold it in memory) opens the signed link, which also names the file.
+ * Saves a finished video as a proper "<name>.mp4" file, showing real progress. A normal link to another web address ignores the page's
+ * chosen file name, so smaller videos are fetched here (with a progress callback) and saved with the right name and type; a big one
+ * (a phone cannot hold it in memory) opens the signed link, which also names the file, and the browser shows its own progress:
+ * onProgress(null, 0, 'browser') says so. onProgress(loaded, total) is called while a video is being fetched here.
  */
-export async function saveCloudVideo(uid, jobId, name, size = 0) {
+export async function saveCloudVideo(uid, jobId, name, size = 0, onProgress = null, signal = null) {
   const url = await cloudExportDownloadUrl(uid, jobId);
   let href = url, revoke = null;
   if (size && size < 150 * 1048576) {
-    try { const r = await fetch(url); if (r.ok) { href = URL.createObjectURL(new Blob([await r.blob()], { type: 'video/mp4' })); revoke = href; } } catch { /* the link itself still works */ }
-  }
+    try {
+      const r = await fetch(url, { signal });
+      if (!r.ok) throw new Error(`The download failed (${r.status}).`);
+      href = URL.createObjectURL(await readWithProgress(r, size, onProgress, signal)); revoke = href;
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;
+      console.warn('Cloud video: could not fetch it here, opening the link instead', e);
+      onProgress?.(null, 0, 'browser');                    // the link itself still works; the browser shows its own progress
+    }
+  } else onProgress?.(null, 0, 'browser');
   const a = document.createElement('a'); a.href = href; a.download = name; document.body.append(a); a.click(); a.remove();
   if (revoke) setTimeout(() => URL.revokeObjectURL(revoke), 60000);
 }

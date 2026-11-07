@@ -3777,13 +3777,13 @@ function syncCloudPill() {
   const job = cloudJob;
   if (!job || (S.tab === 'export' && S.panelOpen)) { cloudPillEl?.remove(); cloudPillEl = null; return; }
   const finished = ['done', 'error', 'cancelled'].includes(job.status), pct = Math.round((job.progress || 0) * 100);
-  const text = job.status === 'done' ? 'Your cloud video is ready.' : job.status === 'error' ? `Cloud export failed: ${job.error || 'please try again.'}` : job.status === 'cancelled' ? 'Cloud export cancelled.' : cloudPhaseText(job, pct);
+  const text = job.status === 'done' && cloudDl ? cloudDlText() : job.status === 'done' ? 'Your cloud video is ready.' : job.status === 'error' ? `Cloud export failed: ${job.error || 'please try again.'}` : job.status === 'cancelled' ? 'Cloud export cancelled.' : cloudPhaseText(job, pct);
   const el = h('div', { class: `export-pill cloud-pill${finished ? '' : ' waiting'}${job.status === 'error' ? ' cp-error' : ''}`, role: 'status', 'aria-live': 'polite' },
     h('div', { class: 'ep-row' }, icon('cloud'), h('span', { class: 'ep-text' }, text),
-      job.status === 'done' ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: downloadCloudExport }, 'Download') : null,
+      job.status === 'done' && !cloudDl ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: downloadCloudExport }, 'Download') : null,
       job.status === 'error' ? h('button', { type: 'button', class: 'ep-cancel cp-ok', onclick: startCloudExport }, 'Try again') : null,
       finished ? h('button', { type: 'button', class: 'ep-cancel', 'aria-label': 'Dismiss', onclick: () => { cloudJob = null; try { localStorage.removeItem(CLOUD_KEY); } catch { /* optional */ } redrawPanel(); } }, '✕') : h('button', { type: 'button', class: 'ep-cancel', onclick: cancelCloudExportJob }, 'Cancel')),
-    finished ? null : h('i', { class: 'ep-bar' }, h('b', { style: pct > 0 ? `width:${pct}%` : '' })));
+    finished && !(job.status === 'done' && cloudDl?.total) ? null : h('i', { class: 'ep-bar' }, h('b', { style: job.status === 'done' ? `width:${Math.round(cloudDl.loaded / cloudDl.total * 100)}%` : pct > 0 ? `width:${pct}%` : '' })));
   if (!finished && pct > 0) el.classList.remove('waiting');
   if (cloudPillEl) cloudPillEl.replaceWith(el); else document.body.append(el);
   cloudPillEl = el;
@@ -3797,25 +3797,29 @@ async function resumeCloudJob() {
     if (!job) throw Error('gone');
     cloudJob = { id: saved.id, ...job }; cloudJobStop = false; redrawPanel();
     if (!['done', 'error', 'cancelled'].includes(job.status)) {
-      const final = await watchCloudExport(uid, saved.id, { onUpdate: (j) => { if (j) { cloudJob = { id: saved.id, ...j }; noteCloudProgress(cloudJob); redrawPanel(); } }, stop: () => cloudJobStop });
+      const final = await watchCloudExport(uid, saved.id, { onUpdate: (j) => { if (j && cloudChanged(j)) { cloudJob = { id: saved.id, ...j }; noteCloudProgress(cloudJob); redrawPanel(); } }, stop: () => cloudJobStop });
       if (final) { cloudJob = { id: saved.id, ...final }; redrawPanel(); }
     }
   } catch { try { localStorage.removeItem(CLOUD_KEY); } catch { /* optional */ } }
 }        // {id, status, progress, hash, size, error} | null
+/** a poll answer that says nothing new (same state, phase and percent) does not redraw the panel */
+const cloudChanged = (j) => !cloudJob || j.status !== cloudJob.status || j.phase !== cloudJob.phase || Math.round((j.progress || 0) * 100) !== Math.round((cloudJob.progress || 0) * 100) || j.error !== cloudJob.error || j.size !== cloudJob.size;
 async function startCloudExport() {
   const id = projectContext()?.id, uid = projectContext()?.uid;
   if (!id || !uid) { toast('Please wait for this project to finish saving to the cloud, then try again.'); return; }
   if (cloudJob && !['done', 'error', 'cancelled'].includes(cloudJob.status)) return;
-  cloudJob = { id: null, status: 'starting', progress: 0 }; cloudJobStop = false; redrawPanel();
+  const step = (text) => { cloudJob = { id: null, status: 'starting', progress: 0, step: text }; redrawPanel(); };
+  cloudJobStop = false; step('Saving your latest changes…');
   // the render machine only ever sees what is already saved to the cloud, so the latest edits are pushed first — but a sync
   // problem (an unrelated bug in that save, or just being offline) must not block cloud export entirely: the project's last
   // cloud snapshot can still be rendered. Only "nothing has ever been saved" (checked by the server next) should really stop it.
   try { await syncCurrent(); } catch (e) { console.warn('Cloud export: could not save the latest changes first', e); toast(`Could not save your latest changes first (${e.message}) — rendering the last saved version instead.`, 'warn'); }
   try {
+    step('Sending your render request…');
     const { seconds, scenes } = exportLength();
     const jobId = await createCloudExport(uid, { projectId: id, seconds, scenes, scope: scenes > 1 ? 'all' : 'current', settings: { quality: S.quality, fps: S.fps, level: S.level, format: S.format } });
     cloudJob = { id: jobId, status: 'pending', progress: 0 }; rememberCloudJob(cloudJob); redrawPanel();
-    const final = await watchCloudExport(uid, jobId, { onUpdate: (job) => { if (job) { cloudJob = job; noteCloudProgress(job); redrawPanel(); } }, stop: () => cloudJobStop });
+    const final = await watchCloudExport(uid, jobId, { onUpdate: (job) => { if (job && cloudChanged(job)) { cloudJob = job; noteCloudProgress(job); redrawPanel(); } }, stop: () => cloudJobStop });
     if (final) { cloudJob = final; redrawPanel(); if (final.status === 'error') toast(`Cloud export failed: ${final.error || 'unknown error'}`); }
   } catch (e) { toast(e.message); cloudJob = { id: cloudJob?.id || null, status: 'error', progress: 0, error: e.message }; redrawPanel(); }
 }
@@ -3825,11 +3829,22 @@ async function cancelCloudExportJob() {
   const uid = projectContext()?.uid; if (!uid) return;
   try { cloudJob = await cancelCloudExport(uid, cloudJob.id); } catch (e) { toast(e.message); } redrawPanel();
 }
+let cloudDl = null;          // {loaded, total, browser} while a finished cloud video is being downloaded
+const cloudDlText = () => !cloudDl ? '' : cloudDl.browser ? 'Download started: your browser shows its progress.' : cloudDl.total ? `Downloading… ${Math.round(cloudDl.loaded / cloudDl.total * 100)}% (${(cloudDl.loaded / 1048576).toFixed(1)} of ${(cloudDl.total / 1048576).toFixed(1)} MB)` : 'Starting the download…';
 async function downloadCloudExport() {
-  if (!cloudJob?.id) return;
+  if (!cloudJob?.id || cloudDl) return;
   const uid = projectContext()?.uid, id = projectContext()?.id; if (!uid) return;
-  try { await saveCloudVideo(uid, cloudJob.id, exportFileName(id, 'mp4'), cloudJob.size); }
-  catch (e) { toast(`Could not get the download link: ${e.message}`); }
+  cloudDl = { loaded: 0, total: cloudJob.size || 0 }; redrawPanel();
+  let lastPct = -1;
+  try {
+    await saveCloudVideo(uid, cloudJob.id, exportFileName(id, 'mp4'), cloudJob.size, (loaded, total, mode) => {
+      cloudDl = mode === 'browser' ? { loaded: 0, total: 0, browser: true } : { loaded, total };
+      const pct = total ? Math.floor(loaded / total * 100) : -1;
+      if (mode === 'browser' || pct !== lastPct) { lastPct = pct; redrawPanel(); }
+    });
+    toast('Your video was saved.');
+  } catch (e) { toast(`Could not download the video: ${e.message}`); }
+  finally { const wasBrowser = cloudDl?.browser; cloudDl = wasBrowser ? cloudDl : null; redrawPanel(); if (wasBrowser) setTimeout(() => { cloudDl = null; redrawPanel(); }, 6000); }
 }
 /** the device tile of the Render section: one button, states it plainly instead of a row of separate controls */
 function deviceRenderTile() {
@@ -3851,7 +3866,8 @@ function cloudEta(job) {
   return secs < 90 ? ` · about ${Math.max(5, Math.round(secs / 5) * 5)} s left` : ` · about ${Math.round(secs / 60)} min left`;
 }
 function cloudPhaseText(job, pct) {
-  if (job.status === 'starting' || job.status === 'pending') return 'Waiting for a machine…';
+  if (job.status === 'starting') return job.step || 'Getting ready…';
+  if (job.status === 'pending') return 'Request sent. Waiting for a render machine (it can take about a minute to start)…';
   return { loading: 'Starting the render machine and loading your project…', preparing: 'Preparing your scene…', uploading: 'Finishing up: saving the video…' }[job.phase] || `Rendering… ${pct}%${cloudEta(job)}`;
 }
 function cloudRenderTile() {
@@ -3862,6 +3878,9 @@ function cloudRenderTile() {
     h('p', { role: 'alert', class: 'exp-opt-msg exp-opt-msg-error' }, cloudJob.error || 'This export failed.'),
     h('button', { type: 'button', class: 'btn exp-opt-btn', onclick: startCloudExport }, '↻ Try again'));
   if (cloudJob.status === 'cancelled') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn exp-opt-btn', onclick: startCloudExport }, 'Render'));
+  if (cloudJob.status === 'done' && cloudDl) return h('div', { class: 'exp-opt' }, head,
+    h('div', { class: `bar exp-opt-bar${cloudDl.total ? '' : ' indet'}` }, h('i', { style: cloudDl.total ? `width:${Math.round(cloudDl.loaded / cloudDl.total * 100)}%` : '' })),
+    h('p', { class: 'exp-opt-msg', role: 'status' }, cloudDlText()));
   if (cloudJob.status === 'done') return h('div', { class: 'exp-opt' }, head, h('button', { type: 'button', class: 'btn ok exp-opt-btn', onclick: downloadCloudExport }, '⬇ Download'));
   return h('div', { class: 'exp-opt' }, head,
     h('div', { class: `bar exp-opt-bar${pct === 0 ? ' indet' : ''}` }, h('i', { style: pct > 0 ? `width:${pct}%` : '' })),
@@ -4063,11 +4082,11 @@ async function doExport({ foreground = false } = {}) {
 export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall }) {
   Object.assign(S, settings);
   S.exporting = true;
-  let t0 = performance.now(), lastSent = 0, role = null;
+  let t0 = performance.now(), lastSent = 0, lastPct = -1, role = null;
   const progress = async (p) => {
     const now = performance.now();
-    if (p < 1 && now - lastSent < 2000) return;        // the job's own progress field is a cloud write: a couple of seconds apart is plenty
-    lastSent = now;
+    if (p < 1 && (now - lastSent < 2000 || Math.round(p * 100) === lastPct)) return;        // the job's own progress field is a cloud write: a couple of seconds apart, and only when the percent moved
+    lastSent = now; lastPct = Math.round(p * 100);
     try { await jobCall(uid, jobId, secret, 'cloudProgress', { progress: p, phase: 'rendering' }); } catch (e) { console.warn('Cloud export: progress update failed', e.message); }
   };
   try {

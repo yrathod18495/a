@@ -21,8 +21,9 @@ export function openCloudVideos(uid, { projectId = null } = {}) {
     list.replaceChildren(...shown.map((v) => {
       const download = h('button', { type: 'button', class: 'btn ok sm', onclick: async () => {
         download.disabled = true;
-        try { await saveCloudVideo(uid, v.id, exportFileName(v.projectId, 'mp4', new Date(v.createdAt)), v.size); }
-        catch (e) { toast(e.message); } finally { download.disabled = false; }
+        try {
+          await saveCloudVideo(uid, v.id, exportFileName(v.projectId, 'mp4', new Date(v.createdAt)), v.size, (loaded, total, mode) => { download.textContent = mode === 'browser' ? 'Started' : total ? `${Math.floor(loaded / total * 100)}%` : '…'; });
+        } catch (e) { toast(e.message); } finally { download.disabled = false; setTimeout(() => { download.textContent = 'Download'; }, 2500); }
       } }, 'Download');
       const remove = h('button', { type: 'button', class: 'btn sm', 'aria-label': 'Delete this video', onclick: async () => {
         remove.disabled = true;

@@ -136,3 +136,37 @@ test('Cloud render page: a project left "dirty" in a reused browser profile does
   expect(out.plain).toBe('Local save stopped partway through');
   expect(out.forced).toBe('ok');
 });
+
+// A finished cloud video is downloaded with a real percentage (and the steps before the request are named), then saved with the right file name.
+test('Cloud export: download shows a live percentage and saves the file', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  const body = Buffer.alloc(3 * 1048576, 7);
+  let job = null;
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/export', async (r) => {
+    const req = JSON.parse(r.request().postData());
+    if (req.action === 'cloudCreate') { job = { id: 'cexp_dl1', status: 'done', progress: 1, size: body.length }; return r.fulfill({ json: { jobId: 'cexp_dl1', job } }); }
+    if (req.action === 'cloudStatus') return r.fulfill({ json: { job } });
+    if (req.action === 'cloudDownload') return r.fulfill({ json: { url: 'http://files.test/video.mp4' } });
+    return r.fulfill({ json: { error: 'unexpected' }, status: 400 });
+  });
+  // a slow file: the answer arrives in pieces so the percentage has time to show
+  await page.route('http://files.test/video.mp4', async (r) => r.fulfill({ status: 200, headers: { 'content-type': 'video/mp4', 'access-control-allow-origin': '*' }, body }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('CloudDl');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(async () => { const store = await import('/src/store.js'); store.selectProject('debug-uid', 'proj_cloudtest'); });
+  await page.evaluate(() => window.__toon.openTab('export'));
+  const cloudTile = page.locator('.exp-opt', { hasText: 'Cloud' });
+  await cloudTile.getByRole('button', { name: 'Render', exact: true }).click();
+  const dl = cloudTile.getByRole('button', { name: /Download/ });
+  await expect(dl).toBeVisible({ timeout: 5000 });
+  const saved = page.waitForEvent('download');
+  await dl.click();
+  const file = await saved;
+  expect(file.suggestedFilename()).toMatch(/\.mp4$/);
+  await expect(cloudTile.getByRole('button', { name: /Download/ })).toBeVisible();          // back to normal after the save
+  expect(errors).toEqual([]);
+});
