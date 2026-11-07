@@ -2027,6 +2027,7 @@ function drawClipNav() {
         ...(kind === 'shadow' || kind === 'fx' ? [] : [btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard })]),          // Prev / Next are already in the row above the timeline
         ...(kind === 'bg' || kind === 'clip' || kind === 'prop' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
         ...(['clip', 'bg', 'prop', 'shadow', 'fx'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
+        ...(kind === 'clip' && s && S.order.length > 1 ? [btn('chevron-up', 'Bring forward', () => moveCharacterLayer(s.key, -1), { title: 'Move this character one step in front of the others' }), btn('chevron-down', 'Send back', () => moveCharacterLayer(s.key, 1), { title: 'Move this character one step behind the others' }), btn('arrow-up', 'To front', () => moveCharacterLayer(s.key, 'front')), btn('arrow-down', 'To back', () => moveCharacterLayer(s.key, 'back'))] : []),
         ...(hasPath ? [btn('x', 'Remove path', () => { delete S.paths[s.key]; applyPath(s.key); drawTimeline(); drawClipBar(); })] : []),
         ...(kind === 'clip' && S.sel ? [btn('users', 'Character', () => { S.mclip = null; drawTimeline(); drawClipBar(); })] : []),
       )));
@@ -2140,6 +2141,14 @@ async function splitSelected() {
   c.lane = pr.lane = pr.lane || pr.id;                       // the new piece stays on the same row
   pr.start = start; pr.end = +at.toFixed(2); S.props.push(c); selectOnly('prop', c.id);
   await dbPut('props', pr); await dbPut('props', c); await stage.setProps(S.props); S.dirty = true; commitClips();
+}
+/** which character is in front: the top row of the timeline is the front-most character (S.order[0]); `to` is 'front', 'back', or a step (-1 = one step towards the front) */
+async function moveCharacterLayer(key, to) {
+  const i = S.order.indexOf(key); if (i < 0) return;
+  const j = to === 'front' ? 0 : to === 'back' ? S.order.length - 1 : Math.max(0, Math.min(S.order.length - 1, i + to));
+  if (j === i) { toast(to === 'front' || to === -1 ? 'This character is already in front.' : 'This character is already at the back.'); return; }
+  S.order.splice(i, 1); S.order.splice(j, 0, key);
+  await applyLayers(); S.dirty = true; commitClips();
 }
 async function duplicateSelected() {
   if (selectedLocked()) { lockedToast(); return; }
