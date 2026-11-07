@@ -193,7 +193,7 @@ test('Cloud export: waiting shows "request received", the machine state and a mo
   const tile = page.locator('.exp-opt', { hasText: 'Cloud' });
   await tile.getByRole('button', { name: 'Render', exact: true }).click();
   const msg = tile.locator('[data-cloud-msg]');
-  await expect(msg).toContainText(/Request received\. A render machine is starting/, { timeout: 5000 });
+  await expect(msg).toContainText(/Request received\. A machine has started and is setting up/, { timeout: 5000 });
   const first = await msg.textContent();
   await expect.poll(async () => msg.textContent(), { timeout: 5000 }).not.toBe(first);          // the clock ticked
   await tile.getByRole('button', { name: 'Cancel', exact: true }).click();

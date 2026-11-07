@@ -3875,9 +3875,13 @@ let cloudWaitSince = Date.now();
 const waitClock = (job) => { const s = Math.max(0, Math.round((Date.now() - (job.createdAt || cloudWaitSince)) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 function cloudPhaseText(job, pct) {
   if (job.status === 'starting') return job.step || 'Getting ready…';
-  if (job.status === 'pending') return job.phase === 'machine_starting'
-    ? `Request received. A render machine is starting (about 1–2 minutes)… ${waitClock(job)}`
-    : `Request received. Waiting for a render machine… ${waitClock(job)}`;
+  if (job.status === 'pending') {
+    const late = (Date.now() - (job.createdAt || cloudWaitSince)) > 240000 ? ' Taking longer than usual: the machine may not have started, you can cancel and try again.' : '';
+    const t = waitClock(job);
+    if (job.phase === 'machine_starting') return `Request received. A machine has started and is setting up (about a minute)… ${t}${late}`;
+    if (job.phase === 'kernel_requested') return `Request received. Asking Kaggle to start a machine… ${t}${late}`;
+    return `Request received. Waiting for a render machine… ${t}${late}`;
+  }
   if (job.status === 'rendering' && (!job.phase || job.phase === 'machine_starting') && !(job.progress > 0)) return 'A render machine picked up your request and is getting ready…';
   return { loading: 'Starting the render machine and loading your project…', preparing: 'Preparing your scene…', uploading: 'Finishing up: saving the video…' }[job.phase] || `Rendering… ${pct}%${cloudEta(job)}`;
 }
