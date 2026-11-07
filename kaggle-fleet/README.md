@@ -64,6 +64,7 @@ Kaggle's public API does not tell how many weekly GPU hours are left, so the Spa
 - Space Variables (optional): `KAGGLE_WEEKLY_HOURS` (default `30`), `KAGGLE_SWITCH_MARGIN_MINUTES` (default `45`).
 - **Automatic start from the website:** a new request starts the selected account by itself. An account stopped by hand (Stop selected) is started again by a request that arrives *after* the Stop; one whose last automatic start failed is tried again after 2 minutes while requests are still waiting. If the Space still does not start it, its log says why: `Not auto-starting KAGGLE_n for the waiting request: ...`.
 - **A worker the Space refuses:** the Space only serves the *selected* account. The refusal now says which one is selected (`403 ... selected: Kaggle 2; this worker: Kaggle 1`). A worker that comes up on its own while no other worker is running (for example you pressed Run on kaggle.com) is accepted and its account becomes the selected one. A worker refused for 3 minutes shuts itself down so it does not burn free hours. An account you just selected is not rotated away from for 30 minutes unless Kaggle itself says its quota is used up.
+- **Dashboard jobs:** the top of the page shows **Processing** (job id, progress, how long it has been processing, how long it waited in the queue, source: Kaggle account or HF fallback, video length/quality/fps) and **Queue** (position, job id, how long it has been waiting). Data comes from `GET /api/fleet/queue` (job ids and times only; no owner id or secret).
 
 ## Runtime compatibility
 

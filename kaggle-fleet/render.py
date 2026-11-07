@@ -1034,6 +1034,43 @@ def stop_worker() -> tuple[bool, str]:
     return True, "Stop requested. Active render jobs will finish before the worker becomes idle."
 
 
+@app.get("/api/fleet/queue")
+def api_fleet_queue() -> dict[str, Any]:
+    """What is being processed and what is waiting, for the dashboard. Job ids and times only: never the owner's id or the job secret."""
+    now_ms = int(time.time() * 1000)
+    processing: list[dict[str, Any]] = []
+    queued: list[dict[str, Any]] = []
+    for uid, rows in (_get_queue_snapshot() or {}).items():
+        if not isinstance(rows, dict):
+            continue
+        for job_id, job in rows.items():
+            if not isinstance(job, dict):
+                continue
+            status = str(job.get("status") or "")
+            if status not in ("pending", "rendering"):
+                continue
+            try:
+                created = int(job.get("createdAt") or 0)
+                claimed = int(job.get("workerClaimedAt") or job.get("updatedAt") or created)
+            except (TypeError, ValueError):
+                created = claimed = now_ms
+            settings = job.get("settings") if isinstance(job.get("settings"), dict) else {}
+            base = {"job_id": str(job_id), "seconds": job.get("seconds"), "quality": settings.get("quality"), "fps": settings.get("fps"),
+                    "created_at": created, "phase": job.get("phase")}
+            if status == "pending":
+                queued.append({**base, "waiting_s": max(0.0, (now_ms - created) / 1000.0)})
+            else:
+                try:
+                    progress = float(job.get("progress") or 0)
+                except (TypeError, ValueError):
+                    progress = 0.0
+                processing.append({**base, "progress": progress, "source": job.get("workerSource") or "hf", "worker": job.get("workerId"),
+                                   "queued_s": max(0.0, (claimed - created) / 1000.0), "processing_s": max(0.0, (now_ms - claimed) / 1000.0), "claimed_at": claimed})
+    queued.sort(key=lambda j: j["created_at"])
+    processing.sort(key=lambda j: j["claimed_at"])
+    return {"now": now_ms, "processing": processing, "queue": queued}
+
+
 @app.get("/api/kaggle/next")
 def api_kaggle_next(
     agent_id: str = Query(..., min_length=1, max_length=60),
