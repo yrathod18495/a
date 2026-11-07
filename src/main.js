@@ -3819,7 +3819,7 @@ async function startCloudExport() {
   // the render machine only ever sees what is already saved to the cloud, so the latest edits are pushed first — but a sync
   // problem (an unrelated bug in that save, or just being offline) must not block cloud export entirely: the project's last
   // cloud snapshot can still be rendered. Only "nothing has ever been saved" (checked by the server next) should really stop it.
-  try { await syncCurrent(); } catch (e) { console.warn('Cloud export: could not save the latest changes first', e); toast(`Could not save your latest changes first (${e.message}) — rendering the last saved version instead.`, 'warn'); }
+  try { await Promise.race([syncCurrent(), new Promise((_, no) => setTimeout(() => no(new Error('saving took more than 30 seconds')), 30000))]); } catch (e) { console.warn('Cloud export: could not save the latest changes first', e); toast(`Could not save your latest changes first (${e.message}) — rendering the last saved version instead.`, 'warn'); }
   try {
     step('Sending your render request…');
     const { seconds, scenes } = exportLength();
@@ -3877,7 +3877,7 @@ function cloudPhaseText(job, pct) {
   if (job.status === 'starting') return job.step || 'Getting ready…';
   if (job.status === 'pending') {
     const late = (Date.now() - (job.createdAt || cloudWaitSince)) > 240000 ? ' Taking longer than usual: the machine may not have started, you can cancel and try again.' : '';
-    const t = waitClock(job);
+    const t = `${waitClock(job)}${job.id ? ` · job #${job.id.slice(-4)}` : ''}`;
     if (job.phase === 'machine_starting') return `Request received. A machine has started and is setting up (about a minute)… ${t}${late}`;
     if (job.phase === 'kernel_requested') return `Request received. Asking Kaggle to start a machine… ${t}${late}`;
     return `Request received. Waiting for a render machine… ${t}${late}`;
