@@ -211,11 +211,15 @@ export async function view({ user, home, toast, localPreview = false }) {
       else ctx.drawImage(e.img, sx, sy, sw, sh, reg.x + bx + (bw - dw) / 2, reg.y + by + (bh - dh) / 2, dw, dh);
       ctx.restore();
     } else ctx.drawImage(st.orig[reg.page], reg.x, reg.y, rw, rh, reg.x, reg.y, rw, rh);
-    if (e && !e.removed && (e.hue || e.sat !== 1 || e.light)) {
+    if (e && !e.removed && (e.col || e.hue || e.sat !== 1 || e.light)) {
       const im = ctx.getImageData(reg.x, reg.y, rw, rh), d = im.data;
+      // "colour": the part takes the chosen colour, but keeps its own shading (folds, shadows): its average lightness moves to the chosen one and the light/dark differences stay
+      let avgL = 0.5;
+      if (e.col) { let sum = 0, n = 0; for (let i = 0; i < d.length; i += 16) { if (d[i + 3] < 8) continue; sum += rgb2hsl(d[i], d[i + 1], d[i + 2])[2]; n++; } if (n) avgL = sum / n; }
       for (let i = 0; i < d.length; i += 4) {
         if (d[i + 3] < 8) continue;
-        const [hh, s, l] = rgb2hsl(d[i], d[i + 1], d[i + 2]);
+        let [hh, s, l] = rgb2hsl(d[i], d[i + 1], d[i + 2]);
+        if (e.col) { l = Math.min(1, Math.max(0, l + (e.col.l - avgL))); s = e.col.s * (1 - Math.pow(Math.abs(2 * l - 1), 4)); hh = e.col.h; }
         const [R, G, B] = hsl2rgb(hh + e.hue, Math.min(1, s * e.sat), Math.min(1, Math.max(0, l + e.light / 100)));
         d[i] = R; d[i + 1] = G; d[i + 2] = B;
       }
@@ -553,16 +557,50 @@ export async function view({ user, home, toast, localPreview = false }) {
     const blob = await toBlob(c, 'image/png'), a = h('a', { href: URL.createObjectURL(blob), download: `12toons-${safe(st.def.name).replace(/[^\w\-]+/g, '_')}-part-template.png` });
     document.body.append(a); a.click(); a.remove();
   }
+
+  /* ---------- colour of a part (a shirt, trousers, shoes …): the picture is re-coloured, so it shows in every animation and every export ---------- */
+  const SWATCHES = ['#ffffff', '#111111', '#e53935', '#fb8c00', '#fdd835', '#43a047', '#00897b', '#1e88e5', '#3949ab', '#8e24aa', '#d81b60', '#6d4c41'];
+  const hasColour = (r) => { const e = st.edit.get(r); return !!e && !e.removed && !!(e.col || e.hue || e.sat !== 1 || e.light); };
+  const hex2hsl = (hex) => { const n = parseInt(hex.slice(1), 16); return rgb2hsl((n >> 16) & 255, (n >> 8) & 255, n & 255); };
+  const swapSide = (key) => key.replace(/left|right|_l(?=$|\/)|_r(?=$|\/)/gi, (m) => { const t = m.toLowerCase(), up = m[0] === m[0].toUpperCase() && m.length > 2 && !m.startsWith('_'); const o = t === 'left' ? 'right' : t === 'right' ? 'left' : t === '_l' ? '_r' : '_l'; return up ? o[0].toUpperCase() + o.slice(1) : (m === m.toUpperCase() && m.startsWith('_') ? o.toUpperCase() : o); });
+  /** the regions a colour change applies to: this part, plus its left / right twin when "Both sides" is on */
+  function colourTargets(l) {
+    const out = [l.region];
+    if (st.colorBoth !== false) { const twin = swapSide(l.key); if (twin !== l.key) for (const o of layers()) if (o.key === twin && o.region !== l.region) out.push(o.region); }
+    return out;
+  }
+  function setColour(l, patch) {
+    const targets = colourTargets(l);
+    for (const r of targets) { const e = editOf(r); Object.assign(e, typeof patch === 'function' ? patch(e) : patch); }
+    queue(targets);
+  }
+  function colourPanel(l) {
+    const e = editOf(l.region);
+    const range = (label, min, max, step, get, set) => {
+      const val = h('span', { class: 'cs-cval' }, String(Math.round(get() * 100) / 100)), input = h('input', { type: 'range', min, max, step, value: get(), oninput: (ev) => { const v = Number(ev.target.value); val.textContent = String(Math.round(v * 100) / 100); set(v); } });
+      return h('label', { class: 'cs-crange' }, h('span', {}, label), input, val);
+    };
+    const pick = (hex) => { const [hh, ss, ll] = hex2hsl(hex); setColour(l, { col: { h: hh, s: ss, l: ll }, hex }); draw(); };
+    return h('div', { class: 'cs-colour' },
+      h('div', { class: 'cs-swatches' }, ...SWATCHES.map((c) => h('button', { type: 'button', class: `cs-sw${e.hex === c ? ' on' : ''}`, style: `background:${c}`, title: c, 'aria-label': `Colour ${c}`, onclick: () => pick(c) })),
+        h('input', { type: 'color', class: 'cs-sw-pick', value: e.hex || '#1e88e5', title: 'Any colour', 'aria-label': 'Choose any colour', onchange: (ev) => pick(ev.target.value) })),
+      range('Hue', -180, 180, 1, () => e.hue || 0, (v) => setColour(l, { hue: v })),
+      range('Colour strength', 0, 2, 0.05, () => e.sat ?? 1, (v) => setColour(l, { sat: v })),
+      range('Brightness', -50, 50, 1, () => e.light || 0, (v) => setColour(l, { light: v })),
+      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: st.colorBoth !== false, onchange: (ev) => { st.colorBoth = ev.target.checked; } }), 'Colour the left and right twin together'),
+      h('button', { type: 'button', class: 'btn sm', onclick: () => { setColour(l, { col: null, hex: null, hue: 0, sat: 1, light: 0 }); draw(); } }, 'Back to the original colour'));
+  }
   function panelCreate() {
     const rows = createRows(), isUtility = l => localPreview && st.previewUtilityRegions?.has(l.region), artworkRows = rows.filter(l => !isUtility(l)), done = artworkRows.filter((l) => st.edit.get(l.region)?.img).length;
     const bulk = h('input', { type: 'file', multiple: true, accept: '.psd,.zip,image/*,.svg', style: 'display:none', onchange: (ev) => { const f = [...ev.target.files]; ev.target.value = ''; bulkUpload(f); } });
     const groups = new Map();
     for (const l of rows) (groups.get(l.group) || groups.set(l.group, []).get(l.group)).push(l);
-    const row = (l) => {
+    const rowBase = (l) => {
       const reg = st.regions.get(l.region), e = st.edit.get(l.region), file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) putImage(l, f).then(draw); } });
       return h('div', { class: `cs-lrow cs-crow ${e?.img ? 'done' : ''} ${st.guideFocus === l.region ? 'rig-guide-selected' : ''}`, 'data-rig-region': l.region, }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, labelOf(l)), h('small', {}, `${reg.w}×${reg.h}px${isUtility(l) ? ' · Transparent utility slot' : e?.img ? ` · PNG ${e.img.width}×${e.img.height}px` : ''}`)),
-        h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, '⬇'), h('button', { class: `btn sm ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, e?.img ? 'Replace' : '⬆ Upload'), file);
+        h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, '⬇'), h('button', { class: `ib${hasColour(l.region) ? ' on' : ''}`, title: 'Change the colour of this part', 'aria-label': 'Change the colour of this part', onclick: (ev) => { ev.stopPropagation(); st.colorOpen = st.colorOpen === l.region ? null : l.region; draw(); } }, '🎨'), h('button', { class: `btn sm ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, e?.img ? 'Replace' : '⬆ Upload'), file);
     };
+    const row = (l) => h('div', { class: 'cs-lwrap' }, rowBase(l), st.colorOpen === l.region ? colourPanel(l) : null);
     return [
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Draw these parts in your own style (same angle as the template, transparent background), upload them one by one, or all together with the template sheet / a PSD. The skeleton, animations, lip-sync and physics come with the base body, so every animation works on your character.'),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' },
