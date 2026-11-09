@@ -989,13 +989,3 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .cv-info{flex:1;min-width:0}.cv-info b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cv-info small{display:block;color:var(--mute);font-size:11.5px;margin-top:2px}
 .cv-actions{display:flex;gap:6px;flex:none}
-
-/* Character editor: colour of a part */
-.cs-colour{display:flex;flex-direction:column;gap:8px;margin:2px 0 8px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--card2)}
-.cs-swatches{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.cs-sw{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);padding:0;cursor:pointer}
-.cs-sw.on{outline:2px solid var(--acc);outline-offset:2px}
-.cs-sw-pick{width:34px;height:28px;padding:0;border:0;background:none;cursor:pointer}
-.cs-crange{display:grid;grid-template-columns:96px 1fr 38px;align-items:center;gap:8px;font-size:12px}
-.cs-crange input{width:100%}.cs-cval{text-align:right;color:var(--mute)}
-.cs-lrow .ib.on{background:var(--acc);color:#fff}
