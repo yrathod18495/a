@@ -66,7 +66,7 @@ export async function validateSession() {
   clearInterval(heartbeat);
   watchSignal();
   heartbeat = setInterval(() => {
-    if(!navigator.onLine)return;
+    if(!navigator.onLine||document.hidden)return;          // a tab nobody is looking at does not call the server; every real API call checks the session anyway
     apiCall('/api/security', { action: 'heartbeat' }).catch(e => {
       if (e.status === 401 || e.status === 403) {
         if(auth.currentUser)localStorage.removeItem('12toons-validated-'+auth.currentUser.uid);

@@ -290,8 +290,8 @@ export async function exportDistributed({ job, clips, total, onProgress, cancell
   const own = new Map(), inflight = new Map(), framesIn = new Map(), pool = [];
   let failed = null;
   const killAll = () => pool.forEach((w) => w.terminate());
-  const beat = setInterval(() => { api.beat([...inflight.values()].map((id) => ({ id, frames: framesIn.get(id) || 0 }))).catch(() => {}); }, 5000);
-  const progress = leader ? setInterval(() => { api.parts().then((p) => onProgress(Math.min(0.99, p.progress))).catch(() => {}); }, 3000) : 0;
+  const beat = setInterval(() => { api.beat([...inflight.values()].map((id) => ({ id, frames: framesIn.get(id) || 0 }))).catch(() => {}); }, 10000);          // the lease is 150 s: a beat every 10 s keeps it with half the server calls
+  const progress = leader ? setInterval(() => { api.parts().then((p) => onProgress(Math.min(0.99, p.progress))).catch(() => {}); }, 6000) : 0;
   const claimNext = async () => {
     for (;;) {
       if (cancelled()) throw new Error('cancelled');

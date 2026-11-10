@@ -35,7 +35,7 @@ export async function cloudInfo() {
  return projects.length?{updatedAt:Math.max(...projects.map(p=>p.updatedAt))}:null;
 }
 let autoTimer;
-export function startAutoSync() {clearInterval(autoTimer);syncAll().catch(()=>{});autoTimer=setInterval(()=>syncAll().catch(()=>{}),180000);}   // only a safety net: saving is scheduled by project-sync (quiet 45 s, max 3 min) and when the tab is hidden
+export function startAutoSync() {clearInterval(autoTimer);syncAll().catch(()=>{});autoTimer=setInterval(()=>{if(!document.hidden)syncAll().catch(()=>{});},180000);}   // only a safety net: saving is scheduled by project-sync (quiet 45 s, max 3 min) and when the tab is hidden
 export const stopAutoSync=()=>clearInterval(autoTimer);
 
 /* ---------- characters (saved from the Character Editor) ---------- */

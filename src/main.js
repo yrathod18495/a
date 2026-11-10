@@ -4136,7 +4136,7 @@ export async function runCloudExportJob({ uid, jobId, secret, settings, jobCall 
   let t0 = performance.now(), lastSent = 0, lastPct = -1, role = null;
   const progress = async (p) => {
     const now = performance.now();
-    if (p < 1 && (now - lastSent < 2000 || Math.round(p * 100) === lastPct)) return;        // the job's own progress field is a cloud write: a couple of seconds apart, and only when the percent moved
+    if (p < 1 && (now - lastSent < 5000 || Math.round(p * 100) === lastPct)) return;        // the job's own progress field is a cloud write: a couple of seconds apart, and only when the percent moved
     lastSent = now; lastPct = Math.round(p * 100);
     try { await jobCall(uid, jobId, secret, 'cloudProgress', { progress: p, phase: 'rendering' }); } catch (e) { console.warn('Cloud export: progress update failed', e.message); }
   };
