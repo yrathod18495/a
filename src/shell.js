@@ -418,8 +418,17 @@ function hubView() {
     recent.hidden = false;
   }).catch(() => {});
   drawRecent();
-  const tool = (cls, title, text, hash, btn) => h('article', { class: `sh-tool st-tool ${cls}`, role: 'link', tabindex: '0', onclick: () => go(hash), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(hash); } } },
-    h('div', { class: 'st-tool-art', 'aria-hidden': 'true' }), h('div', { class: 'st-tool-body' }, h('h3', {}, title), h('p', {}, text), h('span', { class: 'st-launch' }, btn, ' →')));
+  // a small moving picture on every tool card: a timeline that plays, a character that changes colour, a landscape with a rising sun
+  const TOOL_ART = {
+    animator: '<svg viewBox="0 0 120 100" fill="none"><rect x="6" y="14" width="108" height="50" rx="10" fill="#ffffff14" stroke="#ffffff40"/><circle cx="60" cy="39" r="14" fill="#fff"/><path d="M56 32v14l12-7z" fill="#5b4bd4"/><g class="ta-bars"><rect x="6" y="74" width="46" height="8" rx="4" fill="#ffffff8c"/><rect x="58" y="74" width="30" height="8" rx="4" fill="#ffffff59"/><rect x="6" y="88" width="28" height="8" rx="4" fill="#ffffff59"/><rect x="40" y="88" width="56" height="8" rx="4" fill="#ffffff8c"/></g><rect class="ta-head" x="6" y="70" width="3" height="30" rx="1.500" fill="#fff"/></svg>',
+    actor: '<svg viewBox="0 0 120 100" fill="none"><circle cx="48" cy="26" r="15" fill="#ffe0bd"/><path d="M40 20c2-8 14-9 17-2 2 4-2 5-8 4s-8 1-9-2z" fill="#3a2414"/><path class="ta-shirt" d="M22 96c0-26 10-40 26-40s26 14 26 40z" fill="#fff"/><g class="ta-dots"><circle cx="98" cy="30" r="8" fill="#ff6b6b"/><circle cx="98" cy="54" r="8" fill="#4dabf7"/><circle cx="98" cy="78" r="8" fill="#51cf66"/></g><circle class="ta-pick" cx="98" cy="30" r="11" stroke="#fff" stroke-width="2"/></svg>',
+    bggen: '<svg viewBox="0 0 120 100" fill="none"><rect x="6" y="10" width="108" height="80" rx="12" fill="#ffffff14" stroke="#ffffff40"/><clipPath id="taC"><rect x="6" y="10" width="108" height="80" rx="12"/></clipPath><g clip-path="url(#taC)"><circle class="ta-sun" cx="84" cy="44" r="12" fill="#ffe066"/><path class="ta-cloud" d="M22 34h22a7 7 0 0 0 0-14 9 9 0 0 0-17-2 8 8 0 0 0-5 16z" fill="#ffffffd9"/><path d="M6 90l30-34 20 20 16-14 42 28z" fill="#0c5a50"/><path d="M6 90l22-18 26 12 30-20 30 26z" fill="#7ff0c9"/></g></svg>',
+  };
+  const tool = (cls, title, text, hash, btn) => {
+    const art = h('div', { class: 'st-tool-pic', 'aria-hidden': 'true' }); art.innerHTML = TOOL_ART[cls] || '';
+    return h('article', { class: `sh-tool st-tool ${cls}`, role: 'link', tabindex: '0', onclick: () => go(hash), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(hash); } } },
+      h('div', { class: 'st-tool-art', 'aria-hidden': 'true' }), h('div', { class: 'st-tool-body' }, h('h3', {}, title), h('p', {}, text), art, h('span', { class: 'st-launch' }, btn, h('i', { class: 'st-arrow', 'aria-hidden': 'true' }, ' →'))));
+  };
   return h('div', { class: 'sh' },
     h('header', { class: 'sh-bar' }, logo(() => go('#/')), h('span', { class: 'sp' }), profileMenu()),
     h('main', { class: 'sh-hub' }, h('h1', {}, 'Welcome to 12toons Studio'), h('p', { class: 'sub' }, `Hi ${name}, create professional animations directly in your browser.`),

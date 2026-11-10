@@ -86,3 +86,30 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 @keyframes lgSpark{0%,44%{transform:scale(0) rotate(0);opacity:0}56%{transform:scale(1) rotate(45deg);opacity:1}78%,100%{transform:scale(0) rotate(90deg);opacity:0}}
 .lg-card .lg-tag{font-size:17px;color:var(--text);opacity:.85;margin-bottom:24px}
 @media(prefers-reduced-motion:reduce){.lg-line{animation:none;stroke-dashoffset:0}.lg-play{animation:none}.lg-ring,.lg-sparks path{animation:none}.lg-sparks path{opacity:1}}
+
+/* ---- dashboard tool cards: a living picture, a glow that drifts, cards that rise in one after another ---- */
+.st-tool{animation:stRise .5s var(--ios-ease) both;transition:transform .2s var(--ios-ease)}
+.st-tool:nth-child(2){animation-delay:.07s}.st-tool:nth-child(3){animation-delay:.14s}
+.st-tool:active{transform:scale(.98)}
+@keyframes stRise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.st-tool .st-tool-art{background-size:160% 160%,auto;animation:stGlow 9s ease-in-out infinite alternate}
+@keyframes stGlow{from{background-position:100% 0,0 0}to{background-position:55% 45%,0 0}}
+.st-tool-pic{align-self:flex-end;width:120px;margin:-4px 0 -8px;pointer-events:none;filter:drop-shadow(0 10px 18px #0006)}
+.st-tool-pic svg{display:block;width:100%;height:auto;overflow:visible}
+.st-arrow{display:inline-block;font-style:normal;animation:stNudge 1.6s ease-in-out infinite}
+@keyframes stNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+.ta-head{animation:taHead 3s linear infinite}
+@keyframes taHead{from{transform:translateX(0)}to{transform:translateX(100px)}}
+.ta-bars rect{animation:taBar 3s ease-in-out infinite}.ta-bars rect:nth-child(2){animation-delay:.4s}.ta-bars rect:nth-child(3){animation-delay:.8s}.ta-bars rect:nth-child(4){animation-delay:1.2s}
+@keyframes taBar{0%,100%{opacity:.6}50%{opacity:1}}
+.ta-shirt{animation:taShirt 4.5s steps(1) infinite}
+@keyframes taShirt{0%{fill:#ff6b6b}33%{fill:#4dabf7}66%{fill:#51cf66}}
+.ta-pick{animation:taPick 4.5s steps(1) infinite}
+@keyframes taPick{0%{transform:translateY(0)}33%{transform:translateY(24px)}66%{transform:translateY(48px)}}
+.ta-sun{animation:taSun 5s ease-in-out infinite alternate}
+@keyframes taSun{from{transform:translateY(22px)}to{transform:translateY(-10px)}}
+.ta-cloud{animation:taCloud 7s ease-in-out infinite alternate}
+@keyframes taCloud{from{transform:translateX(-6px)}to{transform:translateX(40px)}}
+@media(max-width:480px){.st-tool-pic{width:104px}}
+.st-tool .st-launch{align-self:flex-start}
+@media(prefers-reduced-motion:reduce){.st-tool,.st-tool .st-tool-art,.st-arrow,.ta-head,.ta-bars rect,.ta-shirt,.ta-pick,.ta-sun,.ta-cloud{animation:none}}
