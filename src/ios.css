@@ -1,0 +1,44 @@
+/* iOS-style finish for the whole site: quick touch feedback, softer corners, sheets that slide up, calm motion.
+   Loaded last, so it only refines what the other style sheets already draw. No heavy blur (kept fast on slow phones). */
+:root{--r:18px;--ios-ease:cubic-bezier(.32,.72,0,1)}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+/* a tap answers at once: no 300 ms wait, no grey flash, a small press-in instead */
+a,button,[role=button],summary,label,select,input[type=checkbox],input[type=radio]{touch-action:manipulation}
+button,.btn,[role=button],summary{-webkit-tap-highlight-color:transparent}
+.btn,.cb-btn,.exp-opt-btn,.seg button,.cp-card,.st-recent-row,.tabs button,.ib{transition:transform .16s var(--ios-ease),opacity .16s ease,background-color .16s ease,border-color .16s ease,box-shadow .16s ease}
+.btn:active,.cb-btn:active,.exp-opt-btn:active,.seg button:active,.cp-card:active,.st-recent-row:active,.ib:active{transform:scale(.965);opacity:.82}
+.btn:disabled,.btn[disabled]{opacity:.45;transform:none}
+.btn{border-radius:14px;font-weight:600;letter-spacing:-.01em}
+.btn.sm{border-radius:11px}
+.btn.big{border-radius:16px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+/* cards and sheets */
+.card{border-radius:var(--r)}
+.sheet{border-radius:22px;overscroll-behavior:contain}
+.modal{animation:iosFade .2s ease both}
+.modal .sheet,.busy .card{animation:iosPop .28s var(--ios-ease) both}
+@keyframes iosFade{from{opacity:0}to{opacity:1}}
+@keyframes iosPop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+/* inputs */
+input[type=text],input[type=email],input[type=search],input[type=number],input[type=password],textarea,select{border-radius:12px}
+input[type=range]{accent-color:var(--acc)}
+input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
+/* segmented control */
+.seg button{border-radius:11px}
+.seg button.on{box-shadow:0 1px 4px #0005}
+/* thin, quiet scroll bars */
+*{scrollbar-width:thin;scrollbar-color:#ffffff2e transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#ffffff2e;border-radius:99px}::-webkit-scrollbar-track{background:transparent}
+:root[data-theme="day"] *{scrollbar-color:#0000002e transparent}
+:root[data-theme="day"] ::-webkit-scrollbar-thumb{background:#0000002e}
+/* phone: a dialog is a sheet that rises from the bottom, with a grabber; typing never zooms the page */
+@media(max-width:700px){
+  .modal{place-items:end center;padding:0}
+  .modal .sheet{width:100%;max-height:90dvh;border-radius:24px 24px 0 0;border-bottom:0;padding-bottom:calc(18px + env(safe-area-inset-bottom));animation:iosSheet .32s var(--ios-ease) both}
+  .modal .sheet::before{content:"";display:block;width:40px;height:5px;margin:-6px auto 12px;border-radius:99px;background:var(--line)}
+  input[type=text],input[type=email],input[type=search],input[type=number],input[type=password],textarea,select{font-size:16px}
+  .btn.pri,.btn.big,.btn.ok{min-height:44px}
+  .btn.sm{min-height:34px}
+}
+@keyframes iosSheet{from{transform:translateY(100%)}to{transform:none}}
+@media(prefers-reduced-motion:reduce){.modal,.modal .sheet,.busy .card{animation:none}.btn,.cb-btn,.exp-opt-btn,.seg button,.cp-card,.st-recent-row,.ib{transition:none}}
