@@ -63,3 +63,11 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 .lg-note a{color:var(--acc);text-decoration:none}
 :root[data-theme="day"] .lg-google{box-shadow:0 0 0 1px #0000001f,0 6px 18px #0000001a}
 @media(max-width:480px){.lg-page{padding:16px !important;justify-content:flex-end !important}.lg-card{width:100% !important;margin-bottom:calc(8px + env(safe-area-inset-bottom))}}
+
+/* ---- projects page: refresh button + placeholders while the list loads ---- */
+.project-refresh{display:inline-grid;place-items:center;width:44px;min-width:44px;height:44px;padding:0;border-radius:14px}
+.project-refresh .pr-ico{display:grid;place-items:center}
+.project-refresh.spin .pr-ico{animation:prSpin .7s linear infinite}
+@keyframes prSpin{to{transform:rotate(360deg)}}
+.project-skel{display:flex;flex-direction:column;pointer-events:none}
+.project-skel .rf-sk{display:block}

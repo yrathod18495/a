@@ -9,6 +9,7 @@ export async function projectsView({user,kind,home,toast}) {
   const open=p=>{location.hash='#/'+(kind==='animation'?'toons':'characters')+'/'+p.id;location.reload();};
   const run=fn=>async()=>{try{await fn();await draw();}catch(e){toast(e.message);}};
   const dialog=options=>projectDialog(options,root);
+  let loadingCloud=true;          // until the first answer from the account arrives, an empty list shows placeholders instead of "No projects yet"
   async function draw(){
     const projects=(await listProjects(user.uid)).filter(p=>p.kind===kind&&!p.deleted).sort((a,b)=>b.updatedAt-a.updatedAt);
     list.replaceChildren(...projects.map(p=>{
@@ -37,17 +38,21 @@ export async function projectsView({user,kind,home,toast}) {
     }));
     const q=search.value.trim().toLowerCase();
     if(q)for(const card of [...list.children])if(!card.querySelector('.project-name')?.textContent.toLowerCase().includes(q))card.remove();
+    if(!list.children.length&&loadingCloud&&!q){for(let i=0;i<3;i++)list.append(h('div',{class:'project-card project-skel','aria-hidden':'true'},h('i',{class:'rf-sk',style:'height:22px;width:60%'}),h('i',{class:'rf-sk',style:'height:14px;width:40%;margin-top:12px'}),h('i',{class:'rf-sk',style:'height:44px;width:100%;margin-top:18px'})));return;}
     if(!list.children.length)list.append(h('div',{class:'projects-empty'},h('h2',{},q?'No projects match your search':'No projects yet'),h('p',{},q?'Try a different name.':'Create your first project to get started.')));
   }
+  const refreshIcon=h('span',{class:'pr-ico','aria-hidden':'true'});refreshIcon.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.640-6.360"/><path d="M21 3v6h-6"/></svg>';
+  const refreshBtn=h('button',{class:'btn project-refresh',type:'button','aria-label':'Refresh projects',title:'Refresh',onclick:async()=>{if(refreshBtn.classList.contains('spin'))return;refreshBtn.classList.add('spin');try{await refreshProjects(user.uid);await draw();}catch(e){status.textContent='The cloud is not available right now: '+friendlyError(e);}finally{setTimeout(()=>refreshBtn.classList.remove('spin'),400);}}},refreshIcon);
   const title=kind==='animation'?'Animator Studio':'Character Editor';
   const toolbar=h('div',{class:'projects-toolbar'},
     h('button',{class:'btn pri project-new','aria-label':'Create New Project',onclick:run(async()=>{const name=await dialog({title:'Create a project',description:`Give your new ${kind==='animation'?'animation':'character'} project a name.`,value:'Untitled project',confirmLabel:'Create project'});if(name){const p=await createProject(user.uid,kind,name);const id=await registerProject(user.uid,p.id,kind,name);open(id===p.id?p:{...p,id});}})},'+ New Project'),
-    search);
+    search,
+    refreshBtn);
   root.append(h('header',{class:'projects-header'},h('a',{class:'projects-brand',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},...brandWordmark())),
     h('main',{class:'projects-main'},h('div',{class:'projects-panel-head'},h('h1',{},kind==='animation'?'Animator Studio Projects':'Character Editor Projects'),h('span',{class:'sp'}),h('button',{class:'projects-close','aria-label':'Close',title:'Back to dashboard',onclick:home},'✕')),toolbar,status,list));
   const off=onSyncStatus(s=>{status.textContent=s.text+(s.error?' — '+s.error:'');});
   root.dispose=off;
   await draw();
-  refreshProjects(user.uid).then(draw).catch(e=>{status.textContent='The cloud is not available right now: '+friendlyError(e);});
+  refreshProjects(user.uid).finally(()=>{loadingCloud=false;}).then(draw).catch(e=>{status.textContent='The cloud is not available right now: '+friendlyError(e);draw();});
   return root;
 }
