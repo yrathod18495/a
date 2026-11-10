@@ -71,3 +71,18 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 @keyframes prSpin{to{transform:rotate(360deg)}}
 .project-skel{display:flex;flex-direction:column;pointer-events:none}
 .project-skel .rf-sk{display:block}
+
+/* login: animated mark (a thought becomes a playing video) */
+.lg-hero{display:grid;place-items:center;margin:-6px 0 0}
+.lg-hero svg{overflow:visible}
+.lg-line{stroke-dasharray:150;stroke-dashoffset:150;animation:lgDraw 3.6s var(--ios-ease) infinite}
+.lg-play{transform-origin:108px 58px;animation:lgPop 3.6s var(--ios-ease) infinite}
+.lg-ring{transform-origin:108px 58px;opacity:0;animation:lgRing 3.6s ease-out infinite}
+.lg-sparks path{transform-box:fill-box;transform-origin:center;opacity:0;animation:lgSpark 3.6s ease-in-out infinite}
+.lg-sparks .s2{animation-delay:.25s}.lg-sparks .s3{animation-delay:.5s}
+@keyframes lgDraw{0%{stroke-dashoffset:150}35%,82%{stroke-dashoffset:0}100%{stroke-dashoffset:-150}}
+@keyframes lgPop{0%,28%{transform:scale(.4);opacity:0}42%{transform:scale(1.08);opacity:1}50%,84%{transform:scale(1);opacity:1}100%{transform:scale(.4);opacity:0}}
+@keyframes lgRing{0%,42%{transform:scale(1);opacity:0}46%{opacity:.7}75%,100%{transform:scale(1.55);opacity:0}}
+@keyframes lgSpark{0%,44%{transform:scale(0) rotate(0);opacity:0}56%{transform:scale(1) rotate(45deg);opacity:1}78%,100%{transform:scale(0) rotate(90deg);opacity:0}}
+.lg-card .lg-tag{font-size:17px;color:var(--text);opacity:.85;margin-bottom:24px}
+@media(prefers-reduced-motion:reduce){.lg-line{animation:none;stroke-dashoffset:0}.lg-play{animation:none}.lg-ring,.lg-sparks path{animation:none}.lg-sparks path{opacity:1}}

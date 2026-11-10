@@ -351,16 +351,18 @@ function loginView() {
   if (user) { queueMicrotask(() => go('#/hub')); return h('div'); }
   const G = '<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.800-6.800C35.800 2.400 30.300 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.900 6.100C12.400 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.100 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.400c-.5 2.900-2.100 5.300-4.600 7l7.100 5.500c4.200-3.900 7.200-9.600 7.200-17z"/><path fill="#FBBC05" d="M10.500 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.800-4.700l-7.900-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.900-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.100-5.500c-2.100 1.400-4.900 2.300-8.800 2.300-6.300 0-11.600-4.100-13.500-9.800l-7.900 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
   const g = h('span', { class: 'lg-g' }); g.innerHTML = G;
-  const feature = (ic, title, text) => h('li', {}, h('span', { class: 'lg-ic', 'aria-hidden': 'true' }, ic), h('div', {}, h('b', {}, title), h('small', {}, text)));
+  // an animated mark: a thought (the line drawing itself) turns into a playing video (the play button), with small sparks around it
+  const hero = h('div', { class: 'lg-hero', 'aria-hidden': 'true' });
+  hero.innerHTML = '<svg viewBox="0 0 160 120" width="200" height="150" fill="none"><defs><linearGradient id="lgG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b3a9ff"/><stop offset="1" stop-color="#6d5cf0"/></linearGradient></defs>'
+    + '<path class="lg-line" d="M14 86c14-30 26 18 40-10s22-34 34-12" stroke="url(#lgG)" stroke-width="4" stroke-linecap="round"/>'
+    + '<g class="lg-play"><circle cx="108" cy="58" r="30" fill="url(#lgG)"/><path d="M99 44.500v27l23-13.500z" fill="#fff"/></g>'
+    + '<circle class="lg-ring" cx="108" cy="58" r="30" stroke="#8b7bff" stroke-width="2"/>'
+    + '<g class="lg-sparks" stroke="#c4bcff" stroke-width="3" stroke-linecap="round"><path class="s1" d="M146 22v10M141 27h10"/><path class="s2" d="M62 18v8M58 22h8"/><path class="s3" d="M150 92v8M146 96h8"/></g></svg>';
   return h('div', { class: 'sh sh-center lg-page' },
     h('button', { class: 'lg-back', 'aria-label': 'Back to home', onclick: () => go('#/') }, h('span', { 'aria-hidden': 'true' }, '‹'), 'Home'),
     h('div', { class: 'sh-login lg-card' },
-      h('img', { class: 'lg-app', src: '/images/icon-192.png', alt: '12toons', width: 84, height: 84 }),
-      h('h1', {}, 'Welcome back'), h('p', { class: 'sub' }, 'Log in to open your studio. Your work is saved to your account.'),
-      h('ul', { class: 'lg-list' },
-        feature('🎙', 'Voice to animation', 'Upload a voice and your characters act it out.'),
-        feature('👄', 'Automatic lip-sync', 'Mouths move with every word.'),
-        feature('🎬', 'Export up to 4K', 'Render on this device or on the cloud.')),
+      hero,
+      h('h1', {}, 'Welcome back'), h('p', { class: 'sub lg-tag' }, 'Animate your thoughts.'),
       h('button', { class: 'btn big gbtn lg-google', onclick: login }, g, 'Continue with Google'),
       h('p', { class: 'lg-note' }, 'By continuing you agree to our ', h('a', { href: '/terms-of-use' }, 'Terms of Use'), '.')));
 }
