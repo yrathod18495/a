@@ -349,11 +349,20 @@ function landingView() {
 /* ---------------- login ---------------- */
 function loginView() {
   if (user) { queueMicrotask(() => go('#/hub')); return h('div'); }
-  return h('div', { class: 'sh sh-center' },
-    h('div', { class: 'sh-login' }, logo(() => go('#/')),
+  const G = '<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.800-6.800C35.800 2.400 30.300 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.900 6.100C12.400 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.100 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.400c-.5 2.900-2.100 5.300-4.600 7l7.100 5.500c4.200-3.900 7.200-9.600 7.200-17z"/><path fill="#FBBC05" d="M10.500 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.800-4.700l-7.900-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.900-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.100-5.500c-2.100 1.400-4.900 2.300-8.800 2.300-6.300 0-11.600-4.100-13.500-9.800l-7.900 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
+  const g = h('span', { class: 'lg-g' }); g.innerHTML = G;
+  const feature = (ic, title, text) => h('li', {}, h('span', { class: 'lg-ic', 'aria-hidden': 'true' }, ic), h('div', {}, h('b', {}, title), h('small', {}, text)));
+  return h('div', { class: 'sh sh-center lg-page' },
+    h('button', { class: 'lg-back', 'aria-label': 'Back to home', onclick: () => go('#/') }, h('span', { 'aria-hidden': 'true' }, '‹'), 'Home'),
+    h('div', { class: 'sh-login lg-card' },
+      h('img', { class: 'lg-app', src: '/images/icon-192.png', alt: '12toons', width: 84, height: 84 }),
       h('h1', {}, 'Welcome back'), h('p', { class: 'sub' }, 'Log in to open your studio. Your work is saved to your account.'),
-      h('button', { class: 'btn pri big gbtn', onclick: login }, h('span', { class: 'g' }, 'G'), 'Continue with Google'),
-      h('button', { class: 'btn-link', onclick: () => go('#/') }, '← Back to home')));
+      h('ul', { class: 'lg-list' },
+        feature('🎙', 'Voice to animation', 'Upload a voice and your characters act it out.'),
+        feature('👄', 'Automatic lip-sync', 'Mouths move with every word.'),
+        feature('🎬', 'Export up to 4K', 'Render on this device or on the cloud.')),
+      h('button', { class: 'btn big gbtn lg-google', onclick: login }, g, 'Continue with Google'),
+      h('p', { class: 'lg-note' }, 'By continuing you agree to our ', h('a', { href: '/terms-of-use' }, 'Terms of Use'), '.')));
 }
 
 function maintenanceView() {

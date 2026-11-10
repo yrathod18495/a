@@ -42,3 +42,24 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 }
 @keyframes iosSheet{from{transform:translateY(100%)}to{transform:none}}
 @media(prefers-reduced-motion:reduce){.modal,.modal .sheet,.busy .card{animation:none}.btn,.cb-btn,.exp-opt-btn,.seg button,.cp-card,.st-recent-row,.ib{transition:none}}
+
+/* ---- login page: an iOS-style welcome sheet ---- */
+.lg-page{position:relative;background:radial-gradient(900px 500px at 15% -10%,#7c6cf52e,transparent 60%),radial-gradient(700px 480px at 100% 110%,#3b82f626,transparent 60%),var(--bg) !important}
+.lg-back{position:absolute;top:calc(14px + env(safe-area-inset-top));left:14px;display:inline-flex;align-items:center;gap:4px;padding:8px 12px;border:0;background:none;color:var(--acc);font-size:17px;font-weight:500;cursor:pointer;border-radius:12px}
+.lg-back span{font-size:26px;line-height:1;margin-top:-3px}
+.lg-back:active{opacity:.6}
+.lg-card{border-radius:28px !important;padding:34px 26px 24px !important;animation:iosPop .4s var(--ios-ease) both}
+.lg-app{width:84px;height:84px;border-radius:21px;box-shadow:0 12px 30px #0008,0 0 0 1px #ffffff14}
+.lg-card h1{margin-top:18px;font-size:28px;letter-spacing:-.02em}
+.lg-card .sub{margin-bottom:18px}
+.lg-list{list-style:none;margin:0 0 22px;padding:0;width:100%;display:flex;flex-direction:column;gap:14px;text-align:left}
+.lg-list li{display:flex;align-items:center;gap:14px}
+.lg-ic{flex:none;display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--card2);font-size:20px}
+.lg-list b{display:block;font-size:15px}.lg-list small{display:block;color:var(--mute);font-size:13px;line-height:1.35}
+.lg-google{background:#fff !important;color:#1f1f1f !important;border:0 !important;border-radius:16px !important;min-height:54px;font-size:17px;font-weight:600;box-shadow:0 6px 18px #0006}
+.lg-google:disabled{opacity:.7}
+.lg-g{display:grid;place-items:center}
+.lg-note{margin:14px 0 0;font-size:12px;color:var(--mute)}
+.lg-note a{color:var(--acc);text-decoration:none}
+:root[data-theme="day"] .lg-google{box-shadow:0 0 0 1px #0000001f,0 6px 18px #0000001a}
+@media(max-width:480px){.lg-page{padding:16px !important;justify-content:flex-end !important}.lg-card{width:100% !important;margin-bottom:calc(8px + env(safe-area-inset-bottom))}}
