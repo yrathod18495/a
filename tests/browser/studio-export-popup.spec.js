@@ -27,12 +27,12 @@ test('Download opens the export box (no direct render); quality changes the esti
   expect(await page.evaluate(() => ({ q: window.__toon.S.quality, f: window.__toon.S.fps, fmt: window.__toon.S.format }))).toEqual({ q: 1080, f: 60, fmt: 'mp4' });
   const m = await box.boundingBox(); expect(m.x).toBeGreaterThanOrEqual(0); expect(m.x + m.width).toBeLessThanOrEqual(390);
   await expect(box.getByRole('button', { name: 'Render on this device', exact: true })).toBeVisible();
-  await expect(box.getByRole('button', { name: /Render on the cloud/ })).toBeVisible();
+  await expect(box.getByRole('button', { name: /Cloud render/ })).toBeVisible();
   await page.locator('.modal .row .btn').first().click(); await expect(box).toHaveCount(0);
-  // Render closes the box and hands over to the export (it asks the server first; the fake debug session has no account, so only the hand-over is checked)
+  // Render hands over to the export (it asks the server first; the fake debug session has no account, so only the hand-over is checked)
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await page.getByRole('button', { name: 'Export', exact: true }).first().click();
-  await page.locator('.exp-pop-go').click(); await expect(page.locator('.exp-pop')).toHaveCount(0); await page.waitForTimeout(800);
+  await page.locator('.exp-pop-go').click(); await page.waitForTimeout(800);          // the box stays open: while something renders, its estimates turn into the progress box
   expect(errors).toEqual([]);
 });
 

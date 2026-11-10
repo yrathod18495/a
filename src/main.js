@@ -3867,14 +3867,14 @@ async function downloadCloudExport() {
   if (!cloudJob?.id || cloudDl) return;
   const uid = projectContext()?.uid, id = projectContext()?.id; if (!uid) return;
   cloudDl = { loaded: 0, total: cloudJob.size || 0 }; redrawPanel();
-  let lastPct = -1;
+  const id0 = cloudJob.id; let lastPct = -1;
   try {
     await saveCloudVideo(uid, cloudJob.id, exportFileName(id, 'mp4'), cloudJob.size, (loaded, total, mode) => {
       cloudDl = mode === 'browser' ? { loaded: 0, total: 0, browser: true } : { loaded, total };
       const pct = total ? Math.floor(loaded / total * 100) : -1;
       if (mode === 'browser' || pct !== lastPct) { lastPct = pct; redrawPanel(); }
     });
-    toast('Your video was saved.');
+    toast('Your video was saved.'); if (cloudJob?.id === id0) cloudJob = { ...cloudJob, saved: true };
   } catch (e) { toast(`Could not download the video: ${e.message}`); }
   finally { const wasBrowser = cloudDl?.browser; cloudDl = wasBrowser ? cloudDl : null; redrawPanel(); if (wasBrowser) setTimeout(() => { cloudDl = null; redrawPanel(); }, 6000); }
 }
@@ -3958,34 +3958,80 @@ function exportLength() {
 let exportChecking = false;
 /** the Download button in the header: a small box to pick the quality and smoothness, see the estimated size, then Render (always MP4, so it opens everywhere) */
 function openExportPopup() {
-  if (bgExport) { toast('An export is already running. You can follow it in the box at the bottom left.'); return; }
   if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
   S.format = 'mp4'; if (S.quality < 480) S.quality = 480; fixFps();          // nothing renders below 40 fps (an old project may have left 12 / 15 / 24 / 30)
   const scenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
   const duration = sequencePlan(scenes, sceneAudio).at(-1)?.end || player.total, sound = scenes.some((sc) => sc.doc.lines?.length) || scenes.some((sc) => sc.doc.music && !sc.doc.music.muted);
-  const info = h('div', { class: 'exp-pop-info' });
+  const info = h('div', { class: 'exp-pop-info' }), live = h('div', { class: 'exp-live', hidden: true }), slot = h('div', { class: 'exp-slot' }, info, live);
+  let deviceOk = true;
   const chips = (itemsOf, cur, set) => { const box = h('div', { class: 'seg exp-pop-seg' }); const draw = () => box.replaceChildren(...(typeof itemsOf === 'function' ? itemsOf() : itemsOf).map(([k, label]) => h('button', { type: 'button', class: cur() === k ? 'on' : '', 'aria-pressed': String(cur() === k), onclick: () => { set(k); draw(); refresh(); } }, label))); box.redraw = draw; draw(); return box; };
-  let supportToken = 0;
+  let supportToken = 0, supportTimer = 0;
   const refresh = () => {
     // this device may not be able to make every size / fps (90 fps at 4K, for example): the Render button says so instead of failing later
-    const mine = ++supportToken, { W: sw, H: sh } = sizeFor();
-    canExportOffline(sw, sh, S.fps, 'mp4', !sound).then((ok) => { if (mine !== supportToken) return; render.disabled = !ok && !!window.VideoEncoder; note.hidden = ok || !window.VideoEncoder; }).catch(() => {});
+    const mine = ++supportToken;
+    clearTimeout(supportTimer); supportTimer = setTimeout(() => { if (mine !== supportToken) return; const { W: sw, H: sh } = sizeFor();
+      canExportOffline(sw, sh, S.fps, 'mp4', !sound).then((ok) => { if (mine !== supportToken) return; deviceOk = ok || !window.VideoEncoder; syncButtons(); note.hidden = ok || !window.VideoEncoder; }).catch(() => {}); }, 220);          // quick taps between sizes ask only for the size the user stops on
     const { W, H } = sizeFor(), mbps = bitrateFor(W, H, S.level, 'mp4', S.fps) / 1e6, mb = estimateMegabytes({ videoBps: mbps * 1e6, duration, audio: sound, ratio: sizeRatio('mp4') });
     const eta = estimateSeconds({ duration, pixels: W * H, fps: S.fps, live: false, last: lastSpeed(), cores: workerCount() || navigator.hardwareConcurrency || 2 });
     info.replaceChildren(h('div', {}, 'Estimated size', h('b', {}, `about ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`)), h('div', {}, 'Picture', h('b', {}, `${W}×${H}`)), h('div', {}, 'Length', h('b', {}, `${duration.toFixed(1)} s`)), h('div', {}, 'Time to render', h('b', {}, `about ${prettyTime(eta.seconds)}`)));
   };
   const fpsBox = chips(fpsChoices, () => S.fps, (v) => { S.fps = v; });
   const note = h('p', { class: 'sub exp-pop-note', role: 'alert', hidden: true }, 'This device cannot make a video with this picture size and frames per second. Please choose a lower quality or fewer frames per second.');
-  const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { close(); doExport(); } }, 'Render on this device');
-  const cloud = h('button', { type: 'button', class: 'btn exp-pop-cloud', onclick: () => { close(); openTab('export'); startCloudExport(); } }, '☁ Render on the cloud');
+  const render = h('button', { type: 'button', class: 'btn ok exp-pop-go', disabled: !pickType() && !window.VideoEncoder, onclick: () => { doExport(); } }, 'Render on this device');
+  const cloud = h('button', { type: 'button', class: 'btn exp-pop-cloud', onclick: () => { startCloudExport(); } }, icon('cloud'), 'Cloud render');
   const close = modal('Export video', h('div', { class: 'exp-pop' },
     h('h3', {}, 'Quality'), chips([[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K'], [2160, '4K']], () => S.quality, (v) => { S.quality = v; fixFps(); fpsBox.redraw(); }),
     h('h3', {}, 'Frames per second'), fpsBox,
-    info, note,
+    slot, note,
     h('div', { class: 'exp-pop-actions', style: 'display:flex;gap:8px;flex-wrap:wrap' },
       h('div', { style: 'flex:1 1 160px' }, render),
       h('div', { style: 'flex:1 1 160px' }, cloud)),
-    h('p', { class: 'sub', style: 'font-size:11.5px;margin:6px 0 0' }, 'On this device: renders right here, using your own phone or computer. On the cloud: renders on a separate machine — this tab can even be closed while it works.')));
+    h('p', { class: 'sub', style: 'font-size:11.5px;margin:6px 0 0' }, 'On this device: renders right here, using your own phone or computer. On the cloud: renders on a separate machine — this tab can even be closed while it works.')), () => { clearInterval(liveTimer); document.body.classList.remove('exp-open'); });
+
+  /* While something is being exported, the estimates box becomes the progress box. Both kinds can run at once: a switch then picks which one is shown. */
+  const cloudBusy = () => !!cloudJob && ['starting', 'pending', 'rendering'].includes(cloudJob.status);
+  const cloudShown = () => !!cloudJob && (['starting', 'pending', 'rendering', 'error'].includes(cloudJob.status) || (cloudJob.status === 'done' && !cloudJob.saved));
+  let view = 'device', lastActive = '', shownSig = '', liveEls = null, userPicked = false;
+  const syncButtons = () => { render.disabled = !!expHub.device || !deviceOk; cloud.disabled = cloudBusy(); };
+  const bar2 = () => { const prep = h('i', { class: 'prep' }), run = h('i', { class: 'run' }); return { box: h('div', { class: 'lv-bar' }, prep, run), prep, run }; };
+  const buildLive = (sig) => {
+    shownSig = sig; const head = h('div', { class: 'lv-head' }), text = h('p', { class: 'lv-text', role: 'status' }), b = bar2(), actions = h('div', { class: 'lv-actions' });
+    liveEls = { head, text, b, actions };
+    if (view === 'device') actions.append(h('button', { type: 'button', class: 'btn sm', onclick: () => expHub.device?.cancel() }, 'Cancel'));
+    else if (cloudJob?.status === 'done' && !cloudDl) actions.append(h('button', { type: 'button', class: 'btn ok sm', onclick: downloadCloudExport }, 'Download'));
+    else if (cloudJob?.status === 'error') actions.append(h('button', { type: 'button', class: 'btn sm', onclick: startCloudExport }, 'Try again'));
+    else if (cloudBusy()) actions.append(h('button', { type: 'button', class: 'btn sm', onclick: cancelCloudExportJob }, 'Cancel'));
+    const picker = h('div', { class: 'seg exp-pop-seg lv-switch' }, ...[['device', 'This device'], ['cloud', 'Cloud']].map(([k, label]) => h('button', { type: 'button', class: view === k ? 'on' : '', onclick: () => { view = k; userPicked = true; tick(); } }, label)));
+    picker.hidden = !(expHub.device && cloudShown());
+    liveEls.picker = picker;
+    live.replaceChildren(picker, head, b.box, text, actions);
+  };
+  const tick = () => {
+    if (S.exporting && !bgExport) { close(); return; }          // a full-screen render took over: this box is not needed
+    const dev = !!expHub.device, cl = cloudShown(), active = `${dev ? 'd' : ''}${cl ? 'c' : ''}`;
+    syncButtons();
+    if (!dev && !cl) { live.hidden = true; info.hidden = false; lastActive = ''; shownSig = ''; document.body.classList.remove('exp-open'); return; }
+    document.body.classList.add('exp-open'); info.hidden = true; live.hidden = false;
+    if (active !== lastActive) { if (!userPicked || !(dev && cl)) view = (dev && !lastActive.includes('d')) ? 'device' : (cl && !lastActive.includes('c')) ? 'cloud' : (dev ? 'device' : 'cloud'); lastActive = active; shownSig = ''; }
+    if (view === 'device' && !dev) view = 'cloud'; if (view === 'cloud' && !cl) view = 'device';
+    const kind = view === 'device' ? 'd' : cloudDl ? 'cdl' : `c-${cloudJob?.status}`, sig = `${view}|${kind}|${dev && cl}`;
+    if (sig !== shownSig) buildLive(sig);
+    const { head, text, b, picker } = liveEls; picker.hidden = !(dev && cl);
+    if (view === 'device') {
+      const d = expHub.device, pct = Math.round(Math.max(0, Math.min(1, d.p || 0)) * 100);
+      head.textContent = 'On this device'; text.textContent = d.stopping ? 'Stopping the export…' : d.text; b.prep.style.width = '100%'; b.run.style.width = `${pct}%`; b.box.classList.toggle('indet', pct === 0);
+    } else {
+      const pct = Math.round((cloudJob.progress || 0) * 100);
+      head.textContent = 'On the cloud';
+      if (cloudJob.status === 'error') { text.textContent = cloudJob.error || 'This export failed.'; b.prep.style.width = '0'; b.run.style.width = '0'; }
+      else if (cloudDl) { text.textContent = cloudDlText(); b.prep.style.width = '100%'; b.run.style.width = cloudDl.total ? `${Math.round(cloudDl.loaded / cloudDl.total * 100)}%` : '40%'; }
+      else if (cloudJob.status === 'done') { text.textContent = 'Your cloud video is ready.'; b.prep.style.width = '100%'; b.run.style.width = '100%'; }
+      else { text.textContent = cloudPhaseText(cloudJob, pct); b.prep.style.width = `${Math.round(cloudPrepFrac(cloudJob) * 100)}%`; b.run.style.width = `${pct}%`; }
+      b.box.classList.remove('indet');
+    }
+  };
+  const liveTimer = setInterval(tick, 500);
+  tick();
   refresh();
 }
 /** everything the render workers need to draw the video (a snapshot of the scene), for a picture of W × H */
@@ -4003,6 +4049,7 @@ async function exportJob(W, H) {
 }
 /* ---- background export: the render workers get a snapshot of the scene, so the editor stays free while the video is made ---- */
 let bgExport = null;
+const expHub = { device: null };          // what the on-this-device export is doing right now (read by the Export box while it is open)
 function exportPill(onCancel) {
   let stopped = false;
   const text = h('span', { class: 'ep-text' }, 'Preparing the export…'), fill = h('b', {}), bar = h('i', { class: 'ep-bar' }, fill);
@@ -4012,7 +4059,9 @@ function exportPill(onCancel) {
   } }, 'Cancel');
   const el = h('div', { class: 'export-pill waiting', role: 'status', 'aria-live': 'polite' }, h('div', { class: 'ep-row' }, icon('download'), text, cancel), bar);
   document.body.append(el);
-  return { set(t, p) { if (stopped) return; text.textContent = t; if (p > 0) el.classList.remove('waiting'); fill.style.width = `${Math.round(Math.max(0, Math.min(1, p || 0)) * 100)}%`; }, done() { el.remove(); } };
+  const mine = { text: 'Preparing the export…', p: 0, stopping: false, cancel: () => cancel.click() };
+  expHub.device = mine;
+  return { set(t, p) { if (stopped) { mine.stopping = true; return; } text.textContent = t; mine.text = t; mine.p = p || 0; if (p > 0) el.classList.remove('waiting'); fill.style.width = `${Math.round(Math.max(0, Math.min(1, p || 0)) * 100)}%`; }, done() { el.remove(); if (expHub.device === mine) expHub.device = null; } };
 }
 /** the Download button in the top bar moves while an export is being prepared and made, so the user sees at once that the tap was understood */
 const setExportBusy = (on) => { exportBtn?.classList.toggle('working', !!on); exportBtn?.setAttribute('aria-busy', String(!!on)); };

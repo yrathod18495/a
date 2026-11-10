@@ -669,3 +669,19 @@ button .ic[data-icon="shadow"] svg ellipse{transform-box:fill-box;transform-orig
 .exp-compact .exp-opt-bar.two i.prep::after{display:none}
 .exp-compact .exp-opt-bar.two i.run{z-index:1}
 .export-pill.cloud-pill.waiting .ep-bar b{width:var(--pw,10%) !important;animation:none;transition:width 1s linear}
+
+/* Export box: the estimates turn into a progress box while something renders */
+.exp-pop-actions .btn{white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.exp-pop-actions .btn svg{flex:none}
+.exp-pop-actions .btn:disabled{opacity:.5}
+body.exp-open .export-pill{display:none}
+.exp-live{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--card2);min-height:112px}
+.exp-live .lv-head{font-weight:700;font-size:15px}
+.exp-live .lv-text{margin:0;font-size:13px;color:var(--mute);min-height:2.6em}
+.exp-live .lv-bar{position:relative;height:9px;border-radius:99px;background:#ffffff14;overflow:hidden}
+.exp-live .lv-bar i{position:absolute;left:0;top:0;height:100%;border-radius:99px;transition:width .6s cubic-bezier(.3,.9,.3,1)}
+.exp-live .lv-bar .prep{background:linear-gradient(90deg,#7c6cf566,#a597ff88)}
+.exp-live .lv-bar .run{background:linear-gradient(90deg,#7c6cf5,#a597ff)}
+.exp-live .lv-bar.indet .run{width:36% !important;animation:expSlide 1.1s ease-in-out infinite}
+.exp-live .lv-actions{display:flex;gap:8px}
+.exp-live .lv-switch{grid-template-columns:1fr 1fr}

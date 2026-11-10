@@ -75,7 +75,20 @@ async function pickCodecs(W, H, bitrate, FPS, format = 'webm', silent = false) {
   }
   return null;
 }
-export const canExportOffline = async (W, H, fps = 30, format = 'webm', silent = false) => !!(await pickCodecs(W, H, 4_000_000, fps, format, silent));
+// Asking the browser "can you encode this?" can open a real hardware encoder on a phone. Tapping quickly between 2K and 4K used to start dozens of
+// those checks at once and the browser tab ran out of memory. So every size is asked once (the answer is remembered) and one check runs at a time.
+const supportCache = new Map();
+let supportQueue = Promise.resolve();
+export const canExportOffline = (W, H, fps = 30, format = 'webm', silent = false) => {
+  const key = `${W}x${H}@${fps}|${format}|${silent ? 1 : 0}`;
+  if (!supportCache.has(key)) {
+    const run = supportQueue.then(() => pickCodecs(W, H, 4_000_000, fps, format, silent)).then((r) => !!r);
+    supportQueue = run.catch(() => {});
+    supportCache.set(key, run);
+    run.catch(() => supportCache.delete(key));          // a failed check may be asked again
+  }
+  return supportCache.get(key);
+};
 const hasVoice = (clips, music) => clips.some((c) => c.buffer) || (music || []).some((m) => m.buffer && !m.muted);
 
 /** voice lines -> one stereo track -> encoded audio chunks */
