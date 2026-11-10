@@ -11,8 +11,8 @@ const r2 = new Map(), deleted = [];            // objects in "R2": key -> size
 let current = admin;
 for (const uid of [admin, creator]) { db.data.set('securityUsers/' + uid, { status: 'active' }); db.data.set('securitySessions/' + uid, { sid: 'ok', expiresAt: Date.now() + 1e6, revoked: false }); }
 db.data.set('securityAdmins/' + admin, { enabled: true });
-mock.module('../server/firebase-admin.js', { exports: { services: () => ({ db, rtdb, auth: { verifyIdToken: async () => ({ uid: current, email_verified: true, sid: 'ok' }) } }) } });
-mock.module('../server/r2-storage.js', { exports: {
+mock.module('../server/firebase-admin.js', {namedExports: { services: () => ({ db, rtdb, auth: { verifyIdToken: async () => ({ uid: current, email_verified: true, sid: 'ok' }) } }) } });
+mock.module('../server/r2-storage.js', {namedExports: {
   configured: () => true,
   readAssetText: async () => '{}',
   assetKey: (uid, hash) => `u/${uid}/a/${hash}`,

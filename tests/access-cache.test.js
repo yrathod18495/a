@@ -4,7 +4,7 @@ import {memoryFirestore,response} from './fake-firestore.js';
 process.env.MAINTENANCE_MODE='false';
 const db=memoryFirestore(),uid='cache-user-123456';let reads=0;
 const getAll=db.getAll;db.getAll=async(...refs)=>{reads+=refs.length;return getAll(...refs);};
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'ok'})}})}});
+mock.module('../server/firebase-admin.js',{namedExports:{services:()=>({db,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'ok'})}})}});
 const {access,forgetAccess}=await import('../server/access.js');
 const {default:security}=await import('../api/security.js');
 const req={headers:{authorization:'Bearer x'}};

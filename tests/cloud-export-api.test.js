@@ -14,7 +14,7 @@ S3Client.prototype.send = async function (cmd) {
 };
 db.data.set('securityUsers/' + uid, { status: 'active' });
 db.data.set('securitySessions/' + uid, { sid: 'ok', expiresAt: Date.now() + 100000, revoked: false });
-mock.module('../server/firebase-admin.js', { exports: { services: () => ({ db, rtdb, auth: { verifyIdToken: async () => ({ uid, email_verified: true, sid: 'ok' }) } }) } });
+mock.module('../server/firebase-admin.js', {namedExports: { services: () => ({ db, rtdb, auth: { verifyIdToken: async () => ({ uid, email_verified: true, sid: 'ok' }) } }) } });
 const { default: handler } = await import('../api/export.js');
 const { stateKey, videoKey } = await import('../server/r2-storage.js');
 
@@ -26,7 +26,7 @@ test('create needs a saved project and refuses a video that is too long for the 
   const noProject = await call({ action: 'cloudCreate', projectId, seconds: 10, settings: {} });
   assert.equal(noProject.statusCode, 404);
   await rtdb.ref(`projects/${uid}/${projectId}`).set({ revision: 1, stateOp: opId, deleted: false });
-  const tooLong = await call({ action: 'cloudCreate', projectId, seconds: 999999, settings: {} });
+  const tooLong = await call({ action: 'cloudCreate', projectId, seconds: 80000, settings: {} });
   assert.equal(tooLong.statusCode, 403); assert.equal(tooLong.body.code, 'export_limit');
   const ok = await call({ action: 'cloudCreate', projectId, seconds: 10, settings: { quality: 1080, fps: 30, level: 'high', format: 'mp4' } });
   assert.equal(ok.statusCode, 200);

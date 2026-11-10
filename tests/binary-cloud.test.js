@@ -7,7 +7,7 @@ globalThis.fetch=async(url,opts={})=>{
  return {ok:true,blob:async()=>files.get(url)};
 };
 const files=new Map();
-mock.module('../src/session.js',{exports:{apiCall:async(url,body,uid)=>{
+mock.module('../src/session.js',{namedExports:{apiCall:async(url,body,uid)=>{
  assert.equal(url,'/api/r2');
  if(body.action==='sign'){signs.push(body);return {have:[],upload:Object.fromEntries(body.items.map(i=>[i.hash,{url:'https://r2.test/'+i.hash,headers:{'Content-Type':'application/octet-stream'}}])),...(body.state?{state:{url:'https://r2.test/state-'+body.state.opId,headers:{}}}:{})};}
  if(body.action==='urls')return {urls:Object.fromEntries(body.hashes.map(h=>[h,'https://r2.test/'+h]))};

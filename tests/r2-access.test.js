@@ -4,7 +4,7 @@ import {memoryFirestore,response} from './fake-firestore.js';
 import {memoryRtdb} from './fake-rtdb.js';
 process.env.MAINTENANCE_MODE='false';
 const db=memoryFirestore(),rtdb=memoryRtdb(),uid='r2-user';
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'valid'})}})}});
+mock.module('../server/firebase-admin.js',{namedExports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'valid'})}})}});
 Object.assign(process.env,{CLOUDFLARE_R2_ACCOUNT_ID:'test',CLOUDFLARE_R2_ACCESS_KEY_ID:'test',CLOUDFLARE_R2_SECRET_ACCESS_KEY:'test',CLOUDFLARE_R2_BUCKET_NAME:'test'});
 const {default:handler}=await import('../api/r2.js');
 const hash='a'.repeat(64);

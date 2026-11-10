@@ -4,7 +4,7 @@ import {memoryFirestore,response} from './fake-firestore.js';
 process.env.MAINTENANCE_MODE='false';
 const db=memoryFirestore(),tokens=new Map();
 const auth={verifyIdToken:async token=>{if(!tokens.has(token))throw Error('invalid');return tokens.get(token);},getUserByEmail:async email=>{const found=[...tokens.values()].find(t=>t.email===email);if(!found)throw Error('not found');return {uid:found.uid,email:found.email,displayName:'Found '+found.uid.slice(0,4)};}};
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,auth})}});
+mock.module('../server/firebase-admin.js',{namedExports:{services:()=>({db,auth})}});
 const {default:chat}=await import('../api/chat.js');
 const user='chat_user_12345678901',admin='chat_admin_1234567890';
 function session(uid,sid){

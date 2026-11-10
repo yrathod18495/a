@@ -6,8 +6,8 @@ const user={uid:'cloud-user'}, remote=new Map(), objects=new Map(), calls=[];
 let failUpload=false,loseCommitResponse=false,denyCommit=false;
 globalThis.window=new EventTarget();
 Object.defineProperty(globalThis.navigator,'onLine',{value:true,configurable:true});
-mock.module('../src/firebase.js',{exports:{auth:{currentUser:user}}});
-mock.module('../src/binary-cloud.js',{exports:{
+mock.module('../src/firebase.js',{namedExports:{auth:{currentUser:user}}});
+mock.module('../src/binary-cloud.js',{namedExports:{
  uploadAssets:async(uid,files,state)=>{
   if(failUpload)throw Error('upload failed');const fresh=[];
   for(const [hash,blob] of files)if(!objects.has('a/'+hash)){calls.push({action:'put',key:'assets/'+hash});objects.set('a/'+hash,blob);fresh.push({hash,size:blob.size});}
@@ -17,7 +17,7 @@ mock.module('../src/binary-cloud.js',{exports:{
  downloadAssets:async(uid,hashes)=>new Map(hashes.map(h=>{if(!objects.has('a/'+h))throw Error('Missing binary');return [h,objects.get('a/'+h)];})),
  fetchBlob:async(url)=>{if(!objects.has(url))throw Error('Missing snapshot');return objects.get(url);}
 }});
-mock.module('../src/session.js',{exports:{apiCall:async(url,body,uid)=>{
+mock.module('../src/session.js',{namedExports:{apiCall:async(url,body,uid)=>{
  assert.equal(uid,user.uid);calls.push({...body});
  if(denyCommit){const error=Error('Cloud access denied');error.status=403;error.code='forbidden';throw error;}
  if(body.action==='list')return {projects:[...remote.values()].map(p=>({...p,stateUrl:p.stateOp?'state/'+p.stateOp:null}))};

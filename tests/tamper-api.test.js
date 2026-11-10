@@ -8,7 +8,7 @@ const db = memoryFirestore(), sent = [];
 const identities = new Map();
 const auth = { verifyIdToken: async (token) => { if (!identities.has(token)) throw new Error('invalid token'); return identities.get(token); } };
 const messaging = { send: async (message) => { sent.push(message); } };
-mock.module('../server/firebase-admin.js', { exports: { services: () => ({ db, auth, messaging }) } });
+mock.module('../server/firebase-admin.js', {namedExports: { services: () => ({ db, auth, messaging }) } });
 const { default: security } = await import('../api/security.js');
 const creator = 'creator_user_1234567890123', other = 'other_user_12345678901234', admin = 'admin_user_123456789012345';
 for (const uid of [creator, other, admin]) {

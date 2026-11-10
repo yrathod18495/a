@@ -4,7 +4,7 @@ import {memoryFirestore,response} from './fake-firestore.js';
 process.env.MAINTENANCE_MODE='false';
 const db=memoryFirestore(),tokens=new Map();
 const auth={verifyIdToken:async token=>{if(!tokens.has(token))throw Error('bad token');return tokens.get(token);},getUser:async uid=>({uid,metadata:{creationTime:new Date(Date.now()-1000).toISOString()}})};
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,auth})}});
+mock.module('../server/firebase-admin.js',{namedExports:{services:()=>({db,auth})}});
 const {default:handler}=await import('../api/affiliates.js');
 const admin='affiliate_admin_123456';db.data.set(`securitySessions/${admin}`,{sid:'affiliate-session',expiresAt:Date.now()+120000,revoked:false});db.data.set(`securityAdmins/${admin}`,{enabled:true});
 tokens.set('admin-token',{uid:admin,sid:'affiliate-session',email:'admin@example.com',email_verified:true,auth_time:Math.floor(Date.now()/1000),firebase:{sign_in_provider:'custom'}});

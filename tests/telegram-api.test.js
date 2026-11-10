@@ -4,7 +4,7 @@ import {memoryFirestore,response} from './fake-firestore.js';
 process.env.MAINTENANCE_MODE='false';
 Object.assign(process.env,{TELEGRAM_BOT_TOKEN:'111:TOKEN',TELEGRAM_CHAT_ID:'-1009',TELEGRAM_WEBHOOK_SECRET:'secret_secret_secret_1234'});
 const db=memoryFirestore();
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db})}});
+mock.module('../server/firebase-admin.js',{namedExports:{services:()=>({db})}});
 const {default:webhook}=await import('../api/telegram.js');
 const user='telegram_user_1234567890',sentToTelegram=[];
 globalThis.fetch=async(url,init)=>{if(String(url).startsWith('https://api.telegram.org/'))sentToTelegram.push(JSON.parse(init.body));return {ok:true,status:200};};

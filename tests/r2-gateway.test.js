@@ -13,7 +13,7 @@ S3Client.prototype.send=async function(cmd){
  if(name==='DeleteObjectCommand'){objects.delete(key);return {};}
  throw Error('unexpected '+name);
 };
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'ok'})}})}});
+mock.module('../server/firebase-admin.js',{namedExports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'ok'})}})}});
 db.data.set('securityUsers/'+uid,{status:'active'});db.data.set('securitySessions/'+uid,{sid:'ok',revoked:false,expiresAt:Date.now()+600000});
 const {default:handler}=await import('../api/r2.js');
 const {assetKey}=await import('../server/r2-storage.js');

@@ -29,14 +29,10 @@ export async function loadCatalog() {
   // the three network reads do not depend on each other, so they run together instead of one after the other
   const rulesTask = Promise.race([loadAnimRules(), new Promise((res) => setTimeout(() => res(null), 2500))]).then((r) => { if (r) setAnimRules(r); }).catch(() => { /* keep the cached rules */ });
   const managedTask = listStudioAssets().then((list) => { managedAnimations = list.filter(asset => asset.type === 'animation'); }).catch(() => { /* Bundled catalog stays available without account storage. */ });
-  // 12toons template characters (layered SVG characters, five poses each) + their animation library
-  const libraryTask = Promise.all([fetch(url('12toons/characters.json')).then((r) => r.json()), fetch(url('12toons/animations.json')).then((r) => r.json())]).then(([chars, anims]) => {
-    adAnims = anims;
-    library = chars.characters.flatMap((c) => c.poses.map((p) => ({ id: `ad-${c.id}-${p.pose}`, name: c.name, pose: p.label, patternId: p.own ? 'rig' : `ad:${p.pose}`, charBase: c.id, thumbnail: `12toons/pose/${c.id}-${p.pose}.webp`, template: p, paid: false })));
-  }).catch((e) => {
-    console.warn('12toons data failed to load', e);
-    libraryProblem = 'The character library could not be loaded. Check your internet and reload the page; if it still fails, please contact support.';
-  });
+  // The bundled template library (public/12toons) was removed: it is no longer asked for (two failed requests on every load). Characters come from the admin's uploads below;
+  // if none can be loaded, the message stays.
+  const libraryTask = Promise.resolve();
+  libraryProblem = 'The character library could not be loaded. Check your internet and reload the page; if it still fails, please contact support.';
   // the bundled library is gone for good; when the admin's uploaded characters are there, its absence is not a problem
   // characters the admin uploaded (Admin -> Characters): one entry per view, files come from the database / R2 and are cached by the browser
   const cloudTask = listCloudCharacters().then((list) => {
@@ -46,7 +42,7 @@ export async function loadCatalog() {
     // each pose shows its own picture (older uploads only have one picture for the whole character: it is used for every pose);
     // the pictures are small and kept by the browser, so the cards are drawn with them (waiting at most a few seconds)
     const pictures = entries.map((e) => { const ref = e.template.character.views[e.template.view]?.thumb || e.template.character.thumb; return ref ? pictureUrl(ref).then((u) => { e.thumbnail = u; }).catch(() => { /* the card shows no picture */ }) : null; });
-    return Promise.race([Promise.all(pictures.filter(Boolean)), new Promise((resolve) => setTimeout(resolve, 4000))]);
+    return Promise.race([Promise.all(pictures.filter(Boolean)), new Promise((resolve) => setTimeout(resolve, 1500))]);          // pictures that take longer simply appear when they arrive
   }).catch((e) => { console.warn('Uploaded characters are not available:', e.message); });
   // the studio opens with whatever arrived within 9 s: a slow or stuck request must not keep the page waiting (the rest is added when it comes)
   await Promise.race([Promise.all([rulesTask, managedTask, libraryTask, cloudTask]), new Promise((resolve) => setTimeout(resolve, 9000))]);

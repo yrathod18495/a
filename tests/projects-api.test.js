@@ -14,7 +14,7 @@ S3Client.prototype.send=async function(cmd){
 };
 db.data.set('securityUsers/'+uid,{status:'active'});
 db.data.set('securitySessions/'+uid,{sid:'ok',expiresAt:Date.now()+100000,revoked:false});
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'ok'})}})}});
+mock.module('../server/firebase-admin.js',{namedExports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid,email_verified:true,sid:'ok'})}})}});
 const {default:handler}=await import('../api/projects.js');
 const {stateKey,assetKey}=await import('../server/r2-storage.js');
 const id='project_123456789012',op1='operation_123456789012',op2='operation_987654321098',hash='a'.repeat(64);

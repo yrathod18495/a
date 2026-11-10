@@ -10,7 +10,7 @@ process.env.RAZORPAY_WEBHOOK_SECRET = 'rzp_webhook_secret';
 const db = memoryFirestore();
 const identities = new Map();
 const auth = { verifyIdToken: async (token) => { if (!identities.has(token)) throw new Error('invalid token'); return identities.get(token); }, getUser: async (uid) => { if (uid.startsWith('ghost')) throw new Error('not found'); return { uid }; } };
-mock.module('../server/firebase-admin.js', { exports: { services: () => ({ db, auth }) } });
+mock.module('../server/firebase-admin.js', {namedExports: { services: () => ({ db, auth }) } });
 const { default: payments } = await import('../api/payments.js');
 const { istDay } = await import('../server/payment-revenue.js');
 const { default: webhook } = await import('../api/razorpay-webhook.js');

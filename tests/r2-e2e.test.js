@@ -12,10 +12,10 @@ Object.assign(process.env,{CLOUDFLARE_R2_ACCOUNT_ID:'acc',CLOUDFLARE_R2_ACCESS_K
 db.data.set('securityUsers/'+user.uid,{status:'active'});db.data.set('securitySessions/'+user.uid,{sid:'ok',expiresAt:Date.now()+1e6,revoked:false});
 globalThis.window=new EventTarget();globalThis.localStorage={getItem:k=>mem.get(k)??null,setItem:(k,v)=>mem.set(k,String(v)),removeItem:k=>mem.delete(k)};
 Object.defineProperty(globalThis.navigator,'onLine',{value:true,configurable:true});
-mock.module('../server/firebase-admin.js',{exports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid:user.uid,email_verified:true,sid:'ok'})}})}});
-mock.module('../src/firebase.js',{exports:{auth:{currentUser:user}}});
+mock.module('../server/firebase-admin.js',{namedExports:{services:()=>({db,rtdb,auth:{verifyIdToken:async()=>({uid:user.uid,email_verified:true,sid:'ok'})}})}});
+mock.module('../src/firebase.js',{namedExports:{auth:{currentUser:user}}});
 const handlers={'/api/r2':(await import('../api/r2.js')).default,'/api/projects':(await import('../api/projects.js')).default};
-mock.module('../src/session.js',{exports:{apiCall:async(url,body,uid)=>{
+mock.module('../src/session.js',{namedExports:{apiCall:async(url,body,uid)=>{
  assert.equal(uid,user.uid);const res=response();await handlers[url]({method:'POST',headers:{authorization:'Bearer x'},body},res);
  if(res.statusCode!==200){const e=Error(res.body.error);Object.assign(e,{status:res.statusCode,code:res.body.code});throw e;}
  return res.body;

@@ -7,7 +7,7 @@ process.env.MAINTENANCE_MODE = 'false';
 const db = memoryFirestore();
 const identities = new Map();
 const auth = { verifyIdToken: async (token) => { if (!identities.has(token)) throw new Error('invalid token'); return identities.get(token); } };
-mock.module('../server/firebase-admin.js', { exports: { services: () => ({ db, auth }) } });
+mock.module('../server/firebase-admin.js', {namedExports: { services: () => ({ db, auth }) } });
 const { default: exporter } = await import('../api/export.js');
 const { creditCapturedPayment } = await import('../server/credit-payments.js');
 const freeUser = 'free_user_1234567890123456', paidUser = 'paid_user_1234567890123456', oldPayer = 'old_payer_1234567890123456', admin = 'admin_user_123456789012345', blocked = 'target_user_1234567890123456';
