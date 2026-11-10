@@ -31,7 +31,7 @@ export async function projectsView({user,kind,home,toast}) {
       const rest=actions.filter(a=>!/^(Rename|Delete)$/.test(a.textContent));
       return h('article',{class:'project-card'},
         h('h2',{class:'project-name'},p.name),
-        h('p',{class:'project-created'},'Last saved'),h('p',{class:'project-updated'},when(p.updatedAt)),
+        h('p',{class:'project-created'},'Last saved · ',h('span',{class:'project-updated'},when(p.updatedAt))),
         h('p',{class:`project-state ${p.dirty?'pending':'saved'}`},p.dirty?'Waiting to sync to your account':'Synced to your account'),
         h('div',{class:'project-row'},h('button',{class:'btn pri project-open',onclick:()=>open(p)},'Open'),...actions.filter(a=>/^(Rename|Delete)$/.test(a.textContent))),
         rest.length?h('div',{class:'project-actions'},...rest):null);
@@ -46,8 +46,7 @@ export async function projectsView({user,kind,home,toast}) {
   const title=kind==='animation'?'Animator Studio':'Character Editor';
   const toolbar=h('div',{class:'projects-toolbar'},
     h('button',{class:'btn pri project-new','aria-label':'Create New Project',onclick:run(async()=>{const name=await dialog({title:'Create a project',description:`Give your new ${kind==='animation'?'animation':'character'} project a name.`,value:'Untitled project',confirmLabel:'Create project'});if(name){const p=await createProject(user.uid,kind,name);const id=await registerProject(user.uid,p.id,kind,name);open(id===p.id?p:{...p,id});}})},'+ New Project'),
-    search,
-    refreshBtn);
+    h('div',{class:'projects-search-row'},search,refreshBtn));
   root.append(h('header',{class:'projects-header'},h('a',{class:'projects-brand',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},...brandWordmark())),
     h('main',{class:'projects-main'},h('div',{class:'projects-panel-head'},h('h1',{},kind==='animation'?'Animator Studio Projects':'Character Editor Projects'),h('span',{class:'sp'}),h('button',{class:'projects-close','aria-label':'Close',title:'Back to dashboard',onclick:home},'✕')),toolbar,status,list));
   const off=onSyncStatus(s=>{status.textContent=s.text+(s.error?' — '+s.error:'');});

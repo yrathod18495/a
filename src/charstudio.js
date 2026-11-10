@@ -5,6 +5,7 @@ import { friendlyError } from '../shared/hinglish-errors.js';
 // (rig + atlas + images + edit profile) in this device's database and, when logged in, in your cloud account.
 import JSZip from 'jszip';
 import { h, logo } from './dom.js';
+import { icon } from './icons.js';
 import { Stage } from './db/stage.js';
 import { characterPicker } from './charpick.js';
 import { refreshLayerRules, layerName, groupName, layerHidden } from './layerrules.js';
@@ -80,10 +81,10 @@ export async function view({ user, home, toast, localPreview = false }) {
   let gen = 0, pending = new Set(), applyTimer = 0, rigTimer = 0, t0 = performance.now(), raf = 0, lastFrame = 0;
   const panel = h('div', { class: 'cs-panel' }), tabs = h('div', { class: 'cs-tabs' }), stageBox = h('div', { class: 'cs-stage' }, stage.out);
   const animBar = h('div', { class: 'cs-anim' });
-  const saveButton = h('button', { class: 'btn ok', onclick: () => { if (st.def) { st.tab = 'save'; draw(); } else toast('Please choose a character first.'); } }, '💾 Save');
+  const saveButton = h('button', { class: 'btn ok', onclick: () => { if (st.def) { st.tab = 'save'; draw(); } else toast('Please choose a character first.'); } }, icon('download'), h('span', {}, 'Save'));
   const root = h('div', { class: 'sh cs' },
     h('header', { class: 'sh-bar' }, logo(home), h('span', { class: 'sp' }),
-      saveButton, h('button', { class: 'btn', onclick: home }, '⌂ Home')),
+      saveButton, h('button', { class: 'btn', 'aria-label': 'Home', onclick: home }, icon('home'), h('span', {}, 'Home'))),
     h('div', { class: 'cs-body' }, h('div', { class: 'cs-left' }, stageBox, animBar), h('div', { class: 'cs-right' }, tabs, panel)));
 
   /* ---------- live preview ---------- */
@@ -678,7 +679,7 @@ export async function view({ user, home, toast, localPreview = false }) {
   };
   const hideSave=()=>{if(document.hidden&&root.isConnected)root.flushDraft().catch(e=>{draftStatus.textContent='Local save failed: '+friendlyError(e);});};
   document.addEventListener('visibilitychange',hideSave);
-  const draftStatus=h('span',{class:'sub'},localPreview ? 'Preview only · cloud saving disabled' : 'Saved locally');root.querySelector('header').append(draftStatus);
+  const draftStatus=h('span',{class:'sub cs-status'},localPreview ? 'Preview only · cloud saving disabled' : 'Saved locally');root.querySelector('header').append(draftStatus);
   const offStatus=localPreview ? () => {} : onSyncStatus(s=>{draftStatus.textContent=s.text;draftStatus.title=s.error;});
   const draftTimer=setInterval(()=>{if(root.isConnected&&!document.hidden)saveDraft().catch(e=>{draftStatus.textContent='Local save failed: '+friendlyError(e);});},3000);
   if (import.meta.env?.DEV && location.search.includes('debug')) window.__charstudio = { st, layers, stage };      // for the browser tests

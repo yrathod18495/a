@@ -123,3 +123,28 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 .st-tool-pic{position:absolute;right:16px;top:50%;width:min(38%,150px);margin:0;transform:translateY(-50%);align-self:auto}
 .sh-tools{gap:14px}
 @media(min-width:900px){.sh-tools{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}}
+
+/* ---- character editor header: compact buttons on one line, never cut off ---- */
+.cs .sh-bar{gap:8px}
+.cs .sh-bar>.btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;min-height:36px;padding:0 14px;border-radius:12px;font-size:14px;line-height:1;white-space:nowrap}
+.cs .sh-bar>.btn svg{width:16px;height:16px;flex:none}
+.cs .sh-bar .cs-status{flex:0 1 auto;min-width:0;max-width:120px;font-size:11px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+.cs .sh-bar .logo{flex:none}
+@media(max-width:480px){.cs .sh-bar>.btn{padding:0 11px}.cs .sh-bar .cs-status{max-width:74px}.cs .sh-bar .credit-badge{margin-right:0}}
+@media(max-width:380px){.cs .sh-bar>.btn span{display:none}.cs .sh-bar>.btn{width:36px;padding:0}}
+/* ---- projects page: search and refresh on one line; a calmer card ---- */
+.projects-search-row{display:flex;gap:10px;align-items:center}
+.projects-search-row>:first-child{flex:1;min-width:0}
+:root[data-theme] body .projects-toolbar{gap:12px}
+:root[data-theme] body .projects-toolbar .project-new{min-height:52px;font-size:17px;border-radius:16px}
+:root[data-theme] body .project-card{padding:18px;border-radius:20px}
+:root[data-theme] body .project-card .project-name{font-size:19px;margin:0 0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-created{font-size:13px}
+.project-created .project-updated{margin:0;font-size:13px;font-weight:600;color:var(--text)}
+.project-row{gap:8px;margin-top:14px}
+.project-row .btn{min-height:42px;font-size:15px;border-radius:13px}
+.project-actions{margin-top:10px;gap:8px}
+.project-actions .btn{min-height:32px;border-radius:10px}
+@media(min-width:900px){.projects-toolbar{flex-direction:row !important;align-items:center}:root[data-theme] body .projects-toolbar .project-new{width:auto;padding:0 22px}.projects-search-row{flex:1}}
+:root[data-theme] body .projects-search-row .project-refresh{flex:0 0 46px;width:46px !important;min-width:46px;height:46px;padding:0}
+:root[data-theme] body .projects-search-row>:first-child{flex:1 1 auto;width:auto}
