@@ -1,1 +1,46 @@
-/* ios-studio: iOS-style refinements (see src/ios.css for the shared tokens) */
+/* ios-studio: iOS-style refinements for the Animator Studio (tokens: src/ios.css). Polish only, no layout changes. */
+
+/* Segmented controls (quality / fps / chip groups in the studio and its popups) */
+#app .ws .seg,.exp-pop .seg,.modal .seg{padding:3px;gap:2px;border-radius:12px;background:var(--card2);border:0}
+#app .ws .seg button,.exp-pop .seg button,.modal .seg button{border:0;border-radius:9px;background:transparent;color:var(--mute);font-weight:600;box-shadow:none}
+#app .ws .seg button.on,#app .ws .seg button.active,#app .ws .seg button[aria-pressed="true"],
+.exp-pop .seg button.on,.exp-pop .seg button.active,.exp-pop .seg button[aria-pressed="true"],
+.modal .seg button.on,.modal .seg button.active,.modal .seg button[aria-pressed="true"]{background:var(--acc);color:#fff;box-shadow:0 1px 3px #0000004d}
+.exp-pop .seg button:active:not(:disabled){transform:scale(.96)}
+
+/* Export popup */
+.exp-pop h3{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--mute)}
+.exp-pop-info{border:0;border-radius:14px;padding:12px 14px;gap:10px 12px}
+.exp-pop-info b{font-weight:600;font-variant-numeric:tabular-nums}
+.exp-pop-go,.exp-pop-cloud{border-radius:14px;font-weight:600;min-height:48px}
+.exp-pop-go:active:not(:disabled),.exp-pop-cloud:active:not(:disabled){transform:scale(.97)}
+.exp-pop-cloud{background:transparent;border:0;box-shadow:inset 0 0 0 1px var(--line);color:var(--acc)}
+.exp-opt-btn{border-radius:12px}
+
+/* Top bar, controls, clip bar: quiet round icon buttons with press feedback */
+#app .ws :is(.controls,.tltools,.clipbar,.selbar) :is(button,.ib):not(:disabled):active,
+#app .ws .tabs.big button:active{transform:scale(.94);opacity:.85}
+#app .ws select{border-radius:10px;font-weight:500}
+#app .ws .clipbar,#app .ws .selbar{border-radius:16px}
+#app .ws .cb-btn{border-radius:12px}
+#app .ws .cb-btn:active:not(:disabled){transform:scale(.95)}
+
+/* Panels, tabs, scene tabs */
+#app .ws .panel,#app .ws .stagebox,#app .ws .tlwrap{border-radius:16px}
+body.studio-dark #app .ws :is(.panel,.tabs.big,.tlwrap,.stagebox){border-color:var(--line)}
+#app .ws .tabs.big button{border-radius:12px;font-weight:500}
+#app .ws .scene-tab{border-radius:10px 10px 0 0}
+#app .ws .lrow,#app .ws .layer{border-bottom:1px solid var(--line)}
+
+/* Sheets and modals */
+.modal .sheet{border-radius:22px}
+.modal .sheet h3{font-weight:600;letter-spacing:-.01em}
+.modal .sheet-close{border-radius:50%}
+.modal .btn:active:not(:disabled){transform:scale(.97)}
+
+:root[data-theme="day"] .exp-pop-info,:root[data-theme="day"] #app .ws .seg{background:#7676801f}
+:root[data-theme="day"] #app .ws .seg button.on,:root[data-theme="day"] .exp-pop .seg button.on{box-shadow:0 1px 3px #00000033}
+
+@media (prefers-reduced-motion:reduce){
+  #app .ws *,.exp-pop *,.modal *{transition-duration:.01ms !important;animation-duration:.01ms !important}
+}
