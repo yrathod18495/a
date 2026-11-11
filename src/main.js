@@ -9,6 +9,7 @@ import { peaksOf, peakMax, barsFor, drawWave } from './waveform.js';
 import { icon, watchIcons } from './icons.js';
 import { installTips } from './tips.js';
 import './studio-icons.css';
+import './ios-studio.css';
 import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark, swipeAway } from './dom.js';
 import { creditsBadge } from './credits-badge.js';

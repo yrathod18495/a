@@ -5,6 +5,9 @@ import './day-theme.css';
 import './royal-surfaces.css';
 import './stpro.css';
 import './ios.css';
+import './ios-shell.css';
+import './ios-landing.css';
+import './ios-editor.css';
 // 12toons shell: landing page -> login -> hub (12toons / 12toons Character Editor)
 import { h, toast, logo } from './dom.js';
 import { loadingSplash } from './loading-splash.js';
