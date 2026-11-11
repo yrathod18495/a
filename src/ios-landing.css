@@ -1,1 +1,81 @@
-/* ios-landing: iOS-style refinements (see src/ios.css for the shared tokens) */
+/* ios-landing: iOS-style refinements (see src/ios.css for the shared tokens).
+   Scoped under :root[data-theme] body .lp so these win over landing.css and stpro.css.
+   Only colour variables are used, so day and night both follow the app theme. */
+
+/* Type scale: one confident headline, a short supporting line, comfortable measure. */
+:root[data-theme] body .lp .lp-hero h1{font-weight:700;font-size:clamp(38px,8.2vw,80px);line-height:1.02;letter-spacing:-.04em;margin:18px 0 16px}
+:root[data-theme] body .lp .lp-hero-lead{font-size:clamp(17px,1.6vw,20px);line-height:1.5;max-width:34em;margin-bottom:0}
+:root[data-theme] body .lp .lp-heading h2,:root[data-theme] body .lp .lp-final-cta h2{font-size:clamp(28px,4.4vw,46px);line-height:1.08;letter-spacing:-.035em;font-weight:700;margin:14px 0 12px}
+:root[data-theme] body .lp .lp-heading p,:root[data-theme] body .lp .lp-final-cta p{font-size:clamp(16px,1.5vw,18px);line-height:1.5;max-width:34em;margin-inline:auto}
+:root[data-theme] body .lp .lp-feature-row h3,:root[data-theme] body .lp .lp-how-card h3,:root[data-theme] body .lp .lp-use-card h3{font-weight:650;letter-spacing:-.02em}
+:root[data-theme] body .lp .lp-feature-row p,:root[data-theme] body .lp .lp-how-card p{max-width:60ch}
+:root[data-theme] body .lp .lp-faq summary{font-size:17px;font-weight:650;line-height:1.35;letter-spacing:-.015em}
+:root[data-theme] body .lp .lp-faq details p{font-size:16px;line-height:1.55;max-width:62ch}
+
+/* Pill buttons with a 50px+ touch target on phones. */
+:root[data-theme] body .lp .lp-button{min-height:52px;padding:14px 26px;border-radius:999px;font-size:16px;font-weight:600;letter-spacing:-.01em;transition:transform .18s var(--ios-ease),background-color .18s ease,border-color .18s ease,box-shadow .18s ease}
+:root[data-theme] body .lp .lp-button:active{transform:scale(.97)}
+:root[data-theme] body .lp .lp-button:hover{transform:none}
+:root[data-theme] body .lp .lp-button-primary:hover{transform:translateY(-1px)}
+:root[data-theme] body .lp .lp-header-right>.lp-button{min-height:40px;padding:8px 16px;font-size:14px;white-space:nowrap;flex:none}
+:root[data-theme] body .lp .lp-actions{gap:12px;margin:26px 0 0}
+:root[data-theme] body .lp .lp-actions .lp-button{flex:0 1 auto}
+
+/* Hero: calm spacing, the logo steps down on phones so the shortcut strip never touches it. */
+:root[data-theme] body .lp .lp-hero{gap:clamp(28px,4vw,64px);padding-block:clamp(44px,7vw,104px) clamp(40px,5vw,72px)}
+:root[data-theme] body .lp .lp-hero-logo{width:120px;height:120px;border-radius:27px;margin-bottom:18px}
+:root[data-theme] body .lp .lp-hero-foot{margin-top:28px;max-width:650px;border-top:1px solid var(--line)}
+:root[data-theme] body .lp .lp-hero-foot>span{padding:16px 6px 4px;font-size:12px}
+
+/* Sections: generous, even rhythm with hairline separators. */
+:root[data-theme] body .lp .lp-section{padding-block:clamp(56px,8vw,112px)}
+:root[data-theme] body .lp .lp-section+.lp-section{box-shadow:inset 0 1px 0 var(--line)}
+:root[data-theme] body .lp .lp-heading{margin-bottom:clamp(28px,4vw,44px)}
+:root[data-theme] body .lp .lp-heading .lp-eyebrow,:root[data-theme] body .lp .lp-final-cta .lp-eyebrow{font-size:11px;letter-spacing:.06em;padding:6px 12px}
+
+/* Cards: rounded 18-24px, hairline borders, no heavy shadows. */
+:root[data-theme] body .lp .lp-feature-row{border-radius:22px;padding:16px 18px;gap:16px;border-color:var(--line)}
+:root[data-theme] body .lp .lp-feature-row p{white-space:normal;overflow:visible;text-overflow:clip}
+:root[data-theme] body .lp .lp-feature-icon{width:44px;height:44px;border-radius:14px}
+:root[data-theme] body .lp .lp-how-card,:root[data-theme] body .lp .lp-use-card{border-radius:24px;padding:26px 24px;border-color:var(--line)}
+:root[data-theme] body .lp .lp-how-card>span{font-size:32px;font-weight:700}
+:root[data-theme] body .lp .lp-how-grid{gap:16px}
+:root[data-theme] body .lp .lp-faq{max-width:760px}
+:root[data-theme] body .lp .lp-faq details{border-radius:20px;padding:16px 20px;margin:10px 0;border-color:var(--line)}
+:root[data-theme] body .lp .lp-faq details[open]{padding-bottom:18px}
+:root[data-theme] body .lp .lp-faq-toggle{min-height:48px;padding-inline:24px}
+
+/* Final call to action and footer. */
+:root[data-theme] body .lp .lp-final-cta{padding-block:clamp(64px,9vw,120px);border-top:0}
+:root[data-theme] body .lp .lp-final-cta .lp-button{min-width:min(100%,320px)}
+:root[data-theme] body .lp .lp-footer{padding-block:28px;box-shadow:inset 0 1px 0 var(--line);border-top:0}
+:root[data-theme] body .lp .lp-footer span{font-size:13px}
+
+/* Phone layout: 16px gutters, full-width primary actions, no horizontal scroll. */
+@media (max-width:760px){
+  :root[data-theme] body .lp .lp-hero{padding-inline:16px}
+  /* keep the headline and copy clear of the shortcut strip on the right */
+  :root[data-theme] body .lp .lp-hero-copy{padding-right:56px}
+  :root[data-theme] body .lp .lp-header{gap:8px}
+  :root[data-theme] body .lp .lp-brand-crest{flex:1 1 auto;min-width:0;text-align:center}
+  :root[data-theme] body .lp .lp-header-right{flex:none;display:flex;align-items:center;gap:8px}
+  :root[data-theme] body .lp .lp-header-right>.lp-button{padding:8px 12px;font-size:13px;max-width:none;white-space:nowrap;min-height:40px}
+  :root[data-theme] body .lp .lp-hero h1{font-size:clamp(38px,11vw,52px)}
+  :root[data-theme] body .lp .lp-hero-logo{width:104px;height:104px;border-radius:24px}
+  :root[data-theme] body .lp .lp-actions{flex-direction:column;align-items:stretch}
+  :root[data-theme] body .lp .lp-actions .lp-button{width:100%;min-height:54px}
+  :root[data-theme] body .lp .lp-section{padding-inline:16px}
+  :root[data-theme] body .lp .lp-heading h2,:root[data-theme] body .lp .lp-final-cta h2{font-size:clamp(28px,8.4vw,34px)}
+  :root[data-theme] body .lp .lp-feature-row{padding:14px 16px}
+  :root[data-theme] body .lp .lp-how-card,:root[data-theme] body .lp .lp-use-card{padding:22px 20px}
+  :root[data-theme] body .lp .lp-faq details{padding:14px 16px}
+  :root[data-theme] body .lp .lp-final-cta{padding-inline:16px}
+  :root[data-theme] body .lp .lp-final-cta .lp-button{width:100%}
+  :root[data-theme] body .lp .lp-footer{padding-inline:16px}
+}
+
+/* Keep the motion calm: transforms and opacity only, none when the person prefers less motion. */
+@media (prefers-reduced-motion:reduce){
+  :root[data-theme] body .lp .lp-button,:root[data-theme] body .lp .lp-button:active,:root[data-theme] body .lp .lp-button-primary:hover{transition:none;transform:none}
+  :root[data-theme] body .lp .lp-hero-logo{animation:none}
+}
