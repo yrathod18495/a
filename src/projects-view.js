@@ -1,5 +1,6 @@
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, brandWordmark } from './dom.js';
+import { icon } from './icons.js';
 import { projectDialog } from './project-dialog.js';
 import { listProjects, createProject, renameProject, deleteProject, copyProject } from './store.js';
 import { refreshProjects, syncProject, onSyncStatus, resolveConflict, registerProject } from './project-sync.js';
@@ -48,7 +49,7 @@ export async function projectsView({user,kind,home,toast}) {
     h('button',{class:'btn pri project-new','aria-label':'Create New Project',onclick:run(async()=>{const name=await dialog({title:'Create a project',description:`Give your new ${kind==='animation'?'animation':'character'} project a name.`,value:'Untitled project',confirmLabel:'Create project'});if(name){const p=await createProject(user.uid,kind,name);const id=await registerProject(user.uid,p.id,kind,name);open(id===p.id?p:{...p,id});}})},'+ New Project'),
     h('div',{class:'projects-search-row'},search,refreshBtn));
   root.append(h('header',{class:'projects-header'},h('a',{class:'projects-brand',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},...brandWordmark())),
-    h('main',{class:'projects-main'},h('div',{class:'projects-panel-head'},h('h1',{},kind==='animation'?'Animator Studio Projects':'Character Editor Projects'),h('span',{class:'sp'}),h('button',{class:'projects-close','aria-label':'Close',title:'Back to dashboard',onclick:home},'✕')),toolbar,status,list));
+    h('main',{class:'projects-main'},h('div',{class:'projects-panel-head'},h('h1',{},kind==='animation'?'Animator Studio Projects':'Character Editor Projects'),h('span',{class:'sp'}),h('button',{class:'projects-close','aria-label':'Close',title:'Back to dashboard',onclick:home},icon('x',22))),toolbar,status,list));
   const off=onSyncStatus(s=>{status.textContent=s.text+(s.error?' — '+s.error:'');});
   root.dispose=off;
   await draw();

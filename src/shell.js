@@ -21,6 +21,7 @@ import { projectsView } from './projects-view.js';
 import { syncAll, syncProject } from './project-sync.js';
 import { apiCall } from './session.js';
 import { createShield } from './shield.js';
+import { icon as svgIcon } from './icons.js';
 
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
@@ -312,7 +313,7 @@ function profileMenu() {
     class: `sh-mi ${extraClass}`.trim(), type: 'button', onclick: () => { close(); action(); },
   }, h('span', { class: 'sh-mi-icon', 'aria-hidden': 'true' }, menuIcon(icon)),
   h('span', { class: 'sh-mi-copy' }, h('span', { class: 'sh-mi-label' }, label), h('small', {}, description)),
-  h('span', { class: 'sh-mi-arrow', 'aria-hidden': 'true' }, '›'));
+  h('span', { class: 'sh-mi-arrow', 'aria-hidden': 'true' }, svgIcon('chevron-right', 18)));
   const themeItem = item('moon', '', '', () => {
     setTheme(activeTheme === 'day' ? 'night' : 'day');
     updateThemeItem();
@@ -372,7 +373,7 @@ function loginView() {
 
 function maintenanceView() {
   return h('main', { class: 'sh sh-center' }, h('section', { class: 'sh-login maintenance-card' },
-    logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, '🔧'),
+    logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, svgIcon('settings', 30)),
     h('h1', {}, 'We’ll be back soon'),
     h('p', { class: 'sub' }, '12toons is in maintenance right now. Please check back shortly.'),
     h('button', { class: 'btn pri', onclick: async () => { await signOutUser(); go('#/'); } }, 'Sign out')));
@@ -381,7 +382,7 @@ function maintenanceView() {
 /** a signed-in account whose admin status could not be checked (bad network): it is not sent to the maintenance page, it can just try again */
 function adminRetryView() {
   return h('main', { class: 'sh sh-center' }, h('section', { class: 'sh-login maintenance-card' },
-    logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, '📡'),
+    logo(() => {}), h('div', { class: 'maintenance-mark', 'aria-hidden': 'true' }, svgIcon('warning', 30)),
     h('h1', {}, 'Could not check your account'),
     h('p', { class: 'sub' }, 'We couldn’t verify your access with the server. Check your internet connection and try again.'),
     h('button', { class: 'btn pri big', onclick: () => location.reload() }, 'Try again')));
@@ -394,7 +395,7 @@ function hubView() {
   r2Configured().then(async (ok) => {
     if (!ok) { cloudLine.textContent = 'Your work is saved on this device.'; return; }
     const info = await cloudInfo();
-    cloudLine.textContent = info ? `☁ Last cloud save: ${new Date(info.updatedAt).toLocaleString()}` : '☁ Projects save automatically while you edit.';
+    cloudLine.textContent = info ? `Last cloud save: ${new Date(info.updatedAt).toLocaleString()}` : 'Projects save automatically while you edit.';
   }).catch(() => { cloudLine.textContent = ''; });
   // quick way back into the latest work
   const recent = h('section', { class: 'st-recent', hidden: true });
@@ -405,9 +406,9 @@ function hubView() {
     recent.replaceChildren(h('div', { class: 'st-label' }, 'Continue where you left off'),
       ...latest.map((p) => h('div', { class: 'st-recent-item' },
         h('button', { type: 'button', class: 'st-recent-row', onclick: () => { location.hash = `#/${p.kind === 'animation' ? 'toons' : 'characters'}/${p.id}`; location.reload(); } },
-          h('span', { class: `st-recent-ico ${p.kind}` }, p.kind === 'animation' ? '▶' : '☻'),
+          h('span', { class: `st-recent-ico ${p.kind}` }, svgIcon(p.kind === 'animation' ? 'play' : 'user', 20)),
           h('span', { class: 'st-recent-text' }, h('b', {}, p.name), h('small', {}, `${p.kind === 'animation' ? 'Animation' : 'Character'} · ${new Date(p.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`)),
-          h('span', { class: 'st-recent-go', 'aria-hidden': 'true' }, '→')),
+          h('span', { class: 'st-recent-go', 'aria-hidden': 'true' }, svgIcon('chevron-right', 20))),
         h('div', { class: 'st-recent-actions' },
           h('button', { type: 'button', class: 'btn project-action', 'aria-label': `Rename ${p.name}`, onclick: () => afterChange(async () => {
             const name = await projectDialog({ title: 'Rename project', description: 'Choose a clear name for this project.', value: p.name, confirmLabel: 'Save name' });
@@ -430,7 +431,7 @@ function hubView() {
   const tool = (cls, title, text, hash, btn) => {
     const art = h('div', { class: 'st-tool-pic', 'aria-hidden': 'true' }); art.innerHTML = TOOL_ART[cls] || '';
     return h('article', { class: `sh-tool st-tool ${cls}`, role: 'link', tabindex: '0', onclick: () => go(hash), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(hash); } } },
-      h('div', { class: 'st-tool-art', 'aria-hidden': 'true' }), h('div', { class: 'st-tool-body' }, h('h3', {}, title), h('p', {}, text), art, h('span', { class: 'st-launch' }, btn, h('i', { class: 'st-arrow', 'aria-hidden': 'true' }, ' →'))));
+      h('div', { class: 'st-tool-art', 'aria-hidden': 'true' }), h('div', { class: 'st-tool-body' }, h('h3', {}, title), h('p', {}, text), art, h('span', { class: 'st-launch' }, btn, h('i', { class: 'st-arrow', 'aria-hidden': 'true' }, svgIcon('arrow-right', 16)))));
   };
   return h('div', { class: 'sh' },
     h('header', { class: 'sh-bar' }, logo(() => go('#/')), h('span', { class: 'sp' }), profileMenu()),

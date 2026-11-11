@@ -1,1 +1,176 @@
-/* ios-shell: iOS-style refinements (see src/ios.css for the shared tokens) */
+/* ios-shell: iOS-style refinements for the signed-in shell pages (hub, rail, profile menu, projects, coins, help, affiliate, legal, dialogs).
+   Loaded after ios.css and the older sheets, so rules use the same :root[data-theme] body specificity. Tokens come from stpro.css (--ink, --edge, --card1, --accent). */
+:root{--ish-hair:color-mix(in srgb,var(--edge,#34363c) 70%,transparent);--ish-group:var(--card1,#222327)}
+
+/* ---- header bar: flat, hairline, no gradient ---- */
+:root[data-theme] body .sh-bar:not(.lp-header),:root[data-theme] body .projects-header{background:var(--bar1,var(--card)) !important;background-image:none !important;border-bottom:.5px solid var(--ish-hair)}
+:root[data-theme] body .hdr-burger{border-radius:11px;border-color:transparent;background:var(--hover,var(--card2))}
+:root[data-theme] body .hdr-burger:active{transform:scale(.94)}
+:root[data-theme] body .sh-bar .sh-crumb{font-size:17px;font-weight:600;letter-spacing:-.01em}
+
+/* ---- large titles ---- */
+:root[data-theme] body .sh-hub h1,:root[data-theme] body .projects-panel-head h1,:root[data-theme] body .credit-hero h1,:root[data-theme] body .help-hero h1,:root[data-theme] body .affiliate-hero h1,:root[data-theme] body .legal-hero h1{font-size:clamp(30px,6.4vw,40px);font-weight:800;letter-spacing:-.03em;line-height:1.1}
+:root[data-theme] body .sh-hub .sub,:root[data-theme] body .sh-hub>.sub{font-size:17px;line-height:1.4;color:var(--mute)}
+:root[data-theme] body .sh-hub{padding-top:28px;padding-bottom:48px}
+:root[data-theme] body .st-label,.st-label{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:26px 4px 10px}
+
+/* ---- hub tool cards: calmer, rounder; the launch button is the one bright thing ---- */
+:root[data-theme] body .st-tool{border-radius:24px;border:.5px solid var(--ish-hair);box-shadow:0 10px 30px #0000002e}
+:root[data-theme] body .st-tool-body{min-height:240px;padding:24px}
+:root[data-theme] body .st-tool h3{font-size:22px;letter-spacing:-.02em}
+:root[data-theme] body .st-tool p{font-size:15px;line-height:1.4}
+:root[data-theme] body .st-launch{min-height:44px;padding:0 18px;font-size:16px;font-weight:700;box-sizing:border-box}
+.st-arrow{display:inline-flex;align-items:center}
+.st-arrow .ic{display:inline-flex}
+:root[data-theme] body .st-tool:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+@media(max-width:700px){:root[data-theme] body .st-tool-body{min-height:210px;padding:20px}}
+
+/* ---- recent projects: an inset grouped list ---- */
+:root[data-theme] body .st-recent{margin-top:8px;display:flex;flex-direction:column}
+:root[data-theme] body .st-recent-item{display:flex;align-items:center;gap:8px;margin:0;padding:0 12px 0 0;background:var(--ish-group);border:0;border-radius:0;position:relative}
+:root[data-theme] body .st-recent .st-label+.st-recent-item{border-radius:18px 18px 0 0}
+:root[data-theme] body .st-recent .st-recent-item:last-child{border-radius:0 0 18px 18px}
+:root[data-theme] body .st-recent .st-label+.st-recent-item:last-child{border-radius:18px}
+:root[data-theme] body .st-recent-item+.st-recent-item{border-top:.5px solid var(--ish-hair)}
+:root[data-theme] body .st-recent-item .st-recent-row{border:0;border-radius:inherit;background:none;margin:0;padding:12px 8px 12px 16px;min-height:68px;transform:none}
+:root[data-theme] body .st-recent-item .st-recent-row:hover{background:var(--hover);transform:none}
+:root[data-theme] body .st-recent-item .st-recent-row:active{transform:none;opacity:.7}
+:root[data-theme] body .st-recent-ico{width:40px;height:40px;border-radius:11px;font-size:0}
+:root[data-theme] body .st-recent-ico .ic{display:inline-flex;font-size:20px}
+:root[data-theme] body .st-recent-text b{font-size:17px;font-weight:600}
+:root[data-theme] body .st-recent-text small{font-size:13px}
+:root[data-theme] body .st-recent-go{display:inline-flex;color:var(--mute)}
+:root[data-theme] body .st-recent-actions{flex-direction:row;gap:6px}
+:root[data-theme] body .st-recent-actions .btn{min-width:0;min-height:36px;padding:0 12px;border:0;border-radius:99px;background:var(--hover);color:var(--accent);font-size:14px;font-weight:600}
+:root[data-theme] body .st-recent-actions .btn.danger{color:var(--danger);background:var(--danger-bg)}
+@media(max-width:560px){
+  :root[data-theme] body .st-recent-item{display:grid;grid-template-columns:minmax(0,1fr);padding:0 0 12px;gap:0}
+  :root[data-theme] body .st-recent-item .st-recent-row{width:auto;padding-bottom:6px}
+  :root[data-theme] body .st-recent-actions{display:flex;flex-direction:row;gap:8px;padding:0 16px 0 72px}
+  :root[data-theme] body .st-recent-actions .btn{flex:0 0 auto;min-height:44px;padding:0 18px}
+}
+:root[data-theme] body .sh-cloud{margin:22px 4px 0;font-size:13px;color:var(--mute)}
+
+/* ---- app rail: a quiet sidebar, tinted active row ---- */
+:root[data-theme] body .rail-panel{border:.5px solid var(--ish-hair);border-radius:22px;box-shadow:none}
+.rail.open .rail-panel{box-shadow:0 16px 48px #0006}
+:root[data-theme] body .rail-scrim{-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-theme] body .rail-item{height:50px;border-radius:12px;font-size:16px;font-weight:500;gap:16px}
+:root[data-theme] body .rail-item svg{stroke-width:1.8}
+:root[data-theme] body .rail-item.on{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--accent);font-weight:600}
+:root[data-theme] body .rail-item:active{opacity:.7}
+:root[data-theme] body .rail-group{font-size:12px;font-weight:600;letter-spacing:.06em}
+@media(max-width:860px){
+  :root[data-theme] body .rail-item{height:52px}
+  :root[data-theme] body .rail-panel{transition:transform .28s var(--ios-ease)}
+}
+
+/* ---- profile menu: inset grouped list ---- */
+:root[data-theme] body .sh-profile .sh-menu{border:.5px solid var(--ish-hair);border-radius:20px;box-shadow:0 18px 50px #0006;animation:iosPop .22s var(--ios-ease) both}
+:root[data-theme] body .sh-profile .sh-who{border-bottom:.5px solid var(--ish-hair)}
+:root[data-theme] body .sh-profile .sh-menu-section{padding:6px 6px 6px}
+:root[data-theme] body .sh-profile .sh-mi{min-height:52px;border-radius:12px;gap:12px}
+:root[data-theme] body .sh-profile .sh-mi+.sh-mi{box-shadow:none}
+:root[data-theme] body .sh-profile .sh-mi:active{opacity:.7}
+:root[data-theme] body .sh-profile .sh-mi-icon{border-radius:9px;width:32px;height:32px}
+:root[data-theme] body .sh-profile .sh-mi-label{font-size:16px;font-weight:600}
+:root[data-theme] body .sh-profile .sh-mi-copy small{font-size:12.5px}
+:root[data-theme] body .sh-profile .sh-menu-footer{border-top:.5px solid var(--ish-hair)}
+:root[data-theme] body .sh-profile .sh-mi-arrow{display:inline-flex;color:var(--mute);opacity:.7}
+:root[data-theme] body .sh-profile .sh-mi-arrow .ic{display:inline-flex}
+
+/* ---- projects page: title, big primary button, search field, grouped cards ---- */
+:root[data-theme] body .projects-panel-head{margin:6px 0 20px}
+.projects-close{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--hover,var(--card2));color:var(--mute);padding:0;flex:none;font-size:0}
+.projects-close .ic{display:inline-flex}
+.projects-close:active{opacity:.6}
+@media(max-width:700px){.projects-close{width:44px;height:44px}}
+:root[data-theme] body .projects-toolbar{gap:12px}
+:root[data-theme] body .projects-toolbar .project-new{min-height:52px;border-radius:16px;font-size:17px;font-weight:700;box-shadow:none}
+:root[data-theme] body .projects-search-row{display:flex;gap:10px;align-items:center}
+:root[data-theme] body .projects-search{min-height:44px;border-radius:12px;padding:0 16px;font-size:16px;border:0;background:var(--hover,var(--card2));flex:1;min-width:0}
+:root[data-theme] body .project-refresh{width:44px;height:44px;min-height:44px;padding:0;border-radius:12px;border:0;background:var(--hover,var(--card2))}
+:root[data-theme] body .projects-status{display:inline-block;margin:0 0 14px;padding:3px 10px;border-radius:99px;background:var(--hover);color:var(--mute);font-size:12.5px;font-weight:500}
+:root[data-theme] body .projects-status:empty{display:none}
+:root[data-theme] body .projects-grid{gap:12px}
+:root[data-theme] body .project-card{padding:18px;border:.5px solid var(--ish-hair);border-radius:20px;background:var(--ish-group)}
+:root[data-theme] body .project-card .project-name{font-size:20px;font-weight:700;letter-spacing:-.02em;overflow-wrap:anywhere}
+.project-created{font-size:13px}
+.project-updated{font-size:13px;font-weight:600;margin:0;color:var(--soft)}
+.project-state{font-size:13px;margin:6px 0 16px}
+.project-row{grid-template-columns:2fr 1fr 1fr}
+.project-row .btn{min-height:44px;border-radius:12px;font-size:16px;font-weight:600}
+.project-row .btn.project-open{font-weight:700}
+.project-actions .btn{min-height:44px;border:0;border-radius:99px;background:var(--hover);color:var(--accent);padding:0 16px}
+@media(min-width:700px){.project-actions .btn{min-height:36px}}
+:root[data-theme] body .projects-empty{border:.5px dashed var(--edge);border-radius:20px;background:none}
+@media(max-width:420px){.project-row{grid-template-columns:1fr 1fr}.project-row .project-open{grid-column:1 / -1}}
+
+/* ---- Buy Coins ---- */
+:root[data-theme] body .credit-hero,:root[data-theme] body .credit-plan,:root[data-theme] body .credit-history-section,:root[data-theme] body .credit-promo{border:.5px solid var(--ish-hair);border-radius:22px}
+:root[data-theme] body .credit-balance-card{border-radius:18px}
+:root[data-theme] body .credit-kicker{font-size:13px;font-weight:600;letter-spacing:.06em}
+:root[data-theme] body .credit-plan .btn{min-height:50px;border-radius:14px;font-size:17px;font-weight:700}
+:root[data-theme] body .credit-promo-input{min-height:44px;border-radius:12px}
+:root[data-theme] body .credit-promo .btn{min-height:44px}
+:root[data-theme] body .credit-popular{font-size:12px;font-weight:700;letter-spacing:.04em;border-radius:99px}
+:root[data-theme] body .credit-history-row{border-bottom:.5px solid var(--ish-hair)}
+@media(max-width:700px){:root[data-theme] body .credit-promo{max-width:none}}
+
+/* ---- Help ---- */
+:root[data-theme] body .help-card,:root[data-theme] body .help-reply,:root[data-theme] body .help-hours table{border:.5px solid var(--ish-hair);border-radius:20px}
+:root[data-theme] body .help-card .btn{min-height:44px;border-radius:14px}
+:root[data-theme] body .help-hours table{border-width:.5px;border-radius:18px}
+:root[data-theme] body .help-hours h2,:root[data-theme] body .help-main h2{font-size:22px;font-weight:700;letter-spacing:-.02em}
+
+/* ---- Affiliate ---- */
+:root[data-theme] body .affiliate-hero,:root[data-theme] body .affiliate-card,:root[data-theme] body .ap-table-card,:root[data-theme] body .ap-stat{border:.5px solid var(--ish-hair);border-radius:22px}
+:root[data-theme] body .affiliate-field input,:root[data-theme] body .affiliate-field select,:root[data-theme] body .affiliate-field textarea{min-height:44px;border-radius:12px}
+:root[data-theme] body .affiliate-submit{min-height:52px;border-radius:16px;font-size:17px;font-weight:700}
+:root[data-theme] body .projects-eyebrow{font-size:13px;font-weight:600;letter-spacing:.06em}
+:root[data-theme] body .ap-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ---- Legal ---- */
+:root[data-theme] body .legal-hero,:root[data-theme] body .legal-section,:root[data-theme] body .legal-notice,:root[data-theme] body .legal-intro{border-radius:22px}
+:root[data-theme] body .legal-hero-icon,:root[data-theme] body .legal-icon{border-radius:14px}
+:root[data-theme] body .legal-switch a{min-height:44px;display:inline-flex;align-items:center}
+
+/* ---- maintenance / could not check account ---- */
+:root[data-theme] body .maintenance-card{border-radius:28px;padding:32px 24px;border:.5px solid var(--ish-hair);text-align:center}
+:root[data-theme] body .maintenance-card .maintenance-mark{width:72px;height:72px;border-radius:20px;font-size:0;color:var(--accent);background:color-mix(in srgb,var(--acc) 16%,transparent)}
+:root[data-theme] body .maintenance-card .maintenance-mark .ic{display:inline-flex}
+:root[data-theme] body .maintenance-card .maintenance-mark svg{width:32px;height:32px}
+:root[data-theme] body .maintenance-card h1{font-size:28px;font-weight:800;letter-spacing:-.025em}
+:root[data-theme] body .maintenance-card .btn{min-height:50px;border-radius:16px;font-size:17px;width:100%;max-width:320px}
+
+/* ---- toasts ---- */
+:root[data-theme] body .toast{border-radius:16px;padding:13px 18px;font-size:15px;font-weight:500;line-height:1.35;border:.5px solid var(--ish-hair);box-shadow:0 10px 30px #00000055;max-width:min(92vw,440px);animation:iosPop .26s var(--ios-ease) both}
+@media(max-width:700px){:root[data-theme] body .toast{bottom:calc(20px + env(safe-area-inset-bottom))}}
+
+/* ---- generic dialog: a centred alert on desktop, a bottom sheet on phones ---- */
+:root[data-theme] body .project-dialog-backdrop{-webkit-backdrop-filter:none;backdrop-filter:none;animation:iosFade .2s ease both}
+:root[data-theme] body .project-dialog{border-radius:24px;border:.5px solid var(--ish-hair);animation:iosPop .28s var(--ios-ease) both}
+:root[data-theme] body .project-dialog h2{font-size:21px;font-weight:700;letter-spacing:-.02em}
+:root[data-theme] body .project-dialog-icon{color:var(--accent)}
+:root[data-theme] body .project-dialog-icon .ic{display:inline-flex}
+:root[data-theme] body .project-dialog-danger~*,:root[data-theme] body .project-dialog-danger{color:var(--danger)}
+:root[data-theme] body .project-dialog-input{min-height:48px;border-radius:12px;font-size:16px}
+:root[data-theme] body .project-dialog-actions{gap:10px}
+:root[data-theme] body .project-dialog-actions .btn{min-height:48px;border-radius:14px;font-size:17px;font-weight:600;flex:1}
+@media(max-width:700px){
+  :root[data-theme] body .project-dialog-backdrop{align-items:flex-end;padding:0}
+  :root[data-theme] body .project-dialog{width:100%;max-width:none;border-radius:24px 24px 0 0;border-bottom:0;padding-bottom:calc(20px + env(safe-area-inset-bottom));animation:iosSheet .32s var(--ios-ease) both}
+}
+
+@media(prefers-reduced-motion:reduce){
+  :root[data-theme] body .toast,:root[data-theme] body .project-dialog,:root[data-theme] body .project-dialog-backdrop,:root[data-theme] body .sh-profile .sh-menu{animation:none}
+  :root[data-theme] body .rail-panel{transition:none}
+}
+:root[data-theme] body .sh-profile .sh-mi-copy small{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
+:root[data-theme] body .st-recent-item .st-recent-row{min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden}
+:root[data-theme] body .st-recent-item{box-sizing:border-box;min-width:0;max-width:100%;overflow:hidden}
+:root[data-theme] body .st-recent-text{min-width:0;overflow:hidden}
+:root[data-theme] body .project-row .btn{border:0;background:var(--hover);color:var(--ink);min-height:44px;border-radius:12px;box-shadow:none}
+:root[data-theme] body .project-row .btn.project-open{background:var(--brand);color:var(--on-brand);box-shadow:0 6px 16px var(--shadow)}
+:root[data-theme] body .project-row .btn.danger{background:var(--danger-bg);color:var(--danger)}
+:root[data-theme] body .project-actions .btn{border:0;background:var(--hover);color:var(--accent)}

@@ -1,4 +1,5 @@
 import { h } from './dom.js';
+import { icon } from './icons.js';
 // A small modal used for renaming, creating and deleting projects (same look everywhere).
 export function projectDialog({title,description='',value='',placeholder='',confirmLabel='Continue',danger=false,confirmOnly=false,maxLength=80},host=document.body){
   return new Promise(resolve=>{
@@ -8,7 +9,7 @@ export function projectDialog({title,description='',value='',placeholder='',conf
     const save=()=>{const text=input?.value.trim();if(!confirmOnly&&!text){input?.focus();return;}close(confirmOnly?true:text);};
     const overlay=h('div',{class:'project-dialog-backdrop',onclick:e=>{if(e.target===overlay)close(null);}},
       h('section',{class:'project-dialog','role':'dialog','aria-modal':'true','aria-labelledby':'project-dialog-title'},
-        h('span',{class:'project-dialog-icon','aria-hidden':'true'},danger?'!':'✦'),
+        h('span',{class:'project-dialog-icon','aria-hidden':'true'},danger?icon('warning',24):icon('pencil',24)),
         h('h2',{id:'project-dialog-title'},title),
         description?h('p',{class:'project-dialog-description'},description):null,
         input,
