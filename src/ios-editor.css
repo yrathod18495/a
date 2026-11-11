@@ -1,1 +1,211 @@
-/* ios-editor: iOS-style refinements (see src/ios.css for the shared tokens) */
+/* ios-editor: iOS-style Character Editor (src/charstudio.js, src/charpick.js) and Background Generator (src/bg-generator.js).
+   Loaded after the older sheets, so every rule carries the `:root[data-theme] body` prefix to win on specificity. Colours come from the tokens
+   (--card, --card2, --text, --mute, --acc, --page); hairlines are the text colour at low opacity so they read in the night and day themes alike.
+   Motion is transform / opacity / colour only and is switched off for prefers-reduced-motion. */
+:root{--ie-sep:color-mix(in srgb,var(--text,#fff) 13%,transparent);--ie-fill:color-mix(in srgb,var(--text,#fff) 9%,transparent);--ie-ok:#34c759}
+:root[data-theme="day"]{--ie-sep:color-mix(in srgb,#14163a 12%,transparent);--ie-fill:color-mix(in srgb,#14163a 7%,transparent)}
+
+/* ================= Character Editor ================= */
+:root[data-theme] body .cs{background:var(--page,var(--bg));background-image:none;min-height:100dvh}
+:root[data-theme] body .cs .cs-anim:has(>.hint){display:block;padding:0;background:transparent}
+:root[data-theme] body .cs .cs-anim>.hint{margin:0;padding:14px;border-radius:16px;background:var(--card);text-align:center;color:var(--mute)}
+:root[data-theme] body .cs .ic svg{width:18px;height:18px}
+
+/* header bar: flat, hairline, one filled action (Save) */
+:root[data-theme] body .cs .sh-bar:not(.lp-header){height:52px;min-height:52px;padding:0 14px;gap:8px;background:var(--card)!important;background-image:none!important;border-bottom:.5px solid var(--ie-sep);box-shadow:none;position:sticky;top:0;z-index:30}
+:root[data-theme] body .cs .sh-bar>.btn{height:34px;min-height:34px;border-radius:17px;padding:0 14px;font-size:15px;font-weight:600;border:0;background:var(--ie-fill)!important;color:var(--text)!important;box-shadow:none}
+:root[data-theme] body .cs .sh-bar>.btn.ok{background:var(--acc)!important;background-image:none!important;color:#fff!important}
+:root[data-theme] body .cs .sh-bar>.btn:disabled{opacity:.5}
+:root[data-theme] body .cs .sh-bar .cs-status{color:var(--mute)}
+
+/* layout: stage and panel side by side on desktop, stacked on a phone */
+:root[data-theme] body .cs .cs-body{gap:20px;padding:20px max(16px,calc((100vw - 1180px)/2)) 40px;grid-template-columns:minmax(0,1fr) 420px}
+:root[data-theme] body .cs .cs-left{top:72px;background:transparent;padding:0}
+:root[data-theme] body .cs .cs-stage{padding:12px;border:0;border-radius:22px;background:var(--card)}
+:root[data-theme] body .cs .cs-stage canvas{border-radius:14px}
+
+/* animation bar: a small grouped card under the stage */
+:root[data-theme] body .cs .cs-anim{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;grid-auto-flow:row;gap:8px 6px;align-items:center;margin-top:10px;padding:8px;border-radius:18px;background:var(--card)}
+:root[data-theme] body .cs .cs-anim>.btn.sm{width:44px;height:36px;min-height:36px;padding:0;border:0;border-radius:12px;background:var(--ie-fill)!important;color:var(--text)!important;font-size:22px;line-height:1;box-shadow:none}
+:root[data-theme] body .cs .cs-anim-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:600}
+:root[data-theme] body .cs .cs-anim .seg3{grid-column:1/-1;display:flex;gap:0;padding:2px;border-radius:10px;background:var(--ie-fill)}
+:root[data-theme] body .cs .cs-anim .tog{grid-column:1/-1;justify-content:space-between;min-height:36px;padding:0 6px 0 8px}
+:root[data-theme] body .cs .cs-left>.hint{margin:10px 0 0;padding:14px;border-radius:16px;background:var(--card);text-align:center;color:var(--mute)}
+
+/* segmented controls: Start / Create / Save, Full / Upper body / Face, character kinds */
+:root[data-theme] body .cs .cs-tabs{display:flex;gap:0;padding:2px;border-radius:11px;background:var(--ie-fill)}
+:root[data-theme] body .cs.sh .cs-tabs button,:root[data-theme] body .cs .seg3 button,:root[data-theme] body .cp .cp-kind{flex:1 1 0;min-width:0;min-height:32px;padding:0 8px;border:0!important;border-radius:9px!important;background:transparent!important;color:var(--text)!important;font:inherit;font-size:13.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:none;transition:background-color .2s var(--ios-ease),color .2s,transform .16s var(--ios-ease)}
+:root[data-theme] body .cs .cs-tabs button{min-height:34px}
+:root[data-theme] body .cs.sh .cs-tabs button.on,:root[data-theme] body .cs .seg3 button.on,:root[data-theme] body .cp .cp-kind.on{background:color-mix(in srgb,var(--text) 24%,var(--card))!important;color:var(--text)!important;box-shadow:0 1px 3px #0004}
+:root[data-theme="day"] body .cs.sh .cs-tabs button.on,:root[data-theme="day"] body .cs .seg3 button.on,:root[data-theme="day"] body .cp .cp-kind.on{background:#fff!important;box-shadow:0 1px 3px #0003,0 0 0 .5px #0001}
+:root[data-theme] body .cs .cs-tabs button:disabled{opacity:.4}
+:root[data-theme] body .cs .cs-tabs button:not(:disabled):not(.on):active,:root[data-theme] body .cs .seg3 button:not(.on):active,:root[data-theme] body .cp .cp-kind:not(.on):active{opacity:.6}
+
+/* right panel: one calm card */
+:root[data-theme] body .cs .cs-right{gap:14px;padding:12px;border:0;border-radius:22px;background:var(--card);box-shadow:none}
+:root[data-theme] body .cs .cs-panel{gap:14px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+:root[data-theme] body .cs .cs-panel h3,:root[data-theme] body .cs .cs-sec h3{margin:4px 0 6px;font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+:root[data-theme] body .cs .cs-panel .sub,:root[data-theme] body .cs .cs-panel .hint{margin:0;font-size:13px;line-height:1.4;color:var(--mute);text-align:left}
+:root[data-theme] body .cs .cs-panel .cs-sec{display:flex;flex-direction:column;gap:6px}
+:root[data-theme] body .cs .cs-panel .f{gap:6px;font-size:13px;color:var(--mute)}
+:root[data-theme] body .cs .cs-panel input[type=text]{min-height:44px;padding:0 14px;border:0;border-radius:12px;background:var(--ie-fill);color:var(--text);font-size:17px}
+
+/* buttons in the panel */
+:root[data-theme] body .cs .cs-panel .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border:0;border-radius:13px;background:var(--ie-fill)!important;color:var(--acc)!important;font-size:15px;font-weight:600;box-shadow:none;gap:7px}
+:root[data-theme] body .cs .cs-panel .btn.pri{background:var(--acc)!important;background-image:none!important;color:#fff!important}
+:root[data-theme="day"] body .cs .cs-panel .btn{color:var(--acc2)!important}
+:root[data-theme="day"] body .cs .cs-panel .btn.pri{color:#fff!important}
+:root[data-theme] body .cs .cs-panel .row{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+:root[data-theme] body .cs .cs-panel .row>.btn{flex:1 1 auto}
+:root[data-theme] body .cs .cs-panel .row>.btn.pri:first-child{flex:1 1 100%}
+
+/* switches: simple on / off checkboxes become iOS switches (label text on the left, switch on the right) */
+:root[data-theme] body .cs .tog{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:14px;min-height:44px;padding:6px 14px;border-radius:12px;background:var(--ie-fill);font-size:14px;line-height:1.35;color:var(--text);cursor:pointer}
+:root[data-theme] body .cs .tog>span{flex:1;min-width:0}
+:root[data-theme] body .cs .tog input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;position:relative;width:46px;height:28px;margin:0;border-radius:14px;background:color-mix(in srgb,var(--text) 22%,transparent);cursor:pointer;transition:background-color .2s var(--ios-ease)}
+:root[data-theme] body .cs .tog input[type=checkbox]::before{content:"";position:absolute;left:2px;top:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 4px #0004;transition:transform .22s var(--ios-ease)}
+:root[data-theme] body .cs .tog input[type=checkbox]:checked{background:var(--ie-ok)}
+:root[data-theme] body .cs .tog input[type=checkbox]:checked::before{transform:translateX(18px)}
+:root[data-theme] body .cs .tog input[type=checkbox]:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+:root[data-theme] body .cs .cs-anim .tog{background:transparent;padding:0 4px}
+
+/* progress */
+:root[data-theme] body .cs .cs-prog{gap:8px;padding:12px 14px;border-radius:12px;background:var(--ie-fill);font-size:13px}
+:root[data-theme] body .cs .cs-prog b{font-weight:600}
+:root[data-theme] body .cs .cs-bar{height:6px;border-radius:3px;background:color-mix(in srgb,var(--text) 15%,transparent)}
+:root[data-theme] body .cs .cs-bar i{border-radius:3px;background:var(--acc);transition:width .3s var(--ios-ease)}
+:root[data-theme="day"] body .cs .cs-bar i{background:var(--acc2)}
+:root[data-theme] body .cs .cs-guide-status{padding:10px 14px;border:0;border-radius:12px;background:var(--ie-fill);font-size:12.5px}
+
+/* parts list: grouped inset list, hairline separators, 44px+ rows, trailing compact Upload */
+:root[data-theme] body .cs .cs-lgroup{border:0;border-radius:14px;background:var(--ie-fill);overflow:hidden}
+:root[data-theme] body .cs .cs-ghead.static{display:flex;align-items:center;gap:8px;padding:10px 14px 8px;background:transparent;border:0;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}
+:root[data-theme] body .cs .cs-ghead.static b{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root[data-theme] body .cs .cs-ghead.static small{padding:0;background:transparent;color:var(--mute);font-size:12px;font-variant-numeric:tabular-nums}
+:root[data-theme] body .cs .cs-gic{display:inline-grid;place-items:center;color:var(--mute)}
+:root[data-theme] body .cs .cs-gic .ic svg{width:16px;height:16px}
+:root[data-theme] body .cs .cs-lbody{display:flex;flex-direction:column;background:var(--card2);border-top:.5px solid var(--ie-sep)}
+:root[data-theme] body .cs .cs-lrow{position:relative;display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 10px 8px 14px;border:0;border-radius:0;background:transparent;transition:background-color .16s}
+:root[data-theme] body .cs .cs-lrow+.cs-lrow::before{content:"";position:absolute;top:0;left:66px;right:0;height:.5px;background:var(--ie-sep)}
+:root[data-theme] body .cs .cs-lrow:active{background:var(--ie-fill)}
+:root[data-theme] body .cs .cs-crow.done,:root[data-theme="day"] body .cs .cs-crow.done{background:transparent}
+:root[data-theme] body .cs .cs-crow.done .cs-lname small{color:var(--ie-ok)}
+:root[data-theme] body .cs .cs-crow.rig-guide-selected{outline:0;background:color-mix(in srgb,var(--acc) 16%,transparent)}
+:root[data-theme] body .cs .cs-lth{width:40px;height:40px;border-radius:9px;background:repeating-conic-gradient(color-mix(in srgb,var(--text) 10%,transparent) 0 25%,transparent 0 50%) 50%/10px 10px;flex:none}
+:root[data-theme] body .cs .cs-lname{flex:1;min-width:0;gap:1px}
+:root[data-theme] body .cs .cs-lname b{font-size:15px;font-weight:600;line-height:1.25}
+:root[data-theme] body .cs .cs-lname small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--mute)}
+:root[data-theme] body .cs .cs-lrow .ib{flex:none;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:var(--acc);cursor:pointer;padding:0}
+:root[data-theme] body .cs .cs-lrow .ib:active{background:var(--ie-fill)}
+:root[data-theme] body .cs .cs-lrow .btn.sm,:root[data-theme] body .cs .cs-panel .cs-lrow .btn.sm{flex:none;min-height:32px;height:32px;padding:0 12px;border-radius:16px;font-size:14px;gap:5px}
+:root[data-theme] body .cs .cs-lrow .btn.sm .ic svg{width:15px;height:15px}
+:root[data-theme] body .cs .cs-part,:root[data-theme] body .cs .cs-layer{border:0;border-radius:12px;background:var(--ie-fill)}
+
+/* My characters (Start tab) */
+:root[data-theme] body .cs .cs-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+:root[data-theme] body .cs .cs-card{border:0;border-radius:16px;padding:8px;gap:4px;background:var(--ie-fill);transition:transform .16s var(--ios-ease),opacity .16s,box-shadow .16s}
+:root[data-theme] body .cs .cs-card:active{transform:scale(.97);opacity:.85}
+:root[data-theme] body .cs .cs-card.on{background:color-mix(in srgb,var(--acc) 18%,transparent);box-shadow:0 0 0 2px var(--acc)}
+:root[data-theme] body .cs .cs-card:hover{border:0}
+:root[data-theme] body .cs .cs-card.add{border:1.5px dashed color-mix(in srgb,var(--text) 28%,transparent);background:transparent}
+:root[data-theme] body .cs .cs-card .cs-th{aspect-ratio:3/2;border-radius:11px;background:var(--card2);font-size:28px;color:var(--mute)}
+:root[data-theme] body .cs .cs-card b{font-size:14px;font-weight:600;padding:0 2px}
+:root[data-theme] body .cs .cs-card small{font-size:11px;padding:0 2px;line-height:1.3;color:var(--mute)}
+:root[data-theme] body .cs .cs-card .ib{top:12px;right:12px;width:28px;height:28px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:#000a;color:#fff;cursor:pointer}
+:root[data-theme] body .cs .cs-card .ib .ic svg{width:14px;height:14px}
+
+/* ---- character picker (src/charpick.js): clean cards, the name on a bar, ellipsis when it is too long ---- */
+:root[data-theme] body .cp .cp-kinds{display:flex;gap:0;padding:2px;margin:0 0 12px;border-radius:11px;background:var(--ie-fill);overflow:hidden}
+:root[data-theme] body .cp .cp-kind{min-height:32px}
+:root[data-theme] body .cp .cp-row{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
+:root[data-theme] body .cp .cp-card,:root[data-theme] body .cp .cp-card.pose{border:0!important;border-radius:16px;background:var(--card2);transition:transform .16s var(--ios-ease),opacity .16s,box-shadow .16s}
+:root[data-theme] body .cp .cp-card:hover{border:0}
+:root[data-theme] body .cp .cp-card:active{transform:scale(.97);opacity:.88}
+:root[data-theme] body .cp .cp-card .cp-img{background:linear-gradient(180deg,color-mix(in srgb,var(--text) 8%,var(--card2)),var(--card2))}
+:root[data-theme] body .cp .cp-card>b,:root[data-theme] body .cp .cp-card>small{display:block;padding:8px 12px;background:linear-gradient(180deg,transparent,#000b);color:#fff;font-size:13px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:22px}
+:root[data-theme] body .cp .cp-card.on,:root[data-theme] body .cp .cp-card.pose.on{box-shadow:0 0 0 2.5px var(--acc)}
+:root[data-theme] body .cp .cp-card.on::after{content:"";top:8px;right:8px;width:24px;height:24px;background:var(--acc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/16px no-repeat;color:transparent;font-size:0}
+:root[data-theme] body .cp .cp-chosen{margin:0 0 12px;padding:8px 12px;border:0;border-radius:14px;background:var(--ie-fill);transition:opacity .16s,transform .16s var(--ios-ease)}
+:root[data-theme] body .cp .cp-chosen:active{opacity:.7}
+:root[data-theme] body .cp .cp-chosen-img{background:var(--card2);border-radius:9px}
+:root[data-theme] body .cp .cp-chosen b{font-size:16px;font-weight:600}
+:root[data-theme] body .cp .cp-hint{margin:0 0 8px;font-size:13px;color:var(--mute)}
+:root[data-theme] body .cp .cp-hint[role=alert]{padding:10px 14px;border-radius:12px;background:var(--ie-fill)}
+:root[data-theme] body .cp .cp-poses{padding:0;border:0;background:none}
+
+/* phone: stage on top (it stays in view), the panel scrolls below; every touch target at least 44px */
+@media(max-width:860px){
+  :root[data-theme] body .cs .cs-body{grid-template-columns:minmax(0,1fr);gap:12px;padding:0 12px 28px}
+  :root[data-theme] body .cs .cs-left{position:sticky;top:52px;z-index:6;padding:10px 0 6px;background:var(--page,var(--bg))}
+  :root[data-theme] body .cs .cs-stage{padding:8px;border-radius:18px}
+  :root[data-theme] body .cs .cs-stage canvas{max-height:30vh}
+  :root[data-theme] body .cs .cs-anim{grid-template-columns:44px minmax(0,1fr) 44px;margin-top:8px;padding:6px;gap:6px}
+  :root[data-theme] body .cs .cs-anim .seg3{grid-column:1/-1}
+  :root[data-theme] body .cs .cs-anim:has(>.hint){display:none}
+  :root[data-theme] body .cs .cs-right{padding:12px 12px 20px;border-radius:18px}
+  :root[data-theme] body .cs .cs-lrow{min-height:56px}
+  :root[data-theme] body .cs .cs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  :root[data-theme] body .cp .cp-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:380px){:root[data-theme] body .cs .sh-bar>.btn.ok span{display:none}}
+:root[data-theme] body .cs .cs-tabs button:focus-visible,:root[data-theme] body .cs .cs-card:focus-visible,:root[data-theme] body .cp-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+
+/* ================= Background Generator (selectors outrank src/bg-generator.css, which loads later) ================= */
+:root[data-theme] body .bgg{background:var(--page,var(--bg))}
+:root[data-theme] body .bgg .bgg-bar{gap:8px;padding:8px 14px;border-bottom:.5px solid var(--ie-sep);background:var(--card);scrollbar-width:none}
+:root[data-theme] body .bgg .bgg-bar::-webkit-scrollbar{display:none}
+:root[data-theme] body .bgg .bgg-title{font-size:17px;font-weight:700;letter-spacing:-.02em}
+:root[data-theme] body .bgg .bgg-name{height:36px;border:0;border-radius:10px;background:var(--ie-fill);font-size:15px}
+:root[data-theme] body .bgg .bgg-status{color:var(--acc)}
+:root[data-theme="day"] body .bgg .bgg-status{color:var(--acc2)}
+:root[data-theme] body .bgg .btn{min-height:36px;padding:0 14px;border:0;border-radius:12px;background:var(--ie-fill);color:var(--text);font-size:14px;font-weight:600;transition:transform .16s var(--ios-ease),opacity .16s,background-color .16s}
+:root[data-theme] body .bgg .btn:hover{border:0;background:color-mix(in srgb,var(--text) 14%,transparent)}
+:root[data-theme] body .bgg .btn:active{transform:scale(.96);opacity:.8}
+:root[data-theme] body .bgg .btn.pri,:root[data-theme] body .bgg .btn[aria-pressed=true]{background:var(--acc)!important;background-image:none!important;color:#fff!important;box-shadow:none!important}
+:root[data-theme="day"] body .bgg .btn.pri,:root[data-theme="day"] body .bgg .btn[aria-pressed=true]{background:var(--acc2)!important}
+:root[data-theme] body .bgg .btn.sm{min-height:30px;padding:0 11px;border-radius:10px;font-size:13px}
+:root[data-theme] body .bgg .btn.danger{background:color-mix(in srgb,#ff453a 16%,transparent);color:#ff6b61;border:0}
+:root[data-theme="day"] body .bgg .btn.danger{color:#c0264f}
+:root[data-theme] body .bgg .bgg-body{gap:12px;padding:12px}
+:root[data-theme] body .bgg .bgg-left,:root[data-theme] body .bgg .bgg-right{gap:12px}
+:root[data-theme] body .bgg .bgg-card{gap:10px;padding:14px;border:0;border-radius:18px;background:var(--card)}
+:root[data-theme] body .bgg .bgg-card h2{font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--mute)}
+:root[data-theme] body .bgg .bgg-center{border:0;border-radius:18px;background:color-mix(in srgb,var(--text) 6%,var(--page,var(--bg)))}
+:root[data-theme] body .bgg .bgg-stage{box-shadow:0 6px 28px #0006;border-radius:2px}
+:root[data-theme] body .bgg select,:root[data-theme] body .bgg input[type=text]{height:40px;padding:0 12px;border:0;border-radius:10px;background:var(--ie-fill);color:var(--text);font-size:15px}
+:root[data-theme] body .bgg input[type=range]{accent-color:var(--acc)}
+:root[data-theme] body .bgg .bgg-sw button{width:34px;height:34px;border-radius:50%;border:.5px solid var(--ie-sep);box-shadow:0 0 0 1px #0002 inset}
+:root[data-theme] body .bgg .bgg-tile,:root[data-theme] body .bgg .bgg-sample,:root[data-theme] body .bgg .bgg-lib-open,:root[data-theme] body .bgg .bgg-layer-main,:root[data-theme] body .bgg .bgg-eye,:root[data-theme] body .bgg .bgg-prompt{border:0;background:var(--ie-fill);border-radius:12px;transition:transform .16s var(--ios-ease),opacity .16s,box-shadow .16s}
+:root[data-theme] body .bgg .bgg-tile:active,:root[data-theme] body .bgg .bgg-sample:active,:root[data-theme] body .bgg .bgg-lib-open:active,:root[data-theme] body .bgg .bgg-layer-main:active,:root[data-theme] body .bgg .bgg-eye:active{transform:scale(.97);opacity:.8}
+:root[data-theme] body .bgg .bgg-sample:hover{border:0}
+:root[data-theme] body .bgg .bgg-layer{gap:6px}
+:root[data-theme] body .bgg .bgg-layer-main{padding:10px 12px;min-height:40px;font-size:14px}
+:root[data-theme] body .bgg .bgg-layer.on .bgg-layer-main,:root[data-theme] body .bgg .bgg-lib-item.on .bgg-lib-open{background:color-mix(in srgb,var(--acc) 20%,transparent);box-shadow:0 0 0 1.5px var(--acc)}
+:root[data-theme] body .bgg .bgg-eye{width:40px;color:var(--text)}
+:root[data-theme] body .bgg .bgg-lib-open{padding:8px}
+:root[data-theme] body .bgg .bgg-lib-open img{border-radius:8px}
+:root[data-theme] body .bgg .bgg-lib-del,:root[data-theme] body .bgg .bgg-sample-x{width:28px;height:28px;border-radius:50%;background:#000a;color:#fff}
+:root[data-theme] body .bgg .bgg-grip{width:30px}
+:root[data-theme] body .bgg .bgg-details summary{min-height:36px;display:flex;align-items:center;font-size:14px;font-weight:600}
+@media(max-width:900px){
+  :root[data-theme] body .bgg .bgg-body{padding:10px}
+  :root[data-theme] body .bgg .bgg-left,:root[data-theme] body .bgg .bgg-right{overflow:visible;min-height:auto}
+  :root[data-theme] body .bgg .bgg-body{grid-template-rows:minmax(220px,38vh) auto auto;align-content:start}
+  :root[data-theme] body .bgg .bgg-card{flex:none}
+  :root[data-theme] body .bgg .bgg-bar{flex-wrap:wrap;overflow:visible;padding:8px 12px;gap:8px}
+  :root[data-theme] body .bgg .bgg-bar>*{order:5}
+  :root[data-theme] body .bgg .bgg-bar>:first-child{order:1}
+  :root[data-theme] body .bgg .bgg-bar>.bgg-title{order:2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  :root[data-theme] body .bgg .bgg-bar>.btn.pri{order:6;flex:1 1 100%}
+  :root[data-theme] body .bgg .bgg-bar>.bgg-name{order:4;flex:1 1 100%;width:100%}
+  :root[data-theme] body .bgg .bgg-bar>.bgg-size-info,:root[data-theme] body .bgg .bgg-bar>.bgg-status{display:none}
+  :root[data-theme] body .bgg .bgg-bar>.sp{display:none}
+  :root[data-theme] body .bgg .btn{min-height:40px}
+  :root[data-theme] body .bgg .btn.sm{min-height:34px}
+  :root[data-theme] body .bgg .bgg-sw button{width:40px;height:40px}
+  :root[data-theme] body .bgg .bgg-layer-main{min-height:44px}
+  :root[data-theme] body .bgg .bgg-eye{width:44px}
+}
+@media(prefers-reduced-motion:reduce){
+  :root[data-theme] body .cs *,:root[data-theme] body .cs *::before,:root[data-theme] body .bgg *{transition:none!important;animation:none!important}
+}

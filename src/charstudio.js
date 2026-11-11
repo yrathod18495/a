@@ -60,7 +60,7 @@ async function readImage(blob, name = '') {
   return createImageBitmap(blob);
 }
 
-const GROUP_ICON = { Top: '👚', Bottom: '👖', Shoes: '👟', Eyes: '👁', Eyebrows: '〰', Face: '🙂', Nose: '👃', Ears: '👂', Hair: '💇', Lips: '👄', Palms: '✋', Earrings: '💎', Other: '🧩' };
+const GROUP_ICON = { Top: 'shirt', Bottom: 'layers', Shoes: 'walk', Eyes: 'eye', Eyebrows: 'pencil', Face: 'smile', Nose: 'shapes', Ears: 'shapes', Hair: 'scissors', Lips: 'smile', Palms: 'hand', Earrings: 'star', Other: 'shapes' };
 
 export async function view({ user, home, toast, localPreview = false }) {
   localPreview = import.meta.env.DEV && localPreview;
@@ -324,7 +324,7 @@ export async function view({ user, home, toast, localPreview = false }) {
       h('span', { class: 'cs-anim-name' }, st.anim?.name || 'No animation'),
       h('button', { class: 'btn sm', onclick: () => go(1), disabled: !list.length }, '›'),
       h('div', { class: 'seg3' }, [['wide', 'Full'], ['medium', 'Upper body'], ['close', 'Face']].map(([k, l]) => h('button', { class: st.zoom === k ? 'on' : '', onclick: () => { st.zoom = k; st.resetView?.(); drawAnimBar(); } }, l))),
-      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: st.mouth, onchange: (e) => { st.mouth = e.target.checked; } }), '👄 Test mouth'));
+      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: st.mouth, onchange: (e) => { st.mouth = e.target.checked; } }), h('span', {}, 'Test mouth')));
   }
 
   /* ---------- panels ---------- */
@@ -356,8 +356,8 @@ export async function view({ user, home, toast, localPreview = false }) {
         characterPicker({ entries: templates, isOn: (e) => !!st.def && st.def.id === `lib:${e.id}`, onPick: (e) => open(e)() })),
       h('div', { class: 'cs-sec' }, h('h3', {}, 'My characters'), h('div', { class: 'cs-grid' },
         h('div', { class: 'cs-card add', onclick: () => file.click() }, h('span', { class: 'cs-th' }, '+'), h('b', {}, 'Add ZIP'), h('small', {}, 'DragonBones ske + tex + png')),
-        mine.map((c) => h('div', { class: `cs-card ${st.def?.id === c.id ? 'on' : ''}`, onclick: () => pick(c) }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '🎭'), h('b', {}, c.name),
-          h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); deleteCharacterCloud(c.id).then(() => { st.cloud = st.cloud.filter((x) => x.id !== c.id); }).catch(() => {}); mine.splice(mine.indexOf(c), 1); draw(); } }, '✕'))),
+        mine.map((c) => h('div', { class: `cs-card ${st.def?.id === c.id ? 'on' : ''}`, onclick: () => pick(c) }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : icon('user')), h('b', {}, c.name),
+          h('button', { class: 'ib', title: 'Delete', onclick: async (e) => { e.stopPropagation(); if (!confirm(`Delete ${c.name}?`)) return; await deleteCharacter(c.id); deleteCharacterCloud(c.id).then(() => { st.cloud = st.cloud.filter((x) => x.id !== c.id); }).catch(() => {}); mine.splice(mine.indexOf(c), 1); draw(); } }, icon('x')))),
         cloudOnly.map((c) => h('div', { class: 'cs-card', onclick: async () => { toast(`Downloading ${c.name}…`); try { const rec = await loadCharacterCloud(c); await saveCharacter(rec); const d = await hydrateCharacter(rec); if (!d) throw new Error('This template is no longer available.'); mine.push(d); await pick(d); } catch (er) { toast(er.message); } } }, h('span', { class: 'cs-th' }, c.thumb ? h('img', { src: c.thumb, alt: '' }) : '☁'), h('b', {}, c.name), h('small', {}, '☁ from your account'),
           h('button', { class: 'ib', title: 'Delete from your account', 'aria-label': `Delete ${c.name} from your account`, onclick: async (e) => {
             e.stopPropagation(); if (!confirm(`Delete ${c.name} from your account? This cannot be undone.`)) return;
@@ -367,7 +367,7 @@ export async function view({ user, home, toast, localPreview = false }) {
               if (st.cloud.some((x) => x.id === c.id)) toast('This character could not be deleted right now. Please try again.'); else toast(`${c.name} was deleted.`);
             } catch (er) { toast(`Could not delete ${c.name}: ${friendlyError(er)}`); }
             draw();
-          } }, '✕')))), file),
+          } }, icon('x'))))), file),
     ];
   }
 
@@ -562,20 +562,20 @@ export async function view({ user, home, toast, localPreview = false }) {
     const row = (l) => {
       const reg = st.regions.get(l.region), e = st.edit.get(l.region), file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) putImage(l, f).then(draw); } });
       return h('div', { class: `cs-lrow cs-crow ${e?.img ? 'done' : ''} ${st.guideFocus === l.region ? 'rig-guide-selected' : ''}`, 'data-rig-region': l.region, }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, labelOf(l)), h('small', {}, `${reg.w}×${reg.h}px${isUtility(l) ? ' · Transparent utility slot' : e?.img ? ` · PNG ${e.img.width}×${e.img.height}px` : ''}`)),
-        h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, '⬇'), h('button', { class: `btn sm ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, e?.img ? 'Replace' : '⬆ Upload'), file);
+        h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, icon('download')), h('button', { class: `btn sm cs-up ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, icon(e?.img ? 'refresh' : 'upload'), h('span', {}, e?.img ? 'Replace' : 'Upload')), file);
     };
     return [
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Draw these parts in your own style (same angle as the template, transparent background), upload them one by one, or all together with the template sheet / a PSD. The skeleton, animations, lip-sync and physics come with the base body, so every animation works on your character.'),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' },
-        h('button', { class: 'btn sm pri', title: 'One picture: a coloured box for every part, true proportions, names and sizes', onclick: templateSheet }, '⬇ Part template sheet'),
-        h('button', { class: 'btn sm', title: 'Every box as its own PNG', onclick: downloadAll }, '⬇ Part boxes (ZIP)'),
-        h('button', { class: 'btn sm', title: 'An edited PSD or a ZIP / many files named like the parts', onclick: () => bulk.click() }, '⬆ Upload many'), bulk),
+        h('button', { class: 'btn sm pri', title: 'One picture: a coloured box for every part, true proportions, names and sizes', onclick: templateSheet }, icon('download'), h('span', {}, 'Part template sheet')),
+        h('button', { class: 'btn sm', title: 'Every box as its own PNG', onclick: downloadAll }, icon('download'), h('span', {}, 'Part boxes (ZIP)')),
+        h('button', { class: 'btn sm', title: 'An edited PSD or a ZIP / many files named like the parts', onclick: () => bulk.click() }, icon('upload'), h('span', {}, 'Upload many')), bulk),
       h('div', { class: 'cs-guide-status', 'aria-live': 'polite' }, (() => { const l = rows.find((item) => item.region === st.guideFocus); const img = l && st.edit.get(l.region)?.img; const reg = l && st.regions.get(l.region); return l ? `${labelOf(l)} · ${img ? `PNG ${img.width} × ${img.height}px · ` : ''}fixed universal-rig target ${reg.w} × ${reg.h}px · all uploaded parts stay visible` : `All template parts and uploaded parts show together.`; })()),
       h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: st.outline, onchange: (ev) => { st.outline = ev.target.checked; } }), "Optional: stretch the art to the part outline (turn off to compare the uploaded shape against the fixed rig guide)"),
       h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: st.autoLen !== false, onchange: (ev) => { st.autoLen = ev.target.checked; if (ev.target.checked) autoProportions(); } }), 'Optional: adjust arm / leg / hand lengths from the uploaded art (leave off to keep the universal rig fixed)'),
       h('div', { class: 'cs-prog' }, h('b', {}, localPreview ? `${done} of ${artworkRows.length} artwork placements · ${rows.length - artworkRows.length} transparent utility slots validated` : `${done} of ${rows.length} parts uploaded`), h('div', { class: 'cs-bar' }, h('i', { style: `width:${artworkRows.length ? Math.round((done / artworkRows.length) * 100) : 0}%` }))),
       h('p', { class: 'hint', style: 'text-align:left;margin:0' }, 'Parts you skip stay as the base body shows them. Save tab: keep it in your account.'),
-      ...[...groups].map(([g, list]) => h('div', { class: 'cs-lgroup' }, h('div', { class: 'cs-ghead static' }, h('span', {}, GROUP_ICON[g] || '🧩'), h('b', {}, groupName(baseOf(), g)), h('small', {}, `${list.filter((l) => st.edit.get(l.region)?.img).length}/${list.length}`)), h('div', { class: 'cs-lbody' }, ...list.map(row)))),
+      ...[...groups].map(([g, list]) => h('div', { class: 'cs-lgroup' }, h('div', { class: 'cs-ghead static' }, h('span', { class: 'cs-gic' }, icon(GROUP_ICON[g] || 'shapes')), h('b', {}, groupName(baseOf(), g)), h('small', {}, `${list.filter((l) => st.edit.get(l.region)?.img).length}/${list.length}`)), h('div', { class: 'cs-lbody' }, ...list.map(row)))),
     ];
   }
   /** the finished character: edits baked into rig + images, plus the edit profile */
@@ -634,14 +634,14 @@ export async function view({ user, home, toast, localPreview = false }) {
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, `Saved on this device and, when you are logged in, in your 12toons account (up to ${LIMITS.characters} characters). Only your own pictures and settings are stored — the skeleton and the untouched parts come from the template. 12toons (the animation studio) then loads exactly this character and plays every animation on it.`),
       h('label', { class: 'f' }, 'Name', name),
       h('div', { class: 'row', style: 'margin-top:12px' },
-        h('button', { class: 'btn pri', onclick: go(false) }, st.savedId ? '💾 Update this character' : '💾 Save character'),
-        st.savedId ? h('button', { class: 'btn', onclick: go(true) }, '＋ Save as a new copy') : null,
+        h('button', { class: 'btn pri', onclick: go(false) }, icon('download'), h('span', {}, st.savedId ? 'Update this character' : 'Save character')),
+        st.savedId ? h('button', { class: 'btn', onclick: go(true) }, icon('plus'), h('span', {}, 'Save as a new copy')) : null,
         h('button', { class: 'btn', onclick: async () => {
           const { ske, tex } = await bake(), z = new JSZip(), base = safe(name.value.trim() || 'character').replace(/[^\w\-]+/g, '_');
           z.file(`${base}_ske.json`, JSON.stringify(ske));
           tex.forEach((t, i) => { z.file(`${base}_tex_${i}.json`, JSON.stringify(t.json)); z.file(safe(t.json.imagePath), t.image); });
           const blob = await z.generateAsync({ type: 'blob' }), a = h('a', { href: URL.createObjectURL(blob), download: `${base}.zip` }); document.body.append(a); a.click(); a.remove();
-        } }, '⬇ Download ZIP')), status,
+        } }, icon('download'), h('span', {}, 'Download ZIP'))), status,
       h('p', { class: 'hint', style: 'text-align:left' }, changed ? `${changed} change${changed > 1 ? 's' : ''} will be saved.` : 'Nothing changed yet — this saves the template as it is.'))];
   }
 
