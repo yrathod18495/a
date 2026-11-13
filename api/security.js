@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       const token = await auth.createCustomToken(uid, { sid: result.sid });
       return send(res, 200, { token });
     }
-    const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', admin: ['overview', 'moderate', 'deviceDecision', 'assignRole', 'tamperAlerts', 'tamperAck'].includes(b.action) });
+    const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', admin: ['overview', 'summary', 'userSearch', 'moderate', 'deviceDecision', 'assignRole', 'tamperAlerts', 'tamperAck'].includes(b.action) });
     if (b.action === 'status') return send(res, 200, { admin: who.admin });
     if (b.action === 'getMaintenance') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); return send(res, 200, { maintenance: await maintenanceOn(db), features: await getFeatures(db) }); }
     if (b.action === 'setFeature') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); try { return send(res, 200, { features: await setFeature(db, String(b.feature || ''), b.enabled === true, who.uid) }); } catch (e) { if (e.code === 'invalid_feature') throw new AccessError('invalid_feature', 'This option is not valid.', 400); throw e; } }
@@ -102,6 +102,49 @@ export default async function handler(req, res) {
       return send(res, 200, { ok: true });
     }
     if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    if (b.action === 'summary') {
+      // the admin Overview: a few cheap reads (counts and the newest rows), never the whole user list
+      const since = now - 15 * 60 * 1000;
+      const [total, online, recent, events] = await Promise.all([
+        db.collection('securityUsers').count().get(),
+        db.collection('securitySessions').where('lastSeen', '>', since).count().get(),
+        db.collection('securitySessions').orderBy('lastSeen', 'desc').limit(8).get(),
+        db.collection('securityEvents').orderBy('at', 'desc').limit(8).get(),
+      ]);
+      const ids = recent.docs.map(d => d.id), people = ids.length ? await db.getAll(...ids.map(id => db.doc('securityUsers/' + id))) : [];
+      return send(res, 200, {
+        totalUsers: total.data().count, onlineNow: online.data().count,
+        sessions: recent.docs.map((d, i) => { const { secretHash, ...v } = d.data(); return { id: d.id, ...v, name: people[i].data()?.name || '', email: people[i].data()?.email || '' }; }),
+        events: events.docs.map(d => ({ id: d.id, ...d.data() })),
+      });
+    }
+    if (b.action === 'userSearch') {
+      // search-first: an exact email or user ID, the start of an email, or the newest sign-ins. At most 20 accounts are read.
+      const q = typeof b.query === 'string' ? b.query.trim() : '';
+      let uids = [];
+      if (b.recent === true) uids = (await db.collection('securityUsers').orderBy('lastAttempt', 'desc').limit(20).get()).docs.map(d => d.id);
+      else {
+        if (q.length < 3 || q.length > 200) throw new AccessError('invalid_query', 'Please type at least 3 characters of an email or a user ID.', 400);
+        const found = new Set();
+        if (/^[A-Za-z0-9_-]{20,128}$/.test(q)) { try { found.add((await auth.getUser(q)).uid); } catch { /* not a user ID */ } }
+        const lower = q.toLowerCase();
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lower)) { try { found.add((await auth.getUserByEmail(lower)).uid); } catch { /* not registered */ } }
+        const byPrefix = await db.collection('securityUsers').where('email', '>=', lower).where('email', '<=', lower + '\uf8ff').limit(10).get();
+        byPrefix.docs.forEach(d => found.add(d.id));
+        uids = [...found].slice(0, 20);
+      }
+      if (!uids.length) return send(res, 200, { users: [], sessions: [] });
+      const refs = (name) => uids.map(id => db.doc(name + '/' + id));
+      const [accounts, admins, workspaces, sessions, registered] = await Promise.all([
+        db.getAll(...refs('securityUsers')), db.getAll(...refs('securityAdmins')), db.getAll(...refs('workspaces')), db.getAll(...refs('securitySessions')),
+        auth.getUsers(uids.map(uid => ({ uid }))).catch(() => ({ users: [] })),
+      ]);
+      const byUid = new Map(registered.users.map(u => [u.uid, u]));
+      return send(res, 200, {
+        users: uids.map((uid, i) => { const u = byUid.get(uid), a = accounts[i].data() || {}; return { id: uid, email: u?.email || a.email || '', name: u?.displayName || a.name || '', registeredAt: u?.metadata?.creationTime || '', lastSignIn: u?.metadata?.lastSignInTime || '', ...a, role: admins[i].data()?.enabled === true ? 'admin' : 'user', credits: Number(workspaces[i].data()?.credits || 0) }; }),
+        sessions: sessions.map((d, i) => d.exists ? { id: uids[i], lastSeen: d.data().lastSeen || 0, revoked: d.data().revoked === true, startedAt: d.data().startedAt || 0 } : null).filter(Boolean),
+      });
+    }
     if (b.action === 'overview') {
       // Only the asked sections are read, and all of them are read at the same time (the admin page opens with users + sessions + events;
       // devices and the audit log are fetched when their tab is opened).

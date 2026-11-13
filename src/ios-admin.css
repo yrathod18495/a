@@ -64,3 +64,9 @@ textarea.au-input{resize:vertical;min-height:84px}
 @media(prefers-reduced-motion:reduce){.au-modal,.au-dialog{animation:none}}
 :root[data-theme] body .btn.au-danger{background:#c0283d !important;color:#fff !important;border:0 !important}
 :root[data-theme] body .btn.au-ok{background:#1f9d62 !important;color:#fff !important;border:0 !important}
+:root[data-theme] body .sa-hub-search{display:flex;gap:10px;flex-wrap:wrap;align-items:center;width:100%;padding:4px 0}
+:root[data-theme] body .sa-hub-field{flex:1 1 280px;min-width:0}
+:root[data-theme] body .sa-hub-field .sa-search{width:100%;max-width:none;min-height:48px;font-size:15px}
+:root[data-theme] body .sa-hub-actions{display:flex;gap:8px;flex-wrap:wrap}
+:root[data-theme] body .sa-hub-actions .btn{min-height:48px;padding:0 18px;border-radius:12px;font-weight:700}
+:root[data-theme] body .sa-hub .sa-controls{display:block}

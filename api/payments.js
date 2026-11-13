@@ -106,13 +106,14 @@ export default async function handler(req, res) {
     }
     if (b.action === 'adminList') {
       if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403);
-      let query = db.collection('creditPayments').orderBy('createdAt', 'desc').limit(100);
+      const pageSize = Number.isInteger(b.limit) && b.limit >= 1 && b.limit <= 100 ? b.limit : 100;
+      let query = db.collection('creditPayments').orderBy('createdAt', 'desc').limit(pageSize);
       if (typeof b.cursor === 'string' && validOrderId(b.cursor)) {
         const cursor = await db.doc(`creditPayments/${b.cursor}`).get();
         if (cursor.exists) query = query.startAfter(cursor);
       }
       const rows = await query.get();
-      return send(res, 200, { payments: rows.docs.map((d) => ({ id: d.id, ...d.data() })), nextCursor: rows.docs.length === 100 ? rows.docs.at(-1).id : null });
+      return send(res, 200, { payments: rows.docs.map((d) => ({ id: d.id, ...d.data() })), nextCursor: rows.docs.length === pageSize ? rows.docs.at(-1).id : null });
     }
     if (b.action === 'adminRevenue') {
       const [captured, settings] = await Promise.all([db.collection('creditPayments').where('status', '==', 'captured').get(), db.doc('paymentSettings/revenue').get()]);

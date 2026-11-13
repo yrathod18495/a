@@ -135,19 +135,18 @@ export function dashboardView({ user, home, toast, openStudio }) {
     }
     function renderDashboard() {
       content.replaceChildren();
-      const sec = state.security, users = sec?.users || [], sessions = (sec?.sessions || []).filter(s => !s.revoked), payments = state.payments?.payments || [], chats = state.chats?.chats || [], affiliates = state.affiliates?.affiliates || [];
+      const sec = state.security, users = [], sessions = (sec?.sessions || []).filter(s => !s.revoked && Date.now() - Number(s.lastSeen || 0) < 15 * 60 * 1000), payments = state.payments?.payments || [], chats = state.chats?.chats || [], affiliates = state.affiliates?.affiliates || [];
       const captured = payments.filter(p => p.status === 'captured');
-      const newUsers = users.filter(u => { const time = Date.parse(u.registeredAt || ''); return Number.isFinite(time) && time >= localDayStart(); }).length;
       const unread = chats.filter(c => c.unreadAdmin === true).length;
       const opened = affiliates.filter(a => a.status === 'new' || a.status === 'contacted').length;
-      const userMap = new Map(users.map(u => [u.id, u]));
+      const userMap = new Map((sec?.sessions || []).map(u => [u.id, u]));
 
       content.append(
         h('div', { class: 'admin-dashboard-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'WORKSPACE OVERVIEW'), h('h1', {}, 'Dashboard'), h('p', {}, 'Live account, payment, support and partner activity from your admin services.')),
           h('span', { class: 'admin-refresh-note' }, 'Updates when you press Refresh')),
         h('div', { class: 'admin-kpi-grid' },
-          stat('Accounts in current report', number(users.length), 'The security API returns up to 100 account records per refresh.', '♙'),
-          stat('Active sessions in report', number(sessions.length), 'Sessions not revoked and not expired.', '⌁', 'blue'),
+          stat('Total accounts', number(sec?.totalUsers), 'Every account that has signed in at least once.', '♙'),
+          stat('Online now', number(sec?.onlineNow), 'Signed in and active in the last 15 minutes.', '⌁', 'blue'),
           stat('Captured payments · latest report', number(captured.length), `${money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0))} recorded in this report.`, '₹', 'violet'),
           stat('Unread support conversations', number(unread), `${number(chats.length)} conversations returned by the live chat inbox.`, '✉', 'green')),
         maintenanceCard(),
@@ -156,14 +155,14 @@ export function dashboardView({ user, home, toast, openStudio }) {
           section('Active sessions', 'LIVE ACCOUNTS', h('div', { class: 'admin-session-list' }, sessions.length ? sessions.slice(0, 6).map(s => {
             const u = userMap.get(s.id) || {};
             return h('article', { class: 'admin-session-row' }, h('span', { class: 'admin-session-avatar' }, (u.name || u.email || s.id || '?').trim()[0]?.toUpperCase() || '?'), h('span', { class: 'admin-session-copy' }, h('b', {}, u.name || u.email || s.id), h('small', {}, `${u.email || 'Account'} · Device ${s.deviceId || '—'}`)), h('span', { class: 'admin-pill live' }, 'Active'));
-          }) : h('p', { class: 'admin-empty' }, state.failures.security ? 'Could not load the account and session data.' : 'No active sessions in the current report.'))),
+          }) : h('p', { class: 'admin-empty' }, state.failures.security ? 'Could not load the account and session data.' : 'Nobody has been active in the last 15 minutes.'))),
           section('Service access', 'CONNECTION STATUS', h('div', { class: 'admin-service-list' },
             service('Account security', 'Authenticated admin API', !!state.security),
             service('Payments', 'Razorpay payment records', !!state.payments),
             service('Live chat', 'Support conversation inbox', !!state.chats),
             service('Affiliate program', 'Partner and commission records', !!state.affiliates))),
           section('Daily operations', 'TODAY · CURRENT REPORTS', h('div', { class: 'admin-ops-grid' },
-            h('div', {}, h('small', {}, 'New accounts'), h('b', {}, number(newUsers)), h('span', {}, 'in returned account records')),
+            h('div', {}, h('small', {}, 'Recent sign-ins'), h('b', {}, number((sec?.events || []).filter(e => e.code === 'login').length)), h('span', {}, 'among the latest 8 security events')),
             h('div', {}, h('small', {}, 'Captured orders'), h('b', {}, number(captured.length)), h('span', {}, 'in latest payment report')),
             h('div', {}, h('small', {}, 'Open affiliate requests'), h('b', {}, number(opened)), h('span', {}, `${number(affiliates.length)} partner records`)),
             h('div', {}, h('small', {}, 'Support inbox'), h('b', {}, number(chats.length)), h('span', {}, `${number(unread)} unread conversations`)))),
@@ -177,8 +176,8 @@ export function dashboardView({ user, home, toast, openStudio }) {
       if (busy || !root.isConnected) return;
       busy = true; status.replaceChildren(h('i', { class: 'admin-live-dot' }), h('span', {}, 'Updating live data…'));
       const calls = [
-        ['security', () => apiCall('/api/security', { action: 'overview' }, user.uid)],
-        ['payments', () => apiCall('/api/payments', { action: 'adminList' }, user.uid)],
+        ['security', () => apiCall('/api/security', { action: 'summary' }, user.uid)],
+        ['payments', () => apiCall('/api/payments', { action: 'adminList', limit: 25 }, user.uid)],
         ['chats', () => apiCall('/api/chat', { action: 'adminList' }, user.uid)],
         ['affiliates', () => apiCall('/api/affiliates', { action: 'adminList' }, user.uid)],
         ['alerts', () => apiCall('/api/security', { action: 'tamperAlerts' }, user.uid)],

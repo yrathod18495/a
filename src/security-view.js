@@ -12,31 +12,26 @@ const el = (tag, cls, ...children) => h(tag, {class:cls}, ...children);
 const btn = (label, click, cls='') => h('button', {class:'btn sa-btn '+cls, type:'button', onclick:click}, label);
 
 export async function securityView({ home, toast, initialTab = 'users' }) {
-  const root=el('div','sh sa');
+  // "User Hub": nothing is listed until the admin searches (so opening the page reads nothing); Login activity, Devices and the Audit log are read when their tab is opened.
+  const root=el('div','sh sa sa-hub');
   const header=el('header','sa-head',
     el('div','sa-head-copy',h('a',{class:'sa-eyebrow',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},'12TOONS  /  ADMIN CONSOLE'),
-      h('h1',{},'Users & Security'),
-      el('p','sa-sub','Manage account access, sessions and device risk from one place.')),
+      h('h1',{},'User Hub'),
+      el('p','sa-sub','Full platform oversight: search an account to manage its access and Coins.')),
     btn('← Back to admin',home,'sa-back'));
-  const status=el('span','sa-sync','Loading…');
-  const refresh=btn('↻ Refresh',()=>load(false),'sa-refresh');
-  const toolbar=el('div','sa-toolbar',el('div','sa-toolbar-title',el('span','sa-live-dot'),'Live security overview'),el('div','sa-toolbar-actions',status,refresh));
+  const status=el('span','sa-sync','');
+  const refresh=btn('↻ Refresh',()=>refreshCurrent(),'sa-refresh');
   const stats=el('div','sa-stats');
   const controls=el('div','sa-controls');
-  const list=el('div','sa-list');
-  const events=el('div','sa-list');
-  const devices=el('div','sa-list');
-  const audit=el('div','sa-list');
   const more=el('div','sa-more');
   const tabs=el('div','sa-tabs');
   const panel=el('div','sa-panel');
-  const search=h('input',{class:'sa-search',type:'search',placeholder:'Search by email, name or user ID…','aria-label':'Search users'});
-  const title=el('div','sa-section-title',h('h2',{},'Accounts'),el('p','sa-sub','Actions take effect on the server. All changes are recorded.'));
+  const search=h('input',{class:'sa-search',type:'search',placeholder:'Search identity via email or user ID…','aria-label':'Search accounts',autocomplete:'off',spellcheck:'false'});
   const note=el('p','sa-footnote','Device IDs identify a browser installation—not a physical device. Private browsing or clearing storage can bypass detection.');
-  root.append(header,toolbar,stats,el('div','sa-card',controls,tabs,panel),note);
-  let state=null,filter='all',term='',tab=initialTab,loading=false;
+  root.append(header,el('div','sa-card',controls,tabs,panel),note);
+  let state={cursors:{}},tab=initialTab,loading=false,hub={results:null,sessions:[],busy:false,note:''};
 
-  const tabsData=[['users','Users'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
+  const tabsData=[['users','User Hub'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
   const badge=(text,tone='neutral')=>el('span','sa-badge sa-'+tone,text);
   const empty=(headline,description)=>el('div','sa-empty',el('div','sa-empty-icon','◎'),h('b',{},headline),el('p','sa-sub',description));
   const block=(name,value)=>el('div','sa-metric',el('span','sa-metric-label',name),el('strong','sa-metric-value',String(value)));
@@ -67,27 +62,15 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     try{await apiCall('/api/security',{action:'assignRole',uid,role});toast(`User access updated to ${role}.`);await load(false);}
     catch(e){toast(e.message);button.disabled=false;}
   }
-  function renderStats(){
-    if(!state)return;
-    const users=state.users||[],sess=state.sessions||[],ev=state.events||[];
-    const active=sess.filter(s=>isOnline(s)).length;
-    const flagged=ev.filter(e=>e.code==='device_review'&&e.review==='pending').length;
-    stats.replaceChildren(block('TOTAL USERS',users.length),block('ONLINE NOW',active),block('PENDING REVIEWS',flagged),block('LOGIN EVENTS',ev.length));
-  }
   function renderTabs(){
-    tabs.replaceChildren(...tabsData.map(([key,name])=>h('button',{
-      class:'sa-tab '+(tab===key?'on':''),type:'button','aria-pressed':tab===key,
-      onclick:()=>showTab(key)
-    },name, key==='events'&&state?.events?.some(e=>e.code==='device_review'&&e.review==='pending')?el('span','sa-tab-count',String(state.events.filter(e=>e.code==='device_review'&&e.review==='pending').length)):null)));
+    tabs.replaceChildren(...tabsData.map(([key,name])=>h('button',{class:'sa-tab '+(tab===key?'on':''),type:'button','aria-pressed':tab===key,onclick:()=>showTab(key)},name,
+      key==='events'&&state.events?.some(e=>e.code==='device_review'&&e.review==='pending')?el('span','sa-tab-count',String(state.events.filter(e=>e.code==='device_review'&&e.review==='pending').length)):null)));
   }
   function renderControls(){
-    controls.replaceChildren(el('div','sa-filter-title',h('b',{},tab==='users'?'Account directory':'Security records'),
-      el('p','sa-sub',tab==='users'?'Review accounts and manage permissions.':'Review activity and account security history.')),
-      el('div','sa-filters',search,h('select',{class:'sa-select','aria-label':'Filter accounts',onchange:e=>{filter=e.target.value;renderContent();}},
-       ...[['all','All statuses'],['active','Active'],['blocked','Blocked'],['restricted','Restricted'],['suspended','Suspended']].map(([v,t])=>h('option',{value:v,selected:filter===v},t)))));
-    search.value=term;search.oninput=e=>{term=e.target.value.trim().toLowerCase();renderContent();};
-    search.onkeydown=e=>{if(e.key==='Enter'&&tab==='users'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term)&&!(state?.users||[]).some(u=>String(u.email||'').toLowerCase()===term))findByEmail(term);};
-    search.hidden=tab!=='users';controls.querySelector('select').hidden=tab!=='users';
+    if(tab!=='users'){controls.replaceChildren(el('div','sa-filter-title',h('b',{},'Security records'),el('p','sa-sub','Review activity and account security history. Read when you open a tab.')),el('div','sa-filters',status,refresh));return;}
+    controls.replaceChildren(el('div','sa-hub-search',el('div','sa-hub-field',search),
+      el('div','sa-hub-actions',btn('Search Database',()=>runSearch(),'sa-positive sa-go'),btn('Recent sign-ins',()=>runSearch(true),'sa-quiet'))));
+    search.onkeydown=e=>{if(e.key==='Enter')runSearch();};
   }
   async function showProjects(uid, button, target) {
     if (!target.hidden) { target.hidden = true; return; }
@@ -125,25 +108,26 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     } catch(error) { target.replaceChildren(el('p','sa-associated','Could not load cloud projects: '+friendlyError(error))); }
     finally { button.disabled = false; button.textContent = 'Hide cloud projects & uploads'; }
   }
-  /* Users: one row per account; a row opens the account dialog (src/admin-users.js). A full email that is not in the list is looked up on the server. */
+  /* Users = "User Hub": search-first. Nothing is read until the admin searches; a search reads at most 10 accounts, "Recent sign-ins" the newest 20. */
   const dialogCtx={
-    toast,sessionOf:(id)=>(state?.sessions||[]).find(x=>x.id===id),
+    toast,sessionOf:(id)=>(hub.sessions||[]).find(x=>x.id===id),
     showProjects:(uid,button,target)=>showProjects(uid,button,target,true),
-    onChanged:(u)=>{const row=(state?.users||[]).find(x=>x.id===u.id);if(row){Object.assign(row,{status:u.status,until:u.until,role:u.role,credits:u.credits,statusReason:u.statusReason,statusAt:u.statusAt});}if(tab==='users')renderUsers();load(false,null,true);},
+    onChanged:(u)=>{const row=(hub.results||[]).find(x=>x.id===u.id);if(row){Object.assign(row,{status:u.status,until:u.until,role:u.role,credits:u.credits,statusReason:u.statusReason,statusAt:u.statusAt});if(tab==='users')renderUsers();}},
   };
-  let findBusy=false;
-  async function findByEmail(email){
-    if(findBusy)return;findBusy=true;
-    try{const {user}=await apiCall('/api/payments',{action:'adminUserLookup',email});openUserDialog({id:user.uid,email:user.email,name:user.name,status:user.status,until:user.until,role:user.role,credits:user.credits,registeredAt:user.registeredAt,lastSignIn:user.lastSignIn,tier:user.tier},dialogCtx);}
-    catch(e){toast(friendlyError(e));}
-    finally{findBusy=false;}
+  async function runSearch(recent=false){
+    const q=search.value.trim();
+    if(!recent&&q.length<3){toast('Please type at least 3 characters of an email or a user ID.');return;}
+    if(hub.busy)return;hub.busy=true;hub.note='';renderUsers();
+    try{const r=await apiCall('/api/security',{action:'userSearch',...(recent?{recent:true}:{query:q})});hub.results=r.users||[];hub.sessions=r.sessions||[];hub.note=recent?'Newest sign-ins':`Results for “${q}”`;}
+    catch(e){hub.results=null;hub.note='';toast(friendlyError(e));}
+    finally{hub.busy=false;renderUsers();}
   }
   function renderUsers(){
-    const users=(state.users||[]).filter(u=>(filter==='all'||(u.status||'active')===filter)&&(!term||String(u.email||'').toLowerCase().includes(term)||String(u.name||'').toLowerCase().includes(term)||u.id.toLowerCase().includes(term)));
-    const out=users.map(u=>userRow(u,{session:(state.sessions||[]).find(x=>x.id===u.id),onOpen:(row)=>openUserDialog(row,dialogCtx)}));
-    const isEmail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term);
-    if(!users.length){panel.replaceChildren(empty('No matching accounts',isEmail?'This email is not in the loaded list.':'Try another search or status filter.'),...(isEmail?[btn('Search all accounts for '+term,()=>findByEmail(term),'sa-positive')]:[]));return;}
-    panel.replaceChildren(el('div','sa-results-count',users.length+' account'+(users.length===1?'':'s')),el('div','au-list',...out),...(isEmail?[btn('Not here? Search all accounts for '+term,()=>findByEmail(term),'sa-quiet')]:[]));
+    if(hub.busy){panel.replaceChildren(...[0,1].map(()=>el('div','sa-skel',el('i','rf-sk sa-skel-a'),el('i','rf-sk sa-skel-b'))));return;}
+    if(hub.results===null){panel.replaceChildren(empty('Search to see accounts','Type an email address or a user ID above, or open the newest sign-ins. Nothing is loaded until you search.'));return;}
+    if(!hub.results.length){panel.replaceChildren(empty('No matching accounts','Check the spelling. An email can be searched from its first letters; a user ID must be complete.'));return;}
+    panel.replaceChildren(el('div','sa-results-count',hub.note+' · '+hub.results.length+' account'+(hub.results.length===1?'':'s')),
+      el('div','au-list',...hub.results.map(u=>userRow(u,{session:(hub.sessions||[]).find(x=>x.id===u.id),onOpen:(row)=>openUserDialog(row,dialogCtx)}))));
   }
   function renderEvents(){
     const rows=[...(state.events||[])].sort((a,b)=>(b.at||0)-(a.at||0));
@@ -178,43 +162,36 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   function renderContent(){
     renderControls();
     if(tab==='users')renderUsers();
-    else if(tab==='events')renderEvents();
-    else if(tab==='devices')renderDevices();
-    else renderAudit();
-    more.replaceChildren();
-    if(Object.values(state.cursors||{}).some(Boolean))more.append(btn('Load more records',()=>load(true),'sa-more-btn'));
-    panel.append(more);
+    else{
+      if(tab==='events')renderEvents();else if(tab==='devices')renderDevices();else renderAudit();
+      more.replaceChildren();
+      if(state.cursors?.[tab])more.append(btn('Load more records',()=>load(true),'sa-more-btn'));
+      panel.append(more);
+    }
   }
-  /* The page opens at once and fills in; only the sections that are shown are fetched (devices and the audit log when their tab is opened). */
+  function skeleton(){panel.replaceChildren(...[0,1,2].map(()=>el('div','sa-skel',el('i','rf-sk sa-skel-a'),el('i','rf-sk sa-skel-b'))));}
+  /** reads one section of the security records (login activity, devices or the audit log): only when its tab is opened, or on Refresh / Load more */
   const loaded=new Set();
-  const SECTION={users:'users',events:'events',devices:'devices',audit:'audit'};
-  function skeleton(){panel.replaceChildren(...[0,1,2,3].map(()=>el('div','sa-skel',el('i','rf-sk sa-skel-a'),el('i','rf-sk sa-skel-b'))));}
   async function load(append=false,parts){
-    if(loading&&!parts)return;
+    const key=(parts&&parts[0])||(tab!=='users'?tab:null);
+    if(!key||loading)return;
     loading=true;refresh.disabled=true;status.textContent='Syncing…';
     try{
-      let want=parts||(append?Object.entries(state?.cursors||{}).filter(([,v])=>v).map(([k])=>k):[...loaded]);
-      if(!want.length)want=['users','sessions','events'];
-      if(want.includes('users')&&!want.includes('sessions'))want.push('sessions');
-      const data=await apiCall('/api/security',{action:'overview',parts:want,...(append&&state?{cursors:state.cursors}:{})});
-      const next={...(state||{}),cursors:{...(state?.cursors||{}),...data.cursors}};
-      for(const key of ['users','sessions','devices','events','audit']){
-        if(!(key in data))continue;
-        next[key]=append&&state?[...new Map([...(state[key]||[]),...(data[key]||[])].map(v=>[v.id,v])).values()]:data[key];
-        loaded.add(key);
-      }
-      state=next;renderStats();renderTabs();renderContent();status.textContent='Updated just now';
-    }catch(e){status.textContent='Sync failed';if(!state)panel.replaceChildren(empty('Could not load security data',friendlyError(e)));toast(friendlyError(e));}
+      const data=await apiCall('/api/security',{action:'overview',parts:[key],...(append?{cursors:{[key]:state.cursors?.[key]}}:{})});
+      state[key]=append?[...new Map([...(state[key]||[]),...(data[key]||[])].map(v=>[v.id,v])).values()]:data[key];
+      state.cursors={...state.cursors,[key]:data.cursors?.[key]||null};loaded.add(key);
+      renderTabs();if(tab===key||tab==='users'){if(tab===key)renderContent();}status.textContent='Updated just now';
+    }catch(e){status.textContent='Sync failed';if(tab===key)panel.replaceChildren(empty('Could not load security data',friendlyError(e)));toast(friendlyError(e));}
     finally{loading=false;refresh.disabled=false;}
   }
+  function refreshCurrent(){if(tab==='users')runSearch(hub.note==='Newest sign-ins');else load(false);}
   async function showTab(key){
-    tab=key;renderTabs();
-    const need=key==='devices'?'devices':key==='audit'?'audit':null;
-    if(need&&!loaded.has(need)){skeleton();await load(false,[need]);return;}
-    if(state)renderContent();
+    tab=key;renderTabs();renderControls();
+    if(key==='users'){renderUsers();return;}
+    if(!loaded.has(key)){skeleton();await load(false,[key]);return;}
+    renderContent();
   }
-  renderTabs();renderControls();skeleton();
-  load();          // not awaited: the page is shown now and fills in when the data arrives
+  showTab(tab);
   root.dispose=()=>{};
   return root;
 }
