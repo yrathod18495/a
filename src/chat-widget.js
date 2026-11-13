@@ -1,5 +1,5 @@
 import { h } from './dom.js';
-import { apiCall } from './session.js';
+import { apiCall, watchChatSignal } from './session.js';
 import { contactChannels } from '../shared/contact-links.js';
 import { SUPPORT, supportStatus, statusText, hoursRows } from '../shared/support-info.js';
 
@@ -116,7 +116,14 @@ export function chatWidget(user, onLogin = () => {}) {
   head.addEventListener('pointerup', sheetEnd); head.addEventListener('pointercancel', sheetEnd);
   // a chat nobody writes in is asked about less and less often (5 s, then 15 s, then 30 s): every question costs a few database reads
   let quietSince = Date.now();
-  const delay = () => { const quiet = Date.now() - quietSince; return quiet < 60000 ? 5000 : quiet < 300000 ? 15000 : 30000; };
+  // live: when the signal channel works, a message shows up at once and the slow check below is only a safety net
+  let live = false, stopSignal = () => {};
+  if (user) stopSignal = watchChatSignal(user.uid, (data, first) => {
+    if (first || !data) return;
+    if (open) { quietSince = Date.now(); load(); }
+    else if (data.by === 'admin') { toggle.classList.add('unread'); toggle.setAttribute('aria-label', 'Open live chat, you have a new reply'); }
+  }, (ok) => { live = ok; });
+  const delay = () => { if (live) return 60000; const quiet = Date.now() - quietSince; return quiet < 60000 ? 5000 : quiet < 300000 ? 15000 : 30000; };
   function schedule() { clearTimeout(timer); timer = setTimeout(async () => { await load(); if (open) schedule(); }, delay()); }
   async function load() {
     if (!user || loading || !open || !root.isConnected || document.hidden) return;
@@ -154,7 +161,7 @@ export function chatWidget(user, onLogin = () => {}) {
     pendingMessages.push(optimistic); input.value = ''; grow(); render([...cachedMessages, ...pendingMessages]);
     try {
       await apiCall('/api/chat', { action: 'send', message }, user.uid);
-      optimistic.pending = false; optimistic.sent = true; latest = ''; render([...cachedMessages, ...pendingMessages]); await load();
+      optimistic.pending = false; optimistic.sent = true; latest = ''; render([...cachedMessages, ...pendingMessages]); load();        // the tick appears at once; the list refreshes in the background
     } catch (err) {
       optimistic.failed = true; state.textContent = `Message not sent: ${err.message}`; render([...cachedMessages, ...pendingMessages]);
     } finally { sending = false; sendButton.disabled = false; input.focus(); }
@@ -165,6 +172,6 @@ export function chatWidget(user, onLogin = () => {}) {
   // the Help and support page's "Start live chat" button
   const onOpenRequest = () => { closeMenu(); if (!open) flip(); };
   document.addEventListener('open-live-chat', onOpenRequest);
-  root.dispose = () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility); document.removeEventListener('open-live-chat', onOpenRequest); };
+  root.dispose = () => { stopSignal(); clearTimeout(timer); clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility); document.removeEventListener('open-live-chat', onOpenRequest); };
   return root;
 }

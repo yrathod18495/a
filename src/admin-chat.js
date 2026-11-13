@@ -1,6 +1,6 @@
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, logo } from './dom.js';
-import { apiCall } from './session.js';
+import { apiCall, watchChatSignal } from './session.js';
 import { projectDialog } from './project-dialog.js';
 
 // Admin · Live Chat: conversations on the left (unread / premium / all, select, delete, new chat; a paid account's row is gold), the thread on the right
@@ -106,8 +106,8 @@ export async function chatView({ user, back, toast }) {
     selected = id; editing = ''; lastKey = ''; attached = ''; renderAttached(); input.value = ''; autoGrow();
     input.disabled = false; attachBtn.disabled = false; syncSend();
     renderList(); renderHead(); messagesEl.replaceChildren(h('p', { class: 'ac-muted' }, 'Loading messages…'));
-    await loadMessages(true); await loadChats();
     input.focus();
+    await Promise.all([loadMessages(true), loadChats()]);
   }
   async function loadMessages(force = false) {
     if (!selected || messageBusy || !root.isConnected || (document.hidden && !force)) return;
@@ -197,15 +197,26 @@ export async function chatView({ user, back, toast }) {
     e.preventDefault(); const message = input.value.trim();
     if (!selected || sendBusy || (!message && !attached)) return;
     sendBusy = true; input.disabled = true; syncSend();
-    try { await call({ action: 'adminReply', uid: selected, ...(message ? { message } : {}), ...(attached ? { image: attached } : {}) }); input.value = ''; attached = ''; renderAttached(); autoGrow(); lastKey = ''; await loadMessages(true); await loadChats(); }
+    try { await call({ action: 'adminReply', uid: selected, ...(message ? { message } : {}), ...(attached ? { image: attached } : {}) }); const sentText = message || 'Photo'; input.value = ''; attached = ''; renderAttached(); autoGrow(); lastKey = '';
+      const c = rows.find((x) => x.id === selected); if (c) { c.lastMessage = sentText; c.lastSender = 'admin'; c.unreadAdmin = false; c.updatedAt = Date.now(); rows.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)); renderList(); }
+      await loadMessages(true); }
     catch (err) { toast(`Could not send the reply: ${friendlyError(err)}`); }
     finally { sendBusy = false; input.disabled = !selected; syncSend(); input.focus(); }
   }
 
-  await loadChats();
+  // the page opens at once; the conversations load in the background
+  listEl.replaceChildren(h('p', { class: 'ac-muted', role: 'status' }, 'Loading conversations…'));
+  loadChats();
   const tick = () => { if (!document.hidden) { loadChats(); loadMessages(); } };
-  polling = window.setInterval(tick, 10000);
+  let live = false, soon = 0;
+  // live: a user's new message (or another admin's reply) refreshes the list and the open conversation at once
+  const stopSignal = watchChatSignal('_staff', (data, first) => {
+    if (first || !data) return;
+    clearTimeout(soon); soon = setTimeout(() => { loadChats(); if (!data.uid || data.uid === selected) loadMessages(true); }, 150);
+  }, (ok) => { live = ok; });
+  polling = window.setInterval(() => { if (!live) tick(); }, 10000);
+  const safety = window.setInterval(tick, 60000);
   document.addEventListener('visibilitychange', tick);
-  root.dispose = () => { clearInterval(polling); document.removeEventListener('visibilitychange', tick); document.removeEventListener('click', closeMenus); };
+  root.dispose = () => { stopSignal(); clearTimeout(soon); clearInterval(safety); clearInterval(polling); document.removeEventListener('visibilitychange', tick); document.removeEventListener('click', closeMenus); };
   return root;
 }

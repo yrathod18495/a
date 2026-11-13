@@ -3,7 +3,7 @@ import { maintenanceOn } from '../server/maintenance.js';
 import { access, bodyOf, send, failure } from '../server/access.js';
 import { AccessError } from '../server/security-policy.js';
 import { tierOf, peekTier } from '../server/entitlements.js';
-import { PHOTO_LABEL, addAdminReply } from '../server/support-chat.js';
+import { PHOTO_LABEL, addAdminReply, writeChat, signalWrites } from '../server/support-chat.js';
 import { notifyChatMessage } from '../server/telegram.js';
 // Temporarily disabled until Firebase Web Push VAPID is configured.
 // import { sendSupportReplyPush } from '../server/support-push.js';
@@ -30,6 +30,7 @@ async function refreshSummary(db, ref, revision) {
   const rows = (await ref.collection('messages').get()).docs.map(d => d.data()).sort((a, b) => a.createdAt - b.createdAt), last = rows.at(-1);
   await ref.set({ lastMessage: last ? (last.message || (last.image ? PHOTO_LABEL : '')) : '', lastSender: last?.sender || '', revision }, { merge: true });
 }
+const signal = async (db, uid) => { for (const [r, d] of signalWrites(db, uid, 'admin')) await r.set(d).catch(() => {}); };
 async function deleteMessages(db, ref) {
   const docs = (await ref.collection('messages').get()).docs;
   for (let i = 0; i < docs.length; i += 400) {
@@ -56,12 +57,11 @@ export default async function handler(req, res) {
       if (data.lastUserMessageAt && now - data.lastUserMessageAt < 800) throw new AccessError('rate_limited', 'Please wait a moment before sending another message.', 429);
       const row = { sender: 'user', message, createdAt: now };
       const summary = { uid: who.uid, email: String(who.claims.email || '').slice(0, 254), displayName: String(who.claims.name || '').slice(0, 120), updatedAt: now, lastMessage: message, lastSender: 'user', unreadAdmin: true, lastUserMessageAt: now };
-      const messageRef = ref.collection('messages').doc();
-      if (typeof db.batch === 'function') { const batch = db.batch(); batch.set(messageRef, row); batch.set(ref, summary, { merge: true }); await batch.commit(); }
-      else { await messageRef.set(row); await ref.set(summary, { merge: true }); }
-      // the owner's Telegram: the message arrives there and a Reply to it answers this user (see api/telegram.js)
-      const plan = await peekTier(db, who.uid).catch(() => '');
-      await notifyChatMessage({ uid: who.uid, name: summary.displayName, email: summary.email, message, paid: plan === 'paid' });
+      await writeChat(db, ref, ref.collection('messages').doc(), row, summary, { by: 'user' });
+      // the owner's Telegram: the message arrives there and a Reply to it answers this user (see api/telegram.js). It must not hold the user's reply up:
+      // we wait for it at most a moment (a serverless function can be stopped once the answer is sent)
+      const notify = peekTier(db, who.uid).catch(() => '').then((plan) => notifyChatMessage({ uid: who.uid, name: summary.displayName, email: summary.email, message, paid: plan === 'paid' })).catch(() => {});
+      await Promise.race([notify, new Promise((r) => setTimeout(r, 1200))]);
       return send(res, 200, { message: row });
     }
     if (b.action === 'messages' || b.action === 'adminMessages') {
@@ -114,11 +114,11 @@ export default async function handler(req, res) {
       if (b.action === 'adminEditMessage') {
         const text = cleanText(b.message, { optional: !!message.data().image });
         await messageRef.set({ message: text, editedAt: Date.now() }, { merge: true });
-        await refreshSummary(db, ref, revision);
+        await refreshSummary(db, ref, revision); await signal(db, b.uid);
         return send(res, 200, { edited: true, revision });
       }
       await messageRef.delete();
-      await refreshSummary(db, ref, revision);
+      await refreshSummary(db, ref, revision); await signal(db, b.uid);
       return send(res, 200, { deleted: true, revision });
     }
     if (b.action === 'adminDeleteChats') {

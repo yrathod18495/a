@@ -82,3 +82,15 @@ export async function releaseSession() {
   if(auth.currentUser)localStorage.removeItem('12toons-validated-'+auth.currentUser.uid);
   await apiCall('/api/security', { action: 'logout' });
 }
+
+
+/** Live "something changed" signal of a support chat (`chatSignals/<uid>`, or `_staff` for admins). Returns a function that stops listening.
+ *  `onSignal(data, first)` gets the document ({ at, by, uid }); `first` is true for the state that was already there. If the rules do not allow it yet, nothing happens and the regular slow check still works. */
+export function watchChatSignal(id, onSignal, onLive = () => {}) {
+  let stop = () => {}, cancelled = false, first = true;
+  firestore().then(({ db, doc, onSnapshot }) => {
+    if (cancelled) return;
+    stop = onSnapshot(doc(db, 'chatSignals', id), (snap) => { onLive(true); const f = first; first = false; onSignal(snap.data() || null, f); }, () => onLive(false));
+  }).catch(() => onLive(false));
+  return () => { cancelled = true; stop(); };
+}

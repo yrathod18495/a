@@ -148,3 +148,12 @@ test('a live-chat message is also sent to the owner on Telegram, with the chat t
     assert.equal((await call(userToken,{action:'send',message:'Still works'})).statusCode,200);
   }finally{globalThis.fetch=realFetch;delete process.env.TELEGRAM_BOT_TOKEN;delete process.env.TELEGRAM_CHAT_ID;}
 });
+test('every new message leaves a small live signal for the user and for the admins (no text in it)',async()=>{
+  const u='signal_user_1234567890';const t=session(u,'sig-session');
+  await call(t,{action:'send',message:'Hello there'});
+  assert.equal(db.data.get('chatSignals/'+u).by,'user');
+  assert.equal(db.data.get('chatSignals/_staff').uid,u);
+  assert.equal(JSON.stringify(db.data.get('chatSignals/'+u)).includes('Hello'),false);
+  await call(adminToken,{action:'adminReply',uid:u,message:'Hi!'});
+  assert.equal(db.data.get('chatSignals/'+u).by,'admin');
+});
