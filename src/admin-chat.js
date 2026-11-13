@@ -80,6 +80,15 @@ export async function chatView({ user, back, toast }) {
         c.unreadAdmin ? h('i', { class: 'ac-unread', title: 'Unread message' }) : null);
     }));
   }
+  /** one conversation's row only (1–2 reads): a new message never reads the whole inbox again */
+  async function refreshOne(id) {
+    try {
+      const { chat } = await call({ action: 'adminChat', uid: id });
+      if (!chat) { rows = rows.filter((c) => c.id !== id); if (selected === id) clearSelection(); }
+      else { const i = rows.findIndex((c) => c.id === id); if (i >= 0) rows[i] = chat; else rows.unshift(chat); rows.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)); }
+      renderTabs(); renderList(); renderHead();
+    } catch { loadChats(); }
+  }
   async function loadChats() {
     if (listBusy || !root.isConnected) return;
     listBusy = true;
@@ -207,15 +216,16 @@ export async function chatView({ user, back, toast }) {
   // the page opens at once; the conversations load in the background
   listEl.replaceChildren(h('p', { class: 'ac-muted', role: 'status' }, 'Loading conversations…'));
   loadChats();
-  const tick = () => { if (!document.hidden) { loadChats(); loadMessages(); } };
+  let hiddenAt = 0;
+  const tick = () => { if (document.hidden) { hiddenAt = Date.now(); return; } if (!live || (hiddenAt && Date.now() - hiddenAt > 60000)) loadChats(); hiddenAt = 0; loadMessages(); };
   let live = false, soon = 0;
   // live: a user's new message (or another admin's reply) refreshes the list and the open conversation at once
   const stopSignal = watchChatSignal('_staff', (data, first) => {
     if (first || !data) return;
-    clearTimeout(soon); soon = setTimeout(() => { loadChats(); if (!data.uid || data.uid === selected) loadMessages(true); }, 150);
+    clearTimeout(soon); soon = setTimeout(() => { if (data.uid) refreshOne(data.uid); else loadChats(); if (!data.uid || data.uid === selected) loadMessages(true); }, 100);
   }, (ok) => { live = ok; });
-  polling = window.setInterval(() => { if (!live) tick(); }, 10000);
-  const safety = window.setInterval(tick, 60000);
+  polling = window.setInterval(() => { if (!live) tick(); }, 10000);          // only while the live channel is not working
+  const safety = window.setInterval(() => { if (!live) tick(); }, 60000);
   document.addEventListener('visibilitychange', tick);
   root.dispose = () => { stopSignal(); clearTimeout(soon); clearInterval(safety); clearInterval(polling); document.removeEventListener('visibilitychange', tick); document.removeEventListener('click', closeMenus); };
   return root;

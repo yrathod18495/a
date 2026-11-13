@@ -119,9 +119,9 @@ export function chatWidget(user, onLogin = () => {}) {
   // live: when the signal channel works, a message shows up at once and the slow check below is only a safety net
   let live = false, stopSignal = () => {};
   if (user) stopSignal = watchChatSignal(user.uid, (data, first) => {
-    if (first || !data) return;
+    if (first || !data || data.by !== 'admin') return;          // what this browser wrote itself is already on screen: no request needed
     if (open) { quietSince = Date.now(); load(); }
-    else if (data.by === 'admin') { toggle.classList.add('unread'); toggle.setAttribute('aria-label', 'Open live chat, you have a new reply'); }
+    else { toggle.classList.add('unread'); toggle.setAttribute('aria-label', 'Open live chat, you have a new reply'); }
   }, (ok) => { live = ok; });
   const delay = () => { if (live) return 60000; const quiet = Date.now() - quietSince; return quiet < 60000 ? 5000 : quiet < 300000 ? 15000 : 30000; };
   function schedule() { clearTimeout(timer); timer = setTimeout(async () => { await load(); if (open) schedule(); }, delay()); }
@@ -151,7 +151,7 @@ export function chatWidget(user, onLogin = () => {}) {
     list.scrollTop = list.scrollHeight;
   }
   function bubble(m) {
-    return (h('div', { class: `support-bubble ${m.sender === 'admin' ? 'received' : 'sent'} ${m.pending ? 'pending' : ''} ${m.failed ? 'failed' : ''}` }, m.image ? h('img', { class: 'support-image', src: m.image, alt: 'Picture from support' }) : null, m.message ? h('p', {}, m.message) : null, h('time', {}, m.failed ? 'Not sent' : m.pending ? 'Sending…' : m.sent ? 'Sent' : `${m.editedAt ? 'edited · ' : ''}${new Date(m.createdAt).toLocaleTimeString([], { timeStyle: 'short' })}`)));
+    return (h('div', { class: `support-bubble ${m.sender === 'admin' ? 'received' : 'sent'} ${m.pending ? 'pending' : ''} ${m.failed ? 'failed' : ''}` }, m.image ? h('img', { class: 'support-image', src: m.image, alt: 'Picture from support' }) : null, m.message ? h('p', {}, m.message) : null, h('time', {}, m.failed ? 'Not sent' : m.pending && Date.now() - m.createdAt > 3000 ? 'Sending…' : (m.pending || m.sent) ? new Date(m.createdAt).toLocaleTimeString([], { timeStyle: 'short' }) : `${m.editedAt ? 'edited · ' : ''}${new Date(m.createdAt).toLocaleTimeString([], { timeStyle: 'short' })}`)));
   }
   async function send(e) {
     quietSince = Date.now(); schedule();
@@ -159,9 +159,10 @@ export function chatWidget(user, onLogin = () => {}) {
     sending = true; sendButton.disabled = true; state.textContent = '';
     const optimistic = { id: `pending-${Date.now()}`, sender: 'user', message, createdAt: Date.now(), pending: true };
     pendingMessages.push(optimistic); input.value = ''; grow(); render([...cachedMessages, ...pendingMessages]);
+    setTimeout(() => { if (optimistic.pending && open) render([...cachedMessages, ...pendingMessages]); }, 3100);          // only a slow send says "Sending…"
     try {
       await apiCall('/api/chat', { action: 'send', message }, user.uid);
-      optimistic.pending = false; optimistic.sent = true; latest = ''; render([...cachedMessages, ...pendingMessages]); load();        // the tick appears at once; the list refreshes in the background
+      optimistic.pending = false; optimistic.sent = true; latest = ''; render([...cachedMessages, ...pendingMessages]);        // nothing to download: the message is on screen, and an answer arrives through the live signal
     } catch (err) {
       optimistic.failed = true; state.textContent = `Message not sent: ${err.message}`; render([...cachedMessages, ...pendingMessages]);
     } finally { sending = false; sendButton.disabled = false; input.focus(); }

@@ -5,6 +5,7 @@ import { AccessError } from '../server/security-policy.js';
 import { tierOf, peekTier } from '../server/entitlements.js';
 import { PHOTO_LABEL, addAdminReply, writeChat, signalWrites } from '../server/support-chat.js';
 import { notifyChatMessage } from '../server/telegram.js';
+import { inBackground } from '../server/background.js';
 // Temporarily disabled until Firebase Web Push VAPID is configured.
 // import { sendSupportReplyPush } from '../server/support-push.js';
 
@@ -43,15 +44,17 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
     const b = await bodyOf(req, 170000);
-    const isAdminAction = ['adminList', 'adminMessages', 'adminReply', 'adminEditMessage', 'adminDeleteMessage', 'adminDeleteChats', 'adminNewChat'].includes(b.action);
+    const isAdminAction = ['adminList', 'adminChat', 'adminMessages', 'adminReply', 'adminEditMessage', 'adminDeleteMessage', 'adminDeleteChats', 'adminNewChat'].includes(b.action);
     const isWrite = ['send', 'adminReply', 'adminEditMessage', 'adminDeleteMessage', 'adminDeleteChats', 'adminNewChat'].includes(b.action);
-    const who = await access(req, { admin: isAdminAction, write: isWrite });
+    const who = await access(req, { admin: isAdminAction, write: isWrite, cache: b.action === 'send' });     // a message may use the few-seconds-old account check: one round trip less
     const { db } = services();
-    if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
+    const maintenance = who.admin ? Promise.resolve(false) : maintenanceOn(db);
+    if (b.action !== 'send' && await maintenance) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
 
     if (b.action === 'send') {
       const message = cleanText(b.message), ref = db.collection('supportChats').doc(who.uid);
-      const chat = await ref.get();
+      const [chat, blocked] = await Promise.all([ref.get(), maintenance]);          // the two reads run together
+      if (blocked) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
       const data = chat.data() || {};
       const now = Date.now();
       if (data.lastUserMessageAt && now - data.lastUserMessageAt < 800) throw new AccessError('rate_limited', 'Please wait a moment before sending another message.', 429);
@@ -61,7 +64,7 @@ export default async function handler(req, res) {
       // the owner's Telegram: the message arrives there and a Reply to it answers this user (see api/telegram.js). It must not hold the user's reply up:
       // we wait for it at most a moment (a serverless function can be stopped once the answer is sent)
       const notify = peekTier(db, who.uid).catch(() => '').then((plan) => notifyChatMessage({ uid: who.uid, name: summary.displayName, email: summary.email, message, paid: plan === 'paid' })).catch(() => {});
-      await Promise.race([notify, new Promise((r) => setTimeout(r, 1200))]);
+      await inBackground(notify);
       return send(res, 200, { message: row });
     }
     if (b.action === 'messages' || b.action === 'adminMessages') {
@@ -93,6 +96,14 @@ export default async function handler(req, res) {
       const tiers = chats.length ? await db.getAll(...chats.map(c => db.doc(`entitlements/${c.id}`))) : [];
       const premium = await Promise.all(chats.map(async (c, i) => { const tier = tiers[i].data()?.tier; return (tier === 'paid' || tier === 'free') ? tier === 'paid' : (await tierOf(db, c.id)) === 'paid'; }));
       return send(res, 200, { chats: chats.map((c, i) => ({ ...c, premium: premium[i] })) });
+    }
+    if (b.action === 'adminChat') {
+      // one conversation's inbox row: what a new message needs (instead of reading the whole list again)
+      if (!validUid(b.uid)) throw new AccessError('invalid_user', 'This chat is not valid.', 400);
+      const snap = await db.collection('supportChats').doc(b.uid).get();
+      if (!snap.exists) return send(res, 200, { chat: null });
+      const entitlement = (await db.doc(`entitlements/${b.uid}`).get()).data()?.tier;
+      return send(res, 200, { chat: { id: b.uid, ...snap.data(), premium: entitlement === 'paid' } });
     }
     if (b.action === 'adminReply') {
       if (!validUid(b.uid)) throw new AccessError('invalid_user', 'Please choose a user\'s conversation.', 400);

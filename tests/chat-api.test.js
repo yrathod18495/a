@@ -157,3 +157,10 @@ test('every new message leaves a small live signal for the user and for the admi
   await call(adminToken,{action:'adminReply',uid:u,message:'Hi!'});
   assert.equal(db.data.get('chatSignals/'+u).by,'admin');
 });
+test('the admin can fetch one inbox row (a new message does not need the whole list)',async()=>{
+  const u='signal_user_1234567890';
+  const one=await call(adminToken,{action:'adminChat',uid:u});
+  assert.equal(one.statusCode,200);assert.equal(one.body.chat.id,u);assert.equal(one.body.chat.lastMessage,'Hi!');
+  assert.equal((await call(userToken,{action:'adminChat',uid:u})).statusCode,403);
+  assert.equal((await call(adminToken,{action:'adminChat',uid:'missing_user_1234567'})).body.chat,null);
+});
