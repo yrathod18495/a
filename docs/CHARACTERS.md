@@ -1,5 +1,7 @@
 # Characters uploaded by the admin
 
+> Building or checking a ZIP? Read **`docs/CHARACTER-ZIP-GUIDE.md`** (the full rules, every upload check, and a ready prompt for a local session). Offline check: `node scripts/check-character-zip.mjs <zip>`.
+
 Admin panel → **Characters**. A character arrives as one ZIP; the admin plays every animation, presses **Done**, and creators can use the character in the Animator Studio right away. Everything is DragonBones (see `CLAUDE.md`).
 
 ## 1. Make the ZIP (on your computer)
