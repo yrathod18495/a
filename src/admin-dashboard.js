@@ -60,7 +60,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
     bottom.append(h('button', { class: 'admin-bottom-tab', type: 'button', 'data-tab': label, onclick: () => { show(label, factory); }, }, icon(label), h('span', {}, label)));
   }
   shell.append(
-    h('header', { class: 'admin-console-topbar' }, logo(home), h('span', { class: 'admin-console-brand' }, 'Admin Dashboard'), h('span', { class: 'sp' }), h('span', { class: 'admin-console-user', title: user.email || user.uid }, user.displayName || user.email || 'Administrator'), h('button', { class: 'btn', type: 'button', onclick: home }, 'Home')),
+    h('header', { class: 'admin-console-topbar' }, logo(home), h('span', { class: 'admin-console-brand' }, 'Admin'), h('span', { class: 'sp' }), h('span', { class: 'admin-console-user', title: user.email || user.uid }, user.displayName || user.email || 'Administrator'), h('button', { class: 'btn', type: 'button', onclick: home }, 'Home')),
     nav,
     host,
     bottom,
@@ -83,10 +83,10 @@ export function dashboardView({ user, home, toast, openStudio }) {
     );
 
     function stat(title, value, note, icon, tone = '') {
-      return h('article', { class: `admin-kpi ${tone}` }, h('span', { class: 'admin-kpi-icon', 'aria-hidden': 'true' }, icon), h('small', {}, title), h('b', {}, value), h('p', {}, note));
+      return h('article', { class: `admin-kpi ${tone}` }, h('span', { class: 'admin-kpi-icon', 'aria-hidden': 'true' }, icon), h('small', {}, title), h('b', {}, value), note ? h('p', {}, note) : null);
     }
     function section(title, eyebrow, ...children) {
-      return h('section', { class: 'admin-panel-card' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, eyebrow), h('h2', {}, title))), ...children);
+      return h('section', { class: 'admin-panel-card' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, eyebrow ? h('span', { class: 'admin-eyebrow' }, eyebrow) : null, h('h2', {}, title))), ...children);
     }
     function service(name, detail, ok) {
       return h('div', { class: 'admin-service-row' }, h('i', { class: `admin-service-dot ${ok ? 'ok' : 'off'}` }), h('div', {}, h('b', {}, name), h('small', {}, detail)), h('span', { class: `admin-service-state ${ok ? 'ok' : 'off'}` }, ok ? 'Connected' : 'Unavailable'));
@@ -112,21 +112,21 @@ export function dashboardView({ user, home, toast, openStudio }) {
         });
         rows.push({ key, paint, note, node: h('div', { class: `admin-maint-row${key === 'maintenance' ? ' lock' : ''}` }, h('span', { class: 'admin-maint-ic', 'aria-hidden': 'true' }, ic(iconName || 'eye')), h('div', { class: 'admin-maint-text' }, h('h2', {}, title), note), toggle) });
       };
-      row('maintenance', 'Maintenance mode', 'ON — visitors see the maintenance page. Admins can still work.', 'OFF — the site is open to everyone.',
+      row('maintenance', 'Maintenance mode', 'On · only admins can get in', 'Off · site is open',
         async (on) => (await apiCall('/api/security', { action: 'setMaintenance', enabled: on }, user.uid)).maintenance === true,
         { when: true, text: 'Turn maintenance mode ON? Everyone except admins will be locked out until you turn it off.' }, 'lock');
-      for (const [feature, title, iconName] of [['animator', 'Animator Studio card', 'film'], ['character', 'Character Editor card', 'user'], ['background', 'Background Generator card', 'image']])
-        row(feature, title, 'SHOWN — users see this tool on their dashboard.', 'HIDDEN — users do not see it and cannot open it. Admins still can.',
+      for (const [feature, title, iconName] of [['animator', 'Animator Studio', 'film'], ['character', 'Character Editor', 'user'], ['background', 'Background Generator', 'image']])
+        row(feature, title, 'Visible to users', 'Hidden from users',
           async (on) => (await apiCall('/api/security', { action: 'setFeature', feature, enabled: on }, user.uid)).features[feature] !== false, undefined, iconName);
       apiCall('/api/security', { action: 'getMaintenance' }, user.uid).then((r) => { for (const x of rows) x.paint(x.key === 'maintenance' ? r.maintenance === true : r.features?.[x.key] !== false); })
         .catch((e) => { for (const x of rows) x.note.textContent = `Could not read the setting: ${friendlyError(e)}`; });
-      return h('section', { class: 'admin-panel-card admin-maint' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'SITE CONTROLS'), h('h2', {}, 'Access and visibility'))), ...rows.map((x) => x.node));
+      return h('section', { class: 'admin-panel-card admin-maint' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, h('h2', {}, 'Site controls'))), h('div', { class: 'admin-maint-grid' }, ...rows.map((x) => x.node)));
     }
     /** creators who opened the developer tools or tried to view the source (reported by src/shield.js) */
     function alertsSection() {
       const list = state.alerts?.alerts || [];
       if (!list.length) return null;
-      return section(`Security alerts (${number(state.alerts.unacknowledged)})`, 'INSPECT / DEVELOPER TOOLS',
+      return section(`Security alerts (${number(state.alerts.unacknowledged)})`, '',
         h('div', { class: 'admin-alert-list' }, list.slice(0, 8).map((a) => h('article', { class: 'admin-alert-row' },
           h('div', {}, h('b', {}, a.name || a.email || a.uid), h('small', {}, `${KIND_TEXT[a.kind] || a.kind}${a.detail ? ` · ${a.detail}` : ''} · ${a.path || '/'}`), h('small', {}, `${dateTime(a.at)}${a.country ? ` · ${a.country}` : ''} · ${a.email || ''}`)),
           h('div', { class: 'admin-alert-actions' },
@@ -143,31 +143,30 @@ export function dashboardView({ user, home, toast, openStudio }) {
       const userMap = new Map((sec?.sessions || []).map(u => [u.id, u]));
 
       content.append(
-        h('div', { class: 'admin-dashboard-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'WORKSPACE OVERVIEW'), h('h1', {}, 'Command ', h('em', {}, 'Center')), h('p', {}, 'Live account, payment, support and partner activity from your admin services.')),
-          h('span', { class: 'admin-refresh-note' }, 'Updates when you press Refresh')),
+        h('div', { class: 'admin-dashboard-heading' }, h('div', {}, h('h1', {}, 'Dashboard'))),
         h('div', { class: 'admin-kpi-grid' },
-          stat('Total accounts', number(sec?.totalUsers), 'Every account that has signed in at least once.', icon('Users')),
-          stat('Online now', number(sec?.onlineNow), 'Signed in and active in the last 15 minutes.', ic('zap'), 'blue'),
-          stat('Captured payments · latest report', number(captured.length), `${money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0))} recorded in this report.`, icon('Payments'), 'violet'),
-          stat('Unread support conversations', number(unread), `${number(chats.length)} conversations returned by the live chat inbox.`, icon('Live Chat'), 'green')),
+          stat('Accounts', number(sec?.totalUsers), '', icon('Users')),
+          stat('Online now', number(sec?.onlineNow), 'last 15 minutes', ic('zap'), 'blue'),
+          stat('Payments', number(captured.length), `${money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0))} received`, icon('Payments'), 'violet'),
+          stat('Unread chats', number(unread), `${number(chats.length)} in the inbox`, icon('Live Chat'), 'green')),
         maintenanceCard(),
         alertsSection() || '',
         h('div', { class: 'admin-dashboard-grid' },
-          section('Active sessions', 'LIVE ACCOUNTS', h('div', { class: 'admin-session-list' }, sessions.length ? sessions.slice(0, 6).map(s => {
+          section('Active sessions', '', h('div', { class: 'admin-session-list' }, sessions.length ? sessions.slice(0, 6).map(s => {
             const u = userMap.get(s.id) || {};
             return h('article', { class: 'admin-session-row' }, h('span', { class: 'admin-session-avatar' }, (u.name || u.email || s.id || '?').trim()[0]?.toUpperCase() || '?'), h('span', { class: 'admin-session-copy' }, h('b', {}, u.name || u.email || s.id), h('small', {}, `${u.email || 'Account'} · Device ${s.deviceId || '—'}`)), h('span', { class: 'admin-pill live' }, 'Active'));
           }) : h('p', { class: 'admin-empty' }, state.failures.security ? 'Could not load the account and session data.' : 'Nobody has been active in the last 15 minutes.'))),
-          section('Service access', 'CONNECTION STATUS', h('div', { class: 'admin-service-list' },
+          section('Services', '', h('div', { class: 'admin-service-list' },
             service('Account security', 'Authenticated admin API', !!state.security),
             service('Payments', 'Razorpay payment records', !!state.payments),
             service('Live chat', 'Support conversation inbox', !!state.chats),
             service('Affiliate program', 'Partner and commission records', !!state.affiliates))),
-          section('Daily operations', 'TODAY · CURRENT REPORTS', h('div', { class: 'admin-ops-grid' },
+          section('Today', '', h('div', { class: 'admin-ops-grid' },
             h('div', {}, h('small', {}, 'Recent sign-ins'), h('b', {}, number((sec?.events || []).filter(e => e.code === 'login').length)), h('span', {}, 'among the latest 8 security events')),
             h('div', {}, h('small', {}, 'Captured orders'), h('b', {}, number(captured.length)), h('span', {}, 'in latest payment report')),
             h('div', {}, h('small', {}, 'Open affiliate requests'), h('b', {}, number(opened)), h('span', {}, `${number(affiliates.length)} partner records`)),
             h('div', {}, h('small', {}, 'Support inbox'), h('b', {}, number(chats.length)), h('span', {}, `${number(unread)} unread conversations`)))),
-          section('Recent account activity', 'SECURITY EVENTS', h('div', { class: 'admin-events-list' }, (sec?.events || []).slice().sort((a, b) => Number(b.at || 0) - Number(a.at || 0)).slice(0, 7).map(e => h('article', { class: 'admin-event-row' }, h('span', { class: 'admin-event-icon' }, ic(e.code === 'device_review' ? 'warning' : 'clock')), h('div', {}, h('b', {}, String(e.code || 'Account activity').replaceAll('_', ' ')), h('small', {}, `${e.email || e.id || 'Account'} · ${dateTime(e.at)}`)), e.deviceId ? h('small', { class: 'admin-event-device' }, `Device ${e.deviceId}`) : null)),
+          section('Recent activity', '', h('div', { class: 'admin-events-list' }, (sec?.events || []).slice().sort((a, b) => Number(b.at || 0) - Number(a.at || 0)).slice(0, 7).map(e => h('article', { class: 'admin-event-row' }, h('span', { class: 'admin-event-icon' }, ic(e.code === 'device_review' ? 'warning' : 'clock')), h('div', {}, h('b', {}, String(e.code || 'Account activity').replaceAll('_', ' ')), h('small', {}, `${e.email || e.id || 'Account'} · ${dateTime(e.at)}`)), e.deviceId ? h('small', { class: 'admin-event-device' }, `Device ${e.deviceId}`) : null)),
             !sec?.events?.length ? h('p', { class: 'admin-empty' }, state.failures.security ? 'Security events are not available right now.' : 'No recent security events.') : null)),
         ),
       );
@@ -197,7 +196,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
         renderDashboard();
         const updated = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const errors = Object.keys(state.failures);
-        status.replaceChildren(h('i', { class: `admin-live-dot ${errors.length ? 'warn' : ''}` }), h('span', {}, `${errors.length ? `Some data is not available right now · ` : 'Live data connected · '}Updated ${updated}`));
+        status.replaceChildren(h('i', { class: `admin-live-dot ${errors.length ? 'warn' : ''}` }), h('span', {}, `${errors.length ? 'Some data is not available · ' : ''}Updated ${updated}`));
         if (showToast && errors.length) toast(`Some dashboard data could not be loaded: ${errors.join(', ')}`);
       }
       busy = false;

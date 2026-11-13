@@ -20,3 +20,17 @@
 .au-seg button{transition:background-color .15s ease,color .15s ease,transform .12s ease}.au-seg button:active:not([disabled]){transform:scale(.97)}
 .au-current.mine{border-color:var(--line);background:var(--card2)}
 @media(prefers-reduced-motion:reduce){.au-btn,.au-seg button{transition:none}.au-btn.is-busy::after{animation-duration:1.6s}}
+
+/* Dashboard: site controls as two switches per row (also on phones) */
+:root[data-theme] body .admin-maint-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 14px 14px}
+:root[data-theme] body .admin-maint-grid .admin-maint-row{margin:0;min-width:0}
+@media(max-width:560px){
+  :root[data-theme] body .admin-maint-grid{gap:8px;padding:0 10px 12px}
+  :root[data-theme] body .admin-maint-grid .admin-maint-row{display:grid;grid-template-columns:36px 1fr auto;grid-template-areas:'ic . sw' 't t t';gap:10px 6px;align-items:center;padding:12px}
+  :root[data-theme] body .admin-maint-grid .admin-maint-ic{grid-area:ic}
+  :root[data-theme] body .admin-maint-grid .admin-switch{grid-area:sw}
+  :root[data-theme] body .admin-maint-grid .admin-maint-text{grid-area:t;min-width:0}
+  :root[data-theme] body .admin-maint-grid .admin-maint-text h2{font-size:11px;letter-spacing:.04em}
+  :root[data-theme] body .admin-maint-grid .admin-maint-text small{font-size:11px}
+}
+:root[data-theme] body .admin-dashboard-heading h1{font-size:clamp(26px,5vw,34px);letter-spacing:-.02em;text-transform:none}

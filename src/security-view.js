@@ -16,9 +16,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   // "User Hub": nothing is listed until the admin searches (so opening the page reads nothing); Login activity, Devices and the Audit log are read when their tab is opened.
   const root=el('div','sh sa sa-hub');
   const header=el('header','sa-head',
-    el('div','sa-head-copy',h('a',{class:'sa-eyebrow',href:'/#/',style:'text-decoration:none','aria-label':'12toons home'},'12TOONS  /  ADMIN CONSOLE'),
-      h('h1',{},'User Hub'),
-      el('p','sa-sub','Full platform oversight: search an account to manage its access and Coins.')),
+    el('div','sa-head-copy',h('h1',{},'Users')),
     btn('← Back to admin',home,'sa-back'));
   const status=el('span','sa-sync','');
   const refresh=btn('↻ Refresh',()=>refreshCurrent(),'sa-refresh');
@@ -32,7 +30,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   root.append(header,el('div','sa-card',controls,tabs,panel),note);
   let state={cursors:{}},tab=initialTab,loading=false,hub={results:null,sessions:[],busy:false,note:''};
 
-  const tabsData=[['users','User Hub'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
+  const tabsData=[['users','Search'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
   const badge=(text,tone='neutral')=>el('span','sa-badge sa-'+tone,text);
   const empty=(headline,description)=>el('div','sa-empty',el('div','sa-empty-icon',icon('users')),h('b',{},headline),el('p','sa-sub',description));
   const block=(name,value)=>el('div','sa-metric',el('span','sa-metric-label',name),el('strong','sa-metric-value',String(value)));

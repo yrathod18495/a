@@ -49,16 +49,16 @@ test('admin: the Overview page has a Background Generator card switch that saves
   const gaps = await page.evaluate(() => { const c = document.querySelector('.admin-maint').getBoundingClientRect(); return [...document.querySelectorAll('.admin-maint-row')].map((row) => ({ left: row.querySelector('h2').getBoundingClientRect().left - c.left, right: c.right - row.querySelector('.admin-switch').getBoundingClientRect().right })); });
   expect(gaps.length).toBe(4);
   for (const gap of gaps) { expect(gap.left).toBeGreaterThanOrEqual(12); expect(gap.right).toBeGreaterThanOrEqual(12); }
-  const toggle = page.getByRole('switch', { name: 'Background Generator card' });
+  const toggle = page.getByRole('switch', { name: 'Background Generator' });
   await expect(toggle).toBeVisible();
   await expect(toggle).toHaveAttribute('aria-checked', 'true');
-  await expect(toggle.locator('xpath=..')).toContainText('SHOWN');
+  await expect(toggle.locator('xpath=..')).toContainText('Visible');
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
-  await expect(toggle.locator('xpath=..')).toContainText('HIDDEN');
+  await expect(toggle.locator('xpath=..')).toContainText('Hidden');
   expect(calls.filter((c) => c.action === 'setFeature')).toEqual([{ action: 'setFeature', feature: 'background', enabled: false }]);
-  expect(await page.evaluate(() => window.__toasts.at(-1))).toBe('Background Generator card: OFF.');
+  expect(await page.evaluate(() => window.__toasts.at(-1))).toBe('Background Generator: OFF.');
   failSave = true; await toggle.click();
-  await expect.poll(() => page.evaluate(() => window.__toasts.at(-1))).toMatch(/Could not change “Background Generator card”/);
+  await expect.poll(() => page.evaluate(() => window.__toasts.at(-1))).toMatch(/Could not change “Background Generator”/);
   await expect(toggle).toHaveAttribute('aria-checked', 'false');          // still as it was
 });
