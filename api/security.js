@@ -109,11 +109,12 @@ export default async function handler(req, res) {
       const out = { cursors: {} };
       const usersTask = want.has('users') ? (async () => {
         const registered = b.cursors && 'users' in b.cursors && !b.cursors.users ? { users: [], pageToken: null } : await auth.listUsers(100, b.cursors?.users || undefined);
-        const [userStates, adminStates] = await Promise.all([
+        const [userStates, adminStates, workspaces] = await Promise.all([
           registered.users.length ? db.getAll(...registered.users.map(u => db.doc('securityUsers/' + u.uid))) : [],
-          registered.users.length ? db.getAll(...registered.users.map(u => db.doc('securityAdmins/' + u.uid))) : []
+          registered.users.length ? db.getAll(...registered.users.map(u => db.doc('securityAdmins/' + u.uid))) : [],
+          registered.users.length ? db.getAll(...registered.users.map(u => db.doc('workspaces/' + u.uid))) : []
         ]);
-        out.users = registered.users.map((u, i) => ({ id: u.uid, email: u.email || '', name: u.displayName || '', registeredAt: u.metadata.creationTime, ...userStates[i].data(), role: adminStates[i].data()?.enabled === true ? 'admin' : 'user' }));
+        out.users = registered.users.map((u, i) => ({ id: u.uid, email: u.email || '', name: u.displayName || '', registeredAt: u.metadata.creationTime, lastSignIn: u.metadata.lastSignInTime || '', ...userStates[i].data(), role: adminStates[i].data()?.enabled === true ? 'admin' : 'user', credits: Number(workspaces[i].data()?.credits || 0) }));
         out.cursors.users = registered.pageToken || null;
       })() : null;
       const collectionTasks = Object.entries({ sessions: 'securitySessions', devices: 'securityDevices', events: 'securityEvents', audit: 'securityAudit' }).filter(([key]) => want.has(key)).map(async ([key, name]) => {
@@ -129,6 +130,7 @@ export default async function handler(req, res) {
     }
     if (b.action === 'moderate') {
       if (!validId(b.uid) || !['blocked', 'restricted', 'suspended', 'active', 'revoke'].includes(b.status)) throw new AccessError('invalid_action', 'The moderation action is not valid.', 400);
+      const reason = typeof b.reason === 'string' ? b.reason.trim().slice(0, 200) : '';
       if (b.uid === who.uid) throw new AccessError('self_moderation', 'Only another admin can take action on your own account.');
       if (b.status === 'suspended' && (!Number.isSafeInteger(b.until) || b.until <= now)) throw new AccessError('invalid_expiry', 'Please choose a suspension date that is in the future.', 400);
       await db.runTransaction(async tx => {
@@ -136,9 +138,9 @@ export default async function handler(req, res) {
         const [role,actor,actorSession] = await tx.getAll(db.doc('securityAdmins/' + who.uid),db.doc('securityUsers/'+who.uid),db.doc('securitySessions/'+who.uid));
         if (!role.data()?.enabled) throw new AccessError('admin_required', 'Your admin permission has been removed.');
         checkAccount(actor.data(),Date.now(),true);checkSession(actorSession.data(),who.claims.sid);
-        tx.set(db.doc('securityUsers/' + b.uid), { reauthAfter: Math.floor(now/1000), ...(b.status !== 'revoke' ? { status: b.status, until: b.status === 'suspended' ? b.until : 0 } : {}) }, { merge: true });
+        tx.set(db.doc('securityUsers/' + b.uid), { reauthAfter: Math.floor(now/1000), ...(b.status !== 'revoke' ? { status: b.status, until: b.status === 'suspended' ? b.until : 0, statusReason: reason, statusBy: who.uid, statusAt: now } : {}) }, { merge: true });
         tx.set(db.doc('securitySessions/' + b.uid), { revoked: true }, { merge: true });
-        tx.create(db.collection('securityAudit').doc(), { admin: who.uid, target: b.uid, action: b.status, until: b.until || null, at: now });
+        tx.create(db.collection('securityAudit').doc(), { admin: who.uid, target: b.uid, action: b.status, until: b.until || null, reason, at: now });
       });
       return send(res, 200, { ok: true });
     }

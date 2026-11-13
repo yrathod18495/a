@@ -80,7 +80,7 @@ export async function lookupAccount({ db, auth }, email) {
   const a = account.data() || {}, s = session.data() || {};
   return {
     uid, email: user.email || '', name: user.displayName || '', registeredAt: user.metadata?.creationTime || '', lastSignIn: user.metadata?.lastSignInTime || '',
-    status: a.status || 'active', until: a.until || 0, role: role.data()?.enabled === true ? 'admin' : 'user',
+    status: a.status || 'active', until: a.until || 0, statusReason: a.statusReason || '', statusAt: a.statusAt || 0, role: role.data()?.enabled === true ? 'admin' : 'user',
     signedIn: !!s.sid && !s.revoked, lastSeen: s.lastSeen || 0,
     tier: entitlement.data()?.tier || 'free', credits: Number(workspace.data()?.credits || 0),
     bonus: bonus.exists ? { status: bonus.data().status, reason: bonus.data().reason || '', at: bonus.data().at || 0 } : null,

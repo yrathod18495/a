@@ -1,6 +1,7 @@
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { h } from './dom.js';
 import { apiCall } from './session.js';
+import { userRow, openUserDialog } from './admin-users.js';
 
 const date = value => value ? new Date(value).toLocaleString() : '—';
 const ONLINE_MS = 15 * 60 * 1000;   // the browser reports in every 5 minutes while open
@@ -29,72 +30,11 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   const more=el('div','sa-more');
   const tabs=el('div','sa-tabs');
   const panel=el('div','sa-panel');
-  const search=h('input',{class:'sa-search',type:'search',placeholder:'Search by email or user ID…','aria-label':'Search users'});
+  const search=h('input',{class:'sa-search',type:'search',placeholder:'Search by email, name or user ID…','aria-label':'Search users'});
   const title=el('div','sa-section-title',h('h2',{},'Accounts'),el('p','sa-sub','Actions take effect on the server. All changes are recorded.'));
   const note=el('p','sa-footnote','Device IDs identify a browser installation—not a physical device. Private browsing or clearing storage can bypass detection.');
   root.append(header,toolbar,stats,el('div','sa-card',controls,tabs,panel),note);
   let state=null,filter='all',term='',tab=initialTab,loading=false;
-  /* ---- find one account by its email: status, Coins, tier, and the actions (deactivate, Coins edit) ---- */
-  const lookupInput=h('input',{class:'sa-search',type:'email',placeholder:'Find a user by email…','aria-label':'User email',autocomplete:'off',spellcheck:'false',onkeydown:(e)=>{if(e.key==='Enter')lookup();}});
-  const lookupOut=el('div','sa-lookup-out');
-  const lookupCard=el('div','sa-card sa-lookup',el('div','sa-section-title',h('h2',{},'Find a user'),el('p','sa-sub','Type an email address to see the account, change its Coins, or deactivate it.')),
-    el('div','sa-lookup-row',lookupInput,btn('Find',()=>lookup(),'sa-positive')),lookupOut);
-  stats.after(lookupCard);
-  let found=null;
-  const when=(t)=>t?new Date(t).toLocaleString():'—';
-  async function lookup(keep){
-    const email=(keep||lookupInput.value).trim();
-    if(!email)return;
-    if(!keep)lookupOut.replaceChildren(el('p','sa-sub','Searching…'));
-    try{const {user}=await apiCall('/api/payments',{action:'adminUserLookup',email});found=user;renderLookup(user);}
-    catch(e){found=null;lookupOut.replaceChildren(el('p','sa-lookup-msg',friendlyError(e)));}
-  }
-  let lookupBusy=false;
-  async function lookupAct(payload,question,path='/api/security',after){
-    if(lookupBusy)return;
-    if(question&&!window.confirm(question))return;
-    lookupBusy=true;lookupOut.classList.add('busy');lookupOut.setAttribute('aria-busy','true');
-    try{
-      const res=await apiCall(path,payload);
-      if(after)after(res);
-      else if(payload.action==='moderate'&&found){if(payload.status!=='revoke'){found.status=payload.status;found.until=payload.until||0;}else found.signedIn=false;patchLocal(payload);}
-      else if(payload.action==='adminSetTier'&&found)found.tier=payload.tier;
-      renderLookup(found);toast('Saved.');
-      lookup(found.email,true);          // quietly checks the saved values in the background
-    }catch(e){toast(friendlyError(e));}
-    finally{lookupBusy=false;lookupOut.classList.remove('busy');lookupOut.removeAttribute('aria-busy');}
-  }
-  function renderLookup(u){
-    const st=u.status||'active',tone=st==='active'?'success':st==='blocked'?'danger':'warning';
-    const who=u.name?`${u.name} · ${u.email}`:u.email;
-    const mode=h('select',{class:'admin-role-select','aria-label':'Change type'},h('option',{value:'add'},'Add Coins'),h('option',{value:'remove'},'Remove Coins'),h('option',{value:'set'},'Set balance to'));
-    const amount=h('input',{class:'sa-search',type:'number',min:'0',step:'1',placeholder:'Coins','aria-label':'Number of Coins',inputmode:'numeric'});
-    const reason=h('input',{class:'sa-search',type:'text',maxlength:'200',placeholder:'Reason (required, kept in the audit log)','aria-label':'Reason'});
-    const opId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2));          // one id per form: a double click is applied once
-    const apply=btn('Apply',()=>{
-      const n=Number(amount.value),why=reason.value.trim();
-      if(!Number.isInteger(n)||n<0){toast('Please enter a whole number of Coins.');return;}
-      if(why.length<3){toast('Please write a short reason.');return;}
-      lookupAct({action:'adminCreditAdjust',uid:u.uid,mode:mode.value,amount:n,reason:why,opId},`${mode.selectedOptions[0].textContent} ${n} for ${u.email}? Current balance: ${u.credits}.`,'/api/payments',(res)=>{
-        found.credits=res.balance;if(res.line&&!res.duplicate)found.ledger=[{id:'new-'+Date.now(),...res.line},...(found.ledger||[])].slice(0,10);
-      });
-    },'sa-positive');
-    const ledger=(u.ledger||[]).length?el('div','sa-ledger',...u.ledger.map(l=>el('div','sa-ledger-row',el('span','sa-ledger-delta '+(l.delta>=0?'up':'down'),(l.delta>=0?'+':'')+l.delta),el('span','sa-ledger-why',l.reason||l.kind||''),el('span','sa-muted',when(l.at)+' · balance '+l.balance)))):el('p','sa-sub','No Coins history yet.');
-    lookupOut.replaceChildren(el('article','sa-user sa-lookup-user',
-      sectionRow(who||u.uid,'User ID: '+u.uid,[badge(statusName(st),tone),badge(u.role==='admin'?'Admin':'User'),badge(u.tier==='paid'?'Paid':'Free',u.tier==='paid'?'success':'neutral'),u.signedIn?badge('Signed in','success'):badge('Not signed in')]),
-      el('div','sa-metrics',block('Coins',u.credits),block('Welcome gift',u.bonus?(u.bonus.status==='granted'?'20 Coins given':u.bonus.reason==='device_used'?'Not given (browser already used)':'Not given'):'Not given'),block('Registered',(u.registeredAt||'—').slice(0,16)),block('Last sign-in',(u.lastSignIn||'—').slice(0,16))),
-      el('div','sa-lookup-block',h('b',{},'Account access'),el('div','sa-actions',
-        btn('Deactivate account',()=>lookupAct({action:'moderate',uid:u.uid,status:'blocked'},'Deactivate '+u.email+'? They are signed out and cannot sign in until you reactivate the account.'),'sa-danger'),
-        btn('Reactivate',()=>lookupAct({action:'moderate',uid:u.uid,status:'active'},'Reactivate '+u.email+'?'),'sa-positive'),
-        btn('Suspend 24h',()=>lookupAct({action:'moderate',uid:u.uid,status:'suspended',until:Date.now()+86400000},'Suspend '+u.email+' for 24 hours?')),
-        btn('Restrict (read-only)',()=>lookupAct({action:'moderate',uid:u.uid,status:'restricted'},'Restrict '+u.email+' to read-only access?')),
-        btn('Sign out everywhere',()=>lookupAct({action:'moderate',uid:u.uid,status:'revoke'},'End the current session of '+u.email+'?'),'sa-quiet'))),
-      el('div','sa-lookup-block',h('b',{},'Coins'),el('div','sa-coin-form',mode,amount,reason,apply)),
-      el('div','sa-lookup-block',h('b',{},'Plan'),el('div','sa-actions',
-        btn('Make Free',()=>lookupAct({action:'adminSetTier',uid:u.uid,tier:'free'},'Set '+u.email+' to the Free plan (shorter exports)?','/api/export'),u.tier==='free'?'sa-quiet':''),
-        btn('Make Paid',()=>lookupAct({action:'adminSetTier',uid:u.uid,tier:'paid'},'Set '+u.email+' to the Paid plan (longer exports)?','/api/export'),u.tier==='paid'?'sa-quiet':'sa-positive'))),
-      el('div','sa-lookup-block',h('b',{},'Recent Coins activity'),ledger)));
-  }
 
   const tabsData=[['users','Users'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
   const badge=(text,tone='neutral')=>el('span','sa-badge sa-'+tone,text);
@@ -146,6 +86,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
       el('div','sa-filters',search,h('select',{class:'sa-select','aria-label':'Filter accounts',onchange:e=>{filter=e.target.value;renderContent();}},
        ...[['all','All statuses'],['active','Active'],['blocked','Blocked'],['restricted','Restricted'],['suspended','Suspended']].map(([v,t])=>h('option',{value:v,selected:filter===v},t)))));
     search.value=term;search.oninput=e=>{term=e.target.value.trim().toLowerCase();renderContent();};
+    search.onkeydown=e=>{if(e.key==='Enter'&&tab==='users'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term)&&!(state?.users||[]).some(u=>String(u.email||'').toLowerCase()===term))findByEmail(term);};
     search.hidden=tab!=='users';controls.querySelector('select').hidden=tab!=='users';
   }
   async function showProjects(uid, button, target) {
@@ -184,40 +125,25 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     } catch(error) { target.replaceChildren(el('p','sa-associated','Could not load cloud projects: '+friendlyError(error))); }
     finally { button.disabled = false; button.textContent = 'Hide cloud projects & uploads'; }
   }
-  const openUsers=new Set();                                   // accounts whose details are open; every account starts collapsed
+  /* Users: one row per account; a row opens the account dialog (src/admin-users.js). A full email that is not in the list is looked up on the server. */
+  const dialogCtx={
+    toast,sessionOf:(id)=>(state?.sessions||[]).find(x=>x.id===id),
+    showProjects:(uid,button,target)=>showProjects(uid,button,target,true),
+    onChanged:(u)=>{const row=(state?.users||[]).find(x=>x.id===u.id);if(row){Object.assign(row,{status:u.status,until:u.until,role:u.role,credits:u.credits,statusReason:u.statusReason,statusAt:u.statusAt});}if(tab==='users')renderUsers();load(false,null,true);},
+  };
+  let findBusy=false;
+  async function findByEmail(email){
+    if(findBusy)return;findBusy=true;
+    try{const {user}=await apiCall('/api/payments',{action:'adminUserLookup',email});openUserDialog({id:user.uid,email:user.email,name:user.name,status:user.status,until:user.until,role:user.role,credits:user.credits,registeredAt:user.registeredAt,lastSignIn:user.lastSignIn,tier:user.tier},dialogCtx);}
+    catch(e){toast(friendlyError(e));}
+    finally{findBusy=false;}
+  }
   function renderUsers(){
-    const users=(state.users||[]).filter(u=>(filter==='all'||(u.status||'active')===filter)&&(!term||String(u.email||'').toLowerCase().includes(term)||u.id.toLowerCase().includes(term)));
-    if(!users.length){panel.replaceChildren(empty('No matching accounts','Try another search or status filter.'));return;}
-    const out=users.map(u=>{
-      const s=state.sessions.find(x=>x.id===u.id),live=isOnline(s),signedIn=!!s&&!s.revoked;
-      const st=u.status||'active',tone=st==='active'?'success':st==='blocked'?'danger':'warning';
-      const isOpen=openUsers.has(u.id);
-      const toggle=h('button',{type:'button',class:'sa-toggle','aria-expanded':String(isOpen),'aria-label':(isOpen?'Hide':'Show')+' details for '+(u.email||u.id),title:isOpen?'Hide details':'Show details',onclick:()=>{
-        const open=body.hidden; body.hidden=!open; open?openUsers.add(u.id):openUsers.delete(u.id);
-        toggle.textContent=open?'−':'+'; toggle.setAttribute('aria-expanded',String(open)); toggle.setAttribute('aria-label',(open?'Hide':'Show')+' details for '+(u.email||u.id)); toggle.title=open?'Hide details':'Show details';
-      }},isOpen?'−':'+');
-      const main=sectionRow(u.email||u.id,'User ID: '+u.id,[badge(statusName(st),tone),live?badge('● Online now','success'):badge('Offline')],toggle);
-      const details=el('div','sa-user-details',
-        el('span','', 'Registered: '+(u.registeredAt||'—')),
-        el('span','',signedIn?'Device: '+short(s.deviceId):'No active session'),
-        el('span','',signedIn?(live?'Signed in since: '+date(s.startedAt):'Last active: '+(s.lastSeen?date(s.lastSeen):'not recorded')):''));
-      const actions=el('div','sa-actions',
-        btn('Restrict',()=>act({action:'moderate',uid:u.id,status:'restricted'},'Restrict '+(u.email||u.id)+' to read-only access?')),
-        btn('Suspend 24h',()=>act({action:'moderate',uid:u.id,status:'suspended',until:Date.now()+86400000},'Suspend this account for 24 hours?')),
-        btn('Block',()=>act({action:'moderate',uid:u.id,status:'blocked'},'Block '+(u.email||u.id)+'?'),'sa-danger'),
-        btn('Restore',()=>act({action:'moderate',uid:u.id,status:'active'},'Restore this account?'),'sa-positive'),
-        btn('Revoke session',()=>act({action:'moderate',uid:u.id,status:'revoke'},'Revoke the current session?'),'sa-quiet'));
-      const roleSelect=h('select',{class:'admin-role-select','aria-label':`Access role for ${u.email||u.id}`},...['user','admin'].map(value=>h('option',{value,selected:(u.role||'user')===value},value==='admin'?'Admin':'User')));
-      const roleButton=btn('Update access',()=>assignRole(u.id,roleSelect,roleButton),'sa-positive');
-      const roleControls=el('div','admin-role-controls',h('label',{},h('span',{},'Account access'),roleSelect),roleButton);
-      const projects=el('div','sa-project-list');
-      projects.hidden=true;
-      const projectsButton=btn('View cloud projects & uploads',()=>showProjects(u.id,projectsButton,projects),'sa-positive');
-      const body=el('div','sa-user-body',details,actions,roleControls,projectsButton,projects);
-      body.hidden=!isOpen;
-      return el('article','sa-user',main,body);
-    });
-    panel.replaceChildren(el('div','sa-results-count',users.length+' account'+(users.length===1?'':'s')), ...out);
+    const users=(state.users||[]).filter(u=>(filter==='all'||(u.status||'active')===filter)&&(!term||String(u.email||'').toLowerCase().includes(term)||String(u.name||'').toLowerCase().includes(term)||u.id.toLowerCase().includes(term)));
+    const out=users.map(u=>userRow(u,{session:(state.sessions||[]).find(x=>x.id===u.id),onOpen:(row)=>openUserDialog(row,dialogCtx)}));
+    const isEmail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term);
+    if(!users.length){panel.replaceChildren(empty('No matching accounts',isEmail?'This email is not in the loaded list.':'Try another search or status filter.'),...(isEmail?[btn('Search all accounts for '+term,()=>findByEmail(term),'sa-positive')]:[]));return;}
+    panel.replaceChildren(el('div','sa-results-count',users.length+' account'+(users.length===1?'':'s')),el('div','au-list',...out),...(isEmail?[btn('Not here? Search all accounts for '+term,()=>findByEmail(term),'sa-quiet')]:[]));
   }
   function renderEvents(){
     const rows=[...(state.events||[])].sort((a,b)=>(b.at||0)-(a.at||0));
