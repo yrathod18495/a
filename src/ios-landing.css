@@ -80,7 +80,14 @@
   :root[data-theme] body .lp .lp-hero-logo{animation:none}
 }
 
-/* Phone: the header already has a menu button, so the floating shortcut strip is not shown (it only took a column from the hero). */
+/* Phone: the shortcut strip (Animator Studio, Character Editor, Coins, Earn) is one small button in the corner, so it never takes a column from the hero. Tap it to open the list. */
 @media (max-width:760px){
-  :root[data-theme] body .lp .lp-dock{display:none}
+  :root[data-theme] body .lp .lp-dock{top:12px;right:12px;width:44px;height:44px;padding:0;border-radius:14px;overflow:hidden}
+  :root[data-theme] body .lp .lp-dock:not(.open) .lp-dock-item:not(.lp-dock-toggle){display:none}
+  :root[data-theme] body .lp .lp-dock .lp-dock-toggle{width:44px;height:44px;justify-content:center;padding:0}
+  :root[data-theme] body .lp .lp-dock:not(.open) .lp-dock-toggle span{display:none}
+  :root[data-theme] body .lp .lp-dock.open{width:220px;height:auto;padding:7px;overflow:visible}
+  :root[data-theme] body .lp .lp-dock.open .lp-dock-toggle{width:auto;height:40px;justify-content:flex-start;padding:0 8px}
+  :root[data-theme] body .lp .lp-dock.open .lp-dock-item span{opacity:1;transform:none}
+  :root[data-theme] body .lp .lp-hero{padding-top:64px}
 }
