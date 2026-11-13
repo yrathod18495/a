@@ -2,6 +2,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
 import { maintenanceOn, setMaintenance, getFeatures, setFeature } from '../server/maintenance.js';
 import { notifyNewUser } from '../server/telegram.js';
+import { grantSignupBonus } from '../server/signup-bonus.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
 import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
@@ -61,6 +62,8 @@ export default async function handler(req, res) {
       if (result.denied) throw new AccessError(result.denied.code, result.denied.message, result.denied.status);
       // the very first sign-in of an account is a sign-up: tell the owner on Telegram
       if (result.isNew) await notifyNewUser({ name: claims.name, email: claims.email });
+      // the welcome Coins: once per account, once per browser installation, verified email only (server/signup-bonus.js)
+      if (result.isNew) await grantSignupBonus(db, { uid, email: claims.email, emailVerified: claims.email_verified === true, deviceId: b.deviceId });
       // persisted on the account (not just this token) so the sid claim survives the hourly ID-token refresh instead of forcing a fresh Google sign-in every time it rolls
       await auth.setCustomUserClaims(uid, { sid: result.sid });
       const token = await auth.createCustomToken(uid, { sid: result.sid });

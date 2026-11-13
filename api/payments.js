@@ -6,12 +6,13 @@ import { AccessError } from '../server/security-policy.js';
 import { CREDIT_PLANS, publicPlan } from '../shared/credit-plans.js';
 import { creditCapturedPayment, paymentConfigReady, razorpayRequest, recordPaymentState, verifyCheckoutSignature } from '../server/credit-payments.js';
 import { buildRevenue, checkPaidUntil } from '../server/payment-revenue.js';
+import { adjustCredits, lookupAccount } from '../server/signup-bonus.js';
 
 const planById = new Map(CREDIT_PLANS.map((p) => [p.id, p]));
 const validOrderId = (value) => typeof value === 'string' && /^order_[a-zA-Z0-9]+$/.test(value);
 const validPaymentId = (value) => typeof value === 'string' && /^pay_[a-zA-Z0-9]+$/.test(value);
-const ADMIN_ACTIONS = ['adminList', 'adminRevenue', 'adminSetPaidUntil', 'adminApprove', 'adminPurge', 'adminGroundTruth', 'adminRecover'];
-const ADMIN_WRITES = ['adminSetPaidUntil', 'adminApprove', 'adminPurge', 'adminRecover'];
+const ADMIN_ACTIONS = ['adminUserLookup', 'adminCreditAdjust', 'adminList', 'adminRevenue', 'adminSetPaidUntil', 'adminApprove', 'adminPurge', 'adminGroundTruth', 'adminRecover'];
+const ADMIN_WRITES = ['adminCreditAdjust', 'adminSetPaidUntil', 'adminApprove', 'adminPurge', 'adminRecover'];
 /** a record of who did what, next to the other security events */
 const audit = (db, who, action, details = {}) => db.collection('securityAudit').add({ admin: who.uid, action, ...details, at: Date.now() });
 
@@ -89,6 +90,16 @@ export default async function handler(req, res) {
     if (b.action === 'mine') {
       const rows = await db.collection(`workspaces/${who.uid}/creditPayments`).orderBy('createdAt', 'desc').limit(50).get();
       return send(res, 200, { payments: rows.docs.map((d) => ({ id: d.id, ...d.data() })) });
+    }
+    if (b.action === 'adminUserLookup') {
+      if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403);
+      return send(res, 200, { user: await lookupAccount(services(), b.email) });
+    }
+    if (b.action === 'adminCreditAdjust') {
+      if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403);
+      if (typeof b.uid !== 'string' || !/^[A-Za-z0-9_-]{10,128}$/.test(b.uid)) throw new AccessError('invalid_user', 'Please choose a valid user.', 400);
+      const result = await adjustCredits(db, { uid: b.uid, mode: b.mode, amount: Number(b.amount), reason: b.reason, by: who.uid });
+      return send(res, 200, { ok: true, ...result });
     }
     if (b.action === 'adminList') {
       if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403);

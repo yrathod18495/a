@@ -34,6 +34,55 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   const note=el('p','sa-footnote','Device IDs identify a browser installation—not a physical device. Private browsing or clearing storage can bypass detection.');
   root.append(header,toolbar,stats,el('div','sa-card',controls,tabs,panel),note);
   let state=null,filter='all',term='',tab=initialTab,loading=false;
+  /* ---- find one account by its email: status, Coins, tier, and the actions (deactivate, Coins edit) ---- */
+  const lookupInput=h('input',{class:'sa-search',type:'email',placeholder:'Find a user by email…','aria-label':'User email',autocomplete:'off',spellcheck:'false',onkeydown:(e)=>{if(e.key==='Enter')lookup();}});
+  const lookupOut=el('div','sa-lookup-out');
+  const lookupCard=el('div','sa-card sa-lookup',el('div','sa-section-title',h('h2',{},'Find a user'),el('p','sa-sub','Type an email address to see the account, change its Coins, or deactivate it.')),
+    el('div','sa-lookup-row',lookupInput,btn('Find',()=>lookup(),'sa-positive')),lookupOut);
+  stats.after(lookupCard);
+  let found=null;
+  const when=(t)=>t?new Date(t).toLocaleString():'—';
+  async function lookup(keep){
+    const email=(keep||lookupInput.value).trim();
+    if(!email)return;
+    if(!keep)lookupOut.replaceChildren(el('p','sa-sub','Searching…'));
+    try{const {user}=await apiCall('/api/payments',{action:'adminUserLookup',email});found=user;renderLookup(user);}
+    catch(e){found=null;lookupOut.replaceChildren(el('p','sa-lookup-msg',friendlyError(e)));}
+  }
+  async function lookupAct(payload,question,path='/api/security'){
+    if(question&&!window.confirm(question))return;
+    try{await apiCall(path,payload);toast('Saved.');await lookup(found.email);load(false);}
+    catch(e){toast(friendlyError(e));}
+  }
+  function renderLookup(u){
+    const st=u.status||'active',tone=st==='active'?'success':st==='blocked'?'danger':'warning';
+    const who=u.name?`${u.name} · ${u.email}`:u.email;
+    const mode=h('select',{class:'admin-role-select','aria-label':'Change type'},h('option',{value:'add'},'Add Coins'),h('option',{value:'remove'},'Remove Coins'),h('option',{value:'set'},'Set balance to'));
+    const amount=h('input',{class:'sa-search',type:'number',min:'0',step:'1',placeholder:'Coins','aria-label':'Number of Coins',inputmode:'numeric'});
+    const reason=h('input',{class:'sa-search',type:'text',maxlength:'200',placeholder:'Reason (required, kept in the audit log)','aria-label':'Reason'});
+    const apply=btn('Apply',()=>{
+      const n=Number(amount.value),why=reason.value.trim();
+      if(!Number.isInteger(n)||n<0){toast('Please enter a whole number of Coins.');return;}
+      if(why.length<3){toast('Please write a short reason.');return;}
+      lookupAct({action:'adminCreditAdjust',uid:u.uid,mode:mode.value,amount:n,reason:why},`${mode.selectedOptions[0].textContent} ${n} for ${u.email}? Current balance: ${u.credits}.`,'/api/payments');
+    },'sa-positive');
+    const ledger=(u.ledger||[]).length?el('div','sa-ledger',...u.ledger.map(l=>el('div','sa-ledger-row',el('span','sa-ledger-delta '+(l.delta>=0?'up':'down'),(l.delta>=0?'+':'')+l.delta),el('span','sa-ledger-why',l.reason||l.kind||''),el('span','sa-muted',when(l.at)+' · balance '+l.balance)))):el('p','sa-sub','No Coins history yet.');
+    lookupOut.replaceChildren(el('article','sa-user sa-lookup-user',
+      sectionRow(who||u.uid,'User ID: '+u.uid,[badge(statusName(st),tone),badge(u.role==='admin'?'Admin':'User'),badge(u.tier==='paid'?'Paid':'Free',u.tier==='paid'?'success':'neutral'),u.signedIn?badge('Signed in','success'):badge('Not signed in')]),
+      el('div','sa-metrics',block('Coins',u.credits),block('Welcome gift',u.bonus?(u.bonus.status==='granted'?'20 Coins given':u.bonus.reason==='device_used'?'Not given (browser already used)':'Not given'):'Not given'),block('Registered',(u.registeredAt||'—').slice(0,16)),block('Last sign-in',(u.lastSignIn||'—').slice(0,16))),
+      el('div','sa-lookup-block',h('b',{},'Account access'),el('div','sa-actions',
+        btn('Deactivate account',()=>lookupAct({action:'moderate',uid:u.uid,status:'blocked'},'Deactivate '+u.email+'? They are signed out and cannot sign in until you reactivate the account.'),'sa-danger'),
+        btn('Reactivate',()=>lookupAct({action:'moderate',uid:u.uid,status:'active'},'Reactivate '+u.email+'?'),'sa-positive'),
+        btn('Suspend 24h',()=>lookupAct({action:'moderate',uid:u.uid,status:'suspended',until:Date.now()+86400000},'Suspend '+u.email+' for 24 hours?')),
+        btn('Restrict (read-only)',()=>lookupAct({action:'moderate',uid:u.uid,status:'restricted'},'Restrict '+u.email+' to read-only access?')),
+        btn('Sign out everywhere',()=>lookupAct({action:'moderate',uid:u.uid,status:'revoke'},'End the current session of '+u.email+'?'),'sa-quiet'))),
+      el('div','sa-lookup-block',h('b',{},'Coins'),el('div','sa-coin-form',mode,amount,reason,apply)),
+      el('div','sa-lookup-block',h('b',{},'Plan'),el('div','sa-actions',
+        btn('Make Free',()=>lookupAct({action:'adminSetTier',uid:u.uid,tier:'free'},'Set '+u.email+' to the Free plan (shorter exports)?','/api/export'),u.tier==='free'?'sa-quiet':''),
+        btn('Make Paid',()=>lookupAct({action:'adminSetTier',uid:u.uid,tier:'paid'},'Set '+u.email+' to the Paid plan (longer exports)?','/api/export'),u.tier==='paid'?'sa-quiet':'sa-positive'))),
+      el('div','sa-lookup-block',h('b',{},'Recent Coins activity'),ledger)));
+  }
+
   const tabsData=[['users','Users'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
   const badge=(text,tone='neutral')=>el('span','sa-badge sa-'+tone,text);
   const empty=(headline,description)=>el('div','sa-empty',el('div','sa-empty-icon','◎'),h('b',{},headline),el('p','sa-sub',description));

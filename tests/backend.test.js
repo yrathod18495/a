@@ -83,3 +83,12 @@ test('maintenance blocks non-admin sessions and acquisition while verified admin
  assert.equal(off.statusCode,200);assert.equal(off.body.maintenance,false);
  assert.equal((await call('public',{action:'maintenanceStatus'})).body.maintenance,false);
 });
+test('a brand-new account gets the 20 Coins welcome gift at its first sign-in, once',async()=>{
+ const fresh='user_44444444444444444444';
+ loginToken('fresh',fresh);
+ assert.equal((await call('fresh',{action:'acquire',deviceId:'device_bonus_111111',secret:'secret_bonus_111111'})).statusCode,200);
+ assert.equal(db.data.get('workspaces/'+fresh)?.credits,20);
+ assert.equal(db.data.get('entitlements/'+fresh)?.tier,'free');
+ assert.equal((await call('fresh',{action:'acquire',deviceId:'device_bonus_111111',secret:'secret_bonus_222222'})).statusCode,200);
+ assert.equal(db.data.get('workspaces/'+fresh)?.credits,20);                       // signing in again never gives it twice
+});

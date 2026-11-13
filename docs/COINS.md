@@ -1,0 +1,8 @@
+# Coins: welcome gift and the admin's Coins tools
+
+- **Welcome gift:** a brand-new account gets **20 Coins** at its first sign-in (`api/security.js` `acquire` → `server/signup-bonus.js`). Once per account (`bonusGrants/{uid}`), once per browser installation (`bonusDevices/{sha256(deviceId)}`), and only for a Google-verified email. A second account on the same browser gets nothing. Existing accounts get nothing.
+- **The gift never makes an account "paid":** the same transaction writes `entitlements/{uid}` = free. Paid (longer exports) comes from a captured purchase or an admin's choice only.
+- **Only the server writes `workspaces/{uid}.credits`.** `firebase/firestore.rules` lets a user change only their name, email, photo, joinedAt, lastSeen and plan. **After changing the rules, deploy them:** `firebase deploy --only firestore:rules`.
+- **Ledger:** every change is a line in `workspaces/{uid}/creditLedger` (the owner can read it; nobody can write it from the browser) and, for admin changes, a record in `securityAudit`.
+- **Admin → Users & Security → "Find a user":** search by email; shows status, plan, Coins, whether the gift was given, recent Coins activity. Actions: Deactivate (block) / Reactivate / Suspend / Restrict / Sign out everywhere; add, remove or set Coins (a reason of 3–200 characters is required; the balance never goes below 0); make Free / Paid. API: `api/payments.js` `adminUserLookup`, `adminCreditAdjust`; moderation uses `api/security.js` `moderate`.
+- Tests: `tests/signup-bonus.test.js`, the welcome-gift case in `tests/backend.test.js`, `tests/browser/admin-user-lookup.spec.js`.

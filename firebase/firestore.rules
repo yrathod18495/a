@@ -30,10 +30,17 @@ service cloud.firestore {
   match /securityAdmins/{uid} { allow read, write: if false; }
   match /workspaces/{uid} {
    allow read: if owner(uid);
-   allow create, update: if owner(uid) && writable()
+   // The Coins balance (`credits`) is written by the server only. A signed-in user may create their profile and change only these fields.
+   allow create: if owner(uid) && writable()
     && request.resource.data.keys().hasOnly(['name','email','photoURL','joinedAt','lastSeen','plan'])
     && request.resource.data.plan == 'Free';
+   allow update: if owner(uid) && writable()
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','email','photoURL','joinedAt','lastSeen','plan'])
+    && request.resource.data.plan == 'Free';
   }
+  match /workspaces/{uid}/creditLedger/{id} { allow read: if owner(uid); allow write: if false; }
+  match /bonusGrants/{id} { allow read, write: if false; }
+  match /bonusDevices/{id} { allow read, write: if false; }
   match /entitlements/{uid} { allow read: if owner(uid); allow write: if false; }
   match /workspaces/{uid}/exports/{id} { allow read: if owner(uid); allow write: if false; }
   match /workspaces/{uid}/projects/{id} { allow read: if owner(uid); allow write: if false; }
