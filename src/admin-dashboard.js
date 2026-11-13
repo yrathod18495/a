@@ -1,6 +1,7 @@
 import { h, logo } from './dom.js';
 import { apiCall } from './session.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
+import { icon as ic } from './icons.js';
 
 const number = (value) => Number(value || 0).toLocaleString('en-IN');
 const money = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -77,7 +78,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
     let knownAlerts = null;
     let busy = false;
     root.append(
-      h('div', { class: 'admin-console-statusbar' }, status, h('span', { class: 'sp' }), h('button', { class: 'btn sm', type: 'button', onclick: () => refresh(true) }, '↻ Refresh')),
+      h('div', { class: 'admin-console-statusbar' }, status, h('span', { class: 'sp' }), h('button', { class: 'btn sm', type: 'button', onclick: () => refresh(true) }, ic('refresh'), 'Refresh')),
       content,
     );
 
@@ -98,7 +99,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
     /** site controls: maintenance mode, and showing / hiding each studio card on the users' dashboard */
     function maintenanceCard() {
       const rows = [], state = {};
-      const row = (key, title, onNote, offNote, save, confirmOn) => {
+      const row = (key, title, onNote, offNote, save, confirmOn, iconName) => {
         const toggle = h('button', { class: 'admin-switch', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': title, disabled: true });
         const note = h('small', {}, 'Checking…');
         const paint = (on) => { state[key] = on; toggle.setAttribute('aria-checked', String(on)); toggle.classList.toggle('on', on); toggle.classList.toggle('good', key !== 'maintenance'); toggle.disabled = false; note.textContent = on ? onNote : offNote; };
@@ -109,14 +110,14 @@ export function dashboardView({ user, home, toast, openStudio }) {
           try { const r = await save(next); paint(r); toast(`${title}: ${r ? 'ON' : 'OFF'}.`); }
           catch (e) { toast(`Could not change “${title}”: ${friendlyError(e)}`); toggle.disabled = false; }
         });
-        rows.push({ key, paint, note, node: h('div', { class: 'admin-maint-row' }, h('div', {}, h('h2', {}, title), note), toggle) });
+        rows.push({ key, paint, note, node: h('div', { class: `admin-maint-row${key === 'maintenance' ? ' lock' : ''}` }, h('span', { class: 'admin-maint-ic', 'aria-hidden': 'true' }, ic(iconName || 'eye')), h('div', { class: 'admin-maint-text' }, h('h2', {}, title), note), toggle) });
       };
       row('maintenance', 'Maintenance mode', 'ON — visitors see the maintenance page. Admins can still work.', 'OFF — the site is open to everyone.',
         async (on) => (await apiCall('/api/security', { action: 'setMaintenance', enabled: on }, user.uid)).maintenance === true,
-        { when: true, text: 'Turn maintenance mode ON? Everyone except admins will be locked out until you turn it off.' });
-      for (const [feature, title] of [['animator', 'Animator Studio card'], ['character', 'Character Editor card'], ['background', 'Background Generator card']])
+        { when: true, text: 'Turn maintenance mode ON? Everyone except admins will be locked out until you turn it off.' }, 'lock');
+      for (const [feature, title, iconName] of [['animator', 'Animator Studio card', 'film'], ['character', 'Character Editor card', 'user'], ['background', 'Background Generator card', 'image']])
         row(feature, title, 'SHOWN — users see this tool on their dashboard.', 'HIDDEN — users do not see it and cannot open it. Admins still can.',
-          async (on) => (await apiCall('/api/security', { action: 'setFeature', feature, enabled: on }, user.uid)).features[feature] !== false);
+          async (on) => (await apiCall('/api/security', { action: 'setFeature', feature, enabled: on }, user.uid)).features[feature] !== false, undefined, iconName);
       apiCall('/api/security', { action: 'getMaintenance' }, user.uid).then((r) => { for (const x of rows) x.paint(x.key === 'maintenance' ? r.maintenance === true : r.features?.[x.key] !== false); })
         .catch((e) => { for (const x of rows) x.note.textContent = `Could not read the setting: ${friendlyError(e)}`; });
       return h('section', { class: 'admin-panel-card admin-maint' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'SITE CONTROLS'), h('h2', {}, 'Access and visibility'))), ...rows.map((x) => x.node));
@@ -131,7 +132,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
           h('div', { class: 'admin-alert-actions' },
             h('button', { class: 'btn sm', type: 'button', onclick: () => show('Users', () => import('./security-view.js').then((m) => m.securityView({ home: goOverview, toast }))) }, 'Open Users'),
             h('button', { class: 'btn sm', type: 'button', onclick: () => acknowledge(a.id) }, 'Mark as seen')))),
-        h('button', { class: 'btn sm', type: 'button', onclick: () => acknowledge('all') }, 'Sab dekh liye')));
+        h('button', { class: 'btn sm', type: 'button', onclick: () => acknowledge('all') }, 'Mark all as seen')));
     }
     function renderDashboard() {
       content.replaceChildren();
@@ -142,13 +143,13 @@ export function dashboardView({ user, home, toast, openStudio }) {
       const userMap = new Map((sec?.sessions || []).map(u => [u.id, u]));
 
       content.append(
-        h('div', { class: 'admin-dashboard-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'WORKSPACE OVERVIEW'), h('h1', {}, 'Dashboard'), h('p', {}, 'Live account, payment, support and partner activity from your admin services.')),
+        h('div', { class: 'admin-dashboard-heading' }, h('div', {}, h('span', { class: 'admin-eyebrow' }, 'WORKSPACE OVERVIEW'), h('h1', {}, 'Command ', h('em', {}, 'Center')), h('p', {}, 'Live account, payment, support and partner activity from your admin services.')),
           h('span', { class: 'admin-refresh-note' }, 'Updates when you press Refresh')),
         h('div', { class: 'admin-kpi-grid' },
-          stat('Total accounts', number(sec?.totalUsers), 'Every account that has signed in at least once.', '♙'),
-          stat('Online now', number(sec?.onlineNow), 'Signed in and active in the last 15 minutes.', '⌁', 'blue'),
-          stat('Captured payments · latest report', number(captured.length), `${money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0))} recorded in this report.`, '₹', 'violet'),
-          stat('Unread support conversations', number(unread), `${number(chats.length)} conversations returned by the live chat inbox.`, '✉', 'green')),
+          stat('Total accounts', number(sec?.totalUsers), 'Every account that has signed in at least once.', icon('Users')),
+          stat('Online now', number(sec?.onlineNow), 'Signed in and active in the last 15 minutes.', ic('zap'), 'blue'),
+          stat('Captured payments · latest report', number(captured.length), `${money(captured.reduce((sum, p) => sum + Number(p.amountPaise || 0), 0))} recorded in this report.`, icon('Payments'), 'violet'),
+          stat('Unread support conversations', number(unread), `${number(chats.length)} conversations returned by the live chat inbox.`, icon('Live Chat'), 'green')),
         maintenanceCard(),
         alertsSection() || '',
         h('div', { class: 'admin-dashboard-grid' },
@@ -166,7 +167,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
             h('div', {}, h('small', {}, 'Captured orders'), h('b', {}, number(captured.length)), h('span', {}, 'in latest payment report')),
             h('div', {}, h('small', {}, 'Open affiliate requests'), h('b', {}, number(opened)), h('span', {}, `${number(affiliates.length)} partner records`)),
             h('div', {}, h('small', {}, 'Support inbox'), h('b', {}, number(chats.length)), h('span', {}, `${number(unread)} unread conversations`)))),
-          section('Recent account activity', 'SECURITY EVENTS', h('div', { class: 'admin-events-list' }, (sec?.events || []).slice().sort((a, b) => Number(b.at || 0) - Number(a.at || 0)).slice(0, 7).map(e => h('article', { class: 'admin-event-row' }, h('span', { class: 'admin-event-icon' }, e.code === 'device_review' ? '!' : '•'), h('div', {}, h('b', {}, String(e.code || 'Account activity').replaceAll('_', ' ')), h('small', {}, `${e.email || e.id || 'Account'} · ${dateTime(e.at)}`)), e.deviceId ? h('small', { class: 'admin-event-device' }, `Device ${e.deviceId}`) : null)),
+          section('Recent account activity', 'SECURITY EVENTS', h('div', { class: 'admin-events-list' }, (sec?.events || []).slice().sort((a, b) => Number(b.at || 0) - Number(a.at || 0)).slice(0, 7).map(e => h('article', { class: 'admin-event-row' }, h('span', { class: 'admin-event-icon' }, ic(e.code === 'device_review' ? 'warning' : 'clock')), h('div', {}, h('b', {}, String(e.code || 'Account activity').replaceAll('_', ' ')), h('small', {}, `${e.email || e.id || 'Account'} · ${dateTime(e.at)}`)), e.deviceId ? h('small', { class: 'admin-event-device' }, `Device ${e.deviceId}`) : null)),
             !sec?.events?.length ? h('p', { class: 'admin-empty' }, state.failures.security ? 'Security events are not available right now.' : 'No recent security events.') : null)),
         ),
       );
@@ -192,18 +193,18 @@ export function dashboardView({ user, home, toast, openStudio }) {
       if (root.isConnected) {
         const ids = new Set((state.alerts?.alerts || []).map((a) => a.id)), fresh = knownAlerts ? (state.alerts?.alerts || []).filter((a) => !knownAlerts.has(a.id)) : [];
         knownAlerts = ids;
-        if (fresh.length) toast(`⚠ Security alert: ${fresh[0].name || fresh[0].email || 'ek user'} ne developer tools / inspect use kiya${fresh.length > 1 ? ` (+${fresh.length - 1} aur)` : ''}.`);
+        if (fresh.length) toast(`Security alert: ${fresh[0].name || fresh[0].email || 'A user'} opened the developer tools or an inspect shortcut${fresh.length > 1 ? ` (+${fresh.length - 1} more)` : ''}.`);
         renderDashboard();
         const updated = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const errors = Object.keys(state.failures);
-        status.replaceChildren(h('i', { class: `admin-live-dot ${errors.length ? 'warn' : ''}` }), h('span', {}, `${errors.length ? `Some data is not available right now · ` : 'Live data connected · '}Updated ${updated} · refreshes every 15 seconds`));
+        status.replaceChildren(h('i', { class: `admin-live-dot ${errors.length ? 'warn' : ''}` }), h('span', {}, `${errors.length ? `Some data is not available right now · ` : 'Live data connected · '}Updated ${updated}`));
         if (showToast && errors.length) toast(`Some dashboard data could not be loaded: ${errors.join(', ')}`);
       }
       busy = false;
     }
 
     renderDashboard();
-    refresh();
+    setTimeout(() => refresh(), 0);          // after the page has been attached: refresh() does nothing for a view that is not on screen yet
     // no automatic refresh: the numbers update when the page opens or when Refresh is pressed
     root.dispose = () => {};
     return root;

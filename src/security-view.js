@@ -2,6 +2,7 @@ import { friendlyError } from '../shared/hinglish-errors.js';
 import { h } from './dom.js';
 import { apiCall } from './session.js';
 import { userRow, openUserDialog } from './admin-users.js';
+import { icon } from './icons.js';
 
 const date = value => value ? new Date(value).toLocaleString() : '—';
 const ONLINE_MS = 15 * 60 * 1000;   // the browser reports in every 5 minutes while open
@@ -33,7 +34,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
 
   const tabsData=[['users','User Hub'],['events','Login activity'],['devices','Devices'],['audit','Audit log']];
   const badge=(text,tone='neutral')=>el('span','sa-badge sa-'+tone,text);
-  const empty=(headline,description)=>el('div','sa-empty',el('div','sa-empty-icon','◎'),h('b',{},headline),el('p','sa-sub',description));
+  const empty=(headline,description)=>el('div','sa-empty',el('div','sa-empty-icon',icon('users')),h('b',{},headline),el('p','sa-sub',description));
   const block=(name,value)=>el('div','sa-metric',el('span','sa-metric-label',name),el('strong','sa-metric-value',String(value)));
   const sectionRow=(headline,detail,badges=[],right=null)=>el('div','sa-row',
     el('div','sa-avatar',String(headline||'?')[0].toUpperCase()),
