@@ -34,3 +34,13 @@
   :root[data-theme] body .admin-maint-grid .admin-maint-text small{font-size:11px}
 }
 :root[data-theme] body .admin-dashboard-heading h1{font-size:clamp(26px,5vw,34px);letter-spacing:-.02em;text-transform:none}
+
+/* Online mark: a pulsing green dot on the avatar — clearly different from any status chip */
+.au-avatar,.admin-session-avatar{position:relative}
+.au-live{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#22c55e;border:2px solid var(--card,#fff);box-sizing:border-box}
+.au-live::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid #22c55e;opacity:0;animation:au-ping 2s ease-out infinite}
+@keyframes au-ping{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.5);opacity:0}}
+@media(prefers-reduced-motion:reduce){.au-live::after{animation:none}}
+.au-seen .au-on{color:#16a34a;font-weight:700}
+.admin-seen{color:var(--mute,#8a8f98);font-size:11px;white-space:nowrap}
+.au-badges:empty{display:none}

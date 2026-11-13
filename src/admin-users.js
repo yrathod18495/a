@@ -16,9 +16,10 @@ const coinsText = (n) => Number(n || 0).toLocaleString('en-IN');
 const hue = (s) => { let x = 0; for (const c of String(s || '?')) x = (x * 31 + c.charCodeAt(0)) % 360; return x; };
 const ago = (ms) => { if (!ms) return 'Never'; const s = Math.max(0, (Date.now() - ms) / 1000); return s < 90 ? 'Just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
 export const isOnline = (s) => !!s && !s.revoked && !!s.lastSeen && Date.now() - s.lastSeen < ONLINE_MS;
-const avatar = (u, size = '') => { const a = el(`span`, `au-avatar ${size}`, String((u.name || u.email || '?')[0]).toUpperCase()); a.style.setProperty('--h', hue(u.email || u.id)); return a; };
+const avatar = (u, size = '', online = false) => { const a = el(`span`, `au-avatar ${size}`, String((u.name || u.email || '?')[0]).toUpperCase()); a.style.setProperty('--h', hue(u.email || u.id)); if (online) a.append(el('i', 'au-live', '')); return a; };
 const badge = (text, tone = 'neutral') => el('span', `au-badge ${tone}`, text);
-const statusBadge = (u) => { const [t, tone] = STATUS[u.status || 'active'] || STATUS.active; return badge(t, tone); };
+/** Normal accounts show no status chip (it would only repeat the green Online mark); only a restriction is worth a chip. */
+const statusBadge = (u) => { const st = u.status || 'active'; if (st === 'active') return null; const [t, tone] = STATUS[st] || STATUS.active; return badge(t, tone); };
 const copyIcon = () => icon('copy');
 
 /** a question inside the page (a browser's own confirm box can be blocked and looks different on every phone); resolves true / false */
@@ -42,11 +43,11 @@ export function userRow(u, { session, onOpen }) {
   const online = isOnline(session);
   const open = () => onOpen(u);
   return h('article', { class: 'au-row', tabindex: '0', role: 'button', 'aria-label': `Manage ${u.email || u.id}`, onclick: open, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } } },
-    avatar(u),
+    avatar(u, '', online),
     el('div', 'au-id', el('b', 'au-name', u.name || u.email || u.id), el('small', 'au-mail', u.email || u.id),
-      el('div', 'au-badges', statusBadge(u), u.role === 'admin' ? badge('Admin', 'info') : null, online ? badge('Online', 'ok') : null)),
+      el('div', 'au-badges', statusBadge(u), u.role === 'admin' ? badge('Admin', 'info') : null)),
     el('div', 'au-coins', goldCoin(18), el('b', '', coinsText(u.credits))),
-    el('div', 'au-seen', el('small', '', 'Last activity'), el('span', '', online ? 'Online now' : ago(session?.lastSeen || 0))),
+    el('div', 'au-seen', el('small', '', 'Last activity'), el('span', online ? 'au-on' : '', online ? 'Online now' : ago(session?.lastSeen || 0))),
     el('span', 'au-manage', 'Manage', icon('chevron-right')));
 }
 
@@ -71,8 +72,8 @@ export function openUserDialog(row, ctx) {
   const paintHead = () => {
     const online = isOnline(session());
     const uidBtn = h('button', { type: 'button', class: 'au-copy', title: 'Copy the user ID', 'aria-label': 'Copy the user ID', onclick: async () => { try { await navigator.clipboard.writeText(u.id); ctx.toast('User ID copied.'); } catch { ctx.toast('Could not copy.'); } } }, copyIcon());
-    title.replaceChildren(avatar(u, 'lg'), el('div', 'au-head-text',
-      el('div', 'au-head-line', el('b', 'au-head-name', u.name || u.email || u.id), statusBadge(u), u.role === 'admin' ? badge('Admin', 'info') : null, online ? badge('Online now', 'ok') : null),
+    title.replaceChildren(avatar(u, 'lg', online), el('div', 'au-head-text',
+      el('div', 'au-head-line', el('b', 'au-head-name', u.name || u.email || u.id), statusBadge(u), u.role === 'admin' ? badge('Admin', 'info') : null),
       el('div', 'au-uid', u.email && u.name ? el('span', '', u.email) : null, el('code', '', u.id), uidBtn)));
   };
   const paintTabs = () => tabsEl.replaceChildren(...[['overview', 'Overview'], ['projects', 'Projects'], ['coins', 'Coins'], ['actions', 'Actions']].map(([k, label]) =>

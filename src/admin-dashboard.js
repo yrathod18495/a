@@ -154,7 +154,7 @@ export function dashboardView({ user, home, toast, openStudio }) {
         h('div', { class: 'admin-dashboard-grid' },
           section('Active sessions', '', h('div', { class: 'admin-session-list' }, sessions.length ? sessions.slice(0, 6).map(s => {
             const u = userMap.get(s.id) || {};
-            return h('article', { class: 'admin-session-row' }, h('span', { class: 'admin-session-avatar' }, (u.name || u.email || s.id || '?').trim()[0]?.toUpperCase() || '?'), h('span', { class: 'admin-session-copy' }, h('b', {}, u.name || u.email || s.id), h('small', {}, `${u.email || 'Account'} · Device ${s.deviceId || '—'}`)), h('span', { class: 'admin-pill live' }, 'Active'));
+            return h('article', { class: 'admin-session-row' }, h('span', { class: 'admin-session-avatar' }, (u.name || u.email || s.id || '?').trim()[0]?.toUpperCase() || '?', h('i', { class: 'au-live' })), h('span', { class: 'admin-session-copy' }, h('b', {}, u.name || u.email || s.id), h('small', {}, `${u.email || 'Account'} · Device ${s.deviceId || '—'}`)), h('span', { class: 'admin-seen' }, (() => { const m = Math.round((Date.now() - (s.lastSeen || 0)) / 60000); return m < 2 ? 'Just now' : `${m} min ago`; })()));
           }) : h('p', { class: 'admin-empty' }, state.failures.security ? 'Could not load the account and session data.' : 'Nobody has been active in the last 15 minutes.'))),
           section('Services', '', h('div', { class: 'admin-service-list' },
             service('Account security', 'Authenticated admin API', !!state.security),
