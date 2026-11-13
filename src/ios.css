@@ -148,3 +148,5 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 @media(min-width:900px){.projects-toolbar{flex-direction:row !important;align-items:center}:root[data-theme] body .projects-toolbar .project-new{width:auto;padding:0 22px}.projects-search-row{flex:1}}
 :root[data-theme] body .projects-search-row .project-refresh{flex:0 0 46px;width:46px !important;min-width:46px;height:46px;padding:0}
 :root[data-theme] body .projects-search-row>:first-child{flex:1 1 auto;width:auto}
+
+.studio-veil{position:fixed;inset:0;z-index:3000;background:var(--bg)}

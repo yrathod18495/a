@@ -105,7 +105,7 @@ const withTimeout = (p, ms, label) => Promise.race([p, new Promise((_, reject) =
 function route() {
   const key = `route-${++routeSeq}`, hash = (location.hash || '#/').split('/').slice(0, 2).join('/');
   if (ready) startRoute(key, { studio: (hash === '#/toons' || hash === '#/characters') && !!(location.hash || '').split('/')[2] });
-  const next = routing.catch(() => {}).then(() => withTimeout(renderRoute(), 20000, 'Opening the page')).then(syncPhoneNav).then(syncSupportWidget).catch(e => {
+  const next = routing.catch(() => {}).then(() => withTimeout(renderRoute(), /^#\/(toons|characters)\/[^/]+/.test(location.hash) ? 120000 : 20000, 'Opening the page')).then(syncPhoneNav).then(syncSupportWidget).catch(e => {
     if (reloadForNewVersion(e)) return;
     if (e?.code === 'route_timeout' && reloadForNewVersion(Error('dynamically imported module'))) return;   // a hang this long is almost always a stale chunk after a redeploy
     console.error('Could not open the page', e?.stack || e);
@@ -187,9 +187,22 @@ async function renderRoute() {
   if (hash === '#/toons') {
     loadedAnimationProject=projectId;
     $shell.hidden = true;
-    studio ||= await import('./main.js');
-    studio.setHome(() => go('#/'));
-    await studio.openStudio();
+    // while the project loads, a loading screen covers the page (it used to be an empty dark screen); if it cannot open, a clear message with a way out replaces it
+    const veil = loadingSplash('Opening your project…'); veil.classList.add('studio-veil'); document.body.append(veil);
+    try {
+      studio ||= await import('./main.js');
+      studio.setHome(() => go('#/'));
+      await withTimeout(studio.openStudio(), 90000, 'Opening the project');
+    } catch (e) {
+      console.error('Could not open the project', e);
+      loadedAnimationProject = null; current = '';
+      $app.hidden = true; $shell.hidden = false;
+      $shell.replaceChildren(h('main', { class: 'sh sh-center' }, h('section', { class: 'sh-login maintenance-card' },
+        logo(() => go('#/')), h('h1', {}, 'This project could not be opened'),
+        h('p', { class: 'sub' }, `${e?.code === 'route_timeout' ? 'Opening took too long.' : (e?.message || 'Something went wrong.')} Your saved data has not been changed.`),
+        h('button', { class: 'btn pri big', onclick: () => location.reload() }, 'Try again'),
+        h('button', { class: 'btn-link', onclick: () => go('#/toons') }, '← Back to projects'))));
+    } finally { veil.remove(); }
     return;
   }
   $app.hidden = true; $shell.hidden = false; window.scrollTo(0, 0);

@@ -106,7 +106,7 @@ function modal(title, body, onClose) {
 async function boot() {
   [S.characters, S.myBgs, S.props] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), dbAll('backgrounds'), dbAll('props')]);
   await loadCatalog();
-  S.sharedAssets = await listStudioAssets().catch((e) => { console.warn('Shared studio library unavailable:', e.message); return []; });
+  S.sharedAssets = await Promise.race([listStudioAssets(), new Promise((resolve) => setTimeout(() => resolve([]), 6000))]).catch((e) => { console.warn('Shared studio library unavailable:', e.message); return []; });          // a slow library must not keep the project from opening
   S.props.forEach((p) => p.blob && bid(p.blob));
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   stage = new Stage({ maxTex: PREVIEW_MODES[S.previewMode].maxTex });
@@ -123,6 +123,7 @@ async function boot() {
   player = new Player(audioCtx);
   requestStudioFrame();
   const restored = await restoreProject();
+  if (restored === 'failed') { booted = false; throw new Error('Your project could not be opened. Your saved data is untouched. Please try again.'); }          // never go on with an empty project: the next autosave would replace the real one
   if (!S.scenes.length) { S.sceneId = uid(); S.scenes = [{ id: S.sceneId, name: 'Scene 1', doc: null }]; }
   S.ready = true;
   hist.reset(docOf());
@@ -4369,7 +4370,7 @@ async function restoreProject() {
     b.done(); render();
     toast('Welcome back — your project was restored.');
     return true;
-  } catch (e) { console.error(e); b.done(); return false; }
+  } catch (e) { console.error(e); b.done(); return 'failed'; }
 }
 
 async function saveProject(doc, docStr) {
