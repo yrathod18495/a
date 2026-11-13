@@ -74,28 +74,17 @@ const FAQ = [
   ['What is 12toons?', '12toons is a browser-based studio for making 2D animated videos. Pick a character, add your voice recordings or work silently, direct the scenes on a timeline and export a finished video.'],
   ['Do I need to draw to make an animation?', 'No. Choose a ready-made character and animation clips, or build and customise your own character in Character Editor.'],
   ['Can I use my own voice recordings?', 'Yes. Add audio files one by one, or upload a ZIP of numbered voice lines, and assign each voice to a character. Lip-sync is added automatically.'],
-  ['Can I make a video without any audio?', 'Yes. You can build a silent scene with character motion, backgrounds and camera moves.'],
   ['Do I need an account?', 'You can look around this page without one. To open the studios and save your work, sign in with your Google account, which takes a few seconds.'],
   ['Is my work saved?', 'Yes. Projects save automatically while you edit, to this device and to your account, so you can pick them up again after signing in on another device. You should still keep a copy of your finished videos and source files.'],
-  ['Can I sign in on more than one device?', 'You can sign in on any device, but only one device can be signed in to an account at a time. If you sign in somewhere new, you will be asked to confirm, and the other device is signed out.'],
   ['What video formats can I export?', 'You can export WebM or MP4. Free accounts can export videos up to 2 minutes long. Buying Coins raises the limit to 10 minutes per export.'],
   ['What are Coins?', 'Coins are optional one-time purchases that unlock longer exports. You can see your balance and payment history on the Coins page. Payments are processed securely by Razorpay.'],
-  ['Does 12toons use AI?', 'AI is optional. You can direct every scene yourself, or use the AI tools to get suggestions for who appears, which animation plays and how the camera frames the scene. Review and edit every suggestion before you use it.'],
-  ['Who pays for the AI tools?', 'The AI tools run on your own OpenRouter API key, so OpenRouter may charge your account for the model use. The key is stored only in this browser. Do not save it on a shared or public device.'],
-  ['What is sent to the AI provider?', 'When you use an AI tool, the dialogue and the selected character and animation details are sent from your browser to OpenRouter. Transcription sends the audio line you choose. Nothing is sent unless you start an AI request.'],
-  ['Can I use my own characters, images and audio?', 'Yes, as long as you own them or have permission to use them. You are responsible for the files you upload.'],
-  ['Can I use the built-in characters in commercial work?', 'The Website Licence page explains what you can do with the built-in characters and animations. Rights can differ between assets, so please read it before you publish a video.'],
-  ['What if I clear my browser data or switch devices?', 'Projects saved to your account come back when you sign in again. Anything that only exists in this browser, such as a draft that has not synced yet, can be lost when browser data is cleared, so wait for the save indicator before you close the studio.'],
   ['How do I get help?', 'Use the Chat button at the bottom of the page to message our team. Tell us which page you were on and which browser you use. Never send passwords or API keys.']
 ];
 
 
-/** the first questions are shown, the rest open with one tap, so the page stays short */
 function faqList() {
   const row = ([question, answer]) => h('details', {}, h('summary', {}, question), h('p', {}, answer));
-  const rest = h('div', { class: 'lp-faq-more', hidden: true }, FAQ.slice(6).map(row));
-  const more = h('button', { type: 'button', class: 'lp-button lp-button-outline lp-faq-toggle', onclick: () => { rest.hidden = !rest.hidden; more.textContent = rest.hidden ? `Show ${FAQ.length - 6} more questions` : 'Show fewer questions'; } }, `Show ${FAQ.length - 6} more questions`);
-  return h('div', { class: 'lp-faq' }, FAQ.slice(0, 6).map(row), rest, more);
+  return h('div', { class: 'lp-faq' }, FAQ.map(row));
 }
 
 function button(label, fn, style = 'primary', royal = false) {

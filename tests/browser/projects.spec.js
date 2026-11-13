@@ -20,7 +20,7 @@ test('maintenance never blocks signing in: anonymous visitors reach the login pa
 test('expanded FAQ and complete legal pages are linked and render by direct URL',async({page})=>{
  await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug#/');
- await expect(page.locator('.lp-faq details')).toHaveCount(17);
+ await expect(page.locator('.lp-faq details')).toHaveCount(8);
  await expect(page.locator('.lp-editor,.lp-gallery-grid,#examples,.lp-hero-visual')).toHaveCount(0);
  await expect(page.locator('.lp-hero img,video')).toHaveCount(1);   // the export medallion picture became a drawn gold coin
  await page.getByRole('link',{name:'Terms of Use'}).click();
