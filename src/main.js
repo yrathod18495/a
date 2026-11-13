@@ -1112,7 +1112,7 @@ function drawTimeline() {
   const ruler = h('div', { class: 'ruler', style: `height:${RULER}px` }, ticks);
   let scrubbing = false;
   const scrub = (e) => { const sr = tlScroll.getBoundingClientRect(); if (e.clientX > sr.right - 36) tlScroll.scrollLeft += 18; else if (e.clientX < sr.left + 36) tlScroll.scrollLeft -= 18; player.seek(Math.min(total, Math.max(0, (e.clientX - tlInner.getBoundingClientRect().left) / pps))); S.dirty = true; followLine(); };
-  ruler.addEventListener('pointerdown', (e) => { if (S.exporting) return; scrubbing = true; ruler.setPointerCapture(e.pointerId); scrub(e); });
+  ruler.addEventListener('pointerdown', (e) => { if (S.exporting) return; e.preventDefault(); scrubbing = true; ruler.setPointerCapture(e.pointerId); scrub(e); });
   ruler.addEventListener('pointermove', (e) => scrubbing && scrub(e));
   ruler.addEventListener('pointerup', () => { scrubbing = false; });
   const fileLabel = (id) => { const f = S.lines.find((l) => l.id === id)?.file; return String(f?.name ?? f ?? '').replace(/\.[^.]+$/, ''); };

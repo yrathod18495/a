@@ -685,3 +685,7 @@ body.exp-open .export-pill{display:none}
 .exp-live .lv-bar.indet .run{width:36% !important;animation:expSlide 1.1s ease-in-out infinite}
 .exp-live .lv-actions{display:flex;gap:8px}
 .exp-live .lv-switch{grid-template-columns:1fr 1fr}
+
+/* Dragging the playhead or a clip must never select the seconds, names or buttons under the pointer */
+#app .ws .tl2,#app .ws .tl2 *,#app .ws .studio-bar,#app .ws .stage-wrap,#app .ws .tabs-scroll{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app .ws input,#app .ws textarea,#app .ws [contenteditable="true"]{-webkit-user-select:text;user-select:text}
