@@ -8,7 +8,7 @@
 
 export const PACKAGE_FORMAT = '12toons-character';
 export const PACKAGE_VERSION = 1;
-export const DB_MAX_BYTES = 192 * 1024;          // a JSON file up to this size (before compression) is kept in the database
+export const DB_MAX_BYTES = 16 * 1024;           // only tiny JSON files (before compression) stay in the database; everything else goes to R2 so the database stays light
 export const MAX_VIEWS = 8, MAX_ANIMATIONS = 200, MAX_TEXTURES = 8;
 export const PREVIEW_TYPES = Object.freeze(['gif', 'mp4']);          // what the files in a view's `gifs` are: GIF pictures (older uploads) or small MP4 videos
 /** the four kinds of character the picker is sorted by (the admin sets one for each character) */

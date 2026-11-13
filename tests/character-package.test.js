@@ -20,7 +20,7 @@ test('a good manifest passes; every missing or wrong part is named in plain Engl
 test('where a file is stored: pictures always in R2, small JSON in the database, big JSON in R2', () => {
   assert.equal(storageOf('views/f34/texture_0.webp', 10), 'r2');
   assert.equal(storageOf('walk_female.gif', 10), 'r2');
-  assert.equal(storageOf('views/f34/skeleton.json', 99_000), 'db');
+  assert.equal(storageOf('views/f34/skeleton.json', 9_000), 'db');
   assert.equal(storageOf('views/f34/skeleton.json', DB_MAX_BYTES + 1), 'r2');
 });
 test('names: ids are small letters and _, GIF previews are named after the animation and the category', () => {

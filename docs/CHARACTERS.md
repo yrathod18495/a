@@ -36,7 +36,7 @@ views/<view>/animations/<name>.json
 |---|---|---|
 | rig (`skeleton.json`), atlas `.json`, every animation | Realtime Database, gzip-compressed (`characterFiles/<sha256>`) | small; one read each |
 | texture pictures, GIF previews, thumbnail | R2 (`assets/<sha256>`, counted in the admin's storage) | no download fee; cached by the browser |
-| any JSON bigger than 192 KB | R2 | database stays small |
+| any JSON bigger than 16 KB | R2 | database stays small |
 | the character record / the category record | Realtime Database (`characters/<id>`, `characterCategories/<id>`) | the list the studio reads |
 
 Every file is named by the SHA-256 of its content: the same file is stored once, the server checks the content against the name, and a browser downloads a file only once (Cache API). Animations are downloaded only when a creator uses or previews them; GIFs only when the list is shown.
