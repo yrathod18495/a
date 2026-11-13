@@ -103,22 +103,28 @@ export default async function handler(req, res) {
     }
     if (!who.admin && await maintenanceOn(db)) throw new AccessError('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     if (b.action === 'overview') {
+      // Only the asked sections are read, and all of them are read at the same time (the admin page opens with users + sessions + events;
+      // devices and the audit log are fetched when their tab is opened).
+      const want = new Set(Array.isArray(b.parts) && b.parts.length ? b.parts.filter(x => ['users', 'sessions', 'devices', 'events', 'audit'].includes(x)) : ['users', 'sessions', 'devices', 'events', 'audit']);
       const out = { cursors: {} };
-      const registered=b.cursors&&'users' in b.cursors&&!b.cursors.users?{users:[],pageToken:null}:await auth.listUsers(100,b.cursors?.users||undefined);
-      const [userStates, adminStates] = await Promise.all([
-        registered.users.length ? db.getAll(...registered.users.map(u=>db.doc('securityUsers/'+u.uid))) : [],
-        registered.users.length ? db.getAll(...registered.users.map(u=>db.doc('securityAdmins/'+u.uid))) : []
-      ]);
-      out.users=registered.users.map((u,i)=>({id:u.uid,email:u.email||'',name:u.displayName||'',registeredAt:u.metadata.creationTime,...userStates[i].data(),role:adminStates[i].data()?.enabled===true?'admin':'user'}));
-      out.cursors.users=registered.pageToken||null;
-      for (const [key, name] of Object.entries({ sessions: 'securitySessions', devices: 'securityDevices', events: 'securityEvents', audit: 'securityAudit' })) {
-        if(b.cursors&&key in b.cursors&&!b.cursors[key]){out[key]=[];out.cursors[key]=null;continue;}
-        let query=db.collection(name).orderBy('__name__').limit(100);
-        if(b.cursors?.[key])query=query.startAfter(String(b.cursors[key]));
+      const usersTask = want.has('users') ? (async () => {
+        const registered = b.cursors && 'users' in b.cursors && !b.cursors.users ? { users: [], pageToken: null } : await auth.listUsers(100, b.cursors?.users || undefined);
+        const [userStates, adminStates] = await Promise.all([
+          registered.users.length ? db.getAll(...registered.users.map(u => db.doc('securityUsers/' + u.uid))) : [],
+          registered.users.length ? db.getAll(...registered.users.map(u => db.doc('securityAdmins/' + u.uid))) : []
+        ]);
+        out.users = registered.users.map((u, i) => ({ id: u.uid, email: u.email || '', name: u.displayName || '', registeredAt: u.metadata.creationTime, ...userStates[i].data(), role: adminStates[i].data()?.enabled === true ? 'admin' : 'user' }));
+        out.cursors.users = registered.pageToken || null;
+      })() : null;
+      const collectionTasks = Object.entries({ sessions: 'securitySessions', devices: 'securityDevices', events: 'securityEvents', audit: 'securityAudit' }).filter(([key]) => want.has(key)).map(async ([key, name]) => {
+        if (b.cursors && key in b.cursors && !b.cursors[key]) { out[key] = []; out.cursors[key] = null; return; }
+        let query = db.collection(name).orderBy('__name__').limit(100);
+        if (b.cursors?.[key]) query = query.startAfter(String(b.cursors[key]));
         const snap = await query.get();
         out[key] = snap.docs.map(d => { const { secretHash, ...v } = d.data(); return { id: d.id, ...v }; });
-        out.cursors[key]=snap.docs.length===100?snap.docs.at(-1).id:null;
-      }
+        out.cursors[key] = snap.docs.length === 100 ? snap.docs.at(-1).id : null;
+      });
+      await Promise.all([usersTask, ...collectionTasks]);
       return send(res, 200, out);
     }
     if (b.action === 'moderate') {

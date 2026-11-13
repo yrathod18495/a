@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     if (b.action === 'adminCreditAdjust') {
       if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403);
       if (typeof b.uid !== 'string' || !/^[A-Za-z0-9_-]{10,128}$/.test(b.uid)) throw new AccessError('invalid_user', 'Please choose a valid user.', 400);
-      const result = await adjustCredits(db, { uid: b.uid, mode: b.mode, amount: Number(b.amount), reason: b.reason, by: who.uid });
+      const result = await adjustCredits(db, { uid: b.uid, mode: b.mode, amount: Number(b.amount), reason: b.reason, by: who.uid, opId: b.opId });
       return send(res, 200, { ok: true, ...result });
     }
     if (b.action === 'adminList') {

@@ -39,14 +39,16 @@ export async function grantSignupBonus(db, { uid, email, emailVerified, deviceId
 }
 
 /** an admin adds, removes or sets an account's Coins. A reason is required; every change is a ledger line and an audit record. */
-export async function adjustCredits(db, { uid, mode, amount, reason, by, now = Date.now() }) {
+export async function adjustCredits(db, { uid, mode, amount, reason, by, opId, now = Date.now() }) {
+  if (opId !== undefined && !(typeof opId === 'string' && /^[A-Za-z0-9-]{16,64}$/.test(opId))) throw new AccessError('invalid_action', 'The request is not valid. Please reload the page.', 400);
   if (!['add', 'remove', 'set'].includes(mode)) throw new AccessError('invalid_action', 'Please choose add, remove or set.', 400);
   if (!Number.isSafeInteger(amount) || amount < 0 || amount > MAX_COINS) throw new AccessError('invalid_amount', `Please enter a whole number from 0 to ${MAX_COINS.toLocaleString('en-IN')}.`, 400);
   const why = typeof reason === 'string' ? reason.trim() : '';
   if (why.length < 3 || why.length > 200) throw new AccessError('reason_required', 'Please write a short reason (3 to 200 characters).', 400);
-  const workspaceRef = db.doc(`workspaces/${uid}`), entitlementRef = db.doc(`entitlements/${uid}`);
+  const workspaceRef = db.doc(`workspaces/${uid}`), entitlementRef = db.doc(`entitlements/${uid}`), opRef = opId ? db.doc(`creditOps/${opId}`) : null;
   return db.runTransaction(async (tx) => {
-    const [workspace, entitlement] = await tx.getAll(workspaceRef, entitlementRef);
+    const [workspace, entitlement, op] = await tx.getAll(workspaceRef, entitlementRef, ...(opRef ? [opRef] : []));
+    if (op?.exists) return { ...op.data().result, duplicate: true };          // the same click arrived twice: it is applied once
     const current = Number(workspace.data()?.credits || 0);
     if (!validBalance(current)) throw new AccessError('bad_balance', 'This account\'s Coins balance is not valid. Please check it before changing it.', 409);
     const balance = mode === 'add' ? current + amount : mode === 'remove' ? current - amount : amount;
@@ -54,9 +56,11 @@ export async function adjustCredits(db, { uid, mode, amount, reason, by, now = D
     if (balance > MAX_COINS) throw new AccessError('invalid_amount', 'That would make the balance too large.', 400);
     tx.set(workspaceRef, { credits: balance }, { merge: true });
     if (!entitlement.exists) tx.set(entitlementRef, { tier: 'free', source: 'admin-credit', updatedAt: now });        // changing Coins never turns an account into a paid one by itself
-    tx.create(ledger(db, uid), { delta: balance - current, balance, reason: why, kind: `admin_${mode}`, by, at: now });
+    const line = { delta: balance - current, balance, reason: why, kind: `admin_${mode}`, by, at: now }, result = { before: current, balance, line };
+    tx.create(ledger(db, uid), line);
     tx.create(db.collection('securityAudit').doc(), { admin: by, target: uid, action: `credits_${mode}`, amount, before: current, after: balance, reason: why, at: now });
-    return { before: current, balance };
+    if (opRef) tx.create(opRef, { uid, by, at: now, result });
+    return result;
   });
 }
 

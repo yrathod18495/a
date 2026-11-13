@@ -52,3 +52,15 @@ test('Coins given by an admin to an account with no tier record do not make it p
   await adjustCredits(db, { uid: 'user_55555555555555555555', mode: 'add', amount: 10, reason: 'Contest prize', by: 'admin_1234567890123456' });
   assert.equal(db.data.get('entitlements/user_55555555555555555555').tier, 'free');
 });
+
+test('the same admin click sent twice (same opId) changes the balance once', async () => {
+  const db = memoryFirestore();
+  await grantSignupBonus(db, base);
+  const args = { uid: base.uid, by: 'admin_1234567890123456', mode: 'add', amount: 10, reason: 'Support gift', opId: 'op-1234567890abcdef' };
+  const first = await adjustCredits(db, args), second = await adjustCredits(db, args);
+  assert.equal(first.balance, 30); assert.equal(second.balance, 30); assert.equal(second.duplicate, true);
+  assert.equal(db.data.get(`workspaces/${base.uid}`).credits, 30);
+  const lines = [...db.data.keys()].filter((k) => k.startsWith(`workspaces/${base.uid}/creditLedger/`));
+  assert.equal(lines.length, 2);          // the gift and one admin line
+  await assert.rejects(adjustCredits(db, { ...args, opId: 'x' }), (e) => e.code === 'invalid_action');
+});

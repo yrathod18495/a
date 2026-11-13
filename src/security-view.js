@@ -49,10 +49,20 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     try{const {user}=await apiCall('/api/payments',{action:'adminUserLookup',email});found=user;renderLookup(user);}
     catch(e){found=null;lookupOut.replaceChildren(el('p','sa-lookup-msg',friendlyError(e)));}
   }
-  async function lookupAct(payload,question,path='/api/security'){
+  let lookupBusy=false;
+  async function lookupAct(payload,question,path='/api/security',after){
+    if(lookupBusy)return;
     if(question&&!window.confirm(question))return;
-    try{await apiCall(path,payload);toast('Saved.');await lookup(found.email);load(false);}
-    catch(e){toast(friendlyError(e));}
+    lookupBusy=true;lookupOut.classList.add('busy');lookupOut.setAttribute('aria-busy','true');
+    try{
+      const res=await apiCall(path,payload);
+      if(after)after(res);
+      else if(payload.action==='moderate'&&found){if(payload.status!=='revoke'){found.status=payload.status;found.until=payload.until||0;}else found.signedIn=false;patchLocal(payload);}
+      else if(payload.action==='adminSetTier'&&found)found.tier=payload.tier;
+      renderLookup(found);toast('Saved.');
+      lookup(found.email,true);          // quietly checks the saved values in the background
+    }catch(e){toast(friendlyError(e));}
+    finally{lookupBusy=false;lookupOut.classList.remove('busy');lookupOut.removeAttribute('aria-busy');}
   }
   function renderLookup(u){
     const st=u.status||'active',tone=st==='active'?'success':st==='blocked'?'danger':'warning';
@@ -60,11 +70,14 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     const mode=h('select',{class:'admin-role-select','aria-label':'Change type'},h('option',{value:'add'},'Add Coins'),h('option',{value:'remove'},'Remove Coins'),h('option',{value:'set'},'Set balance to'));
     const amount=h('input',{class:'sa-search',type:'number',min:'0',step:'1',placeholder:'Coins','aria-label':'Number of Coins',inputmode:'numeric'});
     const reason=h('input',{class:'sa-search',type:'text',maxlength:'200',placeholder:'Reason (required, kept in the audit log)','aria-label':'Reason'});
+    const opId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2));          // one id per form: a double click is applied once
     const apply=btn('Apply',()=>{
       const n=Number(amount.value),why=reason.value.trim();
       if(!Number.isInteger(n)||n<0){toast('Please enter a whole number of Coins.');return;}
       if(why.length<3){toast('Please write a short reason.');return;}
-      lookupAct({action:'adminCreditAdjust',uid:u.uid,mode:mode.value,amount:n,reason:why},`${mode.selectedOptions[0].textContent} ${n} for ${u.email}? Current balance: ${u.credits}.`,'/api/payments');
+      lookupAct({action:'adminCreditAdjust',uid:u.uid,mode:mode.value,amount:n,reason:why,opId},`${mode.selectedOptions[0].textContent} ${n} for ${u.email}? Current balance: ${u.credits}.`,'/api/payments',(res)=>{
+        found.credits=res.balance;if(res.line&&!res.duplicate)found.ledger=[{id:'new-'+Date.now(),...res.line},...(found.ledger||[])].slice(0,10);
+      });
     },'sa-positive');
     const ledger=(u.ledger||[]).length?el('div','sa-ledger',...u.ledger.map(l=>el('div','sa-ledger-row',el('span','sa-ledger-delta '+(l.delta>=0?'up':'down'),(l.delta>=0?'+':'')+l.delta),el('span','sa-ledger-why',l.reason||l.kind||''),el('span','sa-muted',when(l.at)+' · balance '+l.balance)))):el('p','sa-sub','No Coins history yet.');
     lookupOut.replaceChildren(el('article','sa-user sa-lookup-user',
@@ -94,8 +107,18 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   const allow=(message,fn)=>{if(window.confirm(message))fn();};
   async function act(payload,question){
     if(question&&!window.confirm(question))return;
-    try{status.textContent='Applying change…';await apiCall('/api/security',payload);toast('Security change saved.');await load(false);}
-    catch(e){status.textContent='Action failed';toast(friendlyError(e));}
+    try{
+      status.textContent='Applying change…';await apiCall('/api/security',payload);toast('Security change saved.');
+      patchLocal(payload);renderContent();status.textContent='Saved';
+      load(false);          // refreshes quietly in the background: the list above already shows the change
+    }catch(e){status.textContent='Action failed';toast(friendlyError(e));}
+  }
+  /** the change is shown at once, without waiting for the whole overview to be read again */
+  function patchLocal(p){
+    if(p.action!=='moderate'||!state)return;
+    const u=(state.users||[]).find(x=>x.id===p.uid);
+    if(u&&p.status!=='revoke'){u.status=p.status;u.until=p.until||0;}
+    const sx=(state.sessions||[]).find(x=>x.id===p.uid);if(sx)sx.revoked=true;
   }
   async function assignRole(uid,select,button){
     const role=select.value;
@@ -105,6 +128,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     catch(e){toast(e.message);button.disabled=false;}
   }
   function renderStats(){
+    if(!state)return;
     const users=state.users||[],sess=state.sessions||[],ev=state.events||[];
     const active=sess.filter(s=>isOnline(s)).length;
     const flagged=ev.filter(e=>e.code==='device_review'&&e.review==='pending').length;
@@ -113,7 +137,7 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
   function renderTabs(){
     tabs.replaceChildren(...tabsData.map(([key,name])=>h('button',{
       class:'sa-tab '+(tab===key?'on':''),type:'button','aria-pressed':tab===key,
-      onclick:()=>{tab=key;renderTabs();renderContent();}
+      onclick:()=>showTab(key)
     },name, key==='events'&&state?.events?.some(e=>e.code==='device_review'&&e.review==='pending')?el('span','sa-tab-count',String(state.events.filter(e=>e.code==='device_review'&&e.review==='pending').length)):null)));
   }
   function renderControls(){
@@ -235,18 +259,36 @@ export async function securityView({ home, toast, initialTab = 'users' }) {
     if(Object.values(state.cursors||{}).some(Boolean))more.append(btn('Load more records',()=>load(true),'sa-more-btn'));
     panel.append(more);
   }
-  async function load(append=false){
-    if(loading)return;loading=true;refresh.disabled=true;status.textContent='Syncing…';
+  /* The page opens at once and fills in; only the sections that are shown are fetched (devices and the audit log when their tab is opened). */
+  const loaded=new Set();
+  const SECTION={users:'users',events:'events',devices:'devices',audit:'audit'};
+  function skeleton(){panel.replaceChildren(...[0,1,2,3].map(()=>el('div','sa-skel',el('i','rf-sk sa-skel-a'),el('i','rf-sk sa-skel-b'))));}
+  async function load(append=false,parts){
+    if(loading&&!parts)return;
+    loading=true;refresh.disabled=true;status.textContent='Syncing…';
     try{
-      const data=await apiCall('/api/security',{action:'overview',...(append&&state?{cursors:state.cursors}:{})});
-      if(append&&state)for(const key of ['users','sessions','devices','events','audit'])
-        data[key]=[...new Map([...(state[key]||[]),...(data[key]||[])].map(v=>[v.id,v])).values()];
-      state=data;renderStats();renderTabs();renderContent();status.textContent='Updated just now';
+      let want=parts||(append?Object.entries(state?.cursors||{}).filter(([,v])=>v).map(([k])=>k):[...loaded]);
+      if(!want.length)want=['users','sessions','events'];
+      if(want.includes('users')&&!want.includes('sessions'))want.push('sessions');
+      const data=await apiCall('/api/security',{action:'overview',parts:want,...(append&&state?{cursors:state.cursors}:{})});
+      const next={...(state||{}),cursors:{...(state?.cursors||{}),...data.cursors}};
+      for(const key of ['users','sessions','devices','events','audit']){
+        if(!(key in data))continue;
+        next[key]=append&&state?[...new Map([...(state[key]||[]),...(data[key]||[])].map(v=>[v.id,v])).values()]:data[key];
+        loaded.add(key);
+      }
+      state=next;renderStats();renderTabs();renderContent();status.textContent='Updated just now';
     }catch(e){status.textContent='Sync failed';if(!state)panel.replaceChildren(empty('Could not load security data',friendlyError(e)));toast(friendlyError(e));}
     finally{loading=false;refresh.disabled=false;}
   }
-  await load();
-  // no automatic refresh: use the Refresh button
+  async function showTab(key){
+    tab=key;renderTabs();
+    const need=key==='devices'?'devices':key==='audit'?'audit':null;
+    if(need&&!loaded.has(need)){skeleton();await load(false,[need]);return;}
+    if(state)renderContent();
+  }
+  renderTabs();renderControls();skeleton();
+  load();          // not awaited: the page is shown now and fills in when the data arrives
   root.dispose=()=>{};
   return root;
 }
