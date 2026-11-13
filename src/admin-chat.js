@@ -118,8 +118,10 @@ export async function chatView({ user, back, toast }) {
     input.focus();
     await Promise.all([loadMessages(true), loadChats()]);
   }
+  let messageAgain = false;
   async function loadMessages(force = false) {
-    if (!selected || messageBusy || !root.isConnected || (document.hidden && !force)) return;
+    if (!selected || !root.isConnected || (document.hidden && !force)) return;
+    if (messageBusy) { messageAgain = true; return; }
     messageBusy = true;
     const active = selected;
     try {
@@ -130,7 +132,7 @@ export async function chatView({ user, back, toast }) {
       threads.set(active, next);
       renderMessages();
     } catch (e) { if (active === selected) toast(`Could not load the conversation: ${friendlyError(e)}`); }
-    finally { messageBusy = false; }
+    finally { messageBusy = false; if (messageAgain) { messageAgain = false; loadMessages(true); } }
   }
   function renderMessages() {
     const thread = threads.get(selected); if (!thread || editing) return;

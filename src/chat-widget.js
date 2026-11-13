@@ -120,13 +120,15 @@ export function chatWidget(user, onLogin = () => {}) {
   let live = false, stopSignal = () => {};
   if (user) stopSignal = watchChatSignal(user.uid, (data, first) => {
     if (first || !data || data.by !== 'admin') return;          // what this browser wrote itself is already on screen: no request needed
-    if (open) { quietSince = Date.now(); load(); }
+    if (open) { quietSince = Date.now(); load(true); }          // also when this tab is in the background (the reply may have come from Telegram)
     else { toggle.classList.add('unread'); toggle.setAttribute('aria-label', 'Open live chat, you have a new reply'); }
   }, (ok) => { live = ok; });
-  const delay = () => { if (live) return 60000; const quiet = Date.now() - quietSince; return quiet < 60000 ? 5000 : quiet < 300000 ? 15000 : 30000; };
+  const delay = () => { if (live) return 20000; const quiet = Date.now() - quietSince; return quiet < 60000 ? 5000 : quiet < 300000 ? 15000 : 30000; };
   function schedule() { clearTimeout(timer); timer = setTimeout(async () => { await load(); if (open) schedule(); }, delay()); }
-  async function load() {
-    if (!user || loading || !open || !root.isConnected || document.hidden) return;
+  let again = false;          // a signal that came while a download was running: ask once more when it ends, so no reply is skipped
+  async function load(force = false) {
+    if (!user || !open || !root.isConnected || (document.hidden && !force)) return;
+    if (loading) { again = true; return; }
     loading = true;
     try {
       const since = cachedMessages.reduce((n, m) => Math.max(n, Number(m.createdAt) || 0), 0);
@@ -141,7 +143,7 @@ export function chatWidget(user, onLogin = () => {}) {
       if (key !== latest || pendingBefore !== pendingMessages.length) { latest = key; render([...msgs, ...pendingMessages]); }
       state.textContent = '';
     } catch (e) { state.textContent = e.message; }
-    finally { loading = false; }
+    finally { loading = false; if (again) { again = false; load(true); } }
   }
   function render(messages) {
     if (!messages.length) { list.replaceChildren(h('div', { class: 'support-empty' }, h('span', { class: 'support-empty-icon' }, icon('chat')), h('b', {}, 'How can we help?'), h('p', {}, 'Send us a message and the team will reply here.'), h('p', { class: 'support-hours-note' }, `You will get a reply within ${SUPPORT.replyWindow} during office hours (${hoursRows().filter((r) => r.time !== 'Closed').map((r) => `${r.days}, ${r.time}`).join('; ')} ${SUPPORT.zoneLabel.split(' ')[0]}). ${statusText(supportStatus())}`))); return; }
