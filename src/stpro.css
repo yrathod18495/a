@@ -922,7 +922,7 @@ dialog:modal{position:fixed;inset:0;margin:auto;height:fit-content;max-width:cal
 .projects-header .credit-badge{margin-left:auto}
 
 /* the Coin history window */
-dialog.credit-history-window{width:min(460px,calc(100vw - 24px));max-height:min(640px,calc(100dvh - 40px));padding:0;border:1px solid var(--edge,#34363c);border-radius:22px;background:var(--page,#16171a);color:var(--ink,#f2f3f5);box-shadow:0 24px 70px #0008;overflow:hidden}
+dialog.credit-history-window{width:min(460px,calc(100vw - 24px));max-height:min(640px,calc(100dvh - 40px));padding:0;border:1px solid var(--edge,#34363c);border-radius:22px;background:var(--page,#16171a);color:var(--text,#f2f3f5);box-shadow:0 24px 70px #0008;overflow:hidden}
 dialog.credit-history-window[open]{display:flex;flex-direction:column}
 dialog.credit-history-window::backdrop{background:#0009;backdrop-filter:blur(2px)}
 .chw-head{display:flex;align-items:center;gap:8px;padding:16px 18px 6px}.chw-head h2{margin:0;flex:1;font-size:18px}
@@ -1030,17 +1030,26 @@ body .busy .bar{background:#ffffff26;box-shadow:0 0 0 1px #ffffff1f}
 
 .chw-row.removed .chw-coins{color:#ef8f7a}.chw-status.removed{color:#ef8f7a}
 
-/* "Buy more Coins": the plans window */
-dialog.credit-plans-window{width:min(440px,calc(100vw - 24px));max-height:min(640px,calc(100dvh - 40px));padding:0;border:1px solid var(--edge,#34363c);border-radius:22px;background:var(--page,#16171a);color:var(--ink,#f2f2f5);overflow:hidden}
+/* "Buy more Coins": the plans window (wide: the three plans sit side by side) */
+dialog.credit-plans-window{width:min(900px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--edge,#34363c);border-radius:24px;background:var(--page,#16171a);color:var(--text,#f2f3f5);box-shadow:0 24px 70px #0008;overflow:hidden}
 dialog.credit-plans-window[open]{display:flex;flex-direction:column}
 dialog.credit-plans-window::backdrop{background:#0009;backdrop-filter:blur(2px)}
-.cpw-balance{display:flex;align-items:center;gap:8px;margin:12px 18px 4px;font-size:13px;color:var(--mute,#9a9ca5)}.cpw-balance b{margin-left:auto;font-size:18px;color:var(--ink,#f2f2f5)}
-.cpw-list{display:flex;flex-direction:column;gap:10px;padding:10px 18px;overflow:auto}
-.cpw-plan{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--edge,#34363c);border-radius:16px;background:var(--card,#1d1e22)}
-.cpw-plan.popular{border-color:#7c6cf5;box-shadow:0 0 0 1px #7c6cf5 inset}
-.cpw-tag{position:absolute;top:-9px;left:14px;padding:2px 9px;border-radius:99px;background:#7c6cf5;color:#fff;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
-.cpw-info{display:flex;flex-direction:column;gap:3px;min-width:0}.cpw-name{font-size:15px}.cpw-info small{color:var(--mute,#9a9ca5);font-size:11px}
-.cpw-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}.cpw-price{font-size:18px}.cpw-side del{font-size:11px;color:var(--mute,#9a9ca5)}
-.cpw-buy{min-width:96px}
-.cpw-promo{margin:0 18px;padding:10px 12px;border:1px solid var(--edge,#34363c);border-radius:12px;background:var(--card,#1d1e22);color:inherit;font:inherit;font-size:13px}
-.cpw-message{margin:8px 18px 4px;min-height:18px;font-size:12px;color:var(--mute,#9a9ca5)}.cpw-message.success{color:#22c55e}.cpw-message.error{color:#f87171}
+:root[data-theme] body dialog.credit-plans-window :is(b,span,small,del,h2,p){color:inherit}
+:root[data-theme] body dialog.credit-plans-window :is(small,del,.cpw-balance span,.cpw-message){color:var(--mute,#9a9ca5)}
+.cpw-balance{display:flex;align-items:center;gap:8px;margin:6px 22px 0;font-size:13px}.cpw-balance b{margin-left:4px;font-size:20px;font-variant-numeric:tabular-nums}
+.cpw-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:18px 22px 8px;overflow:auto}
+.cpw-plan{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 16px 16px;text-align:center;border:1px solid var(--edge,#34363c);border-radius:18px;background:var(--card1,#1d1e22)}
+.cpw-plan.popular{border-color:#7c6cf5;box-shadow:0 0 0 1px #7c6cf5 inset,0 10px 30px #7c6cf522}
+.cpw-tag{position:absolute;top:-10px;left:50%;transform:translateX(-50%);padding:3px 11px;border-radius:99px;background:#7c6cf5;color:#fff!important;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.cpw-info{display:flex;flex-direction:column;align-items:center;gap:6px}.cpw-name{font-size:16px;font-weight:800}
+.cpw-coins{display:inline-flex;align-items:center;gap:6px;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.cpw-info small{font-size:12px}
+.cpw-side{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;margin-top:auto}.cpw-price{font-size:24px;font-weight:800}.cpw-side del{font-size:12px}
+.cpw-buy{width:100%;min-height:42px}
+.cpw-promo{margin:6px 22px 0;padding:10px 12px;border:1px solid var(--edge,#34363c);border-radius:12px;background:var(--card1,#1d1e22);color:inherit;font:inherit;font-size:13px}
+.cpw-message{margin:8px 22px 6px;min-height:18px;font-size:12.5px}:root[data-theme] body dialog.credit-plans-window .cpw-message.success{color:#4fd69c}:root[data-theme] body dialog.credit-plans-window .cpw-message.error{color:#ef8f7a}
+@media(max-width:700px){.cpw-list{grid-template-columns:1fr;gap:12px;padding:16px 16px 6px}.cpw-plan{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;text-align:left;padding:14px;gap:8px 12px}.cpw-info{align-items:flex-start}.cpw-coins{font-size:22px}.cpw-side{width:auto;align-items:flex-end;margin-top:0}.cpw-price{font-size:20px}.cpw-buy{width:auto;min-width:96px;min-height:38px}.cpw-tag{left:14px;transform:none}.cpw-promo{margin:6px 16px 0}.cpw-message,.cpw-balance{margin-left:16px;margin-right:16px}}
+/* the Coins history window: the balance number was dark on dark */
+:root[data-theme] body dialog.credit-history-window :is(b,span){color:inherit}
+:root[data-theme] body dialog.credit-history-window :is(.chw-label,.chw-main small,.chw-side small,.chw-hint,.chw-note,.chw-sub){color:var(--mute)}
+:root[data-theme] body dialog.credit-history-window .chw-row.added .chw-coins{color:#4fd69c}
