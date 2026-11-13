@@ -135,7 +135,7 @@ export async function view({ user, home, back, toast }) {
   function renderTruth() {
     const missing = gt.items.filter((p) => p.state === 'missing').length;
     panel.replaceChildren(h('section', { class: 'pay-card' },
-      h('div', { class: 'pay-log-head' }, h('div', {}, h('h2', {}, '☁ Razorpay ground truth'), h('p', {}, 'The latest payments straight from Razorpay, compared with what 12toons recorded.')), h('div', { class: 'pay-log-tools' }, h('button', { class: 'btn sm', type: 'button', disabled: gt.loading, onclick: () => loadTruth(true) }, '↻ Refresh'))),
+      h('div', { class: 'pay-log-head' }, h('div', {}, h('h2', {}, 'Razorpay ground truth'), h('p', {}, 'The latest payments straight from Razorpay, compared with what 12toons recorded.')), h('div', { class: 'pay-log-tools' }, h('button', { class: 'btn sm', type: 'button', disabled: gt.loading, onclick: () => loadTruth(true) }, '↻ Refresh'))),
       gt.error && !gt.items.length ? h('p', { class: 'credit-message error' }, gt.error) : null,
       gt.loading && !gt.items.length ? h('p', { class: 'hint' }, 'Loading payments from Razorpay…') : null,
       gt.loaded && missing ? h('p', { class: 'pay-warning' }, `${missing} captured payment${missing === 1 ? ' is' : 's are'} not credited in 12toons. Use Recover to add the Coins.`) : null,

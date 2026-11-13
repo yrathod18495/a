@@ -44,3 +44,11 @@
 .au-seen .au-on{color:#16a34a;font-weight:700}
 .admin-seen{color:var(--mute,#8a8f98);font-size:11px;white-space:nowrap}
 .au-badges:empty{display:none}
+
+/* Admin sections inside the console: one header only (the console's own bar and tabs), calm headings */
+.admin-console-host .sh-bar{display:none!important}
+.admin-console-host .admin-eyebrow{display:none!important}
+.admin-console-host .admin-assets-intro h1{text-transform:none!important;letter-spacing:-.02em!important;font-size:26px!important;font-weight:800!important}
+.admin-console-host .admin-assets-empty span:empty{display:none}
+.admin-console-host .admin-back{display:none!important}
+.ad-eye{font-size:11px!important;font-weight:700;padding:4px 9px!important;color:var(--mute)}

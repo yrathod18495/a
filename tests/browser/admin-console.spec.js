@@ -30,13 +30,14 @@ test('every admin section opens inside the console: the top bar and tabs never d
   expect(errors).toEqual([]);
 });
 
-test('the back buttons inside admin sections return to the Overview', async ({ page }) => {
+test('the Overview tab returns to the Overview from any section (the sections have no second header)', async ({ page }) => {
   await console_(page);
   const tabs = page.locator('.admin-console-tab');
   for (const name of ['Users', 'Add Assets']) {
     await tabs.filter({ hasText: new RegExp(`^${name.replace('&', '&')}$`) }).click();
     await expect(page.locator('.admin-console-tab.active')).toHaveText(name);
-    await page.getByRole('button', { name: /Back to [Aa]dmin/ }).first().click();
+    await expect(page.locator('.admin-console-host .sh-bar')).toBeHidden();
+    await tabs.first().click();
     await expect(page.locator('.admin-console-tab.active')).toHaveText('Overview');
     await expect(page.locator('.admin-overview')).toBeVisible();
   }
@@ -56,7 +57,7 @@ test('Add Assets opens at once and has the sub-tabs Background, Objects, Props, 
   await tabs.filter({ hasText: /^Add Assets$/ }).click();
   await expect(page.locator('.admin-assets-tab').first()).toBeVisible({ timeout: 1500 });
   expect(Date.now() - started).toBeLessThan(1500);
-  await expect(page.locator('.admin-assets-tab')).toHaveText(['🖼 Add Background', '🪵 Add Objects', '🧸 Add Props', '💫 Add Effects', '🎬 Add Animation']);
+  await expect(page.locator('.admin-assets-tab')).toHaveText(['Add Background', 'Add Objects', 'Add Props', 'Add Effects', 'Add Animation']);
   await expect(page.getByText('Characters →')).toHaveCount(0);
   await expect(tabs.filter({ hasText: /Props & Effects/ })).toHaveCount(0);
   await expect(tabs.filter({ hasText: /^Characters$/ })).toHaveCount(1);                    // Characters stays a main tab

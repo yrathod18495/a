@@ -30,7 +30,7 @@ export async function assetsView({ user, home, back, toast }) {
 
   function drawTabs() {
     tabs.replaceChildren(...[
-      ['background', '🖼 Add Background'], ['object', '🪵 Add Objects'], ['prop', '🧸 Add Props'], ['effect', '💫 Add Effects'], ['animation', '🎬 Add Animation'],
+      ['background', 'Add Background'], ['object', 'Add Objects'], ['prop', 'Add Props'], ['effect', 'Add Effects'], ['animation', 'Add Animation'],
     ].map(([key, label]) => h('button', { class: `admin-assets-tab ${state.type === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.type === key, onclick: () => { state.type = key; draw(); } }, label)));
   }
   // Props and Effects have their own screen (category, prop type, blend, sprite sheet ...): it is shown here, made once and kept
@@ -59,8 +59,8 @@ export async function assetsView({ user, home, back, toast }) {
         const preview = asset.thumb || state.previews.get(asset.id);
         if (!preview) previewAsset(asset).catch((e) => console.warn('Asset preview failed:', e.message));
         return h('article', { class: 'admin-asset-card' }, preview ? h('img', { src: preview, alt: asset.name, loading: 'lazy' }) : h('div', { class: 'admin-asset-placeholder' }, '◌'), h('div', { class: 'admin-asset-copy' }, h('b', {}, asset.name), h('small', {}, `${(asset.size / 1024 / 1024).toFixed(1)} MB · ${new Date(asset.updatedAt).toLocaleDateString()}`), h('select', { class: 'asset-access', 'aria-label': `Who can use ${asset.name}`, title: 'Everyone sees every item. Free accounts can only add the ones marked free.', onchange: (e) => changeAccess(asset, e.target.value, e.target) }, Object.entries(ACCESS_LABEL).map(([value, label]) => h('option', { value, selected: (asset.access === 'free' ? 'free' : 'paid') === value }, label)))), h('button', { class: 'btn sm', type: 'button', title: `Remove ${asset.name}`, onclick: () => remove(asset) }, 'Remove'));
-      })) : h('div', { class: 'admin-assets-empty' }, h('span', {}, kind === 'background' ? '🖼' : '🧸'), h('b', {}, `No ${label.toLowerCase()} yet`), h('p', {}, 'Upload the first image and it will appear in the Animator Studio library.')),
-      h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'));
+      })) : h('div', { class: 'admin-assets-empty' }, h('span', {}, ''), h('b', {}, `No ${label.toLowerCase()} yet`), h('p', {}, 'Upload the first image and it will appear in the Animator Studio library.')),
+      h('button', { class: 'btn admin-back', type: 'button', onclick: back }, '← Back to Admin'));
   }
   function drawAnimations() {
     const entries = libraryCharacters();

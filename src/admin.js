@@ -156,7 +156,7 @@ async function studioView({ user, home, toast }) {
       st.note ? h('p', { class: 'hint', style: 'color:#b45309' }, st.note) : null,
       h('div', { class: 'ad-capbtns' },
         h('button', { class: 'btn sm', onclick: () => step(-1), disabled: !all.length }, '‹ Prev'),
-        h('button', { class: `btn ${hid ? '' : 'ok'}`, onclick: () => toggle(a) }, hid ? (byAll && st.scope !== 'all' ? '🚫 Hidden for everyone' : '🚫 Hidden — show it') : '👁 Shown — hide it'),
+        h('button', { class: `btn ${hid ? '' : 'ok'}`, onclick: () => toggle(a) }, hid ? (byAll && st.scope !== 'all' ? '🚫 Hidden for everyone' : '🚫 Hidden — show it') : 'Shown — hide it'),
         h('button', { class: 'btn sm', onclick: () => step(1), disabled: !all.length }, 'Next ›')),
       h('div', { class: 'seg3', style: 'margin-top:8px' }, [['wide', 'Full'], ['medium', 'Upper body'], ['close', 'Face']].map(([k, l]) => h('button', { class: st.zoom === k ? 'on' : '', onclick: () => { st.zoom = k; drawCaption(); } }, l)))].filter(Boolean));
   }
@@ -164,7 +164,7 @@ async function studioView({ user, home, toast }) {
   function drawTop() {
     const ch = chars.find((c) => c.base === st.base);
     topEl.replaceChildren(
-      h('div', { class: 'seg3 ad-mode' }, [['anim', '🎬 Animations'], ['layers', '🧩 Layers']].map(([k, l]) => h('button', { class: st.mode === k ? 'on' : '', onclick: () => { st.mode = k; drawAll(); } }, l))),
+      h('div', { class: 'seg3 ad-mode' }, [['anim', 'Animations'], ['layers', 'Layers']].map(([k, l]) => h('button', { class: st.mode === k ? 'on' : '', onclick: () => { st.mode = k; drawAll(); } }, l))),
       h('div', { class: 'ad-row' }, chars.map((c) => h('button', { class: `ad-char ${c.base === st.base ? 'on' : ''}`, onclick: () => c.base !== st.base && loadChar(c.base, st.pose) },
         c.thumb ? h('img', { src: cdn(c.thumb), alt: '' }) : '🎭', h('span', {}, c.name, h('small', {}, `${c.poses.length} poses`))))),
       h('div', { class: 'ad-row' },
@@ -173,7 +173,7 @@ async function studioView({ user, home, toast }) {
       h('div', { class: 'ad-row' },
         h('input', { type: 'search', class: 'ad-search', placeholder: 'Search by name or id…', value: st.q, oninput: (e) => { st.q = e.target.value.trim().toLowerCase(); drawList(); } }),
         h('div', { class: 'seg3' }, [['all', 'All'], ['shown', 'Shown'], ['hidden', 'Hidden']].map(([k, l]) => h('button', { class: st.filter === k ? 'on' : '', onclick: () => { st.filter = k; drawTop(); drawList(); } }, l)))),
-      h('p', { class: 'hint', style: 'text-align:left;margin:0' }, st.scope === 'all' ? (st.mode === 'layers' ? '🌐 Your names and Show / Hide apply to every character.' : '🌐 Your Show / Hide applies to every character.') : `👤 Your Show / Hide applies to ${ch?.name || 'this character'} only. (🌐 = hidden for everyone — change that with "Every character".)`));
+      h('p', { class: 'hint', style: 'text-align:left;margin:0' }, st.scope === 'all' ? (st.mode === 'layers' ? 'Your names and Show / Hide apply to every character.' : 'Your Show / Hide applies to every character.') : `Your Show / Hide applies to ${ch?.name || 'this character'} only. To change it for everyone, choose "Every character".`));
   }
   function drawList() {
     if (st.mode === 'layers') { drawLayerList(); return; }
@@ -190,7 +190,7 @@ async function studioView({ user, home, toast }) {
           const hid = isHid(a.ref.id), byAll = hidAll(a.ref.id);
           return h('div', { class: `ad-card ${hid ? 'off' : ''} ${st.cur && st.cur.ref.id === a.ref.id ? 'cur' : ''}`, 'data-id': String(a.ref.id), onclick: () => play({ ...a, cat: c }) },
             h('div', { class: 'ad-cn' }, a.name), h('small', {}, `${fmt(a.length)} · ${a.ref.id}`),
-            h('button', { class: 'ad-eye', title: hid ? 'Hidden from users — click to show' : 'Shown to users — click to hide', onclick: (e) => { e.stopPropagation(); toggle({ ...a, cat: c }); } }, hid ? (byAll ? '🌐🚫' : '🚫') : '👁'));
+            h('button', { class: 'ad-eye', title: hid ? 'Hidden from users — click to show' : 'Shown to users — click to hide', onclick: (e) => { e.stopPropagation(); toggle({ ...a, cat: c }); } }, hid ? 'Hidden' : 'Shown'));
         }))));
     }
     if (out.length === 1) out.push(h('p', { class: 'hint' }, 'Nothing matches.'));
@@ -219,7 +219,7 @@ async function studioView({ user, home, toast }) {
           return h('div', { class: `ad-lrow ${hid ? 'off' : ''}` },
             h('div', { class: 'ad-lorig', title: `${l.slot} / ${l.key}` }, h('b', {}, l.key), h('small', {}, l.slot !== l.key ? l.slot : '')),
             h('input', { class: 'ad-name', type: 'text', value: nameIn(scopeKey(), l.id), placeholder: shownName(l.id, l.key), title: 'Name users see for this layer', onchange: (e) => setName(l.id, e.target.value) }),
-            h('button', { class: 'ad-eye static', title: hid ? 'Hidden from users — click to show' : 'Shown to users — click to hide', onclick: () => { const sset = lset(scopeKey()); if (sset.has(l.id)) sset.delete(l.id); else sset.add(l.id); mark('layers'); drawLayerList(); } }, hid ? (byAll ? '🌐🚫' : '🚫') : '👁'));
+            h('button', { class: 'ad-eye static', title: hid ? 'Hidden from users — click to show' : 'Shown to users — click to hide', onclick: () => { const sset = lset(scopeKey()); if (sset.has(l.id)) sset.delete(l.id); else sset.add(l.id); mark('layers'); drawLayerList(); } }, hid ? 'Hidden' : 'Shown'));
         }))));
     }
     if (out.length === 1) out.push(h('p', { class: 'hint' }, 'Nothing matches.'));
@@ -230,7 +230,7 @@ async function studioView({ user, home, toast }) {
       h('span', { class: 'ad-state' }, st.dirtyA || st.dirtyL ? '● Unpublished changes' : st.lastSaved ? `✓ Published ${new Date(st.lastSaved).toLocaleTimeString()}` : '✓ Up to date'),
       h('span', { class: 'sp' }),
       h('button', { class: 'btn', disabled: !(st.dirtyA || st.dirtyL) || st.busy, onclick: discard }, '↺ Discard'),
-      h('button', { class: 'btn ok', disabled: !(st.dirtyA || st.dirtyL) || st.busy, onclick: publish }, '☁ Publish to users'));
+      h('button', { class: 'btn ok', disabled: !(st.dirtyA || st.dirtyL) || st.busy, onclick: publish }, 'Publish to users'));
   }
   function drawAll() { drawTop(); drawList(); drawCaption(); drawBar(); }
 

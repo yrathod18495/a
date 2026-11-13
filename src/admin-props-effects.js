@@ -6,7 +6,7 @@ import { cleanAssetMeta } from '../shared/studio-effects.js';
 import { animatedToSheet } from './animated-image.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
-const KINDS = [['prop', '🧸 Props'], ['effect', '💫 Effects']];
+const KINDS = [['prop', 'Props'], ['effect', 'Effects']];
 const ACCESS_LABEL = { paid: 'Paid accounts only', free: 'Free for everyone' };
 const GROUP_LABEL = { general: 'Object (Objects tab)', hand: 'Prop (character toolbox)' };
 const BLEND_LABEL = { normal: 'Normal', add: 'Glow (add)', screen: 'Screen' };
@@ -121,8 +121,8 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
       cats.length ? h('div', { class: 'admin-assets-tabs', style: 'padding-left:0' }, [['all', 'All'], ...cats.map((c) => [c, c])].map(([value, label]) => h('button', { class: `admin-assets-tab ${state.filter === value ? 'active' : ''}`, type: 'button', onclick: () => { state.filter = value; draw(); } }, label))) : null,
       state.loading && !list.length ? h('p', { class: 'admin-assets-empty' }, 'Loading library…')
         : shown.length ? h('div', { class: 'admin-assets-grid' }, shown.map(card))
-          : h('div', { class: 'admin-assets-empty' }, h('span', {}, effect ? '💫' : fixedGroup === 'general' ? '🪵' : '🧸'), h('b', {}, `No ${noun} yet`), h('p', {}, 'Upload the first one above; it will show up for creators right away.')),
-      only ? null : h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'),
+          : h('div', { class: 'admin-assets-empty' }, h('span', {}, ''), h('b', {}, `No ${noun} yet`), h('p', {}, 'Upload the first one above; it will show up for creators right away.')),
+      only ? null : h('button', { class: 'btn admin-back', type: 'button', onclick: back }, '← Back to Admin'),
     ].filter(Boolean));
   }
 

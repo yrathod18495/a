@@ -276,7 +276,7 @@ export async function charactersView({ back, home, toast }) {
       previewSection() || h('span'),
       h('section', { class: 'admin-panel-card admin-characters-list' }, h('h2', {}, `Saved characters (${st.list.length})`),
         st.list.length ? h('div', { class: 'admin-characters-grid' }, ...st.list.map(card)) : h('p', { class: 'admin-empty' }, 'No characters yet. Upload the first ZIP above.')),
-      h('button', { class: 'btn', type: 'button', onclick: back }, '← Back to Admin'));
+      h('button', { class: 'btn admin-back', type: 'button', onclick: back }, '← Back to Admin'));
     drawInfo();
   }
 
