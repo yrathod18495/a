@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { historyRows, totalAdded } from '../shared/credit-history.js';
+import { historyRows, totalAdded, ledgerRows, allRows } from '../shared/credit-history.js';
 
 test('payments become rows, newest first; only a captured payment counts as Coins received', () => {
   const rows = historyRows([
@@ -21,4 +21,11 @@ test('missing or odd data does not break the list', () => {
   assert.deepEqual(historyRows(null), []);
   const [row] = historyRows([null, 'x', { status: 'something-new' }]);
   assert.deepEqual([row.title, row.coins, row.label, row.state, row.rupees], ['Coins purchase', 0, 'Unknown', 'failed', '₹0']);
+});
+
+test('the welcome gift and support changes show in the Coin history, newest first', () => {
+  const rows = allRows([{ orderId: 'order_1', planName: 'Starter', status: 'captured', credits: 100, amountPaise: 9900, capturedAt: 2000 }], [
+    { delta: 20, kind: 'signup_bonus', at: 1000, balance: 20 }, { delta: 1000, kind: 'admin_add', reason: 'Support gift', at: 3000, balance: 1120 }, { delta: -5, kind: 'admin_remove', reason: 'Correction', at: 4000, balance: 1115 }, { delta: 0, at: 5 }]);
+  assert.deepEqual(rows.map((r) => [r.title, r.state, r.coins]), [['Correction', 'removed', 5], ['Support gift', 'added', 1000], ['Starter', 'added', 100], ['Welcome gift', 'added', 20]]);
+  assert.deepEqual(ledgerRows(undefined), []);
 });

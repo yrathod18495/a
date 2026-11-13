@@ -1,3 +1,4 @@
+import { ledgerRows } from '../shared/credit-history.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { h, logo, toast } from './dom.js';
 import { apiCall } from './session.js';
@@ -49,11 +50,16 @@ export async function view({ user, home }) {
   const history = h('div', { class: 'credit-history' }, h('p', { class: 'hint' }, 'Loading your payment history…'));
   const refreshHistory = async () => {
     try {
-      const { payments } = await apiCall('/api/payments', { action: 'mine' }, user.uid);
-      const entries = payments.length ? payments.map((p) => h('div', { class: 'credit-history-row' },
-        h('div', {}, h('b', {}, p.planName || 'Coins purchase'), h('small', {}, `${stamp(p.createdAt)} · ${p.orderId}`)),
-        h('div', {}, h('b', {}, money(p.amountPaise)), h('small', { class: `credit-status ${p.status}` }, statusLabel(p.status))))) : [h('p', { class: 'hint' }, 'Your purchases will appear here.')];
-      history.replaceChildren(...entries);
+      const { payments, ledger = [] } = await apiCall('/api/payments', { action: 'mine' }, user.uid);
+      const items = [
+        ...payments.map((p) => ({ at: Number(p.createdAt) || 0, node: h('div', { class: 'credit-history-row' },
+          h('div', {}, h('b', {}, p.planName || 'Coins purchase'), h('small', {}, `${stamp(p.createdAt)} · ${p.orderId}`)),
+          h('div', {}, h('b', {}, money(p.amountPaise)), h('small', { class: `credit-status ${p.status}` }, statusLabel(p.status)))) })),
+        ...ledgerRows(ledger).map((r) => ({ at: r.when, node: h('div', { class: 'credit-history-row' },
+          h('div', {}, h('b', {}, r.title), h('small', {}, stamp(r.when))),
+          h('div', {}, h('b', {}, `${r.state === 'added' ? '+' : '−'}${r.coins.toLocaleString('en-IN')} Coins`), h('small', { class: `credit-status ${r.state === 'added' ? 'captured' : 'failed'}` }, r.label))) })),
+      ].sort((a, b) => b.at - a.at);
+      history.replaceChildren(...(items.length ? items.map((i) => i.node) : [h('p', { class: 'hint' }, 'Your purchases and gifts will appear here.')]));
     } catch (e) { history.replaceChildren(h('p', { class: 'hint' }, e.message)); }
   };
   const buy = (plan, button) => async () => {

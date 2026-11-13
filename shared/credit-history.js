@@ -18,3 +18,17 @@ export function historyRows(payments = []) {
 }
 /** the Coins this account has received in total (captured payments only) */
 export const totalAdded = (rows) => rows.filter((r) => r.state === 'added').reduce((sum, r) => sum + r.coins, 0);
+
+/** Coins that were not bought: the welcome gift and changes made by 12toons support. Newest first, same row shape as historyRows. */
+export function ledgerRows(lines = []) {
+  return (Array.isArray(lines) ? lines : []).filter((l) => l && typeof l === 'object' && Number.isFinite(Number(l.delta)) && Number(l.delta) !== 0).map((l) => {
+    const delta = Math.trunc(Number(l.delta)), kind = String(l.kind || '');
+    return {
+      id: '', title: kind === 'signup_bonus' ? 'Welcome gift' : String(l.reason || (delta > 0 ? 'Coins added' : 'Coins removed')).slice(0, 80),
+      when: Number(l.at) || 0, coins: Math.abs(delta), rupees: '', state: delta > 0 ? 'added' : 'removed',
+      label: kind === 'signup_bonus' ? 'Gift' : delta > 0 ? 'Added by 12toons' : 'Removed by 12toons', balance: Number(l.balance),
+    };
+  }).sort((a, b) => b.when - a.when);
+}
+/** purchases and other changes together, newest first */
+export const allRows = (payments, ledger) => [...historyRows(payments), ...ledgerRows(ledger)].sort((a, b) => b.when - a.when);

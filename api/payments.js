@@ -88,8 +88,11 @@ export default async function handler(req, res) {
       return send(res, 200, { ok: true });
     }
     if (b.action === 'mine') {
-      const rows = await db.collection(`workspaces/${who.uid}/creditPayments`).orderBy('createdAt', 'desc').limit(50).get();
-      return send(res, 200, { payments: rows.docs.map((d) => ({ id: d.id, ...d.data() })) });
+      const [rows, lines] = await Promise.all([
+        db.collection(`workspaces/${who.uid}/creditPayments`).orderBy('createdAt', 'desc').limit(50).get(),
+        db.collection(`workspaces/${who.uid}/creditLedger`).orderBy('at', 'desc').limit(50).get(),          // the welcome gift and changes made by support
+      ]);
+      return send(res, 200, { payments: rows.docs.map((d) => ({ id: d.id, ...d.data() })), ledger: lines.docs.map((d) => { const { by, ...line } = d.data(); return { id: d.id, ...line }; }) });
     }
     if (b.action === 'adminUserLookup') {
       if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403);

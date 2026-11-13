@@ -1027,3 +1027,5 @@ body .busy .card{background:transparent !important;border:0 !important;box-shado
 body .busy .bar{background:#ffffff26;box-shadow:0 0 0 1px #ffffff1f}
 :root[data-theme="day"] body .busy{background:#ffffff40}
 :root[data-theme="day"] body .busy .card{color:#1b1c20;text-shadow:0 1px 6px #fffc}
+
+.chw-row.removed .chw-coins{color:#ef8f7a}.chw-status.removed{color:#ef8f7a}
