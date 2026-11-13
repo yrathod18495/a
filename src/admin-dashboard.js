@@ -88,8 +88,10 @@ export function dashboardView({ user, home, toast, openStudio }) {
     function section(title, eyebrow, ...children) {
       return h('section', { class: 'admin-panel-card' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, eyebrow ? h('span', { class: 'admin-eyebrow' }, eyebrow) : null, h('h2', {}, title))), ...children);
     }
-    function service(name, detail, ok) {
-      return h('div', { class: 'admin-service-row' }, h('i', { class: `admin-service-dot ${ok ? 'ok' : 'off'}` }), h('div', {}, h('b', {}, name), h('small', {}, detail)), h('span', { class: `admin-service-state ${ok ? 'ok' : 'off'}` }, ok ? 'Connected' : 'Unavailable'));
+    /** state: 'ok' (set up and working), 'off' (not set up on the server), 'down' (could not be checked) */
+    function service(name, detail, st) {
+      const text = { ok: 'Connected', off: 'Not set up', down: 'Unavailable' }[st];
+      return h('div', { class: 'admin-service-row' }, h('i', { class: `admin-service-dot ${st === 'ok' ? 'ok' : 'off'}` }), h('div', {}, h('b', {}, name), h('small', {}, detail)), h('span', { class: `admin-service-state ${st === 'ok' ? 'ok' : 'off'}` }, text));
     }
     const KIND_TEXT = { devtools: 'Opened developer tools', shortcut: 'Pressed an inspect shortcut', 'view-source': 'Tried to view page source', console: 'Used the console', integrity: 'Tampered with the code' };
     async function acknowledge(id) {
@@ -156,18 +158,19 @@ export function dashboardView({ user, home, toast, openStudio }) {
             const u = userMap.get(s.id) || {};
             return h('article', { class: 'admin-session-row' }, h('span', { class: 'admin-session-avatar' }, (u.name || u.email || s.id || '?').trim()[0]?.toUpperCase() || '?', h('i', { class: 'au-live' })), h('span', { class: 'admin-session-copy' }, h('b', {}, u.name || u.email || s.id), h('small', {}, `${u.email || 'Account'} · Device ${s.deviceId || '—'}`)), h('span', { class: 'admin-seen' }, (() => { const m = Math.round((Date.now() - (s.lastSeen || 0)) / 60000); return m < 2 ? 'Just now' : `${m} min ago`; })()));
           }) : h('p', { class: 'admin-empty' }, state.failures.security ? 'Could not load the account and session data.' : 'Nobody has been active in the last 15 minutes.'))),
-          section('Services', '', h('div', { class: 'admin-service-list' },
-            service('Account security', 'Authenticated admin API', !!state.security),
-            service('Payments', 'Razorpay payment records', !!state.payments),
-            service('Live chat', 'Support conversation inbox', !!state.chats),
-            service('Affiliate program', 'Partner and commission records', !!state.affiliates))),
+          section('Services', '', h('div', { class: 'admin-service-list' }, (() => {
+            const sv = sec?.services, st = (v) => (!sv ? 'down' : v ? 'ok' : 'off');
+            return [
+              service('Database', 'Accounts and sessions', sec ? 'ok' : 'down'),
+              service('Payments', 'Razorpay keys on the server', st(sv?.payments)),
+              service('Payment confirmations', 'Razorpay webhook secret', st(sv?.webhook)),
+              service('File storage', 'Cloudflare R2 for projects and assets', st(sv?.storage)),
+            ];
+          })())),
           section('Today', '', h('div', { class: 'admin-ops-grid' },
-            h('div', {}, h('small', {}, 'Recent sign-ins'), h('b', {}, number((sec?.events || []).filter(e => e.code === 'login').length)), h('span', {}, 'among the latest 8 security events')),
             h('div', {}, h('small', {}, 'Captured orders'), h('b', {}, number(captured.length)), h('span', {}, 'in latest payment report')),
             h('div', {}, h('small', {}, 'Open affiliate requests'), h('b', {}, number(opened)), h('span', {}, `${number(affiliates.length)} partner records`)),
             h('div', {}, h('small', {}, 'Support inbox'), h('b', {}, number(chats.length)), h('span', {}, `${number(unread)} unread conversations`)))),
-          section('Recent activity', '', h('div', { class: 'admin-events-list' }, (sec?.events || []).slice().sort((a, b) => Number(b.at || 0) - Number(a.at || 0)).slice(0, 7).map(e => h('article', { class: 'admin-event-row' }, h('span', { class: 'admin-event-icon' }, ic(e.code === 'device_review' ? 'warning' : 'clock')), h('div', {}, h('b', {}, String(e.code || 'Account activity').replaceAll('_', ' ')), h('small', {}, `${e.email || e.id || 'Account'} · ${dateTime(e.at)}`)), e.deviceId ? h('small', { class: 'admin-event-device' }, `Device ${e.deviceId}`) : null)),
-            !sec?.events?.length ? h('p', { class: 'admin-empty' }, state.failures.security ? 'Security events are not available right now.' : 'No recent security events.') : null)),
         ),
       );
     }

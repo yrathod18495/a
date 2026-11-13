@@ -52,3 +52,4 @@
 .admin-console-host .admin-assets-empty span:empty{display:none}
 .admin-console-host .admin-back{display:none!important}
 .ad-eye{font-size:11px!important;font-weight:700;padding:4px 9px!important;color:var(--mute)}
+.admin-ops-grid>:last-child:nth-child(odd){grid-column:1/-1}

@@ -3,6 +3,8 @@ import { services } from '../server/firebase-admin.js';
 import { maintenanceOn, setMaintenance, getFeatures, setFeature } from '../server/maintenance.js';
 import { notifyNewUser } from '../server/telegram.js';
 import { grantSignupBonus } from '../server/signup-bonus.js';
+import { configured as r2Configured } from '../server/r2-storage.js';
+import { paymentConfigReady } from '../server/credit-payments.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
 import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
@@ -105,17 +107,17 @@ export default async function handler(req, res) {
     if (b.action === 'summary') {
       // the admin Overview: a few cheap reads (counts and the newest rows), never the whole user list
       const since = now - 15 * 60 * 1000;
-      const [total, online, recent, events] = await Promise.all([
+      const [total, online, recent] = await Promise.all([
         db.collection('securityUsers').count().get(),
         db.collection('securitySessions').where('lastSeen', '>', since).count().get(),
         db.collection('securitySessions').orderBy('lastSeen', 'desc').limit(8).get(),
-        db.collection('securityEvents').orderBy('at', 'desc').limit(8).get(),
       ]);
       const ids = recent.docs.map(d => d.id), people = ids.length ? await db.getAll(...ids.map(id => db.doc('securityUsers/' + id))) : [];
       return send(res, 200, {
         totalUsers: total.data().count, onlineNow: online.data().count,
         sessions: recent.docs.map((d, i) => { const { secretHash, ...v } = d.data(); return { id: d.id, ...v, name: people[i].data()?.name || '', email: people[i].data()?.email || '' }; }),
-        events: events.docs.map(d => ({ id: d.id, ...d.data() })),
+        // what is really set up on the server (only yes / no, never a key)
+        services: { payments: paymentConfigReady(), webhook: !!process.env.RAZORPAY_WEBHOOK_SECRET, storage: r2Configured() },
       });
     }
     if (b.action === 'userSearch') {
