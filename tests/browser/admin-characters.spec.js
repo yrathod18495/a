@@ -69,16 +69,17 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   const rec = server.commits.at(-1);
   expect(Object.keys(rec.character.views)).toEqual(['f34', 'fr', 'sd', 'bk']);
   expect(Object.values(rec.category.views).reduce((n, v) => n + v.animations.length, 0)).toBe(88);
-  expect(Object.values(rec.category.views).every((v) => v.animations.every((a) => a.file?.db && a.gif === null))).toBe(true);     // animations in the database, shared by the category
+  expect(Object.values(rec.category.views).every((v) => v.animations.every((a) => (a.file?.db || a.file?.r2) && a.gif === null))).toBe(true);     // animations (small ones in the database, bigger ones in R2), shared by the category
   expect(Object.values(rec.character.views).every((v) => Object.keys(v.gifs).length === rec.category.views[Object.keys(rec.character.views).find((k) => rec.character.views[k] === v)].animations.length && Object.values(v.gifs).every((g) => g.r2))).toBe(true);   // every GIF is the character's own, in R2
-  expect(Object.values(rec.character.views).every((v) => v.skeleton.db && v.textures.every((t) => t.json.db && t.page.r2))).toBe(true);
+  expect(Object.values(rec.character.views).every((v) => (v.skeleton.db || v.skeleton.r2) && v.textures.every((t) => (t.json.db || t.json.r2) && t.page.r2))).toBe(true);
   expect(rec.character.thumb.r2).toBeTruthy();
   expect(Object.values(rec.character.views).every((v) => v.thumb?.r2)).toBe(true);                        // every view has its own picture
   expect(new Set(Object.values(rec.character.views).map((v) => v.thumb.r2)).size).toBe(4);               // and they are four different pictures
-  expect(server.puts).toBe(4 + 88 + 4);                       // 4 texture pages + 88 GIFs + 4 view pictures (the character's own picture is the 3/4 one) went to R2
-  // 4 skeletons + 4 atlas files + 88 animations went to the database; a file that is exactly the same in two views is stored once
-  const dbFiles = new Set([...Object.values(rec.character.views).flatMap((v) => [v.skeleton.db, ...v.textures.map((t) => t.json.db)]), ...Object.values(rec.category.views).flatMap((v) => v.animations.map((a) => a.file.db))]);
-  expect(server.putFiles).toBe(dbFiles.size); expect(dbFiles.size).toBeGreaterThan(80); expect(dbFiles.size).toBeLessThanOrEqual(96);
+  // every file is stored once, where its size says: JSON up to 16 KB in the database, pictures and bigger files in R2
+  const refs = (o, out = { db: new Set(), r2: new Set() }) => { if (o && typeof o === 'object') { if (typeof o.db === 'string') out.db.add(o.db); if (typeof o.r2 === 'string') out.r2.add(o.r2); for (const v of Object.values(o)) refs(v, out); } return out; };
+  const stored = refs({ c: rec.character, g: rec.category });
+  expect(server.puts).toBe(stored.r2.size); expect(server.putFiles).toBe(stored.db.size);
+  expect(stored.r2.size).toBeGreaterThanOrEqual(4 + 88 + 4);          // at least: 4 texture pages + 88 previews + 4 view pictures
   const gif = server.r2.get(rec.character.views.f34.gifs[rec.category.views.f34.animations[1].name].r2);
   expect(gif.subarray(4, 8).toString()).toBe('ftyp'); expect(gif.length).toBeLessThan(60 * 1024);                    // a tiny MP4 video (a GIF of the same picture is more than ten times bigger)
   expect(Object.values(rec.character.views).every((v) => v.previewType === 'mp4')).toBe(true);

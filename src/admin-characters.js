@@ -104,8 +104,8 @@ export async function charactersView({ back, home, toast }) {
   const root = h('div', { class: 'sh admin-characters' });
   const content = h('main', { class: 'admin-characters-main' });
   const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '480', name: '', group: 'male' };
-  const stage = new Stage({ maxTex: 4096 }); stage.setSize('1:1', PREVIEW); stage.fullView = false;
-  let raf = 0, last = 0, loadJob = 0;
+  const stage = new Stage({ maxTex: 2048 }); stage.setSize('1:1', PREVIEW); stage.fullView = false;          // the preview is small: 2048 px pages use a quarter of the GPU memory of 4096 px pages
+  let raf = 0, last = 0, loadJob = 0, lastDraw = 0, dirty = true, drawError = '';
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
   root.dispose = () => { stop(); for (const id of [...stage.assets.keys()]) stage.unload(id); };
 
@@ -137,27 +137,34 @@ export async function charactersView({ back, home, toast }) {
   async function show() {
     const job = ++loadJob, { v, a } = current();
     if (!v) return;
+    drawInfo(); drawError = '';                               // Prev / Next answer at once; the picture follows as soon as the animation is ready
     try {
+      for (const [id, other] of st.defs) if (id !== v.id) { stage.unload(other.id); st.defs.delete(id); }          // only the view on screen stays on the GPU (a character can have 4 big pictures per view)
       let def = st.defs.get(v.id);
-      if (!def) { def = await viewDef(st.pkg, v); st.defs.set(v.id, def); await stage.loadCharacter(def); }
+      if (!def) { def = await viewDef(st.pkg, v); if (job !== loadJob) return; st.defs.set(v.id, def); await stage.loadCharacter(def); }
+      if (job !== loadJob) return;
       const key = `${v.id}/${a?.name}`;
       if (a && !st.anims.has(key)) st.anims.set(key, await animOf(st.pkg, a));
       if (job !== loadJob) return;
       stage.setLayers([layerFor(def, a?.name, a ? st.anims.get(key) : null, a?.length || 1)]);
-      st.time = 0; drawInfo();
+      st.time = 0; dirty = true; drawInfo();
       if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
     } catch (e) { status.textContent = `This animation could not be shown: ${friendlyError(e)}`; }
   }
   function tick(now) {
     if (!root.isConnected) { stop(); return; }                  // another admin section was opened: stop drawing
+    raf = requestAnimationFrame(tick);
+    if (!st.playing && !dirty) { last = now; return; }          // paused and nothing changed: the GPU rests
+    if (now - lastDraw < 30) return;                            // about 30 pictures a second are plenty for a preview
+    lastDraw = now;
     const { a } = current(), dt = Math.min(0.1, (now - last) / 1000); last = now;
     if (st.playing && a) st.time = (st.time + dt) % a.length;
-    try { stage.render(st.time, st.playing ? dt : 0, [], []); } catch { /* the next frame tries again */ }
-    raf = requestAnimationFrame(tick);
+    try { stage.render(st.time, st.playing ? dt : 0, [], []); dirty = false; }
+    catch (e) { dirty = false; const key = `${st.view}/${st.index}`; if (drawError !== key) { drawError = key; status.textContent = `This animation could not be drawn: ${friendlyError(e)}`; } }
   }
-  const step = (d) => { const n = current().v?.animations.length || 0; if (!n) return; st.index = (st.index + d + n) % n; show(); };
+  const step = (d) => { const n = current().v?.animations.length || 0; if (!n) return; st.index = (st.index + d + n) % n; drawInfo(); show(); };
   const info = h('div', { class: 'admin-characters-anim', 'aria-live': 'polite' });
-  const playBtn = h('button', { class: 'btn', type: 'button', onclick: () => { st.playing = !st.playing; drawInfo(); } });
+  const playBtn = h('button', { class: 'btn', type: 'button', onclick: () => { st.playing = !st.playing; dirty = true; last = performance.now(); drawInfo(); } });
   function drawInfo() {
     const { v, a } = current();
     playBtn.textContent = st.playing ? '❚❚ Pause' : '▶ Play';
@@ -167,7 +174,7 @@ export async function charactersView({ back, home, toast }) {
   async function done() {
     const pkg = st.pkg; if (!pkg || pkg.errors.length || st.busy) return;
     const replacing = st.list.some((c) => c.id === pkg.manifest.character.id);
-    if (replacing && !confirm(`A character called "${pkg.manifest.character.id}" already exists. Replace it with this ZIP?`)) return;
+    if (replacing && !(await confirmBox({ title: 'Replace this character?', text: `A character called "${pkg.manifest.character.id}" already exists. Done will replace it with this ZIP; its old files are removed.`, confirm: 'Replace' }))) return;
     st.busy = true; stop(); draw();
     const say = (text, value) => { status.textContent = text; bar.hidden = false; if (value != null) bar.value = value; };
     try {
