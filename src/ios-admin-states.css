@@ -1,0 +1,22 @@
+/* Admin account dialog: button states (normal, hover, pressed, focus, busy, done/active, disabled), inline messages and the in-page confirm. */
+:root[data-theme] body .au-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 18px;border-radius:14px;font-weight:700;cursor:pointer;transition:transform .12s ease,opacity .15s ease,background-color .15s ease,box-shadow .15s ease}
+:root[data-theme] body .au-btn:hover:not([disabled]){filter:brightness(1.06)}
+:root[data-theme] body .au-btn:active:not([disabled]){transform:scale(.97)}
+:root[data-theme] body .au-btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+:root[data-theme] body .au-btn[disabled],:root[data-theme] body .au-btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed;filter:none;transform:none}
+:root[data-theme] body .au-btn.on{opacity:1;border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc);color:var(--acc);cursor:default}
+:root[data-theme] body .au-btn.au-save.ready{background:var(--acc) !important;color:#fff !important;border-color:transparent !important}
+:root[data-theme] body .au-btn.is-busy{pointer-events:none;color:transparent !important}
+:root[data-theme] body .au-btn.is-busy .au-btn-text{opacity:0}
+:root[data-theme] body .au-btn.is-busy::after{content:"";position:absolute;width:18px;height:18px;border:2px solid #ffffffcc;border-right-color:transparent;border-radius:50%;animation:auSpin .7s linear infinite}
+@keyframes auSpin{to{transform:rotate(360deg)}}
+.au-flash{margin:0;padding:10px 14px;border-radius:12px;font-size:13px;font-weight:600;animation:iosFade .2s ease both}
+.au-flash.ok{background:#1f9d6226;color:#4ade80;border:1px solid #1f9d6255}
+.au-flash.bad{background:#c0283d26;color:#ff8a98;border:1px solid #c0283d66}
+:root[data-theme="day"] .au-flash.ok{color:#17784a}:root[data-theme="day"] .au-flash.bad{color:#a11d2f}
+.au-confirm-title{margin:0;font-size:18px}
+.au-confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.au-seg button[disabled]{opacity:.45;cursor:not-allowed}
+.au-seg button{transition:background-color .15s ease,color .15s ease,transform .12s ease}.au-seg button:active:not([disabled]){transform:scale(.97)}
+.au-current.mine{border-color:var(--line);background:var(--card2)}
+@media(prefers-reduced-motion:reduce){.au-btn,.au-seg button{transition:none}.au-btn.is-busy::after{animation-duration:1.6s}}
