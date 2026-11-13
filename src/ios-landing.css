@@ -54,8 +54,8 @@
 /* Phone layout: 16px gutters, full-width primary actions, no horizontal scroll. */
 @media (max-width:760px){
   :root[data-theme] body .lp .lp-hero{padding-inline:16px}
-  /* keep the headline and copy clear of the shortcut strip on the right */
-  :root[data-theme] body .lp .lp-hero-copy{padding-right:56px}
+  /* the hero uses the whole width: the shortcut strip is a small menu button that opens on tap (see the end of this file) */
+  :root[data-theme] body .lp .lp-hero-copy{padding-right:0}
   :root[data-theme] body .lp .lp-header{gap:8px}
   :root[data-theme] body .lp .lp-brand-crest{flex:1 1 auto;min-width:0;text-align:center}
   :root[data-theme] body .lp .lp-header-right{flex:none;display:flex;align-items:center;gap:8px}
@@ -78,4 +78,9 @@
 @media (prefers-reduced-motion:reduce){
   :root[data-theme] body .lp .lp-button,:root[data-theme] body .lp .lp-button:active,:root[data-theme] body .lp .lp-button-primary:hover{transition:none;transform:none}
   :root[data-theme] body .lp .lp-hero-logo{animation:none}
+}
+
+/* Phone: the header already has a menu button, so the floating shortcut strip is not shown (it only took a column from the hero). */
+@media (max-width:760px){
+  :root[data-theme] body .lp .lp-dock{display:none}
 }
