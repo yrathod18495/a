@@ -125,7 +125,7 @@ function reloadForNewVersion(e) {
     if (Date.now() - last < 30000) return false;
     sessionStorage.setItem('chunk-reload-at', String(Date.now()));
   } catch { return false; }
-  location.reload();
+  location.replace(location.pathname + '?v=' + Date.now() + location.hash);          // a fresh fetch of the page: a plain reload can be answered from the old cached copy
   return true;
 }
 window.addEventListener('vite:preloadError', e => { if (reloadForNewVersion(new Error('dynamically imported module'))) e.preventDefault(); });
@@ -216,7 +216,14 @@ async function renderRoute() {
     const m = await import('./bg-generator.js'); $app.hidden = true; $shell.hidden = false; $shell.replaceChildren(await m.view({ user, home: () => go('#/hub'), toast })); return;
   }
   if (hash === '#/admin') {
-    if (!(await isAdmin(user))) { toast('The admin panel is for admins only.'); go('#/hub'); return; }
+    // an account already known as admin opens the panel at once (every admin API call is checked on the server anyway); otherwise the server is asked,
+    // and "could not ask" is never turned into "not an admin"
+    if (role !== 'admin') {
+      const live = await isAdmin(user);
+      if (live === null) { toast('Your access could not be checked. Please check your internet and try again.'); go('#/hub'); return; }
+      if (!live) { toast('The admin panel is for admins only.'); go('#/hub'); return; }
+      role = 'admin';
+    }
     const m = await import('./admin.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/hub'), toast })); return;
   }
   if (hash === '#/characters') { const m = await import('./charstudio.js'); $shell.replaceChildren(await m.view({ user, home: () => go('#/characters'), toast })); return; }
@@ -474,6 +481,7 @@ function guardSession(u) {
 
 /* ---------------- start ---------------- */
 async function start() {
+  window.__12toonsBooted = true;          // the page's own watchdog (index.html) stops waiting once the app code is running
   startRoute('boot', { quiet: true });
   // every page header gets the Coin balance; headers are drawn by many views, so new ones are picked up as they appear
   let badgeTimer = 0;

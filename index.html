@@ -87,6 +87,23 @@
 </section><footer><p>© 2026 <a href="/#/">12toons</a>. All rights reserved.</p></footer>
 </main></div>
 <div id="app" hidden></div>
+<script>
+/* Last line of defence against a page kept by an old cache: if a script or style sheet of this build fails to load, or the app has not
+   started 15 s after the page opened, the page is fetched again with a one-time query string, which no cache can answer from an old copy. */
+(function () {
+  var fresh = function () { try { if (sessionStorage.getItem('12toons-refetched')) return false; sessionStorage.setItem('12toons-refetched', '1'); } catch (e) {} location.replace(location.pathname + '?v=' + Date.now() + location.hash); return true; };
+  window.addEventListener('error', function (e) { var t = e.target; if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && /\/assets\//.test(t.src || t.href || '')) fresh(); }, true);
+  setTimeout(function () {
+    if (window.__12toonsBooted) return;
+    if (fresh()) return;
+    var box = document.createElement('div');
+    box.setAttribute('style', 'position:fixed;inset:0;display:grid;place-items:center;background:#16171a;color:#edeefb;font:15px/1.5 system-ui,sans-serif;text-align:center;padding:24px;z-index:99999');
+    box.innerHTML = '<div><p style="margin:0 0 14px">12toons could not start on this page.</p><button type="button" style="padding:12px 22px;border:0;border-radius:12px;background:#8b7bff;color:#fff;font:inherit;font-weight:700">Reload</button></div>';
+    box.querySelector('button').onclick = function () { try { sessionStorage.removeItem('12toons-refetched'); } catch (e) {} location.replace(location.pathname + '?v=' + Date.now() + location.hash); };
+    document.body.appendChild(box);
+  }, 15000);
+})();
+</script>
 <script type="module" src="/src/shell.js"></script>
 </body>
 </html>
