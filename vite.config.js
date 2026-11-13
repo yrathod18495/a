@@ -1,1 +1,1 @@
-export default { base: './', build: { target: 'es2020', chunkSizeWarningLimit: 2000 } };
+export default { base: '/', build: { target: 'es2020', chunkSizeWarningLimit: 2000 } };

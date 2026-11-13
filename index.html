@@ -93,6 +93,7 @@
 (function () {
   var fresh = function () { try { if (sessionStorage.getItem('12toons-refetched')) return false; sessionStorage.setItem('12toons-refetched', '1'); } catch (e) {} location.replace(location.pathname + '?v=' + Date.now() + location.hash); return true; };
   window.addEventListener('error', function (e) { var t = e.target; if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && /\/assets\//.test(t.src || t.href || '')) fresh(); }, true);
+  setTimeout(function () { var l = document.querySelector('link[rel=stylesheet]'); if (l && !l.sheet) fresh(); }, 6000);          // the style sheet did not load: the page would show as plain unstyled text
   setTimeout(function () {
     if (window.__12toonsBooted) return;
     if (fresh()) return;
