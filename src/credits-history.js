@@ -4,7 +4,10 @@ import { apiCall } from './session.js';
 import { goldCoin } from './coin.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { allRows, totalAdded } from '../shared/credit-history.js';
+import { openCreditPlans } from './credits-plans.js';
 
+import { auth } from './firebase.js';
+const currentUser = () => ({ displayName: auth.currentUser?.displayName || '', email: auth.currentUser?.email || '' });
 const when = (ms) => ms ? new Date(ms).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
 const coins = (n) => Number(n || 0).toLocaleString('en-IN');
 
@@ -19,7 +22,7 @@ export function openCreditHistory({ uid, balance = null, onBalance = () => {} })
     h('header', { class: 'chw-head' }, h('h2', { id: 'chw-title' }, 'Your Coins'), h('button', { type: 'button', class: 'chw-close', 'aria-label': 'Close', onclick: close }, '✕')),
     h('section', { class: 'chw-summary' }, h('span', { class: 'chw-label' }, 'Current balance'), h('div', { class: 'chw-figure' }, goldCoin(30), total)),
     h('h3', { class: 'chw-sub' }, 'History'), body,
-    h('footer', { class: 'chw-foot' }, h('a', { class: 'btn pri', href: '#/credits', onclick: () => close() }, 'Buy more Coins'), h('button', { type: 'button', class: 'btn', onclick: close }, 'Close')));
+    h('footer', { class: 'chw-foot' }, h('button', { type: 'button', class: 'btn pri', onclick: () => { close(); openCreditPlans({ user: { uid, ...currentUser() }, onBalance }); } }, 'Buy more Coins'), h('button', { type: 'button', class: 'btn', onclick: close }, 'Close')));
   dialog.addEventListener('close', () => dialog.remove());
   dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });                 // a click on the dark area around the window
   document.body.append(dialog);

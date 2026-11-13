@@ -5,21 +5,11 @@ import { apiCall } from './session.js';
 import { goldCoin, coinAmount, coinText, COIN_NAME } from './coin.js';
 import { CREDIT_PLANS, publicPlan } from '../shared/credit-plans.js';
 import { setCoinBalance } from './credits-badge.js';
+import { startCheckout } from './credits-checkout.js';
 
 const money = (paise) => `₹${Math.round(Number(paise || 0) / 100).toLocaleString('en-IN')}`;
 const stamp = (ms) => ms ? new Date(ms).toLocaleString() : '—';
 const statusLabel = (s) => ({ created: 'Awaiting payment', authorized: 'Authorized', captured: 'Paid', failed: 'Failed', cancelled: 'Cancelled', pending: 'Pending' }[s] || s || 'Unknown');
-
-let checkoutScript;
-function loadCheckout() {
-  if (window.Razorpay) return Promise.resolve();
-  return checkoutScript ||= new Promise((resolve, reject) => {
-    const script = document.createElement('script'); script.src = 'https://checkout.razorpay.com/v1/checkout.js'; script.async = true;
-    script.onload = () => window.Razorpay ? resolve() : reject(new Error('The Razorpay checkout did not load.'));
-    script.onerror = () => reject(new Error('Could not load the Razorpay checkout. Check your internet and try again.'));
-    document.head.append(script);
-  });
-}
 
 export async function view({ user, home }) {
   const root = h('div', { class: 'sh credits-page' });
@@ -63,37 +53,12 @@ export async function view({ user, home }) {
     } catch (e) { history.replaceChildren(h('p', { class: 'hint' }, e.message)); }
   };
   const buy = (plan, button) => async () => {
-    button.disabled = true; message.textContent = 'Creating secure payment order…'; message.className = 'credit-message';
+    button.disabled = true;
     try {
-      await loadCheckout();
-      const order = await apiCall('/api/payments', { action: 'createOrder', planId: plan.id, ...(promo ? { promoCode: promo } : {}) }, user.uid);
-      let finished = false;
-      const options = {
-        key: order.keyId, amount: order.amountPaise, currency: order.currency, name: '12toons',
-        description: `${coinText(plan.credits)} · ${plan.name} plan`, order_id: order.orderId,
-        prefill: { name: user.displayName || '', email: user.email || '' }, theme: { color: '#7c6cf5' },
-        handler: async (response) => {
-          finished = true; message.textContent = 'Verifying payment…';
-          try {
-            const result = await apiCall('/api/payments', { action: 'verify', orderId: response.razorpay_order_id, paymentId: response.razorpay_payment_id, signature: response.razorpay_signature }, user.uid);
-            if (result.status === 'captured') {
-              balance.replaceChildren(coinAmount(result.balance, { size: 26 }));
-              setCoinBalance(result.balance);
-              message.textContent = result.credited ? `${coinText(plan.credits)} added to your account.` : 'Payment is already recorded in your account.';
-              message.className = 'credit-message success'; toast(message.textContent);
-            } else message.textContent = result.message || 'Payment is waiting for confirmation.';
-            await refreshHistory();
-          } catch (e) { message.textContent = `The payment was submitted, but confirmation did not complete: ${friendlyError(e)}. Your order will remain in the payment history.`; message.className = 'credit-message error'; await refreshHistory(); }
-        },
-        modal: { ondismiss: () => { if (!finished) apiCall('/api/payments', { action: 'cancel', orderId: order.orderId }, user.uid).then(refreshHistory).catch(() => {}); } },
-      };
-      const checkout = new window.Razorpay(options);
-      checkout.on('payment.failed', (event) => {
-        finished = true; const error = event.error || {};
-        apiCall('/api/payments', { action: 'failed', orderId: order.orderId, code: error.code, description: error.description }, user.uid).catch(() => {});
-        message.textContent = error.description || 'The payment could not be completed. You can try again.'; message.className = 'credit-message error'; refreshHistory();
-      });
-      checkout.open(); message.textContent = '';
+      await startCheckout({ user, plan, promo,
+        onMessage: (text, kind) => { message.textContent = text; message.className = `credit-message${kind ? ' ' + kind : ''}`; },
+        onPaid: (result) => { balance.replaceChildren(coinAmount(result.balance, { size: 26 })); setCoinBalance(result.balance); toast(message.textContent); },
+        onSettled: refreshHistory });
     } catch (e) { message.textContent = e.message; message.className = 'credit-message error'; }
     finally { button.disabled = false; }
   };

@@ -31,7 +31,7 @@ test('every page header shows the Coin balance with a coin, once per header', as
   expect(errors).toEqual([]);
 });
 
-test('tapping the balance opens a window with the Coin history, newest first, and "Buy more Coins" goes to the Coins page', async ({ page }) => {
+test('tapping the balance opens a window with the Coin history, newest first, and "Buy more Coins" opens the plans window', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await open(page, '#/hub');
   await expect(page.locator('#shell .credit-badge')).toContainText('1,500');
@@ -46,10 +46,18 @@ test('tapping the balance opens a window with the Coin history, newest first, an
   await expect(win.locator('.chw-row.failed')).toContainText('Failed');
   await expect(win.locator('.chw-note')).toContainText('10,500 Coins received in total');         // the failed payment is not counted
   await expect(win.locator('.chw-row').first()).toContainText('order_B2');
-  // the buy button closes the window and opens the Coins page
-  await win.getByRole('link', { name: 'Buy more Coins' }).click();
+  // the buy button opens the plans in a window right here (no page change), and a plan can be bought from it
+  await page.route('**/api/payments', (r) => { const b = r.request().postDataJSON(); return r.fulfill({ json: b.action === 'catalog' ? { configured: true, credits: 1500, plans: [] } : { credits: 1500 } }); });
+  await win.getByRole('button', { name: 'Buy more Coins' }).click();
   await expect(win).toHaveCount(0);
-  await expect(page).toHaveURL(/#\/credits$/);
+  const plans = page.locator('dialog.credit-plans-window');
+  await expect(plans).toBeVisible();
+  await expect(page).toHaveURL(/#\/hub$/);
+  await expect(plans.locator('.cpw-plan')).toHaveCount(3);
+  await expect(plans.locator('.cpw-buy').first()).toBeEnabled();
+  await expect(plans.locator('.cpw-plan.popular')).toHaveCount(1);
+  await plans.locator('.chw-foot').getByRole('button', { name: 'Close' }).click();
+  await expect(plans).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
