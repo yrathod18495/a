@@ -25,10 +25,10 @@ test('expanded FAQ and complete legal pages are linked and render by direct URL'
  await expect(page.locator('.lp-hero img,video')).toHaveCount(1);   // the export medallion picture became a drawn gold coin
  await page.getByRole('link',{name:'Terms of Use'}).click();
  await expect(page.getByRole('heading',{name:'Terms of Use'})).toBeVisible();
- await expect(page.getByRole('heading',{name:'4. Your projects and uploaded material'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Your projects and uploaded material'})).toBeVisible();
  await page.getByRole('link',{name:'Website Licence'}).first().click();
  await expect(page.getByRole('heading',{name:'Website Licence'})).toBeVisible();
- await expect(page.getByRole('heading',{name:'6. Third-party software and services'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Third-party software and services'})).toBeVisible();
  await page.goto('/website-license');
  await expect(page).toHaveURL(/#\/website-license$/);
  await expect(page.getByRole('heading',{name:'Website Licence'})).toBeVisible();
