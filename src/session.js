@@ -60,8 +60,9 @@ async function watchSignal() {
     });
   } catch { /* the regular check still finds out */ }
 }
-export async function validateSession() {
-  const result = navigator.onLine ? await apiCall('/api/security', { action: 'heartbeat' }) : {offline:true};
+/** checks the session with the server and starts the keep-alive. `action: 'boot'` also returns the role, maintenance state and tool switches in the same request. */
+export async function validateSession(action = 'heartbeat') {
+  const result = navigator.onLine ? await apiCall('/api/security', { action }) : {offline:true};
   if(!result.offline&&auth.currentUser)localStorage.setItem('12toons-validated-'+auth.currentUser.uid,'true');
   clearInterval(heartbeat);
   watchSignal();

@@ -2,15 +2,27 @@ import { randomUUID, createHash } from 'node:crypto';
 import { services } from '../server/firebase-admin.js';
 import { maintenanceOn, setMaintenance, getFeatures, setFeature } from '../server/maintenance.js';
 import { notifyNewUser } from '../server/telegram.js';
+import { inBackground } from '../server/background.js';
 import { grantSignupBonus } from '../server/signup-bonus.js';
-import { configured as r2Configured } from '../server/r2-storage.js';
-import { paymentConfigReady } from '../server/credit-payments.js';
 import { identity, access, bodyOf, send, failure } from '../server/access.js';
 import { NEVER_EXPIRES, needsExpiryUpgrade, AccessError, checkAccount, checkSession, checkAcquisition } from '../server/security-policy.js';
 import { cleanReport, recordTamper, listAlerts, acknowledgeAlerts, notifyAdmins } from '../server/tamper-alerts.js';
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(value);
 const hash = value => createHash('sha256').update(value).digest('hex');
 const HEARTBEAT_WRITE_MS = 9 * 60 * 1000;
+/** which services are set up on the server (yes / no only). These two modules are big (the S3 library), so they are loaded only when the admin Overview asks:
+ *  this file also answers every page load (boot, maintenance, heartbeat) and must start fast on a cold serverless instance. */
+async function serviceStatus() {
+  const [{ configured }, { paymentConfigReady }] = await Promise.all([import('../server/r2-storage.js'), import('../server/credit-payments.js')]);
+  return { payments: paymentConfigReady(), webhook: !!process.env.RAZORPAY_WEBHOOK_SECRET, storage: configured() };
+}
+/** the session's "last seen" (at most one write every ~9 minutes) and the one-time upgrade of an old session */
+async function touchSession(db, who, now) {
+  const update = {};
+  if (needsExpiryUpgrade(who.session)) update.expiresAt = NEVER_EXPIRES;
+  if (!who.session?.lastSeen || now - who.session.lastSeen >= HEARTBEAT_WRITE_MS) update.lastSeen = now;
+  if (Object.keys(update).length) await db.doc('securitySessions/' + who.uid).update(update);
+}
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'This request is not valid. Please reload the page and try again.' });
   try {
@@ -63,7 +75,7 @@ export default async function handler(req, res) {
       });
       if (result.denied) throw new AccessError(result.denied.code, result.denied.message, result.denied.status);
       // the very first sign-in of an account is a sign-up: tell the owner on Telegram
-      if (result.isNew) await notifyNewUser({ name: claims.name, email: claims.email });
+      if (result.isNew) await inBackground(notifyNewUser({ name: claims.name, email: claims.email }));          // the owner's Telegram note must not hold the sign-in up
       // the welcome Coins: once per account, once per browser installation, verified email only (server/signup-bonus.js)
       if (result.isNew) await grantSignupBonus(db, { uid, email: claims.email, emailVerified: claims.email_verified === true, deviceId: b.deviceId });
       // persisted on the account (not just this token) so the sid claim survives the hourly ID-token refresh instead of forcing a fresh Google sign-in every time it rolls
@@ -73,6 +85,13 @@ export default async function handler(req, res) {
     }
     const who = await access(req, { light: b.action === 'heartbeat', fresh: b.action === 'logout', admin: ['overview', 'summary', 'userSearch', 'moderate', 'deviceDecision', 'assignRole', 'tamperAlerts', 'tamperAck'].includes(b.action) });
     if (b.action === 'status') return send(res, 200, { admin: who.admin });
+    if (b.action === 'boot') {
+      // everything a page load needs in ONE request: the session check (done above), the role, the maintenance state and the tool switches.
+      // The page opens without waiting for this answer and applies it when it arrives.
+      await touchSession(db, who, now);
+      const [maintenance, features] = await Promise.all([maintenanceOn(db), getFeatures(db)]);
+      return send(res, 200, { ok: true, admin: who.admin, maintenance, features });
+    }
     if (b.action === 'getMaintenance') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); return send(res, 200, { maintenance: await maintenanceOn(db), features: await getFeatures(db) }); }
     if (b.action === 'setFeature') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); try { return send(res, 200, { features: await setFeature(db, String(b.feature || ''), b.enabled === true, who.uid) }); } catch (e) { if (e.code === 'invalid_feature') throw new AccessError('invalid_feature', 'This option is not valid.', 400); throw e; } }
     if (b.action === 'setMaintenance') { if (!who.admin) throw new AccessError('admin_required', 'Only an admin can do this.', 403); return send(res, 200, { maintenance: await setMaintenance(db, b.enabled === true, who.uid) }); }
@@ -88,10 +107,7 @@ export default async function handler(req, res) {
     if (b.action === 'heartbeat') {
       // Sessions do not expire; the check above already rejects a revoked or replaced one. A session started before that change is upgraded once so the Firestore rules keep accepting it.
       // The heartbeat also records when the user was last active (at most one write every ~10 minutes), so the admin list can tell an online user from one who left days ago.
-      const update = {};
-      if (needsExpiryUpgrade(who.session)) update.expiresAt = NEVER_EXPIRES;
-      if (!who.session?.lastSeen || now - who.session.lastSeen >= HEARTBEAT_WRITE_MS) update.lastSeen = now;
-      if (Object.keys(update).length) await db.doc('securitySessions/' + who.uid).update(update);
+      await touchSession(db, who, now);
       return send(res, 200, { ok: true });
     }
     if (b.action === 'logout') {
@@ -117,7 +133,7 @@ export default async function handler(req, res) {
         totalUsers: total.data().count, onlineNow: online.data().count,
         sessions: recent.docs.map((d, i) => { const { secretHash, ...v } = d.data(); return { id: d.id, ...v, name: people[i].data()?.name || '', email: people[i].data()?.email || '' }; }),
         // what is really set up on the server (only yes / no, never a key)
-        services: { payments: paymentConfigReady(), webhook: !!process.env.RAZORPAY_WEBHOOK_SECRET, storage: r2Configured() },
+        services: await serviceStatus(),
       });
     }
     if (b.action === 'userSearch') {

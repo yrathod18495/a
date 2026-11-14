@@ -24,6 +24,7 @@ import { syncAll, syncProject } from './project-sync.js';
 import { apiCall } from './session.js';
 import { createShield } from './shield.js';
 import { icon as svgIcon } from './icons.js';
+import { startingState, saveBoot, bootChanged, fromServer } from './boot-cache.js';
 
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
@@ -40,7 +41,7 @@ const $shell = document.getElementById('shell'), $app = document.getElementById(
 let features = { animator: true, character: true, background: true };
 const applyFeatures = (r) => { if (r?.features) features = { animator: r.features.animator !== false, character: r.features.character !== false, background: r.features.background !== false }; };
 const featureOn = (hash) => role === 'admin' || (hash === '#/toons' ? features.animator : hash === '#/characters' ? features.character : hash === '#/background-generator' ? features.background : true);
-let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = true; 
+let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = false; 
 let loadedAnimationProject=null;
 
 function readTheme() { try { return localStorage.getItem('12toons-theme') === 'day' ? 'day' : 'night'; } catch { return 'night'; } }
@@ -112,7 +113,7 @@ function route() {
     if (e?.code === 'route_timeout' && reloadForNewVersion(Error('dynamically imported module'))) return;   // a hang this long is almost always a stale chunk after a redeploy
     console.error('Could not open the page', e?.stack || e);
     toast(`Could not open the page: ${e.message}`);
-  }).finally(() => { doneRoute(key); if (ready) doneRoute('boot'); });
+  }).finally(() => { doneRoute(key); if (ready) { doneRoute('boot'); trace('page opened'); } });
   routing = next;
   return next;
 }
@@ -413,12 +414,16 @@ function adminRetryView() {
 /* ---------------- hub ---------------- */
 function hubView() {
   const name = (user.displayName || 'Creator').split(' ')[0];
-  const cloudLine = h('p', { class: 'sh-cloud' }, 'Checking cloud…');
-  r2Configured().then(async (ok) => {
-    if (!ok) { cloudLine.textContent = 'Your work is saved on this device.'; return; }
-    const info = await cloudInfo();
-    cloudLine.textContent = info ? `Last cloud save: ${new Date(info.updatedAt).toLocaleString()}` : 'Projects save automatically while you edit.';
-  }).catch(() => { cloudLine.textContent = ''; });
+  // the cloud line is remembered for 10 minutes: opening the dashboard does not ask the server twice (storage status + project list) every time
+  const CLOUD_KEY = `toons-cloudline-${user.uid}`;
+  let remembered = null; try { remembered = JSON.parse(localStorage.getItem(CLOUD_KEY) || 'null'); } catch { /* none */ }
+  const cloudLine = h('p', { class: 'sh-cloud' }, remembered?.text || 'Checking cloud…');
+  if (!remembered || Date.now() - remembered.at > 10 * 60 * 1000) r2Configured().then(async (ok) => {
+    let text = 'Your work is saved on this device.';
+    if (ok) { const info = await cloudInfo(); text = info ? `Last cloud save: ${new Date(info.updatedAt).toLocaleString()}` : 'Projects save automatically while you edit.'; }
+    cloudLine.textContent = text;
+    try { localStorage.setItem(CLOUD_KEY, JSON.stringify({ text, at: Date.now() })); } catch { /* optional */ }
+  }).catch(() => { if (!remembered) cloudLine.textContent = ''; });
   // quick way back into the latest work
   const recent = h('section', { class: 'st-recent', hidden: true });
   const drawRecent = () => listProjects(user.uid).then((all) => {
@@ -480,61 +485,81 @@ function guardSession(u) {
 }
 
 /* ---------------- start ---------------- */
+/** where the start-up is, so a slow start can say where it stopped (shown under the retry button, and kept in window.__12toonsBoot for support) */
+const trace = (stage) => { (window.__12toonsBoot ||= []).push([stage, Math.round(performance.now())]); };
 async function start() {
-  window.__12toonsBooted = true;          // the page's own watchdog (index.html) stops waiting once the app code is running
+  window.__12toonsBooted = true; trace('app code started');          // the page's own watchdog (index.html) stops waiting once the app code is running
   startRoute('boot', { quiet: true });
   // every page header gets the Coin balance; headers are drawn by many views, so new ones are picked up as they appear
   let badgeTimer = 0;
   new MutationObserver(() => { cancelAnimationFrame(badgeTimer); badgeTimer = requestAnimationFrame(() => mountCreditBadges($shell)); }).observe($shell, { childList: true, subtree: true });
   $shell.replaceChildren(loadingSplash('Getting things ready…'));
   // if the first screen is still a loading screen after a while, say so and offer a retry instead of hanging silently
-  setTimeout(() => { const sp = $shell.querySelector('.loading-splash'); if (sp && !sp.querySelector('.ls-retry')) sp.append(h('button', { type: 'button', class: 'btn pri ls-retry', onclick: () => location.reload() }, 'Taking longer than usual · Try again')); }, 15000);
-  const maintenanceAtStart = maintenanceStatus();   // starts now and runs while the sign-in redirect is finished
-  if (DEBUG) { try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
-  const redirectResult = await Promise.race([finishRedirect(), new Promise((r) => setTimeout(() => r(null), 6000))]);   // never wait on the redirect check forever
-  try { const st = await maintenanceAtStart; applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; }
-  let first = true;
-  // On a sign-in that just came back from Google's redirect page (popup blocked, or a browser like Telegram's in-app one that
-  // does not support popups), the account can take a moment longer to become the current Firebase user than this listener's
-  // very first firing — Firebase can call it once with "nobody" before the redirect's session is applied, then again moments
-  // later with the real account. Without this, that first, momentary "nobody" sent the user straight to the plain login card
-  // (route() below), which looked exactly like the sign-in had silently failed or frozen, even though it was still finishing.
-  // A bounded grace window keeps the animated loading screen up instead, until either the real account arrives or it expires.
-  let redirectGrace = redirectResult?.user ? setTimeout(() => { if (first) { first = false; redirectGrace = null; route(); } }, 8000) : null;
-  onUser(async (u) => {
+  setTimeout(() => { const sp = $shell.querySelector('.loading-splash'); if (sp && !sp.querySelector('.ls-retry')) { const last = (window.__12toonsBoot || []).at(-1); sp.append(h('button', { type: 'button', class: 'btn pri ls-retry', onclick: () => location.reload() }, 'Taking longer than usual · Try again'), last ? h('small', { class: 'ls-where' }, `Stopped at: ${last[0]} (${(last[1] / 1000).toFixed(1)} s)`) : null); } }, 15000);
+  if (DEBUG) { try { const st = await maintenanceStatus(); applyFeatures(st); maintenance = st.maintenance === true; } catch { maintenance = true; } user = { uid: 'debug', displayName: 'Test Creator', email: 'test@12toons.local', photoURL: '' }; role = 'user'; ready = true; route(); return; }
+  /* The first screen never waits for the server. What it needs from the network is only "who is signed in" (restored from this device, no request),
+     and the page opens from what the last visit learned (src/boot-cache.js). The server is asked ONCE in the background (role, maintenance, tool switches;
+     the session check is the same request) and its answer is applied when it arrives. Only a definite "no" (ended session, blocked account) signs the user out. */
+  trace('waiting for the sign-in state of this device');
+  const redirectP = finishRedirect();          // answers at once when no Google redirect is pending
+  const features$ = () => ({ animator: features.animator, character: features.character, background: features.background });
+  const stateNow = () => ({ role, maintenance, features: features$() });
+  function applyAnswer(u, answer) {
+    if (!answer || user?.uid !== u.uid) return false;
+    const before = stateNow(), next = fromServer(answer);
+    role = next.role; maintenance = next.maintenance; applyFeatures(answer); adminUnknown = false;
+    saveBoot(u.uid, { role, maintenance, features: features$() });
+    guardSession(u);
+    return bootChanged(before, stateNow());
+  }
+  let first = true, redirectGrace = null;
+  // A sign-in that just came back from Google's redirect page (popup blocked, or an in-app browser such as Telegram's) can take a moment to become the
+  // current Firebase user: Firebase may call the listener once with "nobody" first. A bounded grace window keeps the loading screen up until the real
+  // account arrives (or 8 s pass), instead of flashing the login card.
+  // if the sign-in state never arrives (blocked storage, an in-app browser), the page opens as for a signed-out visitor instead of waiting for ever; the account is picked up when it does arrive
+  setTimeout(() => { if (first && !ready && !redirectGrace) { trace('sign-in state is slow: opening the page as signed out'); first = false; ready = true; route(); } }, 10000);
+  onUser(async (u, info = {}) => {
+    trace(u ? 'sign-in state known (signed in)' : 'sign-in state known (signed out)');
+    if (first && !u && !redirectGrace) {
+      const result = await Promise.race([redirectP, new Promise((resolve) => setTimeout(() => resolve(null), 3000))]);
+      if (result?.user && first && !redirectGrace) { redirectGrace = setTimeout(() => { if (first) { first = false; redirectGrace = null; route(); } }, 8000); return; }
+    }
     if (first && redirectGrace && !u) return;   // still waiting for the redirect's account to settle — keep the loading screen up
     if (ready && user && u && user.uid !== u.uid) { location.reload(); return; }   // only a real account switch forces a reload; a momentary null (mobile auth hiccup) must not nuke unsaved work
     user = u; setCoinUser(u?.uid || null);
     if (u) {
-      // the two server checks are independent, so they are asked together
-      const [maintenanceNow, adminAnswer] = await Promise.all([first ? maintenanceAtStart : maintenanceStatus(), isAdmin(u)]);   // the first sign-in check reuses the answer already asked at start
-      applyFeatures(maintenanceNow); maintenance = maintenanceNow.maintenance === true;
-      const admin = adminAnswer === true;
-      if (adminAnswer === null) {          // the server could not be asked: keep the login, show a retry instead of the maintenance page
-        role = 'user'; adminUnknown = true; ready = true; route(); return;
+      const start = startingState(u.uid);
+      role = start.role; maintenance = start.maintenance; applyFeatures(start); adminUnknown = false;
+      if (info.check && info.wait) {
+        // a sign-in that has just happened: the role is needed to open the right first page, so this one answer is waited for (at most 8 s)
+        const answer = await Promise.race([info.check, new Promise((resolve) => setTimeout(() => resolve(null), 8000))]);
+        if (answer) applyAnswer(u, answer);
+        else info.check.then((late) => { if (user?.uid === u.uid && late && applyAnswer(u, late)) route(); });          // it answered after the wait: apply it then
+      } else if (info.check) {
+        info.check.then((answer) => {
+          if (user?.uid !== u.uid) return;
+          if (!answer) { if (maintenance && role !== 'admin') { adminUnknown = true; route(); } return; }       // could not ask: nothing changes (a remembered maintenance page offers a retry)
+          if (applyAnswer(u, answer)) route();                                                                   // the page re-opens only when the answer differs from what was shown
+          else syncSupportWidget();
+        });
       }
-      adminUnknown = false;
-      role = admin ? 'admin' : 'user';
-      // Signed-in users stay signed in during maintenance — a non-admin just sees the maintenance page instead of being logged out.
     } else {
-      role = 'user';
+      role = 'user'; maintenance = false;
     }
     ready = true;
     if (user) setTimeout(() => { if ((location.hash || '#/') === '#/hub') import('./main.js').catch(() => {}); }, 2500);   // warm the studio in the background so opening a project feels instant
     if (user) {
-      // Temporarily disabled until Firebase Web Push VAPID is configured.
-      // import('./notifications.js').then(({ syncReplyNotifications }) => syncReplyNotifications(user)).catch(() => {});
+      // a partner's referral code is attributed in the background; the page never waits for it
       const referralCode = localStorage.getItem('12toons-affiliate-referral');
       if (referralCode && role !== 'admin') {
-        try { await apiCall('/api/affiliates', { action: 'attribute', code: referralCode }, user.uid); localStorage.removeItem('12toons-affiliate-referral'); }
-        catch (e) { if (e.status === 400 || e.status === 403) localStorage.removeItem('12toons-affiliate-referral'); }
+        apiCall('/api/affiliates', { action: 'attribute', code: referralCode }, user.uid).then(() => localStorage.removeItem('12toons-affiliate-referral'))
+          .catch((e) => { if (e.status === 400 || e.status === 403) localStorage.removeItem('12toons-affiliate-referral'); });
       }
     }
-    await syncSupportWidget();
     guardSession(u);
     if (u) { ensureProfile(u); syncAll().catch(e=>console.warn('Pending cloud sync:',e.message)); }
+    trace('opening the first page');
     if (first) { clearTimeout(redirectGrace); redirectGrace = null; first = false; route(); } else if (!u && PRIVATE.includes(location.hash)) go('#/login'); else if (u && location.hash === '#/login') go('#/hub'); else route();
   });
 }
 start();
-

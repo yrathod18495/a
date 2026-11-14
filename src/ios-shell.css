@@ -194,3 +194,4 @@
 .sa-skel{display:flex;flex-direction:column;gap:10px;padding:16px;border-top:1px solid var(--line)}
 .sa-skel-a{display:block;height:16px;width:46%;border-radius:8px}
 .sa-skel-b{display:block;height:12px;width:70%;border-radius:8px}
+.ls-where{display:block;margin-top:10px;font-size:12px;color:var(--mute,#8a8f98);text-align:center}

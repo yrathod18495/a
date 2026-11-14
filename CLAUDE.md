@@ -29,6 +29,10 @@ This also applies to how Claude talks to the user in chat for this project: repl
 
 Every layer must stay visible on a short timeline (rows shrink together), the character "◆ move" lane is collapsible, and the phone bottom bar must never cut its labels. Details, the code that does it and the tests: `docs/TIMELINE-RULES.md`. Read it before changing the timeline.
 
+## Start-up (permanent rule)
+
+The first screen never waits for the server: the page opens from what this device knows and one background `boot` request corrects it. Never `await` an API call before the first `route()`, never turn "could not ask" into "signed out / not admin / maintenance", keep `api/security.js` light. Details, the tests and the region check: `docs/STARTUP.md`. Read it before changing `src/shell.js` start-up, `src/firebase.js` `onUser` or `api/security.js`.
+
 ## Effects (permanent rule)
 
 Effects are layers on the timeline for the whole scene (characters too) or for one picture. How they work, where to add a look and the rules: `docs/EFFECTS.md`. Read it before changing effects, the Colour grade or the renderer passes.

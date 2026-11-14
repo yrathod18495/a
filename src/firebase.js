@@ -43,6 +43,7 @@ export const onUser = (cb) => {
     promise.finally(() => { if (inFlight === task) inFlight = null; });
     return promise;
   };
+  /** `cb(user, info)`. info.check = a promise of the server's answer { admin, maintenance, features } (never rejects); info.wait = the page should wait for it (a sign-in that just happened). */
   async function handleUser(user) {
     if (!user) { (await import('./session.js')).stopSession(); cb(null); return; }
     try {
@@ -55,16 +56,32 @@ export const onUser = (cb) => {
         const acquired = await session.acquireSession();
         if (auth.currentUser?.uid !== user.uid) return;
         const credential=await signInWithCustomToken(auth, acquired.token);
-        await session.validateSession();
-        if(auth.currentUser?.uid===credential.user.uid)cb(credential.user);
+        if(auth.currentUser?.uid===credential.user.uid)cb(credential.user, { check: bootCheck(session, credential.user), wait: true });
         return;
       }
-      await session.validateSession();
-      if (auth.currentUser?.uid === user.uid) cb(user);
+      // a returning user: the page opens at once from what it already knows; the session is checked in the background (one request)
+      if (auth.currentUser?.uid === user.uid) cb(user, { check: bootCheck(session, user), wait: false });
     } catch (e) {
       window.dispatchEvent(new CustomEvent('session-error', { detail: e.message }));
       await signOut(auth);
     }
+  }
+  /** the one server request of a page load. Only a definite "no" (the session ended or the account is blocked: 401 / 403) signs the user out;
+   *  a slow or failed connection never does — the page just keeps what it has and asks again later. */
+  function bootCheck(session, user) {
+    let tries = 0;
+    const ask = async () => {
+      try { return await session.validateSession('boot'); }
+      catch (e) {
+        if (e?.status === 401 || e?.status === 403) {
+          if (auth.currentUser?.uid === user.uid) { window.dispatchEvent(new CustomEvent('session-error', { detail: e.message })); await signOut(auth); }
+          return null;
+        }
+        if (++tries < 3) { await new Promise((r) => setTimeout(r, 4000 * tries)); return ask(); }
+        return null;
+      }
+    };
+    return ask();
   }
   return onAuthStateChanged(auth, refresh);
 };
