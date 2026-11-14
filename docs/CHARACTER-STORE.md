@@ -2,6 +2,14 @@
 
 An admin can sell a character for **Coins**. A buyer gets it for **30 days**, counted on the **server clock**. Dashboard → **Character Store** (`#/store`, `src/character-store.js`).
 
+## What can be sold
+
+- **Any character, old or new**: Admin → Characters → **Store** on its card. Nothing has to be re-uploaded.
+- **The whole character** (`store: { price, enabled }`): all poses are locked until it is bought; buying it unlocks every pose.
+- **Single poses** (`viewStore: { <view>: { price, enabled } }`, a pose = a view: 3/4 Front, Front, Side, Back): the character can stay free while chosen poses are paid. The free poses stay free for everybody, a paid pose is a locked picture until it is bought. If the whole character is also sold, a pose bought alone unlocks only that pose.
+- A pose can be used when: it is free (and the whole character is not sold), **or** the whole character was bought, **or** that pose was bought (`viewUsable` in `shared/character-store.js`).
+- Access is stored under the character id (whole) or `<id>~<view>` (a pose); the same 30-day / server-clock / double-tap rules apply to both.
+
 ## The rules
 
 - **30 days = 30 × 24 hours (720 h) exactly**, whatever the length of the month (`STORE_MS` in `shared/character-store.js`). Never a calendar month, never the phone's clock.
@@ -24,14 +32,15 @@ Firestore rules need no change: there is no rule for these paths, so browsers ca
 
 ## What a person gets (server: `server/characters-api.js`)
 
-- `character:list` — free characters as before; paid characters the account has bought (and not ended) in full with `access.expiresAt`; paid characters on sale as a **locked card**: name, group, price, thumbnails and animation previews only (`lockedView`, `locked: true`); paid characters that are off sale are not listed unless the account owns them. Admins get everything.
-- `character:files` — the rig, texture pages and animation files of a paid character are given **only** to buyers and admins (`allowedFiles`); thumbnails and previews of characters on sale are public. After the 30 days the files stop too. (The remembered library is 15 s old at most; a miss asks again with a fresh copy.)
+- `character:list` — free characters as before; a paid character the account has bought (and not ended) in full with `access.expiresAt`; a character where only some poses are usable comes as `partial: true` (usable poses in full, the others as locked pictures with `locked: true`, their price and, when bought, `access`); a paid character on sale as a **locked card**: name, group, price, thumbnails and animation previews only (`lockedView`, `locked: true`); paid characters that are off sale are not listed unless the account owns them. Admins get everything.
+- `character:files` — the rig, texture pages and animation files of a paid character or pose are given **only** to buyers and admins (`allowedFiles`, checked pose by pose, also the category's animations of that pose); thumbnails and previews of characters on sale are public. After the 30 days the files stop too. (The remembered library is 15 s old at most; a miss asks again with a fresh copy.)
 - The studio picker (`src/catalog.js`) shows only what the account may use now. A saved project that uses a character whose time has ended says so ("…your 30 days have ended…") instead of failing silently; the character comes back when it is renewed.
 
 ## Admin (Admin → Characters)
 
 - Upload: **Sell in the Character Store** + price. A re-upload keeps the old price unless the box is changed.
 - Each saved character shows "Free for everyone" or "Store: N Coins"; **Store** opens price / on sale / free. Taking a character off sale or changing the price never takes it from people who already bought it.
+- The **Store** dialog sets the whole-character price and, for every pose, "is paid" + price + on sale. Untick everything to make the character free again.
 - **Character Store sales** (loaded only when asked: the newest 100 sales and gifts) and **Give a character to an account** (30 days, by email, no Coins taken).
 
 ## Tests

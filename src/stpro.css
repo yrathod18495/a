@@ -1069,3 +1069,6 @@ dialog.admin-store-dialog h2{margin:0 0 10px;font-size:18px}.admin-store-rows{di
 .admin-sales-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:10px;padding:10px 12px;border:1px solid var(--line,#34363c);border-radius:12px;background:var(--card,#1d1e22)}
 .admin-sales-row b,.admin-sales-row small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.admin-sales-row small{color:var(--mute,#9a9ca5);font-size:11.5px}.admin-sales-row .until.on b{color:#4fd69c}
 @media(max-width:640px){.admin-sales-row{grid-template-columns:1fr 1fr}.admin-sales-row .who{grid-column:1/-1}}
+.admin-pose-box{display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid var(--line,#34363c);border-radius:14px}.admin-pose-box small{color:var(--mute,#9a9ca5);font-size:12px}
+.admin-pose-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}.admin-pose-detail{display:flex;align-items:center;gap:10px}.admin-pose-detail input[type=number]{width:110px;padding:6px 8px;border:1px solid var(--line,#34363c);border-radius:10px;background:var(--card,#1d1e22);color:inherit;font:inherit}
+.admin-pose-row[hidden],.admin-pose-detail[hidden]{display:none}

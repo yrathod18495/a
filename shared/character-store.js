@@ -39,6 +39,55 @@ export function leftText(ms) {
   return `${Math.max(1, Math.ceil(ms / 60000))} min left`;
 }
 
+/* ---- poses (views) ----
+   A character can be free, sold as a whole (`store`), or free with some paid poses (`viewStore: { <view>: { price, enabled } }`). A pose can be used when it is free,
+   or the whole character is bought, or that pose is bought. Whole-character access is stored under the character's id, a pose's under `<id>~<view>`. */
+export const accessKey = (characterId, viewId = null) => (viewId ? `${characterId}~${viewId}` : characterId);
+/** the price record of one pose, or null */
+export const viewStoreOf = (character, viewId) => (Number(character?.viewStore?.[viewId]?.price) > 0 ? character.viewStore[viewId] : null);
+/** anything to buy on this character (the whole of it or a pose) */
+export const hasStore = (character) => isPaid(character) || Object.keys(character?.viewStore || {}).some((v) => viewStoreOf(character, v));
+/** the poses of a character: { viewId: { price, enabled } }, each price a whole number of Coins; unknown poses are dropped; null = every pose is free */
+export function cleanViewStore(input, viewIds) {
+  if (input == null || input === false) return null;
+  if (typeof input !== 'object') throw Object.assign(new Error('The pose prices are not valid.'), { code: 'invalid_price', status: 400 });
+  const out = {};
+  for (const [id, v] of Object.entries(input)) { if (!viewIds.includes(id) || v == null) continue; out[id] = cleanStore(v); }
+  return Object.keys(out).length ? out : null;
+}
+/** may this account use this pose now? `owned` = Map of access records by key (see accessKey) */
+export function viewUsable(character, viewId, owned, now) {
+  if (isActive(owned.get(accessKey(character.id)), now)) return true;                           // the whole character was bought
+  const own = viewStoreOf(character, viewId);
+  if (own) return isActive(owned.get(accessKey(character.id, viewId)), now);
+  return !isPaid(character);                                                                     // free pose of a free character
+}
+/** is this pose (or the whole character, `viewId` null) offered for sale right now? */
+export const onSale = (character, viewId = null) => (viewId ? viewStoreOf(character, viewId)?.enabled !== false && !!viewStoreOf(character, viewId) : isPaid(character) && character.store.enabled !== false);
+
+/** the files of one pose of a character, and of the category's animations for that pose */
+export function viewFiles(view) {
+  const out = [], add = (r) => { if (r && refSha(r)) out.push(r); };
+  add(view?.skeleton); add(view?.thumb);
+  for (const t of view?.textures || []) { add(t.json); add(t.page); }
+  for (const g of Object.values(view?.gifs || {})) add(g);
+  return out;
+}
+export function categoryViewFiles(categoryView) {
+  const out = [];
+  for (const a of categoryView?.animations || []) for (const r of [a.file, a.gif]) if (r && refSha(r)) out.push(r);
+  return out;
+}
+/** the pictures anybody may see of one pose before buying */
+export function viewPreviewFiles(view) {
+  const out = [];
+  if (view?.thumb && refSha(view.thumb)) out.push(view.thumb);
+  for (const g of Object.values(view?.gifs || {})) if (g && refSha(g)) out.push(g);
+  return out;
+}
+/** a pose as a locked card sees it: label, thumbnail, previews and its price */
+export const lockedPose = (view, extra = {}) => ({ label: view.label, ...(view.thumb ? { thumb: view.thumb } : {}), ...(view.gifs ? { gifs: view.gifs } : {}), ...(view.previewType ? { previewType: view.previewType } : {}), locked: true, ...extra });
+
 /** the pictures anybody may see before buying: the thumbnails and the animation previews (never the rig, the texture pages or the animation files) */
 export function previewRefs(character) {
   const out = [], add = (r) => { if (r && refSha(r)) out.push(r); };

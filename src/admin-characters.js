@@ -9,7 +9,7 @@ import { Stage } from './db/stage.js';
 import { rigInfo } from './db/info.js';
 import { checkManifest, gifName, CHARACTER_GROUPS, groupOf } from '../shared/character-package.js';
 import { listCloudCharacters, storeCharacter, deleteCloudCharacter, updateCloudCharacter, pictureUrl, characterSales, grantCharacter } from './cloud-characters.js';
-import { cleanStore, isPaid, timeLeft, leftText, MAX_PRICE, STORE_DAYS } from '../shared/character-store.js';
+import { cleanStore, cleanViewStore, isPaid, hasStore, viewStoreOf, timeLeft, leftText, MAX_PRICE, STORE_DAYS } from '../shared/character-store.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
 const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // the small one: it only shows what the animation does
@@ -251,7 +251,7 @@ export async function charactersView({ back, home, toast }) {
     const views = Object.values(c.views || {}).map((v) => v.label).join(', '), anims = Object.values(c.animations || {}).reduce((n, v) => n + (v.animations?.length || 0), 0);
     return h('article', { class: 'admin-character-card' }, h('div', { class: 'admin-character-thumb' }, img),
       h('div', { class: 'admin-character-copy' }, h('b', {}, c.name), h('small', {}, `Category: ${c.categoryName}`), h('small', {}, `${views} · ${anims} animations`),
-        h('small', { class: `admin-character-store ${isPaid(c) ? 'paid' : ''}` }, isPaid(c) ? `Store: ${c.store.price.toLocaleString('en-IN')} Coins${c.store.enabled === false ? ' · off sale' : ''}` : 'Free for everyone'),
+        h('small', { class: `admin-character-store ${hasStore(c) ? 'paid' : ''}` }, storeSummary(c)),
         h('select', { class: 'admin-character-group', 'aria-label': `Group of ${c.name}`, title: 'The group the creators find this character in', disabled: st.busy, onchange: (e) => regroup(c, e.target) },
           CHARACTER_GROUPS.map(([id, label]) => h('option', { value: id, selected: groupOf(c, c.categoryName) === id }, label)))),
       h('div', { class: 'admin-character-actions' },
@@ -259,22 +259,41 @@ export async function charactersView({ back, home, toast }) {
         h('button', { class: 'btn sm', type: 'button', disabled: st.busy, onclick: () => storeSettings(c) }, 'Store'),
         h('button', { class: 'btn sm danger', type: 'button', disabled: st.busy, onclick: () => remove(c) }, 'Delete')));
   }
+  const storeSummary = (c) => {
+    const parts = [];
+    if (isPaid(c)) parts.push(`Whole character: ${c.store.price.toLocaleString('en-IN')} Coins${c.store.enabled === false ? ' · off sale' : ''}`);
+    const poses = Object.keys(c.views || {}).filter((v) => viewStoreOf(c, v)).map((v) => `${c.views[v].label || v} ${c.viewStore[v].price.toLocaleString('en-IN')}${c.viewStore[v].enabled === false ? ' (off)' : ''}`);
+    if (poses.length) parts.push(`Paid poses: ${poses.join(', ')}`);
+    return parts.length ? `Store · ${parts.join(' · ')}` : 'Free for everyone';
+  };
   /** price and sale of a saved character: free for everyone, or sold for Coins (30 days); it can be taken off sale without making it free */
   function storeSettings(c) {
     const paid = isPaid(c), dlg = h('dialog', { class: 'admin-store-dialog', 'aria-label': `Store settings of ${c.name}` });
-    const sell = h('input', { type: 'checkbox', checked: paid, 'aria-label': 'Sell in the Character Store' }), price = h('input', { type: 'number', min: 1, max: MAX_PRICE, step: 1, value: c.store?.price || 500, 'aria-label': 'Price in Coins' });
-    const onSale = h('input', { type: 'checkbox', checked: c.store?.enabled !== false, 'aria-label': 'On sale' }), msg = h('p', { class: 'admin-store-msg', role: 'status' }, '');
+    const sell = h('input', { type: 'checkbox', checked: paid, 'aria-label': 'Sell the whole character' }), price = h('input', { type: 'number', min: 1, max: MAX_PRICE, step: 1, value: c.store?.price || 500, 'aria-label': 'Price of the whole character in Coins' });
+    const onSale = h('input', { type: 'checkbox', checked: c.store?.enabled !== false, 'aria-label': 'Whole character on sale' }), msg = h('p', { class: 'admin-store-msg', role: 'status' }, '');
     const rows = h('div', { class: 'admin-store-rows' }, h('label', {}, price, h('span', {}, 'Price (Coins)')), h('label', { class: 'inline' }, onSale, h('span', {}, 'On sale (people can buy it now)')));
     const sync = () => { rows.hidden = !sell.checked; }; sell.addEventListener('change', sync); sync();
+    // every pose (view) can have its own price: the free ones stay free
+    const poses = Object.entries(c.views || {}).map(([id, v]) => {
+      const own = viewStoreOf(c, id), on = h('input', { type: 'checkbox', checked: !!own, 'aria-label': `${v.label || id} is paid` }), pr = h('input', { type: 'number', min: 1, max: MAX_PRICE, step: 1, value: own?.price || 100, 'aria-label': `Price of ${v.label || id} in Coins` }), sale = h('input', { type: 'checkbox', checked: own?.enabled !== false, 'aria-label': `${v.label || id} on sale` });
+      const detail = h('span', { class: 'admin-pose-detail' }, pr, h('label', { class: 'inline' }, sale, h('span', {}, 'On sale')));
+      const upd = () => { detail.hidden = !on.checked; }; on.addEventListener('change', upd); upd();
+      return { id, on, pr, sale, node: h('div', { class: 'admin-pose-row' }, h('label', { class: 'inline' }, on, h('span', {}, `${v.label || id} is paid`)), detail) };
+    });
     const close = () => dlg.close();
     const save = h('button', { type: 'button', class: 'btn pri', onclick: async () => {
-      let store = null; try { store = sell.checked ? cleanStore({ price: price.value, enabled: onSale.checked }) : null; } catch (e) { msg.textContent = e.message; return; }
+      let store = null, viewStore = null;
+      try {
+        store = sell.checked ? cleanStore({ price: price.value, enabled: onSale.checked }) : null;
+        viewStore = cleanViewStore(Object.fromEntries(poses.filter((x) => x.on.checked).map((x) => [x.id, { price: x.pr.value, enabled: x.sale.checked }])), poses.map((x) => x.id));
+      } catch (e) { msg.textContent = e.message; return; }
       save.disabled = true; msg.textContent = 'Saving…';
-      try { await updateCloudCharacter(c.id, { store }); toast(store ? `${c.name} is in the Character Store for ${store.price.toLocaleString('en-IN')} Coins.` : `${c.name} is free for everyone.`); close(); await refresh(); }
+      try { await updateCloudCharacter(c.id, { store, viewStore }); toast(store || viewStore ? `${c.name}: the store settings are saved.` : `${c.name} is free for everyone.`); close(); await refresh(); }
       catch (e) { msg.textContent = `Could not save: ${friendlyError(e)}`; save.disabled = false; }
     } }, 'Save');
-    dlg.append(h('h2', {}, c.name), h('label', { class: 'inline' }, sell, h('span', {}, `Sell in the Character Store (${STORE_DAYS} days per purchase)`)), rows,
-      h('p', { class: 'admin-store-note' }, 'People who already bought it keep it until their time ends, even if you take it off sale or change the price. Making it free gives it to everyone.'), msg,
+    dlg.append(h('h2', {}, c.name), h('label', { class: 'inline' }, sell, h('span', {}, `Sell the whole character (all poses, ${STORE_DAYS} days per purchase)`)), rows,
+      poses.length ? h('div', { class: 'admin-pose-box' }, h('b', {}, 'Poses'), h('small', {}, 'Mark single poses as paid. Poses you leave unticked stay free for everyone (unless the whole character is sold).'), ...poses.map((x) => x.node)) : null,
+      h('p', { class: 'admin-store-note' }, 'People who already bought something keep it until their time ends, even if you take it off sale or change the price. Untick everything to make the character free for everyone.'), msg,
       h('div', { class: 'admin-store-foot' }, h('button', { type: 'button', class: 'btn', onclick: close }, 'Cancel'), save));
     dlg.addEventListener('close', () => dlg.remove()); dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
     document.body.append(dlg); dlg.showModal();
@@ -292,7 +311,7 @@ export async function charactersView({ back, home, toast }) {
         body.replaceChildren(
           h('p', { class: 'admin-sales-sum' }, `Newest ${rows.length} sales · ${earned.toLocaleString('en-IN')} Coins received · ${active.length} still active`),
           rows.length ? h('div', { class: 'admin-sales-list', role: 'table' }, ...rows.map((x) => h('div', { class: 'admin-sales-row', role: 'row' },
-            h('div', { class: 'who' }, h('b', {}, x.email || x.uid), h('small', {}, x.characterName)),
+            h('div', { class: 'who' }, h('b', {}, x.email || x.uid), h('small', {}, x.viewLabel ? `${x.characterName} · ${x.viewLabel}` : x.characterName)),
             h('div', { class: 'what' }, h('b', {}, x.source === 'admin' ? 'Gift' : `${Number(x.price).toLocaleString('en-IN')} Coins`), h('small', {}, when(x.purchasedAt))),
             h('div', { class: `until ${timeLeft(x.expiresAt, now) > 0 ? 'on' : ''}` }, h('b', {}, leftText(timeLeft(x.expiresAt, now))), h('small', {}, `until ${when(x.expiresAt)}`))))) : h('p', { class: 'admin-empty' }, 'No sales yet.'));
       } catch (e) { body.replaceChildren(h('p', { class: 'admin-empty', role: 'alert' }, `Could not load the sales: ${friendlyError(e)}`)); }
@@ -303,11 +322,15 @@ export async function charactersView({ back, home, toast }) {
     const give = h('button', { class: 'btn', type: 'button', onclick: async () => {
       if (!email.value.trim()) { giveMsg.textContent = 'Please enter the email address of the account.'; return; }
       give.disabled = true; giveMsg.textContent = 'Giving…';
-      try { const r = await grantCharacter({ id: pick.value, email: email.value.trim() }); giveMsg.textContent = `Done: ${r.email} has the character for ${STORE_DAYS} more days (until ${new Date(r.expiresAt).toLocaleDateString()}).`; email.value = ''; }
+      try { const [gid, gview] = pick.value.split('|'); const r = await grantCharacter({ id: gid, view: gview || null, email: email.value.trim() }); giveMsg.textContent = `Done: ${r.email} has the character for ${STORE_DAYS} more days (until ${new Date(r.expiresAt).toLocaleDateString()}).`; email.value = ''; }
       catch (e) { giveMsg.textContent = `Could not give it: ${friendlyError(e)}`; }
       finally { give.disabled = !pick.options.length; }
     } }, `Give ${STORE_DAYS} days`);
-    box.fill = () => { const keep = pick.value; pick.replaceChildren(...st.list.filter(isPaid).map((c) => h('option', { value: c.id }, c.name))); if (keep) pick.value = keep; give.disabled = !pick.options.length; };
+    box.fill = () => {
+      const keep = pick.value, options = [];
+      for (const c of st.list) { if (isPaid(c)) options.push(h('option', { value: c.id }, c.name)); for (const v of Object.keys(c.views || {})) if (viewStoreOf(c, v)) options.push(h('option', { value: `${c.id}|${v}` }, `${c.name} · ${c.views[v].label || v}`)); }
+      pick.replaceChildren(...options); if (keep) pick.value = keep; give.disabled = !pick.options.length;
+    };
     const show = h('button', { class: 'btn', type: 'button', onclick: (e) => load(e.currentTarget) }, 'Show sales');
     box.append(h('div', { class: 'admin-sales-head' }, h('h2', {}, 'Character Store sales'), show),
       h('div', { class: 'admin-sales-give' }, h('b', {}, 'Give a character to an account'), h('div', { class: 'row' }, email, pick, give), giveMsg),

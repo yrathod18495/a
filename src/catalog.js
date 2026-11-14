@@ -13,9 +13,9 @@ import { listCharacterStore, loadCloudView, getJson, pictureUrl } from './cloud-
 const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: optional address of a CDN that serves the library files
 const VIEW_POSE = { f34: 'front-side', fr: 'front', sd: 'side', bk: 'back' };          // the picker orders poses by these names
 let library = [], adAnims = null, managedAnimations = [], libraryProblem = '';
-let lockedCharacters = new Set();          // paid characters this account has not bought (or whose 30 days have ended)
-/** is this library id (`lib:ch-<character>-<view>`) a paid character that is locked for this account? */
-export const isLockedCharacter = (libId) => { const m = /^lib:ch-(.+)-([a-z0-9_]+)$/.exec(String(libId || '')); return !!m && lockedCharacters.has(m[1]); };
+let lockedPoses = new Set();          // `<character>:<pose>` of paid characters / poses this account has not bought (or whose 30 days have ended)
+/** is this library id (`lib:ch-<character>-<view>`) a paid pose that is locked for this account? */
+export const isLockedCharacter = (libId) => { const m = /^lib:ch-(.+)-([a-z0-9_]+)$/.exec(String(libId || '')); return !!m && lockedPoses.has(`${m[1]}:${m[2]}`); };
 /** why the character list is empty, in simple Hinglish ('' when it loaded) */
 export const libraryStatus = () => libraryProblem;
 
@@ -39,8 +39,9 @@ export async function loadCatalog() {
   // the bundled library is gone for good; when the admin's uploaded characters are there, its absence is not a problem
   // characters the admin uploaded (Admin -> Characters): one entry per view, files come from the database / R2 and are cached by the browser
   const cloudTask = listCharacterStore().then(({ characters }) => {
-    lockedCharacters = new Set(characters.filter((c) => c.locked).map((c) => c.id));
-    const list = characters.filter((c) => !c.locked);                                  // the picker shows only what this account may use now
+    lockedPoses = new Set(characters.flatMap((c) => Object.entries(c.views || {}).filter(([, v]) => c.locked || v.locked).map(([view]) => `${c.id}:${view}`)));
+    // the picker shows only the poses this account may use now (a free pose of a character with paid poses is there for everybody)
+    const list = characters.filter((c) => !c.locked).map((c) => ({ ...c, views: Object.fromEntries(Object.entries(c.views || {}).filter(([, v]) => !v.locked)) })).filter((c) => Object.keys(c.views).length);
     const entries = list.flatMap((c) => Object.entries(c.views || {}).map(([view, v]) => ({ id: `ch-${c.id}-${view}`, name: c.name, pose: v.label, patternId: 'rig', charBase: c.id, thumbnail: '', paid: false,
       group: groupOf(c, c.categoryName), template: { cloud: true, character: c, view, pose: VIEW_POSE[view] || view } })));
     library.push(...entries);

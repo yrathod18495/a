@@ -11,14 +11,14 @@ const call = ({ action, ...body }) => apiCall(API, { action: `character:${action
 
 /* ---------- reading ---------- */
 /** the characters the admin published, each with its category's animations: [{ id, name, category, categoryName, views, animations, thumb }] */
-export async function listCloudCharacters() { return ((await call({ action: 'list' })).characters || []).filter((c) => !c.locked); }          // only what this account may use now
+export async function listCloudCharacters() { return ((await call({ action: 'list' })).characters || []).filter((c) => !c.locked).map((c) => ({ ...c, views: Object.fromEntries(Object.entries(c.views || {}).filter(([, v]) => !v.locked)) })).filter((c) => Object.keys(c.views).length); }          // only the poses this account may use now
 /** every character with its store state (for the Character Store and the admin screen): { characters, serverNow } — `locked` ones are paid and not bought (or ended); `serverNow` is the SERVER's clock at the time of the answer */
 export async function listCharacterStore() { const r = await call({ action: 'list' }); return { characters: r.characters || [], serverNow: Number(r.serverNow) || Date.now(), receivedAt: Date.now() }; }
 /** buy a paid character with Coins (30 days). `opId` makes a double tap safe: the same id is charged once. */
-export const buyCharacter = ({ id, price, opId }) => call({ action: 'buy', id, price, opId });
+export const buyCharacter = ({ id, view = null, price, opId }) => call({ action: 'buy', id, ...(view ? { view } : {}), price, opId });          // `view`: one pose; none = the whole character
 /** admin: the newest purchases and gifts; give an account 30 days of a paid character */
 export const characterSales = () => call({ action: 'sales' });
-export const grantCharacter = ({ id, email }) => call({ action: 'grant', id, email });
+export const grantCharacter = ({ id, view = null, email }) => call({ action: 'grant', id, ...(view ? { view } : {}), email });
 
 const memory = new Map();         // sha -> Promise<Blob> for this page
 async function fromCache(sha) { try { const hit = await (await caches.open(CACHE)).match(cacheUrl(sha)); return hit ? await hit.blob() : null; } catch { return null; } }

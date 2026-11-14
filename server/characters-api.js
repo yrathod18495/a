@@ -18,7 +18,7 @@ import { kv } from './rtdb.js';
 import { AccessError } from './security-policy.js';
 import { configured, confirmAssets, signDownloads, deleteKey, assetKey } from './r2-storage.js';
 import { cleanRecord, refsOf, isSha, isId, isGroup, DB_MAX_BYTES } from '../shared/character-package.js';
-import { cleanStore, isPaid, isActive, lockedView, previewRefs } from '../shared/character-store.js';
+import { cleanStore, cleanViewStore, isPaid, isActive, hasStore, viewStoreOf, viewUsable, onSale, accessKey, viewFiles, categoryViewFiles, viewPreviewFiles, lockedPose } from '../shared/character-store.js';
 import { accessOf, buyCharacter, grantCharacter, recentSales, validOpId } from './character-store.js';
 import { lookupAccount } from './signup-bonus.js';
 
@@ -41,14 +41,16 @@ async function cachedState(store, fresh = false) {
 /** the files this account may download: everything of free characters, everything of paid characters it has bought (and not expired), and only the
  *  thumbnails / previews of the paid characters on sale. An admin may download everything. */
 function allowedFiles(state, access, now) {
-  const allowed = new Set(), usedCategories = new Set();
-  const addAll = (record) => { for (const f of refsOf(record)) allowed.add(f.sha); };
+  const allowed = new Set(), add = (refs) => { for (const r of refs) allowed.add(r.db || r.r2); };
   for (const c of Object.values(state.characters)) {
     if (c.enabled === false) continue;
-    if (!isPaid(c) || isActive(access.get(c.id), now)) { addAll(c); usedCategories.add(c.category); }
-    else if (c.store.enabled !== false) for (const r of previewRefs(c)) allowed.add(r.db || r.r2);
+    const g = state.categories[c.category];
+    for (const [viewId, view] of Object.entries(c.views || {})) {
+      if (viewUsable(c, viewId, access, now)) { add(viewFiles(view)); add(categoryViewFiles(g?.views?.[viewId])); }
+      else if (onSale(c, viewId) || onSale(c)) add(viewPreviewFiles(view));
+    }
+    if (c.thumb && (isPaid(c) ? onSale(c) || isActive(access.get(accessKey(c.id)), now) : true)) add([c.thumb]);
   }
-  for (const id of usedCategories) if (state.categories[id]) addAll(state.categories[id]);
   return allowed;
 }
 /** the files still used by any character or category */
@@ -96,12 +98,26 @@ export async function characterAction(req, res, b) {
 
     if (b.action === 'list') {
       const { characters, categories } = await readAll(store);
-      const owned = who.admin || !Object.values(characters).some(isPaid) ? new Map() : await accessOf(firestore, who.uid);       // one small read, and only when something is for sale
+      const owned = who.admin || !Object.values(characters).some(hasStore) ? new Map() : await accessOf(firestore, who.uid);       // one small read, and only when something is for sale
       const list = [];
       for (const c of Object.values(characters).filter((x) => x.enabled !== false).sort((a, z) => String(a.name).localeCompare(String(z.name)))) {
-        const g = categories[c.category], categoryName = g?.name || c.category, mine = owned.get(c.id);
-        if (!isPaid(c) || who.admin || isActive(mine, now)) { const { owner, ...rest } = c; list.push({ ...rest, categoryName, animations: g?.views || {}, ...(isPaid(c) && mine ? { access: { expiresAt: mine.expiresAt } } : {}) }); }
-        else if (c.store.enabled !== false) list.push({ ...lockedView(c, categoryName), ...(mine ? { access: { expiresAt: mine.expiresAt } } : {}) });       // on sale: pictures and previews only
+        const g = categories[c.category], categoryName = g?.name || c.category, { owner, ...rest } = c;
+        const whole = owned.get(accessKey(c.id)), wholeAccess = whole ? { access: { expiresAt: whole.expiresAt } } : {};
+        if (who.admin || !hasStore(c)) { list.push({ ...rest, categoryName, animations: g?.views || {}, ...wholeAccess }); continue; }
+        // every pose is checked: usable ones come in full; the others only as pictures with their price (and when it ends, if it was bought)
+        const views = {}, animations = {}; let usable = 0, offer = isPaid(c) ? onSale(c) : false;
+        for (const [viewId, view] of Object.entries(c.views || {})) {
+          if (viewUsable(c, viewId, owned, now)) {
+            const bought = viewStoreOf(c, viewId) && owned.get(accessKey(c.id, viewId));          // a pose that was bought: when it ends
+            views[viewId] = bought ? { ...view, access: { expiresAt: bought.expiresAt } } : view;
+            if (g?.views?.[viewId]) animations[viewId] = g.views[viewId]; usable++; continue;
+          }
+          const own = viewStoreOf(c, viewId), mine = owned.get(accessKey(c.id, viewId));
+          views[viewId] = lockedPose(view, { ...(own ? { store: own } : {}), ...(mine ? { access: { expiresAt: mine.expiresAt } } : {}) });
+          if (onSale(c, viewId)) offer = true;
+        }
+        if (usable === Object.keys(c.views || {}).length) list.push({ ...rest, views, categoryName, animations, ...wholeAccess });
+        else if (usable || offer) list.push({ ...rest, views, categoryName, animations, ...(usable ? {} : { locked: true }), ...(usable ? { partial: true } : {}), ...wholeAccess });
       }
       return send(res, 200, { characters: list, serverNow: now });
     }
@@ -110,7 +126,8 @@ export async function characterAction(req, res, b) {
       if (!isId(b.id)) throw bad('invalid_character', 'The character is not valid.');
       const character = await store.get(`characters/${b.id}`);
       if (!character) throw bad('not_found', 'This character does not exist any more.', 404);
-      const out = await buyCharacter({ db: firestore, character, uid: who.uid, email: who.claims?.email || '', name: who.claims?.name || '', price: b.price, opId: b.opId, now });
+      if (b.view != null && !isId(b.view)) throw bad('invalid_character', 'The pose is not valid.');
+      const out = await buyCharacter({ db: firestore, character, viewId: b.view || null, uid: who.uid, email: who.claims?.email || '', name: who.claims?.name || '', price: b.price, opId: b.opId, now });
       return send(res, 200, out);
     }
 
@@ -123,7 +140,8 @@ export async function characterAction(req, res, b) {
       const character = await store.get(`characters/${b.id}`);
       if (!character) throw bad('not_found', 'This character does not exist any more.', 404);
       const account = await lookupAccount({ db: firestore, auth: svc.auth }, b.email);
-      const out = await grantCharacter({ db: firestore, character, uid: account.uid, email: account.email, name: account.name, by: who.uid, now });
+      if (b.view != null && !isId(b.view)) throw bad('invalid_character', 'The pose is not valid.');
+      const out = await grantCharacter({ db: firestore, character, viewId: b.view || null, uid: account.uid, email: account.email, name: account.name, by: who.uid, now });
       return send(res, 200, { ...out, email: account.email });
     }
 
@@ -135,7 +153,7 @@ export async function characterAction(req, res, b) {
       let allowed = null;
       if (!who.admin) {
         let state = await cachedState(store);
-        if (Object.values(state.characters).some(isPaid)) {
+        if (Object.values(state.characters).some(hasStore)) {
           const mine = await accessOf(firestore, who.uid), check = (st) => allowedFiles(st, mine, now);
           allowed = check(state);
           if (refs.some((r) => !allowed.has(r?.db || r?.r2))) { state = await cachedState(store, true); allowed = check(state); }          // a change may be newer than the remembered library
@@ -185,7 +203,9 @@ export async function characterAction(req, res, b) {
       // the price: sent with the upload (null = free), else the old one stays (replacing a character does not make it free by accident)
       let priced = old?.store || null;
       if (b.character?.store !== undefined) { try { priced = cleanStore(b.character.store); } catch (e) { throw bad(e.code, e.message); } }
-      state.characters[character.id] = { ...character, ...(priced ? { store: priced } : {}), owner: who.uid, enabled: true, createdAt: old?.createdAt || now, updatedAt: now };
+      let posePrices = old?.viewStore || null;                      // the same for the prices of single poses
+      if (b.character?.viewStore !== undefined) { try { posePrices = cleanViewStore(b.character.viewStore, Object.keys(character.views)); } catch (e) { throw bad(e.code || 'invalid_price', e.message); } }
+      state.characters[character.id] = { ...character, ...(priced ? { store: priced } : {}), ...(posePrices ? { viewStore: posePrices } : {}), owner: who.uid, enabled: true, createdAt: old?.createdAt || now, updatedAt: now };
       forgetState();
       if (category) await store.set(`characterCategories/${category.id}`, state.categories[category.id]);
       await store.set(`characters/${character.id}`, state.characters[character.id]);
@@ -206,6 +226,7 @@ export async function characterAction(req, res, b) {
       }
       if (b.group !== undefined) { if (!isGroup(b.group)) throw bad('invalid_group', 'The group must be Male, Female, Boy or Girl.'); next.group = b.group; }
       if (b.store !== undefined) { const priced = (() => { try { return cleanStore(b.store); } catch (e) { throw bad(e.code, e.message); } })(); if (priced) next.store = priced; else delete next.store; }
+      if (b.viewStore !== undefined) { try { const vs = cleanViewStore(b.viewStore, Object.keys(next.views || {})); if (vs) next.viewStore = vs; else delete next.viewStore; } catch (e) { throw bad(e.code || 'invalid_price', e.message); } }
       next.updatedAt = Date.now(); forgetState();
       await store.set(`characters/${b.id}`, next);
       const { owner, ...visible } = next;

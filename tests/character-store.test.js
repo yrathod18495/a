@@ -173,3 +173,78 @@ test('sales and gifts: the admin sees every purchase; a gift gives 30 days witho
   assert.equal((await call({ action: 'grant', id: 'premium', email: 'nobody@example.test' })).statusCode, 404);
   assert.equal((await call({ action: 'grant', id: 'free_one', email })).body.code, 'not_paid');                      // a free character has nothing to give
 });
+
+async function duoRecord() {
+  const view = async (tag, label) => ({ label, skeleton: await dbFile({ armature: [{ name: 'kids_' + tag, bone: [] }], who: tag }), textures: [{ json: await dbFile({ imagePath: 'texture_0.webp', who: tag }), page: r2File('page-' + tag, 500) }], thumb: r2File('thumb-' + tag, 300), gifs: { walk: r2File('gif-' + tag, 800) }, previewType: 'gif' });
+  const anim = async (tag) => ({ name: 'walk', label: 'walk', group: 'Body', layer: 'body', length: 2, file: await dbFile({ walk: { duration: 50, who: tag } }), gif: null, gifName: 'walk_kids.gif' });
+  return { character: { id: 'duo', name: 'Duo', views: { f34: await view('duo-f34', '3/4 Front'), sd: await view('duo-sd', 'Side') }, thumb: r2File('thumb-duo', 300) }, category: { id: 'kids', name: 'Kids', views: { f34: { animations: [await anim('f34')] }, sd: { animations: [await anim('sd')] } } } };
+}
+const poseOf = (list, id) => list.body.characters.find((c) => c.id === id);
+const filesOf = async (refs, as) => (await call({ action: 'files', refs }, as)).body;
+
+test('poses: a free character can have paid poses; free poses stay free, a paid pose is a locked picture until bought', async () => {
+  const saved = await call({ action: 'commit', ...(await duoRecord()) }); assert.equal(saved.statusCode, 200, JSON.stringify(saved.body));
+  assert.equal((await call({ action: 'update', id: 'duo', viewStore: { sd: { price: 0 } } })).statusCode, 400);
+  assert.equal((await call({ action: 'update', id: 'duo', viewStore: { sd: { price: 120 } } }, creator)).statusCode, 403);
+  const r = await call({ action: 'update', id: 'duo', viewStore: { sd: { price: 120 }, nope: { price: 5 } } });
+  assert.deepEqual(r.body.character.viewStore, { sd: { price: 120, enabled: true } });          // an unknown pose is dropped
+  const full = poseOf(await call({ action: 'list' }, admin), 'duo');
+  const mine = poseOf(await call({ action: 'list' }, creator), 'duo');
+  assert.equal(mine.partial, true); assert.equal(mine.locked, undefined);
+  assert.ok(mine.views.f34.skeleton && !mine.views.f34.locked);
+  assert.equal(mine.views.sd.locked, true); assert.equal(mine.views.sd.skeleton, undefined); assert.equal(mine.views.sd.store.price, 120); assert.ok(mine.views.sd.thumb);
+  assert.deepEqual(Object.keys(mine.animations), ['f34']);
+  const animFile = (v) => full.animations[v].animations[0].file;
+  assert.equal(Object.keys((await filesOf([full.views.f34.skeleton, animFile('f34')], creator)).db).length, 2);                         // the free pose works
+  assert.deepEqual(Object.keys((await filesOf([full.views.sd.skeleton, animFile('sd')], creator)).db), []);                              // the paid pose does not
+  assert.equal(Object.keys((await filesOf([full.views.sd.thumb], creator)).r2).length, 1);                                               // its picture does
+  assert.equal(poseOf(await call({ action: 'list' }, admin), 'duo').views.sd.skeleton !== undefined, true);                               // admins see everything
+});
+
+test('buying a pose unlocks only that pose for 30 days; a double tap charges once; buying a free pose is refused; it ends on time', async () => {
+  wallet(creator, 500);
+  assert.equal((await call({ action: 'buy', id: 'duo', view: 'f34', price: 1, opId: opId(20) }, creator)).body.code, 'not_for_sale');
+  assert.equal((await call({ action: 'buy', id: 'duo', view: 'sd', price: 100, opId: opId(21) }, creator)).body.code, 'price_changed');
+  const r = await call({ action: 'buy', id: 'duo', view: 'sd', price: 120, opId: opId(22) }, creator);
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body)); assert.equal(r.body.balance, 380); assert.equal(r.body.expiresAt - r.body.serverNow, 30 * DAY); assert.equal(r.body.viewId, 'sd');
+  assert.equal((await call({ action: 'buy', id: 'duo', view: 'sd', price: 120, opId: opId(22) }, creator)).body.repeated, true); assert.equal(db.data.get(`workspaces/${creator}`).credits, 380);
+  assert.ok(db.data.get(`workspaces/${creator}/characterAccess/duo~sd`).expiresAt > Date.now());
+  const mine = poseOf(await call({ action: 'list' }, creator), 'duo');
+  assert.equal(mine.partial, undefined); assert.ok(mine.views.sd.skeleton && !mine.views.sd.locked); assert.deepEqual(Object.keys(mine.animations).sort(), ['f34', 'sd']);
+  const full = poseOf(await call({ action: 'list' }, admin), 'duo');
+  assert.equal(Object.keys((await filesOf([full.views.sd.skeleton], creator)).db).length, 1);
+  const ledger = [...db.data.entries()].filter(([k]) => k.startsWith(`workspaces/${creator}/creditLedger/`)).map(([, v]) => v).filter((v) => /Duo.*Side/.test(v.reason));
+  assert.equal(ledger.length, 1);
+  const ref = `workspaces/${creator}/characterAccess/duo~sd`;
+  db.data.set(ref, { ...db.data.get(ref), expiresAt: Date.now() - 1 });                                                                  // time over
+  const after = poseOf(await call({ action: 'list' }, creator), 'duo');
+  assert.equal(after.views.sd.locked, true); assert.deepEqual(Object.keys((await filesOf([full.views.sd.skeleton], creator)).db), []);
+});
+
+test('buying the whole character unlocks every pose, also a paid pose; a pose bought alone does not unlock the others', async () => {
+  await call({ action: 'update', id: 'duo', store: { price: 400 }, viewStore: { sd: { price: 120 } } });
+  const locked = poseOf(await call({ action: 'list' }, creator), 'duo');
+  assert.equal(locked.locked, true); assert.equal(locked.store.price, 400); assert.equal(locked.views.f34.skeleton, undefined);          // a paid character: even its first pose is locked now
+  wallet(creator, 1000);
+  assert.equal((await call({ action: 'buy', id: 'duo', view: 'sd', price: 120, opId: opId(23) }, creator)).statusCode, 200);
+  const one = poseOf(await call({ action: 'list' }, creator), 'duo');
+  assert.ok(one.views.sd.skeleton && !one.views.sd.locked && one.views.f34.locked === true);                                                 // only the pose that was bought
+  assert.equal((await call({ action: 'buy', id: 'duo', price: 400, opId: opId(24) }, creator)).statusCode, 200);
+  const all = poseOf(await call({ action: 'list' }, creator), 'duo');
+  assert.ok(all.views.f34.skeleton && all.views.sd.skeleton && !all.locked && !all.partial);
+  const ref = `workspaces/${creator}/characterAccess/duo~sd`;
+  db.data.set(ref, { ...db.data.get(ref), expiresAt: Date.now() - 1 });                                                                      // the single pose ended, the whole one still runs
+  assert.ok(poseOf(await call({ action: 'list' }, creator), 'duo').views.sd.skeleton);
+});
+
+test('gifts of a pose: only a paid pose can be given; the sales list names the pose', async () => {
+  await call({ action: 'update', id: 'duo', store: null });
+  const email = `${creator}@example.test`;
+  assert.equal((await call({ action: 'grant', id: 'duo', view: 'f34', email })).body.code, 'not_paid');
+  const g = await call({ action: 'grant', id: 'duo', view: 'sd', email }); assert.equal(g.statusCode, 200, JSON.stringify(g.body));
+  assert.ok(db.data.get(`workspaces/${creator}/characterAccess/duo~sd`).expiresAt > Date.now());
+  const sales = (await call({ action: 'sales' })).body.sales;
+  assert.ok(sales.some((x) => x.viewId === 'sd' && x.viewLabel === 'Side' && x.characterName === 'Duo'));
+  assert.equal((await call({ action: 'update', id: 'duo', viewStore: null })).body.character.viewStore, undefined);
+  assert.equal(poseOf(await call({ action: 'list' }, creator), 'duo').partial, undefined);                                                    // every pose is free again
+});
