@@ -1,0 +1,36 @@
+/* Character Store page */
+.cs-main{max-width:1080px;margin:0 auto;padding:22px 18px 80px}
+.cs-hero{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.cs-hero h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);letter-spacing:-.02em}
+.cs-wallet{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--line,#34363c);border-radius:16px;background:var(--card,#1d1e22)}
+.cs-wallet small{color:var(--mute,#9a9ca5)}.cs-balance{display:inline-flex;align-items:center;gap:6px;font-size:18px}
+.cs-sub{margin:22px 0 12px;font-size:18px}
+.cs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+.cs-card{display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line,#34363c);border-radius:20px;background:var(--card,#1d1e22)}
+.cs-card.owned{border-color:#7c6cf5;box-shadow:0 0 0 1px #7c6cf5 inset}
+.cs-thumb{position:relative;aspect-ratio:5/6;background:linear-gradient(160deg,#2a2c36,#16171d);display:grid;place-items:center;overflow:hidden}
+.cs-thumb img{width:100%;height:100%;object-fit:contain}
+.cs-badge{position:absolute;top:10px;left:10px;padding:3px 10px;border-radius:99px;background:#7c6cf5;color:#fff;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.cs-info{display:flex;flex-direction:column;gap:3px;padding:12px 14px 4px}.cs-name{font-size:16px}.cs-info small{color:var(--mute,#9a9ca5)}
+.cs-status{font-size:12.5px;color:var(--mute,#9a9ca5)}.cs-status.on{color:#4fd69c;font-weight:700}
+.cs-actions{display:flex;gap:8px;padding:10px 14px 14px;margin-top:auto}.cs-actions .btn{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:4px}.cs-actions .cs-buy{flex:2}
+.cs-off{flex:2;align-self:center;text-align:center;font-size:13px;color:var(--mute,#9a9ca5)}
+.cs-empty{display:grid;justify-items:center;gap:6px;padding:48px 12px;text-align:center}.cs-empty p{margin:0;color:var(--mute,#9a9ca5)}
+.cs-hint{color:var(--mute,#9a9ca5);font-size:14px}.cs-hint.error{color:#ef8f7a}
+.cs-note{margin:26px 0 0;font-size:12.5px;line-height:1.5;color:var(--mute,#9a9ca5)}
+dialog.cs-dialog{width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--line,#34363c);border-radius:22px;background:var(--page,#16171a);color:var(--text,#f2f3f5);box-shadow:0 24px 70px #0008;overflow:hidden}
+dialog.cs-dialog[open]{display:flex;flex-direction:column}dialog.cs-dialog::backdrop{background:#0009;backdrop-filter:blur(2px)}
+.cs-dialog-head{display:flex;align-items:center;gap:8px;padding:16px 18px 6px}.cs-dialog-head h2{margin:0;flex:1;font-size:18px}
+.cs-x{width:34px;height:34px;border:0;border-radius:50%;background:transparent;color:var(--mute,#9a9ca5);font-size:16px;cursor:pointer}
+.cs-dialog-body{padding:8px 18px;overflow:auto}.cs-dialog-body p{margin:8px 0}
+.cs-dialog-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line,#34363c)}
+.cs-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:6px 0 10px}.cs-sum>div{padding:10px 12px;border:1px solid var(--line,#34363c);border-radius:14px;background:var(--card,#1d1e22);display:grid;gap:3px}
+.cs-sum small{color:var(--mute,#9a9ca5);font-size:11.5px}.cs-sum b{display:inline-flex;align-items:center;gap:5px;font-size:15px}
+.cs-msg{min-height:18px;font-size:13px;color:var(--mute,#9a9ca5)}.cs-msg.error{color:#ef8f7a}
+.cs-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+.cs-previews{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.cs-prev{margin:0;border:1px solid var(--line,#34363c);border-radius:14px;overflow:hidden;background:#111216}.cs-prev img,.cs-prev video{display:block;width:100%;aspect-ratio:1;object-fit:contain}.cs-prev figcaption{padding:6px 8px;font-size:11.5px;color:var(--mute,#9a9ca5);text-align:center}
+:root[data-theme] body dialog.cs-dialog :is(b,span,h2,small){color:inherit}
+:root[data-theme] body dialog.cs-dialog :is(small,.cs-hint,.cs-msg,figcaption){color:var(--mute,#9a9ca5)}
+:root[data-theme] body dialog.cs-dialog .cs-msg.error{color:#ef8f7a}
+@media(max-width:560px){.cs-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cs-sum{grid-template-columns:1fr}.cs-actions{flex-direction:column}.cs-buy{flex:1}}

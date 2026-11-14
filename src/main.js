@@ -25,7 +25,7 @@ import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as db
 import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
-import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, fetchLibraryCharacter, cdn, modePools, idleRef, modeEntries, MODE_REFS, cloudRef } from './catalog.js';
+import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, isLockedCharacter, fetchLibraryCharacter, cdn, modePools, idleRef, modeEntries, MODE_REFS, cloudRef } from './catalog.js';
 import { pictureUrl } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
@@ -261,7 +261,7 @@ async function ensureCharacter(id) {
       S.characters[S.characters.indexOf(saved)] = def; return def;
     }
     const entry = libraryCharacters().find(e => `lib:${e.id}` === id);
-    if (!entry) throw new Error('This character template is no longer available.');
+    if (!entry) throw new Error(isLockedCharacter(id) ? 'This is a premium character and your 30 days have ended (or it has not been bought yet). Please get it from the Character Store on your dashboard.' : 'This character template is no longer available.');
     const def = await fetchLibraryCharacter(entry); S.libDefs.set(id, def); return def;
   })().finally(() => definitionJobs.delete(id));
   definitionJobs.set(id, job); return job;

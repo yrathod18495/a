@@ -8,11 +8,14 @@ import { bakeSke } from './rigedit.js';
 import { setFit } from './universal.js';
 import { assetAddress } from '../shared/library-url.js';
 import { groupOf } from '../shared/character-package.js';
-import { listCloudCharacters, loadCloudView, getJson, pictureUrl } from './cloud-characters.js';
+import { listCharacterStore, loadCloudView, getJson, pictureUrl } from './cloud-characters.js';
 
 const BASE = import.meta.env.BASE_URL, LIBRARY = import.meta.env.VITE_LIBRARY_URL || '';   // LIBRARY: optional address of a CDN that serves the library files
 const VIEW_POSE = { f34: 'front-side', fr: 'front', sd: 'side', bk: 'back' };          // the picker orders poses by these names
 let library = [], adAnims = null, managedAnimations = [], libraryProblem = '';
+let lockedCharacters = new Set();          // paid characters this account has not bought (or whose 30 days have ended)
+/** is this library id (`lib:ch-<character>-<view>`) a paid character that is locked for this account? */
+export const isLockedCharacter = (libId) => { const m = /^lib:ch-(.+)-([a-z0-9_]+)$/.exec(String(libId || '')); return !!m && lockedCharacters.has(m[1]); };
 /** why the character list is empty, in simple Hinglish ('' when it loaded) */
 export const libraryStatus = () => libraryProblem;
 
@@ -35,7 +38,9 @@ export async function loadCatalog() {
   libraryProblem = 'The character library could not be loaded. Check your internet and reload the page; if it still fails, please contact support.';
   // the bundled library is gone for good; when the admin's uploaded characters are there, its absence is not a problem
   // characters the admin uploaded (Admin -> Characters): one entry per view, files come from the database / R2 and are cached by the browser
-  const cloudTask = listCloudCharacters().then((list) => {
+  const cloudTask = listCharacterStore().then(({ characters }) => {
+    lockedCharacters = new Set(characters.filter((c) => c.locked).map((c) => c.id));
+    const list = characters.filter((c) => !c.locked);                                  // the picker shows only what this account may use now
     const entries = list.flatMap((c) => Object.entries(c.views || {}).map(([view, v]) => ({ id: `ch-${c.id}-${view}`, name: c.name, pose: v.label, patternId: 'rig', charBase: c.id, thumbnail: '', paid: false,
       group: groupOf(c, c.categoryName), template: { cloud: true, character: c, view, pose: VIEW_POSE[view] || view } })));
     library.push(...entries);

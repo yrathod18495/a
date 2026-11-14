@@ -57,7 +57,7 @@ function setTheme(theme) {
 setTheme(activeTheme);
 
 /* ---------------- routing ---------------- */
-const PRIVATE = ['#/hub', '#/toons', '#/characters', '#/background-generator', '#/admin', '#/credits', '#/affiliate-dashboard'];
+const PRIVATE = ['#/hub', '#/toons', '#/characters', '#/background-generator', '#/admin', '#/credits', '#/store', '#/affiliate-dashboard'];
 const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
 const DIRECT_ROUTES = { '/admin': '#/admin', '/buy-credits': '#/credits', '/credits': '#/credits', '/terms-of-use': '#/terms', '/website-license': '#/website-license', '/license': '#/website-license', '/affiliate-partners': '#/affiliates' };
 try {
@@ -161,6 +161,11 @@ async function renderRoute() {
     const { view: creditsView } = await import('./credits.js');
     $shell.replaceChildren(await creditsView({ user, home: () => go('#/hub') })); return;
   }
+  if (hash === '#/store') {
+    const { view: storeView } = await import('./character-store.js');
+    $app.hidden = true; $shell.hidden = false;
+    $shell.replaceChildren(await storeView({ user, home: () => go('#/hub') })); return;
+  }
   if (hash === '#/affiliates') {
     const { affiliateView } = await import('./affiliate.js');
     $app.hidden = true; $shell.hidden = false;
@@ -238,6 +243,7 @@ const RAIL_ICONS = {
   home: 'M3 11 12 3l9 8M5 10v10h5v-6h4v6h5V10',
   animate: 'M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7ZM16 10.5l5-3v9l-5-3',
   actor: 'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM3.5 20a6.5 6.5 0 0 1 10-5.2M14.5 21l.7-3 5.3-5.3 2.3 2.3-5.3 5.3-3 .7Z',
+  store: 'M4 8h16l-1.2 11.2a1 1 0 0 1-1 .8H6.2a1 1 0 0 1-1-.8L4 8ZM8 8V6a4 4 0 0 1 8 0v2',
   coins: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.5h-3a1.7 1.7 0 0 0 0 3.5h4',
   earn: 'M4 17l6-6 4 4 6-10m-6 0h6v6',
   admin: 'M4 7h16M4 17h16M8 4v6m8 4v6',
@@ -245,7 +251,7 @@ const RAIL_ICONS = {
   help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.1',
 };
 const railIcon = (name) => { const e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 24 24'); e.setAttribute('aria-hidden', 'true'); const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', RAIL_ICONS[name]); e.append(path); return e; };
-const RAIL_PAGES = ['#/hub', '#/toons', '#/characters', '#/credits', '#/affiliate-dashboard', '#/help'];
+const RAIL_PAGES = ['#/hub', '#/toons', '#/characters', '#/store', '#/credits', '#/affiliate-dashboard', '#/help'];
 let rail = null, railOpen = false;
 function syncPhoneNav() {
   const parts = (location.hash || '#/').split('/'), hash = parts.slice(0, 2).join('/'), inProject = (hash === '#/toons' || hash === '#/characters') && parts[2];
@@ -262,6 +268,7 @@ function syncPhoneNav() {
       group('Studio apps'),
       ...(featureOn('#/toons') ? [item('#/toons', 'animate', 'Animator Studio')] : []),
       ...(featureOn('#/characters') ? [item('#/characters', 'actor', 'Character Editor')] : []),
+      item('#/store', 'store', 'Character Store'),
       group('Account'),
       item('#/credits', 'coins', 'Coins'),
       item('#/affiliate-dashboard', 'earn', 'Earn with us'),
@@ -453,6 +460,7 @@ function hubView() {
   const TOOL_ART = {
     animator: '<svg viewBox="0 0 120 100" fill="none"><rect x="6" y="14" width="108" height="50" rx="10" fill="#ffffff14" stroke="#ffffff40"/><circle cx="60" cy="39" r="14" fill="#fff"/><path d="M56 32v14l12-7z" fill="#5b4bd4"/><g class="ta-bars"><rect x="6" y="74" width="46" height="8" rx="4" fill="#ffffff8c"/><rect x="58" y="74" width="30" height="8" rx="4" fill="#ffffff59"/><rect x="6" y="88" width="28" height="8" rx="4" fill="#ffffff59"/><rect x="40" y="88" width="56" height="8" rx="4" fill="#ffffff8c"/></g><rect class="ta-head" x="6" y="70" width="3" height="30" rx="1.500" fill="#fff"/></svg>',
     actor: '<svg viewBox="0 0 120 100" fill="none"><circle cx="48" cy="26" r="15" fill="#ffe0bd"/><path d="M40 20c2-8 14-9 17-2 2 4-2 5-8 4s-8 1-9-2z" fill="#3a2414"/><path class="ta-shirt" d="M22 96c0-26 10-40 26-40s26 14 26 40z" fill="#fff"/><g class="ta-dots"><circle cx="98" cy="30" r="8" fill="#ff6b6b"/><circle cx="98" cy="54" r="8" fill="#4dabf7"/><circle cx="98" cy="78" r="8" fill="#51cf66"/></g><circle class="ta-pick" cx="98" cy="30" r="11" stroke="#fff" stroke-width="2"/></svg>',
+    store: '<svg viewBox="0 0 120 100" fill="none"><rect x="22" y="34" width="76" height="54" rx="10" fill="#ffffff1c" stroke="#ffffff55"/><path d="M40 34v-8a20 20 0 0 1 40 0v8" stroke="#fff" stroke-width="5" stroke-linecap="round"/><g class="ta-dots"><circle cx="60" cy="62" r="15" fill="#ffd166"/><path d="M60 54v16M55 59h8a3 3 0 0 1 0 6h-6" stroke="#7a4b00" stroke-width="3" stroke-linecap="round"/></g></svg>',
     bggen: '<svg viewBox="0 0 120 100" fill="none"><rect x="6" y="10" width="108" height="80" rx="12" fill="#ffffff14" stroke="#ffffff40"/><clipPath id="taC"><rect x="6" y="10" width="108" height="80" rx="12"/></clipPath><g clip-path="url(#taC)"><circle class="ta-sun" cx="84" cy="44" r="12" fill="#ffe066"/><path class="ta-cloud" d="M22 34h22a7 7 0 0 0 0-14 9 9 0 0 0-17-2 8 8 0 0 0-5 16z" fill="#ffffffd9"/><path d="M6 90l30-34 20 20 16-14 42 28z" fill="#0c5a50"/><path d="M6 90l22-18 26 12 30-20 30 26z" fill="#7ff0c9"/></g></svg>',
   };
   const tool = (cls, title, text, hash, btn) => {
@@ -467,6 +475,7 @@ function hubView() {
       h('div', { class: 'sh-tools' },
         ...(featureOn('#/toons') ? [tool('animator', '12toons Animator Studio', 'Script and voice into animated scenes.', '#/toons', 'Open Studio')] : []),
         ...(featureOn('#/characters') ? [tool('actor', '12toons Character Editor', 'Build your own characters.', '#/characters', 'Open Editor')] : []),
+        tool('store', 'Character Store', 'Premium characters for 30 days.', '#/store', 'Open Store'),
         ...(featureOn('#/background-generator') ? [tool('bggen', 'Background Generator', 'Make backgrounds in 4K.', '#/background-generator', 'Open Generator')] : []),
         ...(!featureOn('#/toons') && !featureOn('#/characters') && !featureOn('#/background-generator') ? [h('p', { class: 'sub' }, 'The tools are not available right now. Please check back soon.')] : [])),
       role === 'admin' && (!features.animator || !features.character || !features.background) ? h('p', { class: 'sub' }, `Hidden for users: ${[!features.animator && 'Animator Studio', !features.character && 'Character Editor', !features.background && 'Background Generator'].filter(Boolean).join(', ')} (you can still see them as admin).`) : null,

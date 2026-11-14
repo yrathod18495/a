@@ -33,6 +33,10 @@ Every layer must stay visible on a short timeline (rows shrink together), the ch
 
 The first screen never waits for the server: the page opens from what this device knows and one background `boot` request corrects it. Never `await` an API call before the first `route()`, never turn "could not ask" into "signed out / not admin / maintenance", keep `api/security.js` light. Details, the tests and the region check: `docs/STARTUP.md`. Read it before changing `src/shell.js` start-up, `src/firebase.js` `onUser` or `api/security.js`.
 
+## Character Store (permanent rule)
+
+Paid characters are bought with Coins for exactly 30 days (720 hours) counted on the **server** clock, never the phone's. The files of a paid character are given only to buyers and admins. Rules, data and tests: `docs/CHARACTER-STORE.md`. Read it before changing `server/character-store.js`, the `character:*` actions in `server/characters-api.js`, `src/character-store.js` or the store controls in `src/admin-characters.js`.
+
 ## Effects (permanent rule)
 
 Effects are layers on the timeline for the whole scene (characters too) or for one picture. How they work, where to add a look and the rules: `docs/EFFECTS.md`. Read it before changing effects, the Colour grade or the renderer passes.

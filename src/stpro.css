@@ -1053,3 +1053,19 @@ dialog.credit-plans-window::backdrop{background:#0009;backdrop-filter:blur(2px)}
 :root[data-theme] body dialog.credit-history-window :is(b,span){color:inherit}
 :root[data-theme] body dialog.credit-history-window :is(.chw-label,.chw-main small,.chw-side small,.chw-hint,.chw-note,.chw-sub){color:var(--mute)}
 :root[data-theme] body dialog.credit-history-window .chw-row.added .chw-coins{color:#4fd69c}
+
+.st-tool.store .st-tool-art{background:radial-gradient(120% 90% at 85% 20%,#e0559a 0,#7c2a63 40%,#2a0f24 78%),linear-gradient(135deg,#2a1020,#12060f)}
+.st-tool.store .st-launch{background:linear-gradient(135deg,#ff7eb6,#ffb3d4);color:#3a0a22!important}
+
+/* Admin → Characters → Character Store controls */
+.admin-characters-store{display:grid;gap:10px;margin:10px 0}.admin-characters-price{display:flex;align-items:center;gap:10px}.admin-characters-price input{width:140px;padding:8px 10px;border:1px solid var(--line,#34363c);border-radius:10px;background:var(--card,#1d1e22);color:inherit;font:inherit}
+.admin-character-store{font-weight:700;color:var(--mute,#9a9ca5)}.admin-character-store.paid{color:#e8b93c}
+dialog.admin-store-dialog{width:min(440px,calc(100vw - 24px));padding:18px;border:1px solid var(--line,#34363c);border-radius:20px;background:var(--page,#16171a);color:var(--text,#f2f3f5)}dialog.admin-store-dialog::backdrop{background:#0009}
+dialog.admin-store-dialog h2{margin:0 0 10px;font-size:18px}.admin-store-rows{display:grid;gap:10px;margin:10px 0}.admin-store-rows label,dialog.admin-store-dialog label.inline{display:flex;align-items:center;gap:10px}.admin-store-rows input[type=number]{width:130px;padding:8px 10px;border:1px solid var(--line,#34363c);border-radius:10px;background:var(--card,#1d1e22);color:inherit;font:inherit}
+.admin-store-note,.admin-store-msg{font-size:12.5px;color:var(--mute,#9a9ca5);margin:8px 0}.admin-store-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.admin-sales-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.admin-sales-head h2{margin:0}
+.admin-sales-give{display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid var(--line,#34363c);border-radius:14px}.admin-sales-give .row{display:flex;flex-wrap:wrap;gap:8px}.admin-sales-give input,.admin-sales-give select{padding:8px 10px;border:1px solid var(--line,#34363c);border-radius:10px;background:var(--card,#1d1e22);color:inherit;font:inherit;min-width:180px;flex:1}
+.admin-sales-sum{margin:6px 0 10px;color:var(--mute,#9a9ca5);font-size:13px}.admin-sales-list{display:grid;gap:6px}
+.admin-sales-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:10px;padding:10px 12px;border:1px solid var(--line,#34363c);border-radius:12px;background:var(--card,#1d1e22)}
+.admin-sales-row b,.admin-sales-row small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.admin-sales-row small{color:var(--mute,#9a9ca5);font-size:11.5px}.admin-sales-row .until.on b{color:#4fd69c}
+@media(max-width:640px){.admin-sales-row{grid-template-columns:1fr 1fr}.admin-sales-row .who{grid-column:1/-1}}

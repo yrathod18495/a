@@ -11,7 +11,14 @@ const call = ({ action, ...body }) => apiCall(API, { action: `character:${action
 
 /* ---------- reading ---------- */
 /** the characters the admin published, each with its category's animations: [{ id, name, category, categoryName, views, animations, thumb }] */
-export async function listCloudCharacters() { return (await call({ action: 'list' })).characters || []; }
+export async function listCloudCharacters() { return ((await call({ action: 'list' })).characters || []).filter((c) => !c.locked); }          // only what this account may use now
+/** every character with its store state (for the Character Store and the admin screen): { characters, serverNow } — `locked` ones are paid and not bought (or ended); `serverNow` is the SERVER's clock at the time of the answer */
+export async function listCharacterStore() { const r = await call({ action: 'list' }); return { characters: r.characters || [], serverNow: Number(r.serverNow) || Date.now(), receivedAt: Date.now() }; }
+/** buy a paid character with Coins (30 days). `opId` makes a double tap safe: the same id is charged once. */
+export const buyCharacter = ({ id, price, opId }) => call({ action: 'buy', id, price, opId });
+/** admin: the newest purchases and gifts; give an account 30 days of a paid character */
+export const characterSales = () => call({ action: 'sales' });
+export const grantCharacter = ({ id, email }) => call({ action: 'grant', id, email });
 
 const memory = new Map();         // sha -> Promise<Blob> for this page
 async function fromCache(sha) { try { const hit = await (await caches.open(CACHE)).match(cacheUrl(sha)); return hit ? await hit.blob() : null; } catch { return null; } }
@@ -79,7 +86,7 @@ async function gzipBase64(blob) {
  * `thumb`: Blob (the character's picture); `thumbs`: Map view id -> Blob (one picture per view); `withAnimations`: false = use the existing category's animations.
  * `progress(text, done, total)` is called as it goes. Everything that can run side by side does: hashing, the database files, the R2 files.
  */
-export async function storeCharacter({ manifest, files, name = null, group = null, gifs = new Map(), gifsDone = null, thumb = null, thumbs = new Map(), withAnimations = true, progress = () => {} }) {
+export async function storeCharacter({ manifest, files, name = null, group = null, store = undefined, gifs = new Map(), gifsDone = null, thumb = null, thumbs = new Map(), withAnimations = true, progress = () => {} }) {
   const refs = new Map(), r2 = new Map(), small = [], previewTypes = new Map();
   const pool = async (items, work, n = 8) => { let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await work(items[i++]); })); };
   const add = async (key, blob, path, into = r2) => {
@@ -118,7 +125,7 @@ export async function storeCharacter({ manifest, files, name = null, group = nul
   const phase2 = late.size ? uploadAssets(owner(), late).then(() => { done += late.size; progress(`GIFs uploaded (${late.size})`, done, total); }) : Promise.resolve();
   await Promise.all([phase1, phase2]);
   progress('Saving the character…', total, total);
-  const record = { character: { id: manifest.character.id, name: (name || manifest.character.name).trim(), ...(group ? { group } : {}), thumb: refs.get('thumb') || null, views: {} }, category: { id: manifest.category.id, name: manifest.category.name } };
+  const record = { character: { id: manifest.character.id, name: (name || manifest.character.name).trim(), ...(group ? { group } : {}), ...(store !== undefined ? { store } : {}), thumb: refs.get('thumb') || null, views: {} }, category: { id: manifest.category.id, name: manifest.category.name } };
   for (const v of manifest.views) record.character.views[v.id] = { label: v.label, ...(refs.get(`${v.id}:thumb`) ? { thumb: refs.get(`${v.id}:thumb`) } : {}), gifs: Object.fromEntries(v.animations.filter((a) => refs.get(`${v.id}:gif:${a.name}`)).map((a) => [a.name, refs.get(`${v.id}:gif:${a.name}`)])), previewType: previewTypes.get(v.id) || 'gif', skeleton: refs.get(`${v.id}:skeleton`), textures: v.textures.map((_, i) => ({ json: refs.get(`${v.id}:tex${i}`), page: refs.get(`${v.id}:page${i}`) })) };
   if (withAnimations) {
     record.category.views = {};

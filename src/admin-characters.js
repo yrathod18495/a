@@ -8,7 +8,8 @@ import { h, logo } from './dom.js';
 import { Stage } from './db/stage.js';
 import { rigInfo } from './db/info.js';
 import { checkManifest, gifName, CHARACTER_GROUPS, groupOf } from '../shared/character-package.js';
-import { listCloudCharacters, storeCharacter, deleteCloudCharacter, updateCloudCharacter, pictureUrl } from './cloud-characters.js';
+import { listCloudCharacters, storeCharacter, deleteCloudCharacter, updateCloudCharacter, pictureUrl, characterSales, grantCharacter } from './cloud-characters.js';
+import { cleanStore, isPaid, timeLeft, leftText, MAX_PRICE, STORE_DAYS } from '../shared/character-store.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
 const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // the small one: it only shows what the animation does
@@ -103,7 +104,7 @@ export async function animationGif(stage, def, name, anim, length, opts = GIF) {
 export async function charactersView({ back, home, toast }) {
   const root = h('div', { class: 'sh admin-characters' });
   const content = h('main', { class: 'admin-characters-main' });
-  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '480', name: '', group: 'male' };
+  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '480', name: '', group: 'male', sell: false, price: 500, sales: null };
   const stage = new Stage({ maxTex: 2048 }); stage.setSize('1:1', PREVIEW); stage.fullView = false;          // the preview is small: 2048 px pages use a quarter of the GPU memory of 4096 px pages
   let raf = 0, last = 0, loadJob = 0, lastDraw = 0, dirty = true, drawError = '';
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
@@ -128,6 +129,7 @@ export async function charactersView({ back, home, toast }) {
       const known = st.list.find((c) => c.id === pkg.manifest?.character?.id);
       st.name = known?.name || pkg.manifest?.character?.name || '';           // the admin can change the name and the group before Done
       st.group = groupOf(known || { category: pkg.manifest?.category?.id, name: pkg.manifest?.character?.name }, pkg.manifest?.category?.name);
+      st.sell = !!known?.store; st.price = known?.store?.price || 500;          // a character that is already for sale keeps its price unless it is changed here
       status.textContent = pkg.errors.length ? '' : `${pkg.fileName} is ready. Look at the animations, then press Done.`;
       draw(); if (!pkg.errors.length) await show();
     } catch (e) { status.textContent = `This ZIP could not be read: ${friendlyError(e)}`; st.pkg = null; draw(); }
@@ -173,6 +175,8 @@ export async function charactersView({ back, home, toast }) {
 
   async function done() {
     const pkg = st.pkg; if (!pkg || pkg.errors.length || st.busy) return;
+    let priced = null;
+    if (st.sell) { try { priced = cleanStore({ price: st.price, enabled: st.list.find((c) => c.id === pkg.manifest.character.id)?.store?.enabled !== false }); } catch (e) { status.textContent = e.message; return; } }
     const replacing = st.list.some((c) => c.id === pkg.manifest.character.id);
     if (replacing && !(await confirmBox({ title: 'Replace this character?', text: `A character called "${pkg.manifest.character.id}" already exists. Done will replace it with this ZIP; its old files are removed.`, confirm: 'Replace' }))) return;
     st.busy = true; stop(); draw();
@@ -193,7 +197,7 @@ export async function charactersView({ back, home, toast }) {
       // 2) saving starts now: the rig, the animations and the pictures go up while the GIFs are still being made
       let finishGifs, failGifs;
       const gifsDone = new Promise((resolve, reject) => { finishGifs = resolve; failGifs = reject; });
-      const stored = storeCharacter({ manifest: pkg.manifest, files: pkg.files, name: st.name.trim() || pkg.manifest.character.name, group: st.group, gifs, gifsDone, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => { uploading = text; report(); if (!total) bar.value = t ? d / t : 1; } });
+      const stored = storeCharacter({ manifest: pkg.manifest, files: pkg.files, name: st.name.trim() || pkg.manifest.character.name, group: st.group, store: priced, gifs, gifsDone, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => { uploading = text; report(); if (!total) bar.value = t ? d / t : 1; } });
       stored.catch(() => {});                                  // a failure is shown below
       // 3) the GIFs: drawn here one after another, encoded by workers side by side
       try {
@@ -247,12 +251,70 @@ export async function charactersView({ back, home, toast }) {
     const views = Object.values(c.views || {}).map((v) => v.label).join(', '), anims = Object.values(c.animations || {}).reduce((n, v) => n + (v.animations?.length || 0), 0);
     return h('article', { class: 'admin-character-card' }, h('div', { class: 'admin-character-thumb' }, img),
       h('div', { class: 'admin-character-copy' }, h('b', {}, c.name), h('small', {}, `Category: ${c.categoryName}`), h('small', {}, `${views} · ${anims} animations`),
+        h('small', { class: `admin-character-store ${isPaid(c) ? 'paid' : ''}` }, isPaid(c) ? `Store: ${c.store.price.toLocaleString('en-IN')} Coins${c.store.enabled === false ? ' · off sale' : ''}` : 'Free for everyone'),
         h('select', { class: 'admin-character-group', 'aria-label': `Group of ${c.name}`, title: 'The group the creators find this character in', disabled: st.busy, onchange: (e) => regroup(c, e.target) },
           CHARACTER_GROUPS.map(([id, label]) => h('option', { value: id, selected: groupOf(c, c.categoryName) === id }, label)))),
       h('div', { class: 'admin-character-actions' },
         h('button', { class: 'btn sm', type: 'button', disabled: st.busy, onclick: () => rename(c) }, 'Rename'),
+        h('button', { class: 'btn sm', type: 'button', disabled: st.busy, onclick: () => storeSettings(c) }, 'Store'),
         h('button', { class: 'btn sm danger', type: 'button', disabled: st.busy, onclick: () => remove(c) }, 'Delete')));
   }
+  /** price and sale of a saved character: free for everyone, or sold for Coins (30 days); it can be taken off sale without making it free */
+  function storeSettings(c) {
+    const paid = isPaid(c), dlg = h('dialog', { class: 'admin-store-dialog', 'aria-label': `Store settings of ${c.name}` });
+    const sell = h('input', { type: 'checkbox', checked: paid, 'aria-label': 'Sell in the Character Store' }), price = h('input', { type: 'number', min: 1, max: MAX_PRICE, step: 1, value: c.store?.price || 500, 'aria-label': 'Price in Coins' });
+    const onSale = h('input', { type: 'checkbox', checked: c.store?.enabled !== false, 'aria-label': 'On sale' }), msg = h('p', { class: 'admin-store-msg', role: 'status' }, '');
+    const rows = h('div', { class: 'admin-store-rows' }, h('label', {}, price, h('span', {}, 'Price (Coins)')), h('label', { class: 'inline' }, onSale, h('span', {}, 'On sale (people can buy it now)')));
+    const sync = () => { rows.hidden = !sell.checked; }; sell.addEventListener('change', sync); sync();
+    const close = () => dlg.close();
+    const save = h('button', { type: 'button', class: 'btn pri', onclick: async () => {
+      let store = null; try { store = sell.checked ? cleanStore({ price: price.value, enabled: onSale.checked }) : null; } catch (e) { msg.textContent = e.message; return; }
+      save.disabled = true; msg.textContent = 'Saving…';
+      try { await updateCloudCharacter(c.id, { store }); toast(store ? `${c.name} is in the Character Store for ${store.price.toLocaleString('en-IN')} Coins.` : `${c.name} is free for everyone.`); close(); await refresh(); }
+      catch (e) { msg.textContent = `Could not save: ${friendlyError(e)}`; save.disabled = false; }
+    } }, 'Save');
+    dlg.append(h('h2', {}, c.name), h('label', { class: 'inline' }, sell, h('span', {}, `Sell in the Character Store (${STORE_DAYS} days per purchase)`)), rows,
+      h('p', { class: 'admin-store-note' }, 'People who already bought it keep it until their time ends, even if you take it off sale or change the price. Making it free gives it to everyone.'), msg,
+      h('div', { class: 'admin-store-foot' }, h('button', { type: 'button', class: 'btn', onclick: close }, 'Cancel'), save));
+    dlg.addEventListener('close', () => dlg.remove()); dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
+    document.body.append(dlg); dlg.showModal();
+  }
+  /** the Character Store's sales and gifts (the newest 100); loaded only when the admin asks, so the page stays light */
+  function salesSection() {
+    const box = h('section', { class: 'admin-panel-card admin-characters-sales' });
+    const body = h('div', { class: 'admin-sales-body' });
+    const load = async (button) => {
+      if (button) button.disabled = true; body.replaceChildren(h('p', { class: 'admin-empty', role: 'status' }, 'Loading sales…'));
+      try {
+        const r = await characterSales(), now = r.serverNow, rows = r.sales;
+        const active = rows.filter((x) => timeLeft(x.expiresAt, now) > 0), earned = rows.reduce((n, x) => n + (x.source === 'coins' ? Number(x.price) || 0 : 0), 0);
+        const when = (ms) => new Date(ms).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        body.replaceChildren(
+          h('p', { class: 'admin-sales-sum' }, `Newest ${rows.length} sales · ${earned.toLocaleString('en-IN')} Coins received · ${active.length} still active`),
+          rows.length ? h('div', { class: 'admin-sales-list', role: 'table' }, ...rows.map((x) => h('div', { class: 'admin-sales-row', role: 'row' },
+            h('div', { class: 'who' }, h('b', {}, x.email || x.uid), h('small', {}, x.characterName)),
+            h('div', { class: 'what' }, h('b', {}, x.source === 'admin' ? 'Gift' : `${Number(x.price).toLocaleString('en-IN')} Coins`), h('small', {}, when(x.purchasedAt))),
+            h('div', { class: `until ${timeLeft(x.expiresAt, now) > 0 ? 'on' : ''}` }, h('b', {}, leftText(timeLeft(x.expiresAt, now))), h('small', {}, `until ${when(x.expiresAt)}`))))) : h('p', { class: 'admin-empty' }, 'No sales yet.'));
+      } catch (e) { body.replaceChildren(h('p', { class: 'admin-empty', role: 'alert' }, `Could not load the sales: ${friendlyError(e)}`)); }
+      finally { if (button) button.disabled = false; }
+    };
+    const email = h('input', { type: 'email', placeholder: 'user@email.com', 'aria-label': 'Email of the account to give a character to' }), pick = h('select', { 'aria-label': 'Character to give' });
+    const giveMsg = h('p', { class: 'admin-store-msg', role: 'status' }, '');
+    const give = h('button', { class: 'btn', type: 'button', onclick: async () => {
+      if (!email.value.trim()) { giveMsg.textContent = 'Please enter the email address of the account.'; return; }
+      give.disabled = true; giveMsg.textContent = 'Giving…';
+      try { const r = await grantCharacter({ id: pick.value, email: email.value.trim() }); giveMsg.textContent = `Done: ${r.email} has the character for ${STORE_DAYS} more days (until ${new Date(r.expiresAt).toLocaleDateString()}).`; email.value = ''; }
+      catch (e) { giveMsg.textContent = `Could not give it: ${friendlyError(e)}`; }
+      finally { give.disabled = !pick.options.length; }
+    } }, `Give ${STORE_DAYS} days`);
+    box.fill = () => { const keep = pick.value; pick.replaceChildren(...st.list.filter(isPaid).map((c) => h('option', { value: c.id }, c.name))); if (keep) pick.value = keep; give.disabled = !pick.options.length; };
+    const show = h('button', { class: 'btn', type: 'button', onclick: (e) => load(e.currentTarget) }, 'Show sales');
+    box.append(h('div', { class: 'admin-sales-head' }, h('h2', {}, 'Character Store sales'), show),
+      h('div', { class: 'admin-sales-give' }, h('b', {}, 'Give a character to an account'), h('div', { class: 'row' }, email, pick, give), giveMsg),
+      body);
+    return box;
+  }
+  let salesEl = null;                          // built once: the loaded sales stay while the page is drawn again
   function previewSection() {
     const pkg = st.pkg; if (!pkg) return null;
     const m = pkg.manifest || {}, totalAnims = views().reduce((n, v) => n + v.animations.length, 0);
@@ -264,6 +326,10 @@ export async function charactersView({ back, home, toast }) {
       h('div', { class: 'admin-characters-meta' },
         h('label', {}, h('span', {}, 'Name shown to creators'), h('input', { type: 'text', maxlength: 60, value: st.name, disabled: st.busy, 'aria-label': 'Character name', oninput: (e) => { st.name = e.target.value; } })),
         h('label', {}, h('span', {}, 'Group'), h('select', { 'aria-label': 'Character group', disabled: st.busy, onchange: (e) => { st.group = e.target.value; } }, CHARACTER_GROUPS.map(([id, label]) => h('option', { value: id, selected: st.group === id }, label))))),
+      h('div', { class: 'admin-characters-store' },
+        h('label', { class: 'admin-characters-choice' }, h('input', { type: 'checkbox', checked: st.sell, disabled: st.busy, 'aria-label': 'Sell this character in the Character Store', onchange: (e) => { st.sell = e.target.checked; draw(); } }),
+          h('span', {}, h('b', {}, 'Sell in the Character Store'), h('small', {}, `Creators pay Coins and get the character for ${STORE_DAYS} days (counted on the server). Leave this off to make it free for everyone.`))),
+        st.sell ? h('label', { class: 'admin-characters-price' }, h('span', {}, 'Price (Coins)'), h('input', { type: 'number', min: 1, max: MAX_PRICE, step: 1, value: st.price, disabled: st.busy, 'aria-label': 'Price in Coins', oninput: (e) => { st.price = e.target.value; } })) : null),
       charExists ? h('p', { class: 'admin-characters-note' }, `A character with the id "${m.character.id}" already exists. Done will replace it (its old files are removed).`) : null,
       catExists ? h('div', { class: 'admin-characters-choices' }, choice(false, `Use the saved "${m.category.name}" animations`, 'This character uses the same animation files as the others in this category (they are not uploaded again). It still gets its own preview GIFs, made from this character.'), choice(true, 'Replace them with the animations in this ZIP', 'Every character of this category gets the new animations.')) : null,
       h('div', { class: 'admin-characters-views', role: 'group', 'aria-label': 'View' }, ...views().map((v, i) => h('button', { class: `btn sm ${i === st.view ? 'pri' : ''}`, type: 'button', 'aria-pressed': String(i === st.view), disabled: st.busy, onclick: () => { st.view = i; st.index = 0; draw(); show(); } }, v.label || v.id))),
@@ -283,6 +349,7 @@ export async function charactersView({ back, home, toast }) {
       previewSection() || h('span'),
       h('section', { class: 'admin-panel-card admin-characters-list' }, h('h2', {}, `Saved characters (${st.list.length})`),
         st.list.length ? h('div', { class: 'admin-characters-grid' }, ...st.list.map(card)) : h('p', { class: 'admin-empty' }, 'No characters yet. Upload the first ZIP above.')),
+      (salesEl ||= salesSection(), salesEl.fill(), salesEl),
       h('button', { class: 'btn admin-back', type: 'button', onclick: back }, '← Back to Admin'));
     drawInfo();
   }

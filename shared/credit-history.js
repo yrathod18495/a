@@ -26,7 +26,7 @@ export function ledgerRows(lines = []) {
     return {
       id: '', title: kind === 'signup_bonus' ? 'Welcome gift' : String(l.reason || (delta > 0 ? 'Coins added' : 'Coins removed')).slice(0, 80),
       when: Number(l.at) || 0, coins: Math.abs(delta), rupees: '', state: delta > 0 ? 'added' : 'removed',
-      label: kind === 'signup_bonus' ? 'Gift' : delta > 0 ? 'Added by 12toons' : 'Removed by 12toons', balance: Number(l.balance),
+      label: kind === 'signup_bonus' ? 'Gift' : kind === 'store_purchase' ? 'Character Store' : delta > 0 ? 'Added by 12toons' : 'Removed by 12toons', balance: Number(l.balance),
     };
   }).sort((a, b) => b.when - a.when);
 }

@@ -7,6 +7,8 @@
 //   putFile   admin: store one small file (checked against its SHA-256)
 //   commit    admin: save a character (and its category) after its files are stored; R2 files are checked and counted
 //   delete    admin: remove a character and every file nobody else uses (database and R2); the last character of a category takes the category with it
+//   buy       any signed-in account: buy a paid character with Coins for 30 days (server clock); see docs/CHARACTER-STORE.md
+//   sales     admin: the newest purchases and gifts          grant  admin: give an account 30 days of a paid character
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 import { services } from './firebase-admin.js';
@@ -16,6 +18,9 @@ import { kv } from './rtdb.js';
 import { AccessError } from './security-policy.js';
 import { configured, confirmAssets, signDownloads, deleteKey, assetKey } from './r2-storage.js';
 import { cleanRecord, refsOf, isSha, isId, isGroup, DB_MAX_BYTES } from '../shared/character-package.js';
+import { cleanStore, isPaid, isActive, lockedView, previewRefs } from '../shared/character-store.js';
+import { accessOf, buyCharacter, grantCharacter, recentSales, validOpId } from './character-store.js';
+import { lookupAccount } from './signup-bonus.js';
 
 const MAX_FILES_PER_CALL = 60;
 const bad = (code, message, status = 400) => new AccessError(code, message, status);
@@ -24,6 +29,27 @@ const bad = (code, message, status = 400) => new AccessError(code, message, stat
 async function readAll(store) {
   const [characters, categories] = await Promise.all([store.get('characters'), store.get('characterCategories')]);
   return { characters: characters || {}, categories: categories || {} };
+}
+/** the whole library, remembered for a few seconds per server instance (the `files` check runs for every batch of files); a write forgets it */
+let stateCache = { at: 0, state: null };
+const forgetState = () => { stateCache = { at: 0, state: null }; };
+async function cachedState(store, fresh = false) {
+  if (!fresh && stateCache.state && Date.now() - stateCache.at < 15000) return stateCache.state;
+  stateCache = { at: Date.now(), state: await readAll(store) };
+  return stateCache.state;
+}
+/** the files this account may download: everything of free characters, everything of paid characters it has bought (and not expired), and only the
+ *  thumbnails / previews of the paid characters on sale. An admin may download everything. */
+function allowedFiles(state, access, now) {
+  const allowed = new Set(), usedCategories = new Set();
+  const addAll = (record) => { for (const f of refsOf(record)) allowed.add(f.sha); };
+  for (const c of Object.values(state.characters)) {
+    if (c.enabled === false) continue;
+    if (!isPaid(c) || isActive(access.get(c.id), now)) { addAll(c); usedCategories.add(c.category); }
+    else if (c.store.enabled !== false) for (const r of previewRefs(c)) allowed.add(r.db || r.r2);
+  }
+  for (const id of usedCategories) if (state.categories[id]) addAll(state.categories[id]);
+  return allowed;
 }
 /** the files still used by any character or category */
 function usedFiles({ characters, categories }) {
@@ -63,23 +89,60 @@ export const CHARACTER_BODY_MAX = 600 * 1024;
 /** one character action; `b` is the request body with its action name without the "character:" prefix */
 export async function characterAction(req, res, b) {
   try {
-    const adminAction = ['putFile', 'commit', 'delete', 'update'].includes(b.action);
-    const who = await access(req, { admin: adminAction, write: adminAction, cache: !adminAction });
+    const adminWrite = ['putFile', 'commit', 'delete', 'update', 'grant'].includes(b.action), adminAction = adminWrite || b.action === 'sales';
+    const who = await access(req, { admin: adminAction, write: adminWrite || b.action === 'buy', cache: !adminAction && b.action !== 'buy' });
     if (!who.admin && await maintenanceOn()) throw bad('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
-    const store = kv(services());
+    const svc = services(), store = kv(svc), firestore = svc.db, now = Date.now();
 
     if (b.action === 'list') {
       const { characters, categories } = await readAll(store);
-      const list = Object.values(characters).filter((c) => c.enabled !== false).sort((a, z) => String(a.name).localeCompare(String(z.name)))
-        .map(({ owner, ...c }) => { const g = categories[c.category]; return { ...c, categoryName: g?.name || c.category, animations: g?.views || {} }; });
-      return send(res, 200, { characters: list });
+      const owned = who.admin || !Object.values(characters).some(isPaid) ? new Map() : await accessOf(firestore, who.uid);       // one small read, and only when something is for sale
+      const list = [];
+      for (const c of Object.values(characters).filter((x) => x.enabled !== false).sort((a, z) => String(a.name).localeCompare(String(z.name)))) {
+        const g = categories[c.category], categoryName = g?.name || c.category, mine = owned.get(c.id);
+        if (!isPaid(c) || who.admin || isActive(mine, now)) { const { owner, ...rest } = c; list.push({ ...rest, categoryName, animations: g?.views || {}, ...(isPaid(c) && mine ? { access: { expiresAt: mine.expiresAt } } : {}) }); }
+        else if (c.store.enabled !== false) list.push({ ...lockedView(c, categoryName), ...(mine ? { access: { expiresAt: mine.expiresAt } } : {}) });       // on sale: pictures and previews only
+      }
+      return send(res, 200, { characters: list, serverNow: now });
+    }
+
+    if (b.action === 'buy') {
+      if (!isId(b.id)) throw bad('invalid_character', 'The character is not valid.');
+      const character = await store.get(`characters/${b.id}`);
+      if (!character) throw bad('not_found', 'This character does not exist any more.', 404);
+      const out = await buyCharacter({ db: firestore, character, uid: who.uid, email: who.claims?.email || '', name: who.claims?.name || '', price: b.price, opId: b.opId, now });
+      return send(res, 200, out);
+    }
+
+    if (b.action === 'sales') {
+      return send(res, 200, { sales: await recentSales(firestore, 100), serverNow: now });
+    }
+
+    if (b.action === 'grant') {
+      if (!isId(b.id)) throw bad('invalid_character', 'The character is not valid.');
+      const character = await store.get(`characters/${b.id}`);
+      if (!character) throw bad('not_found', 'This character does not exist any more.', 404);
+      const account = await lookupAccount({ db: firestore, auth: svc.auth }, b.email);
+      const out = await grantCharacter({ db: firestore, character, uid: account.uid, email: account.email, name: account.name, by: who.uid, now });
+      return send(res, 200, { ...out, email: account.email });
     }
 
     if (b.action === 'files') {
       const refs = Array.isArray(b.refs) ? b.refs : [];
       if (!refs.length || refs.length > MAX_FILES_PER_CALL) throw bad('invalid_files', `Ask for 1 to ${MAX_FILES_PER_CALL} files at a time.`);
       const db = {}, r2 = {}, owners = new Map();
+      // a paid character's files are given only to its buyers (and admins); nothing else changes for free characters
+      let allowed = null;
+      if (!who.admin) {
+        let state = await cachedState(store);
+        if (Object.values(state.characters).some(isPaid)) {
+          const mine = await accessOf(firestore, who.uid), check = (st) => allowedFiles(st, mine, now);
+          allowed = check(state);
+          if (refs.some((r) => !allowed.has(r?.db || r?.r2))) { state = await cachedState(store, true); allowed = check(state); }          // a change may be newer than the remembered library
+        }
+      }
       for (const r of refs) {
+        if (allowed && !allowed.has(r?.db || r?.r2)) continue;
         if (isSha(r?.db)) { const row = await store.get(`characterFiles/${r.db}`); if (row?.gz) db[r.db] = row.gz; continue; }
         if (isSha(r?.r2)) { const owner = await store.get(`characterHashes/${r.r2}`); if (owner) { if (!owners.has(owner)) owners.set(owner, []); owners.get(owner).push(r.r2); } continue; }
         throw bad('invalid_files', 'A file reference is not valid.');
@@ -119,7 +182,11 @@ export async function characterAction(req, res, b) {
       for (const vid of Object.keys(character.views)) if (!views[vid]) throw bad('view_mismatch', `The category "${character.category}" has no animations for the view "${vid}".`);
       const now = Date.now(), old = state.characters[character.id], oldCategory = category ? existingCategory : null;
       if (category) state.categories[category.id] = { ...category, owner: who.uid, createdAt: oldCategory?.createdAt || now, updatedAt: now };
-      state.characters[character.id] = { ...character, owner: who.uid, enabled: true, createdAt: old?.createdAt || now, updatedAt: now };
+      // the price: sent with the upload (null = free), else the old one stays (replacing a character does not make it free by accident)
+      let priced = old?.store || null;
+      if (b.character?.store !== undefined) { try { priced = cleanStore(b.character.store); } catch (e) { throw bad(e.code, e.message); } }
+      state.characters[character.id] = { ...character, ...(priced ? { store: priced } : {}), owner: who.uid, enabled: true, createdAt: old?.createdAt || now, updatedAt: now };
+      forgetState();
       if (category) await store.set(`characterCategories/${category.id}`, state.categories[category.id]);
       await store.set(`characters/${character.id}`, state.characters[character.id]);
       // what the replaced character / category used and nobody uses now is removed
@@ -138,7 +205,8 @@ export async function characterAction(req, res, b) {
         next.name = name;
       }
       if (b.group !== undefined) { if (!isGroup(b.group)) throw bad('invalid_group', 'The group must be Male, Female, Boy or Girl.'); next.group = b.group; }
-      next.updatedAt = Date.now();
+      if (b.store !== undefined) { const priced = (() => { try { return cleanStore(b.store); } catch (e) { throw bad(e.code, e.message); } })(); if (priced) next.store = priced; else delete next.store; }
+      next.updatedAt = Date.now(); forgetState();
       await store.set(`characters/${b.id}`, next);
       const { owner, ...visible } = next;
       return send(res, 200, { ok: true, character: visible });
@@ -148,7 +216,7 @@ export async function characterAction(req, res, b) {
       if (!isId(b.id)) throw bad('invalid_character', 'The character is not valid.');
       const state = await readAll(store), c = state.characters[b.id];
       if (!c) throw bad('not_found', 'This character does not exist any more.', 404);
-      delete state.characters[b.id];
+      delete state.characters[b.id]; forgetState();
       await store.remove(`characters/${b.id}`);
       const candidates = refsOf(c);
       // the last character of a category: its animations and GIF previews go too
