@@ -773,3 +773,68 @@ body.exp-open .export-pill{display:none}
 #app .tl-cat.on{background:var(--acc);border-color:var(--acc);color:#fff}#app .tl-cat.on i{background:#ffffff33}
 #app .lane2.tl-empty{display:flex;align-items:center;padding:0 14px;color:var(--mute);font-size:13px;white-space:nowrap}
 #app .lane2.tl-empty span{position:sticky;left:14px}
+
+/* ---------- one colour for every group of layers ---------- */
+:root{--cat-audio:#34c77b;--cat-chars:#8f86ff;--cat-background:#4f8ef7;--cat-props:#f39a3d;--cat-effects:#e064c0}
+/* the group chips above the timeline: all five in one row, no sideways scrolling */
+#app .tl-cats{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;overflow:visible!important;padding:2px 0 6px}
+#app .tl-cat{--c:var(--cat-chars);justify-content:center;gap:3px;min-width:0;min-height:34px;padding:0 2px;font-size:11.5px;letter-spacing:-.01em;border-color:color-mix(in srgb,var(--c) 45%,var(--line));position:relative}
+#app .tl-cat[data-cat=audio]{--c:var(--cat-audio)}#app .tl-cat[data-cat=chars]{--c:var(--cat-chars)}#app .tl-cat[data-cat=background]{--c:var(--cat-background)}#app .tl-cat[data-cat=props]{--c:var(--cat-props)}#app .tl-cat[data-cat=effects]{--c:var(--cat-effects)}
+#app .tl-cat::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--c)}
+#app .tl-cat.on{background:color-mix(in srgb,var(--c) 70%,#000)!important;border-color:var(--c)!important;color:#fff}
+#app .tl-cat.on::before{background:#fff}
+#app .tl-cat i{min-width:15px;height:15px;font-size:10px;padding:0 3px}
+/* the layers: fill and edge colour by group (the left edge of each row label too) */
+body.studio-dark #app .ws .tl2 .tclip.voice{--k-fill:#1f5a30!important;--k-edge:var(--cat-audio)!important}
+body.studio-dark #app .ws .tl2 .tclip.music{--k-fill:#1c5a4c!important;--k-edge:#3fd0b4!important;background:var(--k-fill)!important;border:1px solid var(--k-edge)!important}
+body.studio-dark #app .ws .tl2 .lane2.char .tclip{--k-fill:#34307a!important;--k-edge:var(--cat-chars)!important}
+body.studio-dark #app .ws .tl2 .lane2.char .tclip.face{--k-fill:#4d2f86!important;--k-edge:#c08bff!important}
+body.studio-dark #app .ws .tl2 .lane2.char .tclip.hand{--k-fill:#2c3a8a!important;--k-edge:#7f95ff!important}
+body.studio-dark #app .ws .tl2 .lane2.char .tclip.legs{--k-fill:#3a3478!important;--k-edge:#a79dff!important}
+body.studio-dark #app .ws .tl2 .tclip.bg{--k-fill:#1c3c78!important;--k-edge:var(--cat-background)!important}
+body.studio-dark #app .ws .tl2 .tclip.prop,body.studio-dark #app .ws .tl2 .tclip.shadow{--k-fill:#6a3b12!important;--k-edge:var(--cat-props)!important}
+body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tclip.fxl,body.studio-dark #app .ws .tl2 .tclip.fxl.fxl.fxl{--k-fill:#5a2350!important;--k-edge:var(--cat-effects)!important;color:#ffeefa!important}
+.tl-labels .rl[data-cat=audio]{box-shadow:inset 3px 0 0 var(--cat-audio)}.tl-labels .rl[data-cat=chars]{box-shadow:inset 3px 0 0 var(--cat-chars)}.tl-labels .rl[data-cat=background]{box-shadow:inset 3px 0 0 var(--cat-background)}.tl-labels .rl[data-cat=props]{box-shadow:inset 3px 0 0 var(--cat-props)}.tl-labels .rl[data-cat=effects]{box-shadow:inset 3px 0 0 var(--cat-effects)}
+/* status signs on a layer: muted, solo, volume, fade, loop, held in a hand, behind, hidden, locked */
+.tclip .signs{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;gap:3px;z-index:2;pointer-events:none}
+.tclip .sign{display:inline-flex;align-items:center;gap:2px;height:18px;min-width:18px;padding:0 4px;justify-content:center;border-radius:6px;background:#000b;color:#fff;font-size:10px;font-weight:800;line-height:1}
+.tclip .sign svg,.tclip .sign .ic{width:12px;height:12px}
+.tclip .sign b{font-size:10px}
+.tclip .sign.mute{background:#d63a3a}.tclip .sign.solo{background:#e9b52c;color:#2a1c00}.tclip .sign.held{background:#f39a3d;color:#2a1600}.tclip .sign.behind{background:#5c6bd6}.tclip .sign.off{background:#6b6f78}.tclip .sign.lock{background:#6b6f78}.tclip .sign.loop{background:#1f8f7a}.tclip .sign.fade{background:#3a7bd5}.tclip .sign.vol{background:#2a2f38}
+.tclip.voice.muted{opacity:.7}
+/* a close button the thumb reaches: a round button at the bottom right of a panel / popup (the small one at the top is hidden on a phone) */
+.sheet-fab{display:none}
+@media(max-width:860px){
+  .sheet-fab{display:grid;place-items:center;position:sticky;bottom:4px;margin:12px 0 0 auto;width:54px;height:54px;padding:0;border:0;border-radius:50%;background:var(--acc,#7c6cf5);color:#fff;box-shadow:0 6px 18px #0008;cursor:pointer;z-index:5}
+  .sheet-fab svg{width:24px;height:24px}
+  #app .ws .sheet-close button,.voice-sheet .vs-head .ed-icon{display:none!important}
+}
+
+/* Hold tool (a prop in a character's hand) */
+.hold-sheet .hold-panel{display:grid;gap:8px;padding:8px 10px 76px;overflow:auto}
+.hold-sheet .hd-row{display:flex;flex-wrap:wrap;gap:6px}
+.hold-sheet .hd-row.two>*{flex:1 1 0}
+.hold-sheet .hd-chip{min-height:40px;padding:6px 12px;border-radius:12px;border:1px solid var(--line,#3a3c43);background:transparent;color:inherit;font:inherit;font-weight:600}
+.hold-sheet .hd-chip.on{background:var(--cat-props,#f39a3d);border-color:var(--cat-props,#f39a3d);color:#1b1206}
+.hold-sheet .hd-chip.big{min-height:48px;display:flex;align-items:center;justify-content:center;gap:6px}
+.hold-sheet .hd-note{margin:4px 0 0}
+.hold-sheet .joy-wrap{display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 8px}
+.hold-sheet .joy-col{display:grid;gap:6px}
+.hold-sheet .hd-nudge{width:44px;height:44px;border-radius:50%;border:1px solid var(--line,#3a3c43);background:transparent;color:inherit;display:grid;place-items:center}
+.hold-sheet .joy{position:relative;width:132px;height:132px;border-radius:50%;background:rgba(243,154,61,.12);border:2px solid var(--cat-props,#f39a3d);touch-action:none;flex:none}
+.hold-sheet .joy-h,.hold-sheet .joy-v{position:absolute;background:rgba(243,154,61,.35)}
+.hold-sheet .joy-h{left:12px;right:12px;top:50%;height:1px}
+.hold-sheet .joy-v{top:12px;bottom:12px;left:50%;width:1px}
+.hold-sheet .joy-knob{position:absolute;left:calc(50% - 22px);top:calc(50% - 22px);width:44px;height:44px;border-radius:50%;background:var(--cat-props,#f39a3d);box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.hold-sheet .hold-panel{padding:4px 8px 72px;gap:6px;box-sizing:border-box}
+.hold-sheet .hold-panel .card{padding:8px 10px;margin:0;min-width:0;box-sizing:border-box}
+.hold-sheet .hold-panel h3{font-size:12px;margin:0 0 6px;opacity:.75;text-transform:uppercase;letter-spacing:.04em}
+.hold-sheet .hold-panel .sub{font-size:12px;margin:2px 0 0}
+.hold-sheet .hd-chip{min-height:36px;padding:4px 10px;font-size:13px}
+.hold-sheet .hd-chip.big{min-height:40px}
+.hold-sheet .joy{width:108px;height:108px}
+.hold-sheet .joy-knob{width:38px;height:38px;left:calc(50% - 19px);top:calc(50% - 19px)}
+.hold-sheet .hd-nudge{width:38px;height:38px}
+.hold-sheet .joy-wrap{gap:8px;margin:0 0 4px;flex-wrap:nowrap}
+.hold-sheet .vo-row{display:grid;grid-template-columns:44px 1fr 48px;align-items:center;gap:8px;margin:4px 0}
+.hold-sheet .hd-chip{white-space:normal;line-height:1.15}

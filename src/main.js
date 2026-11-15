@@ -996,6 +996,31 @@ function startSheetDrag(e) {
 }
 function placeSelBar() { if (selBar && wideScreen.matches) panelEl?.querySelector('.sheet-close')?.after(selBar); }
 wideScreen.addEventListener?.('change', () => { if (S.ready && tabsEl) drawTabs(); });
+/** a transient file picker: opens the phone's file chooser and hands the chosen files to `handler` */
+function pickFiles(accept, multiple, handler) {
+  const input = h('input', { type: 'file', accept, multiple, hidden: true, onchange: () => { const files = [...input.files]; input.remove(); if (files.length) handler(files); } });
+  document.body.append(input); input.click();
+}
+/** the phone bottom bar follows the timeline group: Audio shows the audio tools, Background the background tools ... (a few big buttons, no sideways search) */
+function phoneNav(button, byKey, upload, more) {
+  const act = (ic, text, onclick, on = false) => h('button', { type: 'button', class: on ? 'on' : '', title: text, 'aria-label': text, onclick }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'sr' }, text));
+  const tab = (key, text, ic) => { const t = byKey[key]; return button([key, text || t[1], ic || t[2]]); };
+  const cat = S.tlCat;
+  if (cat === 'audio') return [
+    act('mic', 'Voices', () => pickFiles('audio/*,.zip', true, onFiles)),
+    act('music', 'Music', () => pickFiles('audio/*', false, (f) => addMusic(f[0]))),
+    act('settings', 'Edit voice', () => { const id = S.lineSel || S.lines[0]?.id; if (id) openVoiceEdit(id); else toast('Add a voice first, then tap its layer to edit it.'); }),
+    upload];
+  if (cat === 'background') return [
+    tab('canvas', 'Pick'),
+    act('upload', 'Upload', () => pickFiles('image/*,video/*', true, addBackgroundFiles)),
+    act('crop', 'Edit', () => { const c = S.bgClips?.find((x) => x.id === S.bgSel) || S.bgClips?.[0]; if (c) openBgCrop(c); else toast('Add a background first, then tap Edit.'); }),
+    act('wand', 'Filter', () => { S.fxPick = 'bg'; S.tab = 'fx'; S.panelOpen = true; drawTabs(); dockShow('panel'); }, S.tab === 'fx' && S.fxPick === 'bg' && S.panelOpen),
+    tab('grade', 'Colour')];
+  if (cat === 'props') return [tab('handprops'), tab('props'), act('hand', 'Hold', () => openHoldTool()), tab('shadow')];
+  if (cat === 'effects') return [tab('fx'), tab('effects'), tab('grade', 'Colour')];
+  return [tab('chars'), tab('anim'), tab('motion'), tab('camera'), more];
+}
 function drawTabs() { drawTabsInner(); syncCloudPill(); }
 function drawTabsInner() {
   stopAll();
@@ -1032,12 +1057,13 @@ function drawTabsInner() {
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
       h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
   } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'),
-    h('div', { class: 'tabs-scroll' }, upload, ...['chars', 'anim', 'handprops', 'props', 'shadow', 'fx', 'canvas'].map(key => button(byKey[key])), more));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
+    h('div', { class: 'tabs-scroll', 'data-nav': S.tlCat }, ...phoneNav(button, byKey, upload, more)));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
   { const want = TAB_CAT[S.tab]; if (S.panelOpen && want && S.tlTabSeen !== S.tab) { S.tlTabSeen = S.tab; if (S.tlCat !== want) { S.tlCat = want; drawTimeline(); } } }          // opening a section shows its layers on the timeline
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}${['chars', 'handprops', 'props', 'canvas', 'effects'].includes(S.tab) ? ' tall-panel' : ''}`;
   const label = S.tab === 'audio' ? 'Upload' : (TABS.find(t => t[0] === S.tab)?.[1] || 'Tools');
   panelEl.replaceChildren(h('div', { class: 'sheet-grip', role: 'button', tabindex: 0, 'aria-label': 'Drag to resize this panel, drag down to close it', onpointerdown: startSheetDrag, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSheetSize(); } } }, h('i')), h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
+    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab](),
+    h('button', { type: 'button', class: 'sheet-fab', title: 'Close', 'aria-label': 'Close this panel', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x')));
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   if (voiceSheetEl && !voiceSheetEl.hidden) { if (S.panelOpen) closeVoiceSheet(); else paintVoiceSheet(); }          // the voice popup gives way to a tab panel, and shows changes (Mute ...) at once
@@ -1094,6 +1120,8 @@ function fitRows() {
   tlBox.classList.toggle('squeezed', k < 1);
   labels.forEach((l, i) => { const px = i && k < 1 ? Math.max(MIN_ROW, Math.floor(nat[i] * k)) : nat[i]; l.style.setProperty('height', `${px}px`, i && k < 1 ? 'important' : ''); if (lanes[i]) lanes[i].style.setProperty('height', `${px}px`, i && k < 1 ? 'important' : ''); });
 }
+/** small status signs on a layer (muted, solo, fade, held in a hand ...): [icon, class, tip, text?] */
+const signs = (list) => { const on = list.filter(Boolean); return on.length ? h('span', { class: 'signs' }, ...on.map(([ic, cls, tip, text]) => h('span', { class: `sign ${cls}`, title: tip, 'aria-label': tip }, icon(ic), text ? h('b', {}, text) : null))) : null; };
 /** the groups of timeline layers; the open section (tab) decides which group is shown, and a chip above the timeline can switch it by hand */
 const TL_CATS = [['audio', 'Audio'], ['chars', 'Characters'], ['background', 'Background'], ['props', 'Props'], ['effects', 'Effects']];
 const TL_EMPTY = { audio: 'No audio yet. Use Upload → Voices or Music.', chars: 'No characters yet. Add one in the Characters tab.', background: 'No background layer yet. Pick one in the Background tab.', props: 'No props or objects yet. Add them in the Props or Objects tab.', effects: 'No effects yet. Add one in the Effects tab.' };
@@ -1103,7 +1131,7 @@ let tlCatsEl = null;
 function drawTlCats(counts = {}) {
   if (!tlCatsEl) return;
   if (!tlCatsEl.children.length) {          // built once: the buttons are only updated afterwards, so a tap is never lost to a redraw of the timeline
-    tlCatsEl.replaceChildren(...TL_CATS.map(([key, text]) => h('button', { type: 'button', class: 'tl-cat', 'data-cat': key, title: `Show the ${text.toLowerCase()} layers`, onclick: () => { S.tlCat = key; drawTimeline(); } }, text, h('i', { hidden: true }))));
+    tlCatsEl.replaceChildren(...TL_CATS.map(([key, text]) => h('button', { type: 'button', class: 'tl-cat', 'data-cat': key, title: `Show the ${text.toLowerCase()} layers`, onclick: () => { S.tlCat = key; drawTimeline(); if (!wideStudio()) drawTabs(); } }, text, h('i', { hidden: true }))));
   }
   for (const b of tlCatsEl.children) {
     const key = b.dataset.cat, on = S.tlCat === key, n = counts[key] || 0, badge = b.querySelector('i');
@@ -1141,7 +1169,7 @@ function drawTimeline() {
     const sp = sOf(c.speaker);
     const lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' }), trimmed = (S.lines.find((l) => l.id === c.id)?.trimStart || 0) + (S.lines.find((l) => l.id === c.id)?.trimEnd || 0) > 0;
     const el = h('div', { class: `tclip voice ${c.id === S.lineSel && S.lineExplicit && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''} ${c.muted ? 'muted' : ''} ${c.solo ? 'solo' : ''} ${isLocked('audio') ? 'locked' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: (ev) => { if (S.exporting || voiceMoved) return; selectLine(c.id, false, true); seekToClientX(ev.clientX); openVoiceEdit(c.id); } },
-      lz, voiceWave(c), h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), c.muted ? h('span', { class: 'vmix' }, 'muted') : c.solo ? h('span', { class: 'vmix' }, 'solo') : null, rz);
+      lz, voiceWave(c), h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), signs([c.muted && ['volume-x', 'mute', 'Muted'], c.solo && ['headphones', 'solo', 'Solo'], !c.muted && Number.isFinite(c.volume) && Math.abs(c.volume - 1) > 0.01 && ['volume', 'vol', `Volume ${Math.round(c.volume * 100)}%`, `${Math.round(c.volume * 100)}%`], (c.fadeIn > 0 || c.fadeOut > 0) && ['fade', 'fade', 'Fade in / out']]), rz);
     el.addEventListener('pointerdown', (e) => { if (e.button) return; dragVoice(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el); });
     el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
     lane.append(el);
@@ -1181,7 +1209,7 @@ function drawTimeline() {
     const rowEls = [];
     for (const prop of rowProps) {
     const start = prop.start || 0, end = prop.end ?? total, lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
-    const el = h('div', { 'data-key': keyOf('prop', prop.id), class: `tclip prop ${isEffect(prop) ? 'fx' : ''} mine ${prop.id === S.propSel ? 'sel' : ''} ${multi.has(keyOf('prop', prop.id)) ? 'msel' : ''} ${propLockedNow(prop) ? 'locked' : ''}`, title: `${prop.name} — drag to move, drag an edge to resize`, style: `left:${start * pps}px;width:${Math.max(6, (end - start) * pps)}px` }, lz, h('span', { class: 'tn' }, `${isEffect(prop) ? '✨' : '🧸'} ${prop.name}`), rz);
+    const el = h('div', { 'data-key': keyOf('prop', prop.id), class: `tclip prop ${isEffect(prop) ? 'fx' : ''} mine ${prop.id === S.propSel ? 'sel' : ''} ${multi.has(keyOf('prop', prop.id)) ? 'msel' : ''} ${propLockedNow(prop) ? 'locked' : ''}`, title: `${prop.name} — drag to move, drag an edge to resize`, style: `left:${start * pps}px;width:${Math.max(6, (end - start) * pps)}px` }, lz, h('span', { class: 'tn' }, `${isEffect(prop) ? '✨' : '🧸'} ${prop.name}`), signs([isHeld(prop) && ['hand', 'held', `In the ${prop.attach.hand === 'L' ? 'left' : 'right'} hand`, prop.attach.hand], prop.behind && ['layers', 'behind', 'Behind the characters'], propLockedNow(prop) && ['lock', 'lock', 'Locked']]), rz);
     el.addEventListener('pointerdown', (e) => dragPropRange(e, prop, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el));
       rowEls.push(el);
     }
@@ -1196,7 +1224,7 @@ function drawTimeline() {
   }
   for (const fx of S.fx) {          // each effect is a layer of its own: where it starts and ends, what it is on; select, lock, delete it
     const key = keyOf('fx', fx.id), locked = isKeyLocked(key), lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' });
-    const clip = h('div', { 'data-key': key, class: `tclip fxl mine ${S.fxSel === fx.id ? 'sel' : ''}${locked ? ' locked' : ''}${fx.visible === false ? ' off' : ''}`, title: `${fx.name} on ${fxTargetName(fx.target)} — drag to move, drag an edge to resize`, style: `left:${fx.start * pps}px;width:${Math.max(6, (fx.end - fx.start) * pps)}px` }, lz, h('span', { class: 'tn' }, icon('wand'), ` ${fx.name} · ${fxTargetName(fx.target)}`), rz);
+    const clip = h('div', { 'data-key': key, class: `tclip fxl mine ${S.fxSel === fx.id ? 'sel' : ''}${locked ? ' locked' : ''}${fx.visible === false ? ' off' : ''}`, title: `${fx.name} on ${fxTargetName(fx.target)} — drag to move, drag an edge to resize`, style: `left:${fx.start * pps}px;width:${Math.max(6, (fx.end - fx.start) * pps)}px` }, lz, h('span', { class: 'tn' }, icon('wand'), ` ${fx.name} · ${fxTargetName(fx.target)}`), signs([fx.visible === false && ['eye-off', 'off', 'Hidden'], locked && ['lock', 'lock', 'Locked']]), rz);
     clip.addEventListener('pointerdown', (e) => dragFxRange(e, fx, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', clip));
     labels.push(h('div', { class: 'rl char', 'data-cat': 'effects', style: 'height:38px' }, h('span', { class: 'lt face', title: 'Effect' }, icon('wand'), ' FX'), lockBtn(`fx:${fx.id}`, `the effect ${fx.name}`)));
     lanes.push(h('div', { class: 'lane2 prop fx-lane', style: 'height:38px' }, clip));
@@ -2678,7 +2706,7 @@ function musicLane(total, pps) {
     for (let x = 0; x < bars.length; x++) bars[x] = one[Math.floor((x * width) / bars.length) % one.length];
     drawWave(canvas, bars, { gain: Math.min(2, (m.volume ?? 0.35) * 2) / peakMax(buf) });
   } catch { /* no picture */ }
-  return h('div', { class: 'lane2 audio music', style: 'height:34px' }, h('div', { class: `tclip music ${m.muted ? 'muted' : ''}`, title: 'Background music. Tap it to change its volume or remove it.', style: `left:0;width:${width}px`, onclick: () => openMusicSettings() }, canvas, h('span', { class: 'tn' }, `♪ ${m.name}${m.muted ? ' (muted)' : ''}`)));
+  return h('div', { class: 'lane2 audio music', style: 'height:34px' }, h('div', { class: `tclip music ${m.muted ? 'muted' : ''}`, title: 'Background music. Tap it to change its volume or remove it.', style: `left:0;width:${width}px`, onclick: () => openMusicSettings() }, canvas, h('span', { class: 'tn' }, `♪ ${m.name}`), signs([m.muted && ['volume-x', 'mute', 'Muted'], ['repeat', 'loop', 'Plays again and again'], (m.fadeIn > 0 || m.fadeOut > 0) && ['fade', 'fade', 'Fade in / out']])));
 }
 /** the picture of the sound inside a voice clip: only the part that is on the timeline (after trimming), as loud as the line's volume makes it */
 function voiceWave(c) {
@@ -2690,16 +2718,85 @@ function voiceWave(c) {
   return canvas;
 }
 /** mute, solo, volume and fades of one voice line */
+/* ---- Hold: put a prop in a character's hand and set it exactly (which character, left or right hand, joystick for the place, size, turn, in front or behind) ---- */
+let holdSheetEl = null, holdPropId = null;
+function closeHoldSheet() { if (holdSheetEl) holdSheetEl.hidden = true; holdPropId = null; }
+function openHoldTool(pr = null) {
+  const props = S.props.filter((p) => !isEffect(p));
+  pr ||= props.find((p) => p.id === (S.propSel || S.selectedPropId)) || props.at(-1) || null;
+  if (!pr) { toast('Add a prop first (Props or Objects tab), then use Hold to put it in a hand.'); return; }
+  if (propLockedNow(pr)) { lockedToast(); return; }
+  holdPropId = pr.id; S.propSel = pr.id; S.selectedPropId = pr.id;
+  if (S.panelOpen) { S.panelOpen = false; drawTabs(); }
+  closeVoiceSheet(); S.editDock?.close();
+  holdSheetEl ||= h('section', { class: 'voice-sheet hold-sheet', role: 'dialog', 'aria-label': 'Hold a prop' });
+  if (!holdSheetEl.isConnected) document.body.append(holdSheetEl);
+  holdSheetEl.hidden = false; drawTimeline(); paintHold();
+}
+function paintHold() {
+  const pr = S.props.find((p) => p.id === holdPropId);
+  if (!pr || !holdSheetEl) { closeHoldSheet(); return; }
+  placeSheet(holdSheetEl);
+  pr.w0 ??= pr.w; pr.h0 ??= pr.h;
+  const actors = S.speakers.filter((x) => x.charId), held = isHeld(pr);
+  let writing = 0;
+  const apply = (persist = true) => { stage.setProps(S.props); S.dirty = true; if (persist) { dbPut('props', pr); drawTimeline(); updateSel(); } };
+  const attach = (key, hand) => {
+    const first = !isHeld(pr);
+    pr.attach = { key, hand }; pr.group = 'hand';
+    if (first) { pr.follow = false; pr.grip ||= { x: 0.5, y: 0.7 }; pr.rotation = 0; } else pr.rotation = pr.follow === false ? 0 : uprightInHand(pr.attach);
+    apply(); paintHold();
+  };
+  const whoKey = pr.attach?.key || (actors.length === 1 ? actors[0].key : null), hand = pr.attach?.hand || null;
+  const chip = (label, on, onclick, extra = {}) => h('button', { type: 'button', class: `hd-chip${on ? ' on' : ''}`, 'aria-pressed': String(on), onclick, ...extra }, label);
+  // the joystick: drag the knob, the prop moves in the hand (right = forward, up = up); the knob springs back, the place stays
+  const R = 0.6, off = pr.holdOff || { x: 0, y: 0 };
+  const knob = h('i', { class: 'joy-knob' });
+  const pad = h('div', { class: 'joy', role: 'application', 'aria-label': 'Move the prop in the hand: drag the knob', style: held ? '' : 'opacity:.45;pointer-events:none' }, h('b', { class: 'joy-h' }), h('b', { class: 'joy-v' }), knob);
+  const setKnob = (x, y) => { knob.style.transform = `translate(${x * 50}%, ${-y * 50}%)`; };
+  setKnob(Math.max(-1, Math.min(1, off.x / R)), Math.max(-1, Math.min(1, off.y / R)));
+  const drag = (e) => {
+    const r = pad.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, rad = r.width / 2 - 14;
+    let dx = (e.clientX - cx) / rad, dy = (cy - e.clientY) / rad; const len = Math.hypot(dx, dy); if (len > 1) { dx /= len; dy /= len; }
+    setKnob(dx, dy);
+    pr.holdOff = { x: +(dx * R).toFixed(3), y: +(dy * R).toFixed(3) };
+    if (!writing) writing = requestAnimationFrame(() => { writing = 0; apply(false); });
+  };
+  pad.addEventListener('pointerdown', (e) => { pad.setPointerCapture(e.pointerId); drag(e); pad.addEventListener('pointermove', drag); });
+  const stop = () => { pad.removeEventListener('pointermove', drag); apply(); };
+  pad.addEventListener('pointerup', stop); pad.addEventListener('pointercancel', stop);
+  const step = (dx, dy) => { const o = pr.holdOff || { x: 0, y: 0 }; pr.holdOff = { x: +Math.max(-R, Math.min(R, o.x + dx)).toFixed(3), y: +Math.max(-R, Math.min(R, o.y + dy)).toFixed(3) }; apply(); paintHold(); };
+  const nudge = (ic, label, dx, dy) => holdButton(h('button', { type: 'button', class: 'hd-nudge', 'aria-label': label, title: label }, icon(ic)), (k) => { const o = pr.holdOff || { x: 0, y: 0 }; pr.holdOff = { x: +Math.max(-R, Math.min(R, o.x + dx * k)).toFixed(3), y: +Math.max(-R, Math.min(R, o.y + dy * k)).toFixed(3) }; setKnob(pr.holdOff.x / R, pr.holdOff.y / R); apply(false); });
+  const slider = (label, min, max, get, show, set) => { const out = h('output', {}, show(get())); return h('label', { class: 'vo-row' }, h('span', {}, label), h('input', { type: 'range', min, max, step: 1, value: Math.round(get()), 'aria-label': label, oninput: (e) => { set(+e.target.value); out.textContent = show(+e.target.value); apply(false); }, onchange: () => apply() }), out); };
+  holdSheetEl.replaceChildren(
+    h('div', { class: 'vs-head' }, h('b', {}, `Hold · ${pr.name}`), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the hold tool', title: 'Close', onclick: closeHoldSheet }, icon('x'))),
+    h('div', { class: 'list hold-panel' },
+      h('div', { class: 'card flat' }, h('h3', {}, 'Character'), actors.length ? h('div', { class: 'hd-row' }, actors.map((x) => chip(x.name, whoKey === x.key, () => attach(x.key, hand || 'R'), { 'data-who': x.key }))) : h('p', { class: 'sub' }, 'Add a character first: a prop is held by a character.')),
+      h('div', { class: 'card flat' }, h('h3', {}, 'Which hand'), h('div', { class: 'hd-row two' }, ['L', 'R'].map((hd) => chip([icon('hand'), hd === 'L' ? ' Left hand' : ' Right hand'], held && hand === hd, () => { if (!whoKey) { toast('Choose the character first.'); return; } attach(whoKey, hd); }, { 'data-hand': hd, class: `hd-chip big${held && hand === hd ? ' on' : ''}` }))),
+        held ? h('div', { class: 'hd-row' }, chip('Follow the hand (a bat, a stick)', pr.follow !== false, () => { if (pr.follow === false) { delete pr.follow; pr.rotation = uprightInHand(pr.attach); } else { pr.follow = false; pr.rotation = 0; } apply(); paintHold(); }, { title: 'On: it turns with the hand. Off: it stays upright while the arm swings (a torch, a bag).' })) : h('p', { class: 'sub' }, 'Choose a character and a hand to put it there.')),
+      h('div', { class: 'card flat' }, h('h3', {}, 'Place it in the hand'),
+        h('div', { class: 'joy-wrap' }, nudge('arrow-left', 'Back', -0.01, 0), pad, nudge('arrow-right', 'Forward', 0.01, 0), h('div', { class: 'joy-col' }, nudge('arrow-up', 'Up', 0, 0.01), nudge('arrow-down', 'Down', 0, -0.01), h('button', { type: 'button', class: 'hd-chip', onclick: () => { pr.holdOff = { x: 0, y: 0 }; apply(); paintHold(); }, title: 'Back to the middle of the hand' }, 'Centre'))),
+        slider('Size', 10, 400, () => (pr.w / (pr.w0 || pr.w)) * 100, (v) => `${Math.round(v)}%`, (v) => { const k = v / 100; pr.w = +(pr.w0 * k).toFixed(4); pr.h = +(pr.h0 * k).toFixed(4); }),
+        slider('Turn', -180, 180, () => pr.rotation || 0, (v) => `${Math.round(v)}°`, (v) => { pr.rotation = v; })),
+      h('div', { class: 'card flat' }, h('h3', {}, 'Layer'), h('div', { class: 'hd-row two' }, chip('In front of the character', !pr.behind, () => { delete pr.behind; apply(); paintHold(); }), chip('Behind the character', !!pr.behind, () => { pr.behind = true; apply(); paintHold(); })),
+        h('p', { class: 'sub hd-note' }, 'A prop goes in front of or behind the whole character.')),
+      held ? h('button', { type: 'button', class: 'btn sm danger', onclick: () => { delete pr.attach; delete pr.holdOff; delete pr.follow; pr.group = undefined; pr.rotation = 0; apply(); paintHold(); toast('The prop is out of the hand: it stays on the scene as an object.'); } }, 'Take it out of the hand') : null),
+    h('button', { type: 'button', class: 'sheet-fab', title: 'Close', 'aria-label': 'Close the hold tool', onclick: closeHoldSheet }, icon('x')));
+}
 /** Voice settings: tap an audio layer on the timeline and this panel opens (the Upload tab only brings files in). Which character speaks it, volume and fades,
  *  Mute / Solo, one button that gives the same volume and fades to every voice, then the camera shot and who is in frame for this line. */
+/** on a phone a popup sits just above the bottom bar (the clip tools or the tabs), so they stay reachable */
+function placeSheet(el) {
+  if (innerWidth < 861) {
+    const bar = [...document.querySelectorAll('#app .clip-nav, #app .tabs')].find((e) => !e.hidden && e.getBoundingClientRect().height > 0);
+    el.style.bottom = `${Math.round(bar ? innerHeight - bar.getBoundingClientRect().top + 8 : 8)}px`; el.style.maxHeight = `${Math.max(200, Math.round(innerHeight * 0.62))}px`;
+  } else { el.style.bottom = ''; el.style.maxHeight = ''; }
+}
 let voiceSheetEl = null;
 function paintVoiceSheet() {
   if (!voiceSheetEl) return;
-  if (innerWidth < 861) {          // on a phone the popup sits just above the bottom bar (the clip tools or the tabs), so they stay reachable
-    const bar = [...document.querySelectorAll('#app .clip-nav, #app .tabs')].find((e) => !e.hidden && e.getBoundingClientRect().height > 0);
-    voiceSheetEl.style.bottom = `${Math.round(bar ? innerHeight - bar.getBoundingClientRect().top + 8 : 8)}px`; voiceSheetEl.style.maxHeight = `${Math.max(200, Math.round(innerHeight * 0.62))}px`;
-  } else { voiceSheetEl.style.bottom = ''; voiceSheetEl.style.maxHeight = ''; }
-  voiceSheetEl.replaceChildren(h('div', { class: 'vs-head' }, h('b', {}, 'Voice'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the voice settings', title: 'Close', onclick: closeVoiceSheet }, icon('x'))), tabVoice());
+  placeSheet(voiceSheetEl);
+  voiceSheetEl.replaceChildren(h('div', { class: 'vs-head' }, h('b', {}, 'Voice'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the voice settings', title: 'Close', onclick: closeVoiceSheet }, icon('x'))), tabVoice(), h('button', { type: 'button', class: 'sheet-fab', title: 'Close', 'aria-label': 'Close the voice settings', onclick: closeVoiceSheet }, icon('x')));
 }
 function closeVoiceSheet() { if (voiceSheetEl) voiceSheetEl.hidden = true; }
 /** the voice settings are their own popup (not part of the Upload tab or any other tab): it opens over the bottom of the screen and has its own Close */

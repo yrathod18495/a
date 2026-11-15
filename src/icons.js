@@ -1,6 +1,9 @@
 // One icon set for the whole studio: 24x24 outline icons (round caps, 2px stroke) drawn inline, so they follow the text colour and need no network.
 // `icon(name)` returns a ready <span class="ic">; `iconize(root)` swaps leftover emoji / symbol characters in text for the matching icon.
 const P = {
+  'volume-x': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/>',
+  headphones: '<path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 15a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M3 15a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z"/>',
+  fade: '<path d="M3 18 21 6"/><path d="M3 18h18"/>',
   play: '<polygon points="7 4 20 12 7 20 7 4" fill="currentColor"/>',
   pause: '<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/>',
   stop: '<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/>',

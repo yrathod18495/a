@@ -14,3 +14,6 @@ These rules were asked for repeatedly by the owner. Do not break them in any cha
 3. **The phone bottom bar shows full labels** (no text cut off): rules for `.tabs-scroll > button` in `src/studio-icons.css`.
 4. **The preview must survive the phone going to the background**: `Stage` handles `webglcontextlost` / `restored` and replaces a dead canvas (`src/db/stage.js`, test `tests/browser/context-restore.spec.js`).
 5. **Effect rows (FX)** are normal layer rows (height 38, label + lock) and are shrunk by `fitRows()` like every other row. See `docs/EFFECTS.md`.
+
+## Phone bottom bar follows the timeline group
+On a phone the bottom bar shows tools for the open timeline group (`phoneNav()` in `src/main.js`): Audio (Voices, Music, Edit voice, Upload), Characters (Characters, Animations, Move, Camera, More), Background (Pick, Upload, Edit, Filter, Colour), Props (Hand props, Objects, Hold, Shadow), Effects (Effects, Overlays, Colour). Wide screens keep the rail. The Hold tool (`openHoldTool`) sets a prop's character, hand, place (joystick), size, turn and front/behind layer; the renderer only supports in front of / behind the whole character. Test: `tests/browser/phone-nav-hold.spec.js`.
