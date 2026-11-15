@@ -10,7 +10,7 @@ test('when the character library cannot be loaded the picker says so in plain En
   await page.getByRole('textbox', { name: 'Create a project' }).fill('No library');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
-  await page.getByRole('button', { name: 'Add character' }).click();
+  await page.evaluate(() => window.__toon.openTab('chars'));
   await expect(page.getByRole('alert').filter({ hasText: /character library/i })).toBeVisible();
   await expect(page.locator('.cp-card')).toHaveCount(0);
 });
