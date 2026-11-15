@@ -24,8 +24,9 @@ test('the Upload tab has only the file tiles; tapping an audio layer opens the V
   for (const t of ['Selected audio line', 'Fade in', 'Fade out', 'Solo', 'Clear all', 'Voices are optional']) await expect(page.locator('#app .panel').getByText(t, { exact: false })).toHaveCount(0);
   await expect(page.locator('#app .panel .music-card')).toHaveCount(0);
   await page.locator('.tclip.voice').nth(1).dispatchEvent('click');
-  const panel = page.locator('#app .panel.open');
+  const panel = page.locator('.voice-sheet');
   await expect(panel.locator('.voice-panel')).toBeVisible();
+  await expect(page.locator('#app .panel.open')).toHaveCount(0);                 // its own popup: the Upload / tab panel is not used
   await expect(panel.locator('.vo-head')).toContainText('Voice 2');
   await expect(panel.locator('.vo-who')).toContainText(/character/i);
   await expect(panel.getByRole('button', { name: 'Mute', exact: true })).toBeVisible(); await expect(panel.getByRole('button', { name: 'Solo', exact: true })).toBeVisible();
@@ -34,14 +35,16 @@ test('the Upload tab has only the file tiles; tapping an audio layer opens the V
   expect(await page.evaluate(() => window.__toon.S.lines.map((l) => l.volume ?? 1))).toEqual([1, 1.5, 1]);
   await panel.getByRole('button', { name: 'Mute', exact: true }).click();
   expect(await page.evaluate(() => window.__toon.S.lines.map((l) => !!l.muted))).toEqual([false, true, false]);
-  await expect(page.locator('#app .panel.open .voice-panel').getByText('Camera and who is in frame')).toBeVisible();
+  await expect(panel.getByText('Camera and who is in frame')).toBeVisible();
+  await panel.getByRole('button', { name: 'Close the voice settings' }).click();
+  await expect(panel).toBeHidden();
   expect(errors).toEqual([]);
 });
 
 test('"Apply to all voices" gives the same volume and fades to every voice', async ({ page }) => {
   await withVoices(page);
   await page.locator('.tclip.voice').first().dispatchEvent('click');
-  const panel = page.locator('#app .panel.open');
+  const panel = page.locator('.voice-sheet');
   await panel.getByLabel('Volume').evaluate((e) => { e.value = '70'; e.dispatchEvent(new Event('input', { bubbles: true })); });
   await panel.getByLabel('Fade in').evaluate((e) => { e.value = '1.2'; e.dispatchEvent(new Event('input', { bubbles: true })); });
   await panel.getByRole('button', { name: 'Apply to all voices' }).click();
@@ -53,13 +56,12 @@ test('"Apply to all voices" gives the same volume and fades to every voice', asy
 test('the clip bar of an audio layer has an Edit button for the same panel', async ({ page }) => {
   await withVoices(page);
   await page.locator('.tclip.voice').first().dispatchEvent('click');
-  await page.evaluate(() => { window.__toon.S.panelOpen = false; window.__toon.openTab; });
-  await page.locator('#app .panel').evaluate((e) => e.classList.remove('open'));
+  await page.locator('.voice-sheet').getByRole('button', { name: 'Close the voice settings' }).click();
   await page.locator('.clip-nav').getByRole('button', { name: 'Edit' }).click();
-  await expect(page.locator('#app .panel.open .vo-head')).toContainText('Voice 1');
+  await expect(page.locator('.voice-sheet .vo-head')).toContainText('Voice 1');
 });
 
-test('the music layer opens the music settings; the Music tile does the same once a song is there', async ({ page }) => {
+test('the music layer opens the music settings', async ({ page }) => {
   await withVoices(page);
   const wavFile = { name: 'song.wav', mimeType: 'audio/wav', buffer: wav(2) };
   await page.locator('#app .up-cell:has(.up-tile[data-kind="music"]) input[type=file]').setInputFiles(wavFile);

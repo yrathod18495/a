@@ -101,7 +101,7 @@ test('no "Start your scene" card, no music card before a song exists, and no "pu
   const wav = (() => { const n = 8000, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(8000, 24); b.writeUInt32LE(16000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; })();
   await page.evaluate(() => window.__toon.openTab('audio'));
   await tile(page, 'music').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: wav });
-  await page.locator('#app .up-tile[data-kind="music"]').click();               // with a song, the Music tile opens its settings
+  await page.locator('.tclip.music').dispatchEvent('click');               // the settings are on the music layer, not in the Upload tab
   await expect(page.locator('.modal .music-card')).toContainText('song');
 });
 
