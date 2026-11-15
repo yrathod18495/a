@@ -1033,7 +1033,7 @@ function drawTabsInner() {
       h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
   } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'),
     h('div', { class: 'tabs-scroll' }, upload, ...['chars', 'anim', 'handprops', 'props', 'shadow', 'fx', 'canvas'].map(key => button(byKey[key])), more));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
-  panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
+  panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}${['chars', 'handprops', 'props', 'canvas', 'effects'].includes(S.tab) ? ' tall-panel' : ''}`;
   const label = S.tab === 'audio' ? 'Upload' : (TABS.find(t => t[0] === S.tab)?.[1] || 'Tools');
   panelEl.replaceChildren(h('div', { class: 'sheet-grip', role: 'button', tabindex: 0, 'aria-label': 'Drag to resize this panel, drag down to close it', onpointerdown: startSheetDrag, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSheetSize(); } } }, h('i')), h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
     { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
@@ -3794,14 +3794,14 @@ function libraryTab(kind, group = 'general') {
     // the props that are already in the scene (in a hand): tap one to select it and edit it, eye hides it, ✕ takes it out
     const inScene = S.props.filter((p) => !isEffect(p) && (isHeld(p) || p.group === 'hand'));
     const sceneTile = (p) => { const a = S.sharedAssets.find((x) => x.id === p.assetId); return tile({ src: a?.thumb || (p.blob ? URL.createObjectURL(p.blob) : null), name: p.name, title: `${p.name}${isHeld(p) ? ' · in hand' : ''} — tap to edit`, onclick: () => { selectOnly('prop', p.id); drawTimeline(); updateSel(); openPropEdit(p); }, ...controls(p), on: p.id === S.propSel }); };
-    return h('div', { class: 'list' },
+    return h('div', { class: 'list lib-panel' },
       ...(inScene.length ? [h('div', { class: 'card flat in-scene' }, h('h2', {}, 'In the scene'), h('div', { class: 'tile-grid' }, inScene.map(sceneTile)))] : []),
       h('div', { class: 'card flat hand-props' }, h('div', { class: 'panel-head' }, h('h2', {}, '🤚 Props'), refreshBtn),
         h('p', { class: 'sub studio-help' }, holder ? `Tap a prop, then choose which of ${holder.name}'s hands holds it.` : 'Tap a prop, then choose the character and the hand.'),
         h('div', { class: 'studio-shared-grid' }, addHandCard, handAssets.map(handCard)),
         handFile));
   }
-  return h('div', { class: 'list' },
+  return h('div', { class: 'list lib-panel' },
     h('div', { class: 'card flat' }, h('div', { class: 'panel-head' }, h('h2', {}, label), refreshBtn),
       categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
       tileSearch(grid, label.toLowerCase()), grid,

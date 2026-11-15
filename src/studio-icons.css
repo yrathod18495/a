@@ -759,3 +759,8 @@ body.exp-open .export-pill{display:none}
 .voice-sheet .vs-head .ed-icon{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--card2);color:var(--text);cursor:pointer}
 .voice-sheet .list{display:grid;gap:10px}
 @media(min-width:861px){.voice-sheet{left:auto;right:16px;bottom:16px;width:420px;max-height:80dvh}}
+
+/* library panels (Props, Objects, Background, Overlays, Characters): no box inside the sheet, and on a phone the sheet is big (about three quarters of the screen) */
+.lib-panel .card.flat{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+.lib-panel .card.flat+.card.flat{margin-top:14px}
+@media(max-width:860px){#app .ws .panel.tall-panel.open{height:72dvh!important;max-height:72dvh!important}}
