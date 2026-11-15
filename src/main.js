@@ -777,7 +777,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Overlays', 'zap'], ['fx', 'Effects', 'wand'], ['export', 'Export', 'download']];
+const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Overlays', 'zap'], ['fx', 'Effects', 'wand'], ['export', 'Export', 'download'], ['voice', 'Voice', 'mic']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri icon-btn play-btn', title: 'Play (Space)', 'aria-label': 'Play', onclick: togglePlay }, icon('play'));
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -1036,7 +1036,7 @@ function drawTabsInner() {
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
   const label = S.tab === 'audio' ? 'Upload' : (TABS.find(t => t[0] === S.tab)?.[1] || 'Tools');
   panelEl.replaceChildren(h('div', { class: 'sheet-grip', role: 'button', tabindex: 0, 'aria-label': 'Drag to resize this panel, drag down to close it', onpointerdown: startSheetDrag, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSheetSize(); } } }, h('i')), h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
+    { audio: tabAudio, voice: tabVoice, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   placeSelBar();
@@ -1120,7 +1120,7 @@ function drawTimeline() {
   player.clips.forEach((c, i) => {
     const sp = sOf(c.speaker);
     const lz = h('i', { class: 'lz' }), rz = h('i', { class: 'rz' }), trimmed = (S.lines.find((l) => l.id === c.id)?.trimStart || 0) + (S.lines.find((l) => l.id === c.id)?.trimEnd || 0) > 0;
-    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && S.lineExplicit && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''} ${c.muted ? 'muted' : ''} ${c.solo ? 'solo' : ''} ${isLocked('audio') ? 'locked' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: (ev) => { if (S.exporting || voiceMoved) return; selectLine(c.id, false, true); seekToClientX(ev.clientX); } },
+    const el = h('div', { class: `tclip voice ${c.id === S.lineSel && S.lineExplicit && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''} ${c.muted ? 'muted' : ''} ${c.solo ? 'solo' : ''} ${isLocked('audio') ? 'locked' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: (ev) => { if (S.exporting || voiceMoved) return; selectLine(c.id, false, true); seekToClientX(ev.clientX); openVoiceEdit(c.id); } },
       lz, voiceWave(c), h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), c.muted ? h('span', { class: 'vmix' }, 'muted') : c.solo ? h('span', { class: 'vmix' }, 'solo') : null, rz);
     el.addEventListener('pointerdown', (e) => { if (e.button) return; dragVoice(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el); });
     el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
@@ -2019,6 +2019,7 @@ function drawClipNav() {
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
       ...(kind === 'prop' ? [btn('pencil', 'Edit', () => openPropEdit(it.pr), { title: 'Size, turn, opacity, glow, in front of or behind the characters' })] : []),
+      ...(kind === 'line' ? [btn('pencil', 'Edit', () => openVoiceEdit(it.line.id), { title: 'Character, volume, fades, Mute / Solo, apply to all voices' })] : []),
       ...(kind === 'fx' ? [btn('layers', 'Duplicate', duplicateFx)] : []),
       ...(kind !== 'bg' && kind !== 'clip' && kind !== 'prop' && kind !== 'shadow' && kind !== 'fx' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
       btn('trash', 'Delete', deleteSelected, { class: 'cb-btn danger' })),
@@ -2647,7 +2648,7 @@ function musicLane(total, pps) {
     for (let x = 0; x < bars.length; x++) bars[x] = one[Math.floor((x * width) / bars.length) % one.length];
     drawWave(canvas, bars, { gain: Math.min(2, (m.volume ?? 0.35) * 2) / peakMax(buf) });
   } catch { /* no picture */ }
-  return h('div', { class: 'lane2 audio music', style: 'height:34px' }, h('div', { class: `tclip music ${m.muted ? 'muted' : ''}`, title: 'Background music. Open the Audio tab to change its volume or remove it.', style: `left:0;width:${width}px`, onclick: () => openTab('audio') }, canvas, h('span', { class: 'tn' }, `♪ ${m.name}${m.muted ? ' (muted)' : ''}`)));
+  return h('div', { class: 'lane2 audio music', style: 'height:34px' }, h('div', { class: `tclip music ${m.muted ? 'muted' : ''}`, title: 'Background music. Tap it to change its volume or remove it.', style: `left:0;width:${width}px`, onclick: () => openMusicSettings() }, canvas, h('span', { class: 'tn' }, `♪ ${m.name}${m.muted ? ' (muted)' : ''}`)));
 }
 /** the picture of the sound inside a voice clip: only the part that is on the timeline (after trimming), as loud as the line's volume makes it */
 function voiceWave(c) {
@@ -2659,21 +2660,51 @@ function voiceWave(c) {
   return canvas;
 }
 /** mute, solo, volume and fades of one voice line */
+/** Voice settings: tap an audio layer on the timeline and this panel opens (the Upload tab only brings files in). Which character speaks it, volume and fades,
+ *  Mute / Solo, one button that gives the same volume and fades to every voice, then the camera shot and who is in frame for this line. */
+function openVoiceEdit(id) {
+  if (!lineById(id)) return;
+  S.lineSel = id; S.tab = 'voice'; S.panelOpen = true; drawTabs(); drawLineBox(); dockShow('panel');
+}
+function tabVoice() {
+  const L = lineById(S.lineSel);
+  if (!L) return h('div', { class: 'list' }, h('p', { class: 'sub' }, 'Tap an audio layer on the timeline to change its voice, character, volume and fades.'));
+  const id = L.id, idx = player.clips.indexOf(L), sp = sOf(L.speaker), def = sp?.charId ? charOf(sp) : null, len = Math.max(0.2, L.end - L.start), room = Math.round(Math.min(5, len) * 10) / 10;
+  const mix = (patch) => { setMix(id, patch, { redraw: false }); S.dirty = true; if (player.playing) player.seek(player.time); };
+  const row = (label, min, max, step, get, show, set) => {
+    const out = h('output', {}, show(get()));
+    const input = h('input', { type: 'range', min, max, step, value: get(), 'aria-label': label, oninput: (e) => { set(+e.target.value); out.textContent = show(+e.target.value); } });
+    return h('label', { class: 'vo-row' }, h('span', {}, label), input, out);
+  };
+  const toggle = (key, label, tip) => h('button', { type: 'button', class: `btn sm mix-btn ${L[key] ? 'on' : ''}`, 'aria-pressed': String(!!L[key]), title: tip, onclick: () => { setMix(id, { [key]: !L[key] }); drawTimeline(); drawTabs(); } }, label);
+  const applyAll = () => {
+    const n = player.clips.length;
+    for (const l of player.clips) { const r = Math.min(5, Math.max(0.2, l.end - l.start)); setMix(l.id, { volume: L.volume ?? 1, fadeIn: Math.min(L.fadeIn || 0, r), fadeOut: Math.min(L.fadeOut || 0, r) }, { redraw: false }); }
+    if (player.playing) player.seek(player.time);
+    drawTimeline(); S.dirty = true; toast(`The volume and fades are now the same for all ${n} voice${n === 1 ? '' : 's'}.`);
+  };
+  const thumb = sp && def ? portraitOf(sp) : null;
+  const removeAll = async () => { if (S.exporting || !confirm('Remove all audio lines?')) return; S.lines = []; S.panelOpen = false; await afterAudioChange(); };
+  return h('div', { class: 'list voice-panel' },
+    h('div', { class: 'card flat' },
+      h('div', { class: 'vo-head' }, h('b', {}, `Voice ${idx + 1}`), h('span', { class: 'chip' }, `${fmt(L.start)} – ${fmt(L.end)}`)),
+      h('div', { class: 'vo-who' }, thumb ? h('img', { src: thumb, alt: '' }) : h('span', { class: 'dot', style: `background:${sp?.color || '#94a3b8'}` }),
+        h('span', { class: 'voice-char' }, h('small', {}, `Voice: ${sp?.name || L.speaker || ''}`), h('b', {}, def?.name || 'No character yet')),
+        h('button', { type: 'button', class: 'btn sm', onclick: () => { S.animFor = sp?.key || S.animFor; openTab('chars'); } }, def ? 'Change character' : 'Choose character')),
+      h('div', { class: 'mix-buttons vo-buttons' }, toggle('muted', 'Mute', 'Silence this voice (its character still talks)'), toggle('solo', 'Solo', 'Hear only the solo voices')),
+      row('Volume', 0, 200, 5, () => Math.round((L.volume ?? 1) * 100), (v) => `${v}%`, (v) => mix({ volume: +(v / 100).toFixed(2) })),
+      row('Fade in', 0, room, 0.1, () => L.fadeIn || 0, (v) => `${(+v).toFixed(1)} s`, (v) => mix({ fadeIn: +v.toFixed(1) })),
+      row('Fade out', 0, room, 0.1, () => L.fadeOut || 0, (v) => `${(+v).toFixed(1)} s`, (v) => mix({ fadeOut: +v.toFixed(1) })),
+      h('button', { type: 'button', class: 'btn pri vo-apply', 'data-act': 'apply-all', onclick: applyAll }, 'Apply to all voices'),
+      h('small', { class: 'vo-note' }, 'Gives every voice this volume and these fades.')),
+    h('div', { class: 'card flat' }, h('h2', {}, 'Camera and who is in frame'), lineBox),
+    h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, h('button', { type: 'button', class: 'btn sm danger', onclick: async () => { const line = S.lines.find((l) => l.id === id); if (line && !S.exporting) { S.panelOpen = false; await deleteLine(line); } } }, 'Remove this voice'), h('button', { type: 'button', class: 'btn sm', onclick: removeAll }, 'Remove all voices')));
+}
 function setMix(id, patch, { redraw = true } = {}) {
   const line = lineModel(id), clip = player.clips.find((c) => c.id === id);
   for (const o of [line, clip]) if (o) Object.assign(o, patch);
   S.dirty = true;
   if (redraw) { if (player.playing) player.seek(player.time); drawTimeline(); drawLineBox(); }          // playing: restart the sound so the new level is heard at once
-}
-function mixRow(L) {
-  const len = Math.max(0.2, L.end - L.start), pct = (v) => `${Math.round(v * 100)}%`, secs = (v) => `${(+v || 0).toFixed(1)} s`;
-  const toggle = (label, key, tip) => h('button', { type: 'button', class: `btn sm mix-btn ${L[key] ? 'on' : ''}`, 'aria-pressed': String(!!L[key]), title: tip, onclick: () => setMix(L.id, { [key]: !L[key] }) }, label);
-  const slider = (label, min, max, step, get, show, set) => { const out = h('output', {}, show(get())), input = h('input', { type: 'range', min, max, step, value: get(), 'aria-label': label, oninput: (e) => { out.textContent = show(+e.target.value); set(+e.target.value, false); }, onchange: (e) => set(+e.target.value, true) }); return h('label', { class: 'mix-field' }, h('span', {}, label), input, out); };
-  return h('div', { class: 'mixrow' },
-    h('div', { class: 'mix-buttons' }, toggle('Mute', 'muted', 'Silence this line (its character still talks)'), toggle('Solo', 'solo', 'Hear only the solo lines')),
-    slider('Volume', 0, 2, 0.05, () => L.volume ?? 1, pct, (v, redraw) => setMix(L.id, { volume: v }, { redraw })),
-    slider('Fade in', 0, Math.min(5, len), 0.1, () => L.fadeIn || 0, secs, (v, redraw) => setMix(L.id, { fadeIn: v }, { redraw })),
-    slider('Fade out', 0, Math.min(5, len), 0.1, () => L.fadeOut || 0, secs, (v, redraw) => setMix(L.id, { fadeOut: v }, { redraw })));
 }
 function drawLineBox() {
   if (!lineBox) return;
@@ -2704,7 +2735,7 @@ function drawLineBox() {
         h('span', { class: 'la' }, r.inFrame ? (r.body ? r.body.name : 'No animation') : '—', r.inFrame && !r.auto ? h('em', {}, ' ✎') : null, r.hand ? h('small', {}, ` · ✋ ${r.hand.name}`) : null, r.legs ? h('small', {}, ` · 🦵 ${r.legs.name}`) : null, r.face ? h('small', {}, ` · 😀 ${r.face.name}`) : null)),
       r.inFrame && (!r.auto || r.face || r.hand || r.legs) ? h('button', { class: 'ib', title: 'Back to automatic (speaker / listener mode)', onclick: () => { const o = castOf(L.id, s.key); delete o.body; delete o.seq; delete o.face; delete o.hand; delete o.legs; applyLayers().then(drawLineBox); } }, '↺') : null);
   });
-  lineBox.replaceChildren(head, mixRow(L), shotRow, chars.length ? h('div', { class: 'lrows' }, rows) : h('p', { class: 'sub', style: 'margin:6px 0 0' }, 'No characters on stage yet. Add one in the Characters tab.'),
+  lineBox.replaceChildren(head, shotRow, chars.length ? h('div', { class: 'lrows' }, rows) : h('p', { class: 'sub', style: 'margin:6px 0 0' }, 'No characters on stage yet. Add one in the Characters tab.'),
     chars.length ? h('p', { class: 'hint', style: 'text-align:left;margin:6px 0 0' }, 'The speaker uses Speaker mode (mixed talking gestures), everyone else Listener mode (standing, hands held, a little movement). Tap a character to pick something else for this line.') : null);
 }
 
@@ -3201,9 +3232,9 @@ function musicCard() {
 /** the Upload tab: one big tile for every kind of file that can be brought into the scene (voices, music, backgrounds, objects, props, a logo, a video) */
 function uploadGrid() {
   const holder = () => S.speakers.find((sp) => sp.charId && sp.key === (S.sel || S.handHolder)) || null;
-  const cell = (ic, label, hint, accept, multiple, handler) => {
+  const cell = (ic, label, hint, accept, multiple, handler, onTap = null) => {
     const input = h('input', { type: 'file', accept, ...(multiple ? { multiple: true } : {}), style: 'display:none', 'aria-label': `Choose ${label} files`, onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; if (files.length) await handler(files); } });
-    return h('div', { class: 'up-cell' }, h('button', { type: 'button', class: 'up-tile', 'data-kind': label.toLowerCase(), onclick: () => input.click() }, h('span', { class: 'up-ico', 'aria-hidden': 'true' }, icon(ic)), h('b', {}, label), h('small', {}, hint)), input);
+    return h('div', { class: 'up-cell' }, h('button', { type: 'button', class: 'up-tile', 'data-kind': label.toLowerCase(), onclick: () => (onTap && onTap() ? null : input.click()), title: hint }, h('span', { class: 'up-ico', 'aria-hidden': 'true' }, icon(ic)), h('b', {}, label), h('small', {}, hint)), input);
   };
   const IMG = 'image/*', route = async (files) => {          // files dropped on the grid go where their kind says
     const audio = files.filter((f) => /^audio\//.test(f.type) || /\.(zip|json|txt|wav|mp3|m4a|ogg)$/i.test(f.name)), video = files.filter((f) => /^video\//.test(f.type)), images = files.filter((f) => f.type.startsWith('image/'));
@@ -3211,7 +3242,7 @@ function uploadGrid() {
   };
   const grid = h('div', { class: 'up-grid', ondragover: (e) => { e.preventDefault(); grid.classList.add('over'); }, ondragleave: () => grid.classList.remove('over'), ondrop: async (e) => { e.preventDefault(); grid.classList.remove('over'); await route([...e.dataTransfer.files]); } },
     cell('mic', 'Voices', 'MP3, WAV or ZIP', '.zip,.json,.txt,audio/*', true, (f) => onFiles(f)),
-    cell('music', 'Music', 'A song under the voices', 'audio/*', false, (f) => addMusic(f[0])),
+    cell('music', 'Music', 'A song under the voices', 'audio/*', false, (f) => addMusic(f[0]), () => { if (!S.music) return false; openMusicSettings(); return true; }),
     cell('image', 'Background', 'Pictures', IMG, true, (f) => addBackgroundFiles(f)),
     cell('package', 'Objects', 'Pictures or GIF', IMG, true, (f) => addOwnProps(f)),
     cell('hand', 'Props', 'Held in a hand', IMG, false, (f) => addOwnHandProp(f, holder())),
@@ -3220,28 +3251,24 @@ function uploadGrid() {
   return grid;
 }
 function tabAudio() {
+  // the Upload tab only brings files in: one tile per kind of file. (Voice settings open from the audio layer on the timeline, music settings from the music layer.)
   const input = h('input', { type: 'file', multiple: true, accept: '.zip,.json,.txt,audio/*', style: 'display:none', onchange: async (e) => { const f = [...e.target.files]; e.target.value = ''; await onFiles(f); } });
-  const drop = h('div', { class: 'drop sm', onclick: () => input.click(),
-    ondragover: (e) => { e.preventDefault(); drop.classList.add('over'); }, ondragleave: () => drop.classList.remove('over'),
-    ondrop: async (e) => { e.preventDefault(); drop.classList.remove('over'); await onFiles([...e.dataTransfer.files]); } },
-    h('div', { class: 'big' }, '🎙'), h('b', {}, 'Add a ZIP or audio files'), h('p', {}, 'Name them like 001-Narrator.wav, 002-Rohan.wav. A script .json / .txt in the ZIP is read too.'), input);
-  const rows = S.lines.map((l, i) => {
-    const sp = S.speakers.find((x) => x.key === l.speaker.toLowerCase());
-    return h('div', { class: 'item' }, h('span', { class: 'chip' }, i + 1), h('span', { class: 'dot', style: `background:${sp?.color || '#94a3b8'}` }),
-      h('div', { class: 'sp', style: 'min-width:0' }, h('div', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, l.speaker), h('small', { class: 'sub', style: 'display:block;margin:0;font-size:11px' }, l.file)),
-      h('span', { class: 'time' }, `${l.buffer.duration.toFixed(1)}s`),
-      h('button', { class: 'ib', title: 'Remove this line', onclick: async () => { if (S.exporting) return; S.lines = S.lines.filter((x) => x.id !== l.id); await afterAudioChange(); } }, '✕'));
+  const drop = h('div', { class: 'drop sm', onclick: () => input.click() }, input);          // the Voices tile opens this file box
+  drop.style.display = 'none';
+  return h('div', { class: 'list' }, uploadGrid(), drop);
+}
+/** the music layer: volume, fades, mute, replace, remove (opened from the music layer on the timeline, or from the Music tile when a song is already there) */
+function openMusicSettings() {
+  if (!S.music) return;
+  const body = h('div', { class: 'music-modal' });
+  const fill = () => body.replaceChildren(musicCard());
+  let close;
+  fill();
+  body.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.classList.contains('danger') || b.textContent === 'Replace') close(); else if (b.classList.contains('mix-btn')) setTimeout(fill, 0);          // Mute shows its new state; Replace / Remove close the window
   });
-  drop.style.display = 'none';          // the Voices tile of the grid opens the same file box
-  return h('div', { class: 'list' },
-    uploadGrid(),
-    musicCard(),
-    h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Voices are optional. Add them when you have your voice lines — every voice then gets its own character.'),
-    drop,
-    S.lines.length ? h('details', { class: 'line-details', open: true }, h('summary', {}, 'Selected audio line'), lineBox) : null,
-    S.lines.length ? h('div', { class: 'row' }, h('b', {}, `${S.lines.length} line${S.lines.length > 1 ? 's' : ''}`), h('span', { class: 'chip' }, `${S.lines.reduce((a, l) => a + l.buffer.duration, 0).toFixed(1)}s`), h('span', { class: 'sp' }),
-      h('button', { class: 'btn sm', onclick: async () => { if (S.exporting || !confirm('Remove all audio lines?')) return; S.lines = []; await afterAudioChange(); } }, 'Clear all')) : null,
-    ...rows);
+  close = modal('Music', body);
 }
 /** outfits of a character = its skins except "default" (12toons rigs: Saree / Salvar / Business ...) */
 const skinNames = (def) => (def?.rig?.skins || []).map((k) => k.name).filter((n) => n !== 'default' && !n.includes('/'));

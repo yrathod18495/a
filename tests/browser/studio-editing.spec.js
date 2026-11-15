@@ -208,7 +208,7 @@ test('background music: add a file, it shows on the timeline, plays with the voi
   expect(await page.evaluate(() => window.__toon.player.music)).toBeNull();
   await page.locator('#app .up-cell:has(.up-tile[data-kind="music"]) input[type=file]').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: tone(2, 440) });
   await expect(page.locator('.tclip.music')).toHaveCount(1, { timeout: 15000 });
-  await expect(page.locator('.music-card')).toContainText('song');
+  expect(await page.evaluate(() => window.__toon.S.music?.name)).toMatch(/song/);
   const heard = () => page.evaluate(async () => { const p = window.__toon.player; p.pause(); p.seek(0); await p.play(); const n = p.sources.length; p.pause(); return n; });
   expect(await heard()).toBe(2);                                                                // the voice line and the music
   // the music mixed into the video's sound, alone (the voice line is muted): present at 4 s, after the 2 s file ended, because it loops
@@ -228,8 +228,9 @@ test('background music: add a file, it shows on the timeline, plays with the voi
   expect(doc).toMatchObject({ name: 'song', muted: false }); expect(doc.id).toMatch(/^music-/);
   const restored = await page.evaluate(async () => { const T = window.__toon, doc = T.sceneDoc(); T.S.music = null; T.musicAudio.clear(); await T.loadSceneDoc(doc); return { name: T.S.music?.name, hasBuffer: !!T.player.music?.buffer || !!T.musicAudio.get(T.S.music?.id)?.buffer }; });
   expect(restored).toEqual({ name: 'song', hasBuffer: true });
-  // removing it takes the row and the sound away
-  await page.getByRole('button', { name: 'Remove', exact: true }).click();
+  // removing it (from the music layer's settings) takes the row and the sound away
+  await page.locator('.tclip.music').dispatchEvent('click');
+  await page.locator('.modal').getByRole('button', { name: 'Remove', exact: true }).click();
   await expect(page.locator('.tclip.music')).toHaveCount(0);
   expect(await page.evaluate(() => window.__toon.player.music)).toBeNull();
 });
