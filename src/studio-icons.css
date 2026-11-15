@@ -689,3 +689,22 @@ body.exp-open .export-pill{display:none}
 /* Dragging the playhead or a clip must never select the seconds, names or buttons under the pointer */
 #app .ws .tl2,#app .ws .tl2 *,#app .ws .studio-bar,#app .ws .stage-wrap,#app .ws .tabs-scroll{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #app .ws input,#app .ws textarea,#app .ws [contenteditable="true"]{-webkit-user-select:text;user-select:text}
+
+/* Phone: the picture cards of the Props, Objects, Effects and Backgrounds panels are small (5 in a row), not half a screen each */
+@media(max-width:600px){
+  #app .studio-shared-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important;margin:10px 0!important}
+  #app .lib-card{padding:4px 2px!important;gap:2px!important;border-radius:10px!important;min-width:0}
+  #app .lib-card img{aspect-ratio:1!important;border-radius:6px!important}
+  #app .lib-card>span:not(.lock-badge){font-size:20px!important;line-height:1.3!important}
+  #app .lib-card b{display:block;max-width:100%;font-size:10px!important;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #app .lib-card small{display:none!important}
+  #app .tile-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important}
+  #app .tile{border-radius:10px}
+  #app .tile-pic{aspect-ratio:1!important;font-size:18px}
+  #app .tile-name{height:20px!important;padding:0 4px!important}
+  #app .tile-name b{font-size:9.5px!important}
+  #app .tile-plus{font-size:26px!important}
+  #app .tile .x,#app .tile .eye{width:20px!important;height:20px!important;top:2px!important}
+  #app .tile .x{right:2px!important;font-size:10px!important}#app .tile .eye{left:2px!important}#app .tile .eye svg{width:12px;height:12px}
+  #app .tile .lock-badge,#app .lib-card .lock-badge{transform:scale(.7);transform-origin:top right}
+}
