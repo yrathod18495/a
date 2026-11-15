@@ -3263,7 +3263,8 @@ function uploadGrid() {
     cell('package', 'Objects', 'Pictures or GIF', IMG, true, (f) => addOwnProps(f)),
     cell('hand', 'Props', 'Held in a hand', IMG, false, (f) => addOwnHandProp(f, holder())),
     cell('star', 'Logo', 'Top right corner', IMG, false, (f) => addLogo(f)),
-    cell('video', 'Video', 'A short clip that loops', 'video/*,.mp4,.webm,.mov,.m4v', false, (f) => addVideoClip(f)));
+    cell('video', 'Video', 'A short clip that loops', 'video/*,.mp4,.webm,.mov,.m4v', false, (f) => addVideoClip(f)),
+    cell('users', 'Characters', 'Your DragonBones files', '.zip,.json,.png,image/png', true, (f) => onFiles(f)));
   return grid;
 }
 function tabAudio() {

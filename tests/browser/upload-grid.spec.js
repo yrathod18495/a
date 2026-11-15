@@ -14,10 +14,10 @@ async function studio(page, size = { width: 1000, height: 860 }) {
 }
 const tile = (page, kind) => page.locator(`#app .up-cell:has(.up-tile[data-kind="${kind}"]) input[type=file]`);
 
-test('the Upload tab has a tile for voices, music, backgrounds, objects, props, a logo and a video', async ({ page }) => {
+test('the Upload tab has a tile for voices, music, backgrounds, objects, props, a logo, a video and your own characters', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await studio(page);
-  await expect(page.locator('#app .up-tile')).toHaveText([/Voices/, /Music/, /Background/, /Objects/, /Props/, /Logo/, /Video/]);
+  await expect(page.locator('#app .up-tile')).toHaveText([/Voices/, /Music/, /Background/, /Objects/, /Props/, /Logo/, /Video/, /Characters/]);
   await expect(page.locator('#app .up-tile').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
