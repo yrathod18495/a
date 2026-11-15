@@ -708,3 +708,32 @@ body.exp-open .export-pill{display:none}
   #app .tile .x{right:2px!important;font-size:10px!important}#app .tile .eye{left:2px!important}#app .tile .eye svg{width:12px;height:12px}
   #app .tile .lock-badge,#app .lib-card .lock-badge{transform:scale(.7);transform-origin:top right}
 }
+
+/* Upload tab: big tiles, one per kind of file */
+#app .up-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:2px 0 8px}
+@media(min-width:861px){#app .up-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#app .up-grid.over{outline:2px dashed var(--acc);outline-offset:4px;border-radius:16px}
+#app .up-cell{min-width:0}
+#app .up-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:100%;min-height:104px;padding:12px 8px;border:1px solid var(--line);border-radius:16px;background:var(--card2);color:var(--text);cursor:pointer;text-align:center;font:inherit}
+#app .up-tile:hover,#app .up-tile:focus-visible{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,var(--card2))}
+#app .up-tile .up-ico svg{width:30px;height:30px;color:var(--acc)}
+#app .up-tile b{font-size:14px}#app .up-tile small{font-size:11.5px;color:var(--mute);line-height:1.25}
+@media(max-width:520px){
+  #app .up-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}          /* three across: the panel stays low and the stage stays visible */
+  #app .up-tile{min-height:82px;padding:8px 3px;gap:3px;border-radius:14px}
+  #app .up-tile .up-ico svg{width:24px;height:24px}
+  #app .up-tile b{font-size:12.5px}#app .up-tile small{font-size:10px}
+}
+/* panel title with a small round icon on the right ("Check for new") */
+#app .panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}#app .panel-head h2{margin:0}
+#app .icon-btn.refresh-btn{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--card2);color:var(--text);cursor:pointer}
+#app .icon-btn.refresh-btn svg{width:17px;height:17px}
+#app .icon-btn.refresh-btn.spin svg{animation:up-spin .8s linear infinite}
+@keyframes up-spin{to{transform:rotate(360deg)}}
+/* the "+" card at the start of the hand props */
+#app .lib-card.add-card{border:2px dashed var(--acc);background:transparent;justify-content:center}
+#app .lib-card.add-card .add-plus svg{width:26px;height:26px;color:var(--acc)}
+#app .lib-card.add-card b{color:var(--acc)}
+.vid-choice{display:grid;gap:8px;min-width:min(320px,80vw)}
+.vid-option{display:flex!important;flex-direction:column;align-items:flex-start;gap:3px;padding:12px 14px!important;text-align:left;height:auto!important}
+.vid-option small{font-size:12px;color:var(--mute);font-weight:400}

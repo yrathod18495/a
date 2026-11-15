@@ -37,7 +37,7 @@ import { emptyScene, sequencePlan, uniqueSceneName } from './scenes.js';
 import { authorizeExport, finishExport, ExportLimitError, currentPlan, refreshPlan } from './export-plan.js';
 import { FX_TEMPLATES, FX_TEMPLATE_GROUPS, FX_CONTROLS, FX_GROUPS, newFx, cleanFx, fxActive, fxTemplate, scaleFx, targetKind, targetId } from '../shared/fx.js';
 import { fxThumb } from './db/renderer.js';
-import { animatedToSheet } from './animated-image.js';
+import { animatedToSheet, videoToSheet } from './animated-image.js';
 import { propFromAsset, isEffect, isHeld, isHandAsset, actualPropSize, placeProp, propActive, heldAt } from '../shared/studio-effects.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { DEFAULT_GRADE, GRADE_CONTROLS, GRADE_PRESETS, cleanGrade, gradeActive, gradeAt, presetGrade, presetOf } from '../shared/color-grade.js';
@@ -1034,7 +1034,7 @@ function drawTabsInner() {
   } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'),
     h('div', { class: 'tabs-scroll' }, upload, ...['chars', 'anim', 'handprops', 'props', 'shadow', 'fx', 'canvas'].map(key => button(byKey[key])), more));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}`;
-  const label = TABS.find(t => t[0] === S.tab)?.[1] || 'Tools';
+  const label = S.tab === 'audio' ? 'Upload' : (TABS.find(t => t[0] === S.tab)?.[1] || 'Tools');
   panelEl.replaceChildren(h('div', { class: 'sheet-grip', role: 'button', tabindex: 0, 'aria-label': 'Drag to resize this panel, drag down to close it', onpointerdown: startSheetDrag, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSheetSize(); } } }, h('i')), h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
     { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab]());
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
@@ -3141,9 +3141,9 @@ const openTab = (k) => { S.tab = k; S.panelOpen = true; drawTabs(); dockShow('pa
 let startHidden = false;
 try { startHidden = localStorage.getItem('12toons-start-hidden') === '1'; } catch { /* the card simply stays open */ }
 function syncStart() {
-  const needed = !(S.lines.length > 0 || S.speakers.some((x) => x.charId));
-  if (emptyEl) emptyEl.hidden = !needed || startHidden;
-  if (startPill) startPill.hidden = !needed || !startHidden;
+  // the "Start your scene" card and the "Quick start" button are not shown any more: the Upload, Characters and Animations tabs are the way in
+  if (emptyEl) emptyEl.hidden = true;
+  if (startPill) startPill.hidden = true;
 }
 function setStartHidden(hidden) {
   startHidden = hidden;
@@ -3185,10 +3185,10 @@ function addManualCharacter() {
 /** the Audio tab card for the scene's background music */
 function musicCard() {
   const file = h('input', { type: 'file', accept: 'audio/*', style: 'display:none', onchange: async (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) await addMusic(f); } });
-  if (!S.music) return h('div', { class: 'card flat music-card' }, h('h2', {}, 'Background music'), h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Optional. One song plays softly under the voices for the whole scene and repeats if it is shorter.'), h('button', { class: 'btn', type: 'button', onclick: () => file.click() }, '♪ Add music'), file);
+  if (!S.music) return null;          // the Music tile of the Upload tab adds a song; its controls appear here once there is one
   const m = S.music, buf = musicBuffer(m.id), dur = buf ? `${buf.duration.toFixed(0)} s` : '';
   const slider = (label, min, max, step, get, show, set) => { const out = h('output', {}, show(get())); const input = h('input', { type: 'range', min, max, step, value: get(), 'aria-label': `Music ${label.toLowerCase()}`, oninput: (e) => { out.textContent = show(+e.target.value); set(+e.target.value, false); }, onchange: (e) => set(+e.target.value, true) }); return h('label', { class: 'mix-field' }, h('span', {}, label), input, out); };
-  return h('div', { class: 'card flat music-card' }, h('h2', {}, 'Background music'),
+  return h('div', { class: 'card flat music-card' }, h('h2', {}, 'Music'),
     h('div', { class: 'row', style: 'align-items:center;gap:8px;margin-bottom:6px' }, h('b', { style: 'min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, `♪ ${m.name}`), h('span', { class: 'chip' }, dur)),
     slider('Volume', 0, 1, 0.01, () => m.volume ?? 0.35, (v) => `${Math.round(v * 100)}%`, (v, redraw) => setMusic({ volume: v }, { redraw })),
     slider('Fade in', 0, 10, 0.5, () => m.fadeIn || 0, (v) => `${(+v).toFixed(1)} s`, (v, redraw) => setMusic({ fadeIn: v }, { redraw })),
@@ -3197,6 +3197,27 @@ function musicCard() {
       h('button', { class: `btn sm mix-btn ${m.muted ? 'on' : ''}`, type: 'button', 'aria-pressed': String(!!m.muted), onclick: () => setMusic({ muted: !m.muted }, { redraw: true }) }, 'Mute music'),
       h('button', { class: 'btn sm', type: 'button', onclick: () => file.click() }, 'Replace'), file,
       h('button', { class: 'btn sm danger', type: 'button', onclick: removeMusic }, 'Remove')));
+}
+/** the Upload tab: one big tile for every kind of file that can be brought into the scene (voices, music, backgrounds, objects, props, a logo, a video) */
+function uploadGrid() {
+  const holder = () => S.speakers.find((sp) => sp.charId && sp.key === (S.sel || S.handHolder)) || null;
+  const cell = (ic, label, hint, accept, multiple, handler) => {
+    const input = h('input', { type: 'file', accept, ...(multiple ? { multiple: true } : {}), style: 'display:none', 'aria-label': `Choose ${label} files`, onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; if (files.length) await handler(files); } });
+    return h('div', { class: 'up-cell' }, h('button', { type: 'button', class: 'up-tile', 'data-kind': label.toLowerCase(), onclick: () => input.click() }, h('span', { class: 'up-ico', 'aria-hidden': 'true' }, icon(ic)), h('b', {}, label), h('small', {}, hint)), input);
+  };
+  const IMG = 'image/*', route = async (files) => {          // files dropped on the grid go where their kind says
+    const audio = files.filter((f) => /^audio\//.test(f.type) || /\.(zip|json|txt|wav|mp3|m4a|ogg)$/i.test(f.name)), video = files.filter((f) => /^video\//.test(f.type)), images = files.filter((f) => f.type.startsWith('image/'));
+    if (audio.length) await onFiles(audio); if (images.length) await addOwnProps(images); if (video.length) await addVideoClip(video);
+  };
+  const grid = h('div', { class: 'up-grid', ondragover: (e) => { e.preventDefault(); grid.classList.add('over'); }, ondragleave: () => grid.classList.remove('over'), ondrop: async (e) => { e.preventDefault(); grid.classList.remove('over'); await route([...e.dataTransfer.files]); } },
+    cell('mic', 'Voices', 'MP3, WAV or ZIP', '.zip,.json,.txt,audio/*', true, (f) => onFiles(f)),
+    cell('music', 'Music', 'A song under the voices', 'audio/*', false, (f) => addMusic(f[0])),
+    cell('image', 'Background', 'Pictures', IMG, true, (f) => addBackgroundFiles(f)),
+    cell('package', 'Objects', 'Pictures or GIF', IMG, true, (f) => addOwnProps(f)),
+    cell('hand', 'Props', 'Held in a hand', IMG, false, (f) => addOwnHandProp(f, holder())),
+    cell('star', 'Logo', 'Top right corner', IMG, false, (f) => addLogo(f)),
+    cell('video', 'Video', 'A short clip that loops', 'video/*,.mp4,.webm,.mov,.m4v', false, (f) => addVideoClip(f)));
+  return grid;
 }
 function tabAudio() {
   const input = h('input', { type: 'file', multiple: true, accept: '.zip,.json,.txt,audio/*', style: 'display:none', onchange: async (e) => { const f = [...e.target.files]; e.target.value = ''; await onFiles(f); } });
@@ -3211,9 +3232,11 @@ function tabAudio() {
       h('span', { class: 'time' }, `${l.buffer.duration.toFixed(1)}s`),
       h('button', { class: 'ib', title: 'Remove this line', onclick: async () => { if (S.exporting) return; S.lines = S.lines.filter((x) => x.id !== l.id); await afterAudioChange(); } }, '✕'));
   });
+  drop.style.display = 'none';          // the Voices tile of the grid opens the same file box
   return h('div', { class: 'list' },
+    uploadGrid(),
     musicCard(),
-    h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Audio is optional. Add it when you have your voice lines — every voice then gets its own character.'),
+    h('p', { class: 'sub', style: 'font-size:12px;margin:0' }, 'Voices are optional. Add them when you have your voice lines — every voice then gets its own character.'),
     drop,
     S.lines.length ? h('details', { class: 'line-details', open: true }, h('summary', {}, 'Selected audio line'), lineBox) : null,
     S.lines.length ? h('div', { class: 'row' }, h('b', {}, `${S.lines.length} line${S.lines.length > 1 ? 's' : ''}`), h('span', { class: 'chip' }, `${S.lines.reduce((a, l) => a + l.buffer.duration, 0).toFixed(1)}s`), h('span', { class: 'sp' }),
@@ -3603,8 +3626,9 @@ async function addLibraryProp(asset, hold = null) {
   if (!hold && S.props.some((p) => p.assetId === asset.id)) return;                       // the same picture is added once
   const loading = busy(asset.type === 'effect' ? 'Applying effect…' : 'Applying prop…');
   try {
-    const blob = await libraryBlob(asset);
+    const blob = asset.blob || await libraryBlob(asset);          // `asset.own`: a picture the user brought (a hand prop of their own)
     let prop = propFromAsset(asset, blob, crypto.randomUUID());
+    if (asset.own) delete prop.assetId;
     if (!isEffect(prop)) { const size = await imageSize(blob, prop.sheet); prop = placeProp(prop, size.w, size.h, aspectOf(S.aspect)); }      // a prop keeps the size and shape of its picture
     if (hold && !isEffect(prop)) prop = { ...prop, rotation: 0, follow: false, grip: { x: 0.5, y: 0.7 }, attach: { key: hold.key, hand: hold.hand } };              // a hand prop starts upright and stays upright while the arm swings; it is held by the lower part of its picture ("Follow hand" makes it turn with the hand)
     await putProp(prop); return prop;
@@ -3620,6 +3644,56 @@ async function addOwnProps(files) {
       await putProp(placeProp({ id: crypto.randomUUID(), kind: 'prop', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My prop', blob: pic, ...(anim ? { sheet: anim.sheet } : {}), x: .5, y: .66, w: .18, h: .18, rotation: 0, visible: true }, size.w, size.h, aspectOf(S.aspect)));
     }
   } catch (e) { toast(`Could not add the prop: ${friendlyError(e)}`); }
+}
+/** a picture of the user's own that goes into a character's hand: the same questions as for a library prop (which character, which hand) */
+async function addOwnHandProp(files, holder = null) {
+  const f = files[0];
+  if (!f) return;
+  if (!f.type.startsWith('image/')) { toast('Please choose an image file only.'); return; }
+  try {
+    const anim = await animatedToSheet(f), pic = anim ? anim.file : f;
+    openHandPicker({ id: crypto.randomUUID(), own: true, type: 'prop', group: 'hand', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'My prop', blob: pic, ...(anim ? { sheet: anim.sheet } : {}) }, holder);
+  } catch (e) { toast(`Could not add the prop: ${friendlyError(e)}`); }
+}
+/** a logo: a picture placed small in the top right corner (move and resize it like any object) */
+async function addLogo(files) {
+  const f = files[0];
+  if (!f) return;
+  if (!f.type.startsWith('image/')) { toast('Please choose an image file for the logo (PNG with a see-through background looks best).'); return; }
+  try {
+    const anim = await animatedToSheet(f), pic = anim ? anim.file : f, size = await imageSize(pic, anim?.sheet);
+    await putProp(placeProp({ id: crypto.randomUUID(), kind: 'prop', name: 'Logo', blob: pic, ...(anim ? { sheet: anim.sheet } : {}), x: .88, y: .12, w: .14, h: .14, rotation: 0, visible: true }, size.w, size.h, aspectOf(S.aspect)));
+    toast('Logo added in the top right corner. Drag it to move it, or change its size in its tools.');
+  } catch (e) { toast(`Could not add the logo: ${friendlyError(e)}`); }
+}
+const MAX_VIDEO_BYTES = 150 * 1048576;
+/** a short video becomes a looping, silent picture that plays in the studio and in the exported video. The user says how it belongs to the scene, so it sits right at once:
+ *  a backdrop behind the characters (sunrise, moving background), a full-screen cover in front (intro, outro) or a small one in a corner (logo, sticker). */
+async function addVideoClip(files) {
+  const f = files[0];
+  if (!f) return;
+  if (!/^video\//.test(f.type) && !/\.(mp4|webm|mov|m4v)$/i.test(f.name)) { toast('Please choose a video file (MP4 or WebM).'); return; }
+  if (f.size > MAX_VIDEO_BYTES) { toast(`This video is ${(f.size / 1048576).toFixed(0)} MB. Please choose one under ${MAX_VIDEO_BYTES / 1048576} MB.`, 'warn'); return; }
+  let close;
+  const option = (mode, title, text) => h('button', { type: 'button', class: 'btn vid-option', 'data-mode': mode, onclick: () => { close(); placeVideo(f, mode); } }, h('b', {}, title), h('small', {}, text));
+  close = modal('How should this video appear?', h('div', { class: 'vid-choice' },
+    option('backdrop', 'Behind the characters', 'A full-screen backdrop, like a sunrise or a moving background.'),
+    option('cover', 'In front, full screen', 'Covers the whole scene, like an intro or an outro.'),
+    option('corner', 'Small, in a corner', 'Like a logo or a sticker.')));
+}
+async function placeVideo(f, mode) {
+  const loading = busy('Preparing the video…');
+  try {
+    const clip = await videoToSheet(f), size = await imageSize(clip.file, clip.sheet), A = aspectOf(S.aspect);
+    let prop = placeProp({ id: crypto.randomUUID(), kind: 'prop', name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Video', blob: clip.file, sheet: clip.sheet, x: .5, y: .5, w: .6, h: .6, rotation: 0, visible: true }, size.w, size.h, A);
+    if (mode === 'backdrop' || mode === 'cover') {          // fitted to the frame without stretching: the whole frame for a video of the same shape
+      const frame = A.w / A.h, shape = size.w / size.h, w = shape >= frame ? 1 : +(shape / frame).toFixed(4), h = shape >= frame ? +(frame / shape).toFixed(4) : 1;
+      prop = { ...prop, x: .5, y: .5, w, h, ...(mode === 'backdrop' ? { behind: true } : {}) };
+    } else prop = { ...prop, w: +(prop.w * 0.4).toFixed(4), h: +(prop.h * 0.4).toFixed(4), x: .86, y: .14 };
+    await putProp(prop);
+    toast(`${clip.cut ? `The first ${Math.round(clip.seconds)} seconds play in a loop, without sound.` : 'It plays in a loop, without sound.'} You can change its size and place in its tools.`);
+  } catch (e) { toast(friendlyError(e)); }
+  finally { loading.done(); }
 }
 /** a search box for a tile grid: tiles whose name does not contain the text are hidden (the "+" tile stays) */
 const filterTiles = (grid) => { const q = (grid.dataset.q || '').trim().toLowerCase(); for (const t of grid.querySelectorAll('.tile:not(.add)')) t.hidden = !!q && !(t.dataset.name || '').includes(q); };
@@ -3656,7 +3730,7 @@ function libraryTab(kind, group = 'general') {
   const ownFile = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; await addOwnProps(files); } });
   // one picture is added once: tapping it again selects the copy that is already in the scene. Eye = show / hide it, ✕ = take it out of the scene
   const inScene = (asset) => S.props.find((p) => p.assetId === asset.id);
-  const own = effects ? [] : S.props.filter((p) => !isEffect(p) && !p.assetId && p.blob);
+  const own = effects ? [] : S.props.filter((p) => !isEffect(p) && !p.assetId && p.blob && !isHeld(p) && p.group !== 'hand');
   const pick = (p) => { S.selectedPropId = p.id; S.sel = null; S.dirty = true; drawTabs(); updateSel(); };
   const removeProp = async (p) => { await dbDel('props', p.id); S.props = S.props.filter((x) => x.id !== p.id); if (S.selectedPropId === p.id) S.selectedPropId = null; await stage.setProps(S.props); S.dirty = true; drawTabs(); updateSel(); drawTimeline(); };
   const toggleProp = (p) => { p.visible = p.visible === false; stage.setProps(S.props); S.dirty = true; dbPut('props', p); drawTabs(); };
@@ -3668,23 +3742,27 @@ function libraryTab(kind, group = 'general') {
   const handCard = (asset) => { const locked = assetLocked(asset); return h('button', { class: `studio-shared-card lib-card hand-card${locked ? ' locked' : ''}`, type: 'button', 'aria-disabled': locked ? 'true' : undefined, title: locked ? `Paid accounts only: ${asset.name}` : `Put in a hand: ${asset.name}`, onclick: () => (locked ? lockHint() : openHandPicker(asset, holder || null)) },
     locked ? lockBadge() : null,
     asset.thumb ? h('img', { src: asset.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '🤚'), h('b', {}, asset.name), h('small', {}, locked ? 'Paid accounts only' : (asset.category || 'Hand prop'))); };
+  // "Check for new": a small round icon next to the title of the panel (not a button at the bottom)
+  const refreshBtn = h('button', { class: 'icon-btn refresh-btn', type: 'button', title: 'Check for new', 'aria-label': 'Check for new', onclick: async (e) => { const b = e.currentTarget; b.classList.add('spin'); try { await refreshShared(true); } finally { redrawPanel(); } } }, icon('refresh'));
+  const handFile = h('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; await addOwnHandProp(files, holder || null); } });
+  const addHandCard = h('button', { class: 'studio-shared-card lib-card add-card', type: 'button', title: 'Add your own picture and put it in a hand', 'aria-label': 'Add your own prop', onclick: () => handFile.click() }, h('span', { class: 'add-plus' }, icon('plus')), h('b', {}, 'Add'));
   if (group === 'hand') {          // Props: what a character can use (knife, bat, bag ...); Objects (stone, well, tree ...) make the scene
     // the props that are already in the scene (in a hand): tap one to select it and edit it, eye hides it, ✕ takes it out
     const inScene = S.props.filter((p) => !isEffect(p) && (isHeld(p) || p.group === 'hand'));
     const sceneTile = (p) => { const a = S.sharedAssets.find((x) => x.id === p.assetId); return tile({ src: a?.thumb || (p.blob ? URL.createObjectURL(p.blob) : null), name: p.name, title: `${p.name}${isHeld(p) ? ' · in hand' : ''} — tap to edit`, onclick: () => { selectOnly('prop', p.id); drawTimeline(); updateSel(); openPropEdit(p); }, ...controls(p), on: p.id === S.propSel }); };
     return h('div', { class: 'list' },
       ...(inScene.length ? [h('div', { class: 'card flat in-scene' }, h('h2', {}, 'In the scene'), h('div', { class: 'tile-grid' }, inScene.map(sceneTile)))] : []),
-      h('div', { class: 'card flat hand-props' }, h('h2', {}, '🤚 Props'),
-      !handAssets.length ? h('p', { class: 'sub studio-library-empty' }, 'No props have been published yet. They are added from Add Assets → Add Props in the admin panel.')
-        : h('div', {}, h('p', { class: 'sub studio-help' }, holder ? `Tap a prop, then choose which of ${holder.name}'s hands holds it.` : 'Tap a prop, then choose the character and the hand.'), h('div', { class: 'studio-shared-grid' }, handAssets.map(handCard))),
-      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:8px' }, h('button', { class: 'btn sm', type: 'button', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new'))));
+      h('div', { class: 'card flat hand-props' }, h('div', { class: 'panel-head' }, h('h2', {}, '🤚 Props'), refreshBtn),
+        h('p', { class: 'sub studio-help' }, holder ? `Tap a prop, then choose which of ${holder.name}'s hands holds it.` : 'Tap a prop, then choose the character and the hand.'),
+        h('div', { class: 'studio-shared-grid' }, addHandCard, handAssets.map(handCard)),
+        handFile));
   }
   return h('div', { class: 'list' },
-    h('div', { class: 'card flat' }, h('h2', {}, label),
+    h('div', { class: 'card flat' }, h('div', { class: 'panel-head' }, h('h2', {}, label), refreshBtn),
       categories.length > 1 ? h('div', { class: 'studio-asset-tabs lib-chips' }, chip('all', 'All'), ...categories.map((name) => chip(name, name))) : null,
       tileSearch(grid, label.toLowerCase()), grid,
-      !shown.length && !own.length ? h('p', { class: 'sub studio-library-empty' }, assets.length ? 'There is nothing in this category.' : `No shared ${label.toLowerCase()} have been published yet. They are added from the Add Assets tab in the admin panel.`) : null,
-      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', title: 'See what the admin has newly published', onclick: async () => { await refreshShared(true); redrawPanel(); } }, '↻ Check for new')), ownFile));
+      !shown.length && !own.length && assets.length ? h('p', { class: 'sub studio-library-empty' }, 'There is nothing in this category.') : null,
+      ownFile));
 }
 
 /** backgrounds made in the Background Generator (kept in the account's database): one click copies the picture into this project and uses it */
@@ -3707,21 +3785,23 @@ function generatedTiles(pick, grid) {
 const MAX_BG_BYTES = 3 * 1048576;          // a picture a user adds as a background: 3 MB at most (bigger ones slow the studio, the sync and cloud export)
 /** a photo saved from WhatsApp, a gallery app or a file manager is often named a long UUID/hash with no real words in it — "Background N" reads much better on the timeline */
 const friendlyBgName = (name, n) => { const base = name.replace(/\.[^.]+$/, ''); return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|^[0-9a-f]{16,}$/i.test(base) ? `Background ${n}` : name; };
+/** a background is always a 5 s clip at the playhead; the user stretches it as far as it should go */
+async function addBgClip(rec, preset = 0) {
+  if (S.bgReplace && await replaceBgWith(rec, preset)) return;
+  const start = snapTo(Math.max(0, player.time)), c = { id: uid(), bgId: rec?.id ?? null, preset, start, dur: 5 };
+  S.bgClips.push(c); S.bgSel = c.id; await syncBgClips(); updateTotal(); drawTimeline(); drawTabs();
+}
+/** pictures chosen as backgrounds (the Background tab and the Upload tab): each is kept in the project and the last one goes on the timeline */
+async function addBackgroundFiles(picked) {
+  let last = null;
+  const tooBig = picked.filter((f) => f.size > MAX_BG_BYTES);
+  if (tooBig.length) toast(`${tooBig.length > 1 ? 'Some pictures are' : `"${tooBig[0].name}" is`} larger than ${MAX_BG_BYTES / 1048576} MB (${(Math.max(...tooBig.map((f) => f.size)) / 1048576).toFixed(1)} MB). Please choose a smaller picture or compress it first.`, 'warn');
+  for (const f of picked.filter((f) => f.size <= MAX_BG_BYTES)) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: friendlyBgName(f.name, S.myBgs.length + 1), blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); last = rec; }
+  S.dirty = true; if (last) await addBgClip(last); else drawTabs();          // the new picture goes on the timeline as a 5 s clip
+}
 function tabCanvas() {
   const seg = (items, cur, on) => h('div', { class: 'seg' }, items.map(([k, l]) => h('button', { class: String(cur()) === String(k) ? 'on' : '', onclick: (e) => { on(k); e.currentTarget.parentNode.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', String(items[i][0]) === String(k))); } }, l)));
-  const file = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => {
-    let last = null;
-    const picked = [...e.target.files]; e.target.value = '';
-    const tooBig = picked.filter((f) => f.size > MAX_BG_BYTES);
-    if (tooBig.length) toast(`${tooBig.length > 1 ? 'Some pictures are' : `"${tooBig[0].name}" is`} larger than ${MAX_BG_BYTES / 1048576} MB (${(Math.max(...tooBig.map((f) => f.size)) / 1048576).toFixed(1)} MB). Please choose a smaller picture or compress it first.`, 'warn');
-    for (const f of picked.filter((f) => f.size <= MAX_BG_BYTES)) { const rec = { id: `bg${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: friendlyBgName(f.name, S.myBgs.length + 1), blob: f }; await dbPut('backgrounds', rec); S.myBgs.push(rec); last = rec; }
-    S.dirty = true; if (last) await addBgClip(last); else drawTabs();          // the new picture goes on the timeline as a 5 s clip
-  } });
-  const addBgClip = async (rec, preset = 0) => {
-    if (S.bgReplace && await replaceBgWith(rec, preset)) return;
-    const start = snapTo(Math.max(0, player.time)), c = { id: uid(), bgId: rec?.id ?? null, preset, start, dur: 5 };          // a background is always a 5 s clip at the playhead; the user stretches it as far as it should go
-    S.bgClips.push(c); S.bgSel = c.id; await syncBgClips(); updateTotal(); drawTimeline(); drawTabs();
-  };
+  const file = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none', onchange: async (e) => { const picked = [...e.target.files]; e.target.value = ''; await addBackgroundFiles(picked); } });
   const pickBg = async (rec, preset) => {
     if (S.bgReplace && await replaceBgWith(rec, preset)) return;
     return addBgClip(rec, preset ?? stage.bg.preset);

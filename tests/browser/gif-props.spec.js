@@ -10,7 +10,6 @@ async function open(page, width = 1366, height = 800) {
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Gif');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await page.waitForFunction(() => window.__toon?.S.ready);
-  const guide = page.locator('.start-close'); if (await guide.count()) await guide.first().click();
   if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();
 }
 // a 4 frame GIF (red, green, blue, yellow; 10 frames per second), made with the app's own encoder

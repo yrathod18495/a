@@ -32,3 +32,42 @@ export async function animatedToSheet(file, { maxFrames = MAX_FRAMES, maxSheet =
   } catch { return null; }
   finally { try { decoder?.close(); } catch { /* nothing to close */ } }
 }
+
+/**
+ * A short video becomes the same kind of sprite sheet (a looping, silent animated picture): the first `maxSeconds` seconds, about `fps` pictures a second,
+ * at most `maxFrames` pictures in all. The browser decodes the video (an MP4 with H.264 or a WebM works everywhere; the sound is not kept).
+ * @returns {Promise<{ file: File, sheet: {cols, rows, fps, frames}, frameW: number, frameH: number, frames: number, seconds: number, cut: boolean }>}
+ */
+export async function videoToSheet(file, { maxSeconds = 8, maxFrames = 48, maxSheet = 4096, fps = 6, maxCell = 640 } = {}) {
+  const url = URL.createObjectURL(file), video = document.createElement('video');
+  video.muted = true; video.playsInline = true; video.preload = 'auto'; video.src = url;
+  const once = (event, ms = 8000) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { video.removeEventListener(event, ok); reject(new Error('The video took too long to read. Please try a shorter or smaller file.')); }, ms);
+    const ok = () => { clearTimeout(timer); resolve(); };
+    video.addEventListener(event, ok, { once: true });
+    video.addEventListener('error', () => { clearTimeout(timer); reject(new Error('This video could not be read by your browser. Please try an MP4 (H.264) or a WebM file.')); }, { once: true });
+  });
+  try {
+    await once('loadedmetadata');
+    if (!Number.isFinite(video.duration)) {            // a recorded WebM can report no length until the end is reached once
+      const known = once('durationchange', 4000).catch(() => {}); video.currentTime = 1e101; await known; video.currentTime = 0; await once('seeked', 4000).catch(() => {});
+    }
+    const total = Number.isFinite(video.duration) ? video.duration : 0, seconds = Math.min(total, maxSeconds);
+    if (!(seconds > 0) || !video.videoWidth) throw new Error('This video has no pictures to use. Please try another file.');
+    const take = Math.max(2, Math.min(maxFrames, Math.round(seconds * fps))), vw = video.videoWidth, vh = video.videoHeight;
+    const cols = Math.min(8, Math.ceil(Math.sqrt(take))), rows = Math.ceil(take / cols);
+    const k = Math.min(1, maxSheet / (cols * vw), maxSheet / (rows * vh), maxCell / vw), cw = Math.max(1, Math.round(vw * k)), ch = Math.max(1, Math.round(vh * k));
+    const canvas = document.createElement('canvas'); canvas.width = cw * cols; canvas.height = ch * rows;
+    const g = canvas.getContext('2d');
+    for (let i = 0; i < take; i++) {
+      const seek = once('seeked', 6000);
+      video.currentTime = Math.min(Math.max(0, seconds - 0.001), (i / take) * seconds);
+      await seek;
+      g.drawImage(video, (i % cols) * cw, Math.floor(i / cols) * ch, cw, ch);
+    }
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('The video could not be turned into a picture. Please try another file.');
+    const name = (file.name || 'video').replace(/\.[^.]+$/, '') + '-clip.png', speed = +(take / seconds).toFixed(2);
+    return { file: new File([blob], name, { type: 'image/png' }), sheet: { cols, rows, fps: speed, frames: take }, frameW: cw, frameH: ch, frames: take, seconds, cut: total > maxSeconds + 0.05 };
+  } finally { video.removeAttribute('src'); video.load(); URL.revokeObjectURL(url); }
+}

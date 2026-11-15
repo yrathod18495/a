@@ -14,7 +14,6 @@ async function open(page) {
     S.props.push({ id: 'p1', name: 'Lamp', kind: 'prop', blob, natW: 1, natH: 1, x: 0.82, y: 0.7, w: 0.2, h: 0.2, rotation: 0, visible: true, start: 0, end: 8 }); await stage.setProps(S.props);
     drawClipBar();
   }, PNG);
-  const guide = page.locator('.start-close'); if (await guide.count()) await guide.first().click();          // the quick start guide sits over the stage
 }
 test('a locked background is not moved or resized on the stage; a locked prop is not moved; unlock gives it back', async ({ page }) => {
   await open(page);

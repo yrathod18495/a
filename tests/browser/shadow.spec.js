@@ -39,7 +39,6 @@ test('the shadow falls away from the light, to the right, left, toward the viewe
 });
 test('the shadow editor is a short dock at the bottom: the stage stays fully visible, direction goes all the way round, Shadow is a layer and a tab', async ({ page }) => {
   await open(page);
-  const guide = page.locator('.start-close'); if (await guide.count()) await guide.first().click();
   if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();
   await page.evaluate(() => { const T = window.__toon; T.S.propSel = 'p1'; T.drawClipBar(); });
   await page.locator('.clip-nav').getByRole('button', { name: 'Edit' }).click();

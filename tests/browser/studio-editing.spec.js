@@ -206,7 +206,7 @@ test('background music: add a file, it shows on the timeline, plays with the voi
   await page.locator('.drop input[type=file]').setInputFiles({ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: tone(6, 300) });
   await expect(page.locator('.tclip.voice')).toHaveCount(1, { timeout: 20000 });
   expect(await page.evaluate(() => window.__toon.player.music)).toBeNull();
-  await page.locator('.music-card input[type=file]').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: tone(2, 440) });
+  await page.locator('#app .up-cell:has(.up-tile[data-kind="music"]) input[type=file]').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: tone(2, 440) });
   await expect(page.locator('.tclip.music')).toHaveCount(1, { timeout: 15000 });
   await expect(page.locator('.music-card')).toContainText('song');
   const heard = () => page.evaluate(async () => { const p = window.__toon.player; p.pause(); p.seek(0); await p.play(); const n = p.sources.length; p.pause(); return n; });
@@ -303,7 +303,7 @@ test('background export: the editor stays free while the video is made from a sn
   const tone = (seconds, hz, amp) => { const rate = 8000, n = seconds * rate, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(rate, 24); b.writeUInt32LE(rate * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin((i / rate) * 2 * Math.PI * hz) * amp), 44 + i * 2); return b; };
   await page.locator('.drop input[type=file]').setInputFiles({ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: tone(4, 300, 20000) });
   await expect(page.locator('.tclip.voice')).toHaveCount(1, { timeout: 20000 });
-  await page.locator('.music-card input[type=file]').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: tone(1, 440, 20000) });         // 1 s of music for a 5 s video: it has to repeat
+  await page.locator('#app .up-cell:has(.up-tile[data-kind="music"]) input[type=file]').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: tone(1, 440, 20000) });         // 1 s of music for a 5 s video: it has to repeat
   await expect(page.locator('.tclip.music')).toHaveCount(1, { timeout: 15000 });
   await page.evaluate(() => { const T = window.__toon; T.S.fps = 40; T.S.quality = 360; Object.assign(T.S.music, { volume: 0.2, fadeIn: 0, fadeOut: 0 }); Object.assign(T.S.lines[0], { volume: 0.5 }); Object.assign(T.player.clips[0], { volume: 0.5 }); T.player.music.volume = 0.2; T.player.music.fadeOut = 0; T.player.music.fadeIn = 0; });
   const downloadReady = page.waitForEvent('download', { timeout: 120000 });
