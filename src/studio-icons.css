@@ -764,3 +764,12 @@ body.exp-open .export-pill{display:none}
 .lib-panel .card.flat{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
 .lib-panel .card.flat+.card.flat{margin-top:14px}
 @media(max-width:860px){#app .ws .panel.tall-panel.open{height:72dvh!important;max-height:72dvh!important}}
+
+/* the timeline shows one group of layers at a time: Audio, Characters, Background, Props, Effects */
+#app .tl-cats{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
+#app .tl-cats::-webkit-scrollbar{display:none}
+#app .tl-cat{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 13px;border:1px solid var(--line);border-radius:99px;background:var(--card2);color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+#app .tl-cat i{font-style:normal;font-size:11px;font-weight:700;min-width:18px;height:18px;padding:0 5px;display:inline-grid;place-items:center;border-radius:99px;background:color-mix(in srgb,var(--text) 14%,transparent)}
+#app .tl-cat.on{background:var(--acc);border-color:var(--acc);color:#fff}#app .tl-cat.on i{background:#ffffff33}
+#app .lane2.tl-empty{display:flex;align-items:center;padding:0 14px;color:var(--mute);font-size:13px;white-space:nowrap}
+#app .lane2.tl-empty span{position:sticky;left:14px}

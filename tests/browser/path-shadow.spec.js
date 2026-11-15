@@ -129,7 +129,7 @@ test('Path flags on the layer: A and B sit on the animation clip and dragging on
   await page.evaluate(() => {
     const { S, commitClips } = window.__toon;
     S.paths.fake1 = { pts: [{ x: 0.2, y: 0.4 }, { x: 0.8, y: 0.4 }], clipId: 'walk1', start: 1, dur: 4, depth: 0, mul: 1 };
-    commitClips();
+    S.tlCat = 'chars'; commitClips();
   });
   const a = page.locator('.lane2 .pflag.a'), b = page.locator('.lane2 .pflag.b');
   await expect(a).toHaveCount(1); await expect(b).toHaveCount(1);

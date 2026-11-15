@@ -2,7 +2,8 @@
 
 These rules were asked for repeatedly by the owner. Do not break them in any change.
 
-1. **Every layer must stay visible, however short the timeline is.**
+0. **The layers are sorted into groups and the timeline shows ONE group at a time** (owner's request: not everything stacked together). Groups: Audio (voices, music), Characters (character rows, "◆ move", Camera), Background, Props (props, objects, shadows), Effects (effect rows, overlays, Colour). The open section (tab) picks the group (`TAB_CAT` in `src/main.js`: Upload → Audio, Characters / Animations → Characters, Background, Props / Objects / Shadow → Props, Effects / Overlays / Colour → Effects); the chips above the timeline switch it by hand (`S.tlCat`); selecting an item (a clip, a prop, an audio line, a character) opens its own group. A group with no layer shows a short hint instead of an empty box. Every row is tagged `data-cat` where it is created in `drawTimeline()`: **a new kind of row must get a `data-cat`**. Tests that look for a row must first show its group (`S.tlCat = '…'`).
+1. **Every layer of the shown group must stay visible, however short the timeline is.**
    When the timeline box is shorter than its rows, all rows shrink together (`fitRows()` in `src/main.js`, class `squeezed` on `.tl2`, CSS at the end of `src/studio-icons.css`). No layer row (audio, background, props, shadows, characters, "◆ move", colour, camera) may be pushed below the visible area or hidden under the scroll bar.
    - The ruler row keeps its height; the other rows never go below `MIN_ROW`.
    - A new kind of row must be added to `labels` / `lanes` in `drawTimeline()` with an inline `height:Npx` so `fitRows()` can shrink it. Rows are paired by index (label i = lane i).
