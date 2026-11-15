@@ -1102,7 +1102,14 @@ const catOfItem = (kind, id) => (kind === 'clip' ? 'chars' : kind === 'bg' ? 'ba
 let tlCatsEl = null;
 function drawTlCats(counts = {}) {
   if (!tlCatsEl) return;
-  tlCatsEl.replaceChildren(...TL_CATS.map(([key, text]) => h('button', { type: 'button', class: `tl-cat${S.tlCat === key ? ' on' : ''}`, 'data-cat': key, 'aria-pressed': String(S.tlCat === key), title: `Show the ${text.toLowerCase()} layers`, onclick: () => { S.tlCat = key; drawTimeline(); } }, text, counts[key] ? h('i', {}, String(counts[key])) : null)));
+  if (!tlCatsEl.children.length) {          // built once: the buttons are only updated afterwards, so a tap is never lost to a redraw of the timeline
+    tlCatsEl.replaceChildren(...TL_CATS.map(([key, text]) => h('button', { type: 'button', class: 'tl-cat', 'data-cat': key, title: `Show the ${text.toLowerCase()} layers`, onclick: () => { S.tlCat = key; drawTimeline(); } }, text, h('i', { hidden: true }))));
+  }
+  for (const b of tlCatsEl.children) {
+    const key = b.dataset.cat, on = S.tlCat === key, n = counts[key] || 0, badge = b.querySelector('i');
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on));
+    badge.hidden = !n; if (badge.textContent !== String(n)) badge.textContent = String(n);
+  }
 }
 function drawTimeline() {
   if (!tlInner) return;
