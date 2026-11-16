@@ -359,8 +359,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     observer?.disconnect(); browserObservers.delete(observer);
     const s = getSpeaker(), def = s && charOf(s);
     if (!def) { root.replaceChildren(h('p', { class: 'sub' }, 'Please choose a character first.')); return; }
-    const modes = modeEntries(def.rig);
-    const cats = [...(modes.animations.length ? [modes] : []), ...categoriesFor(def.rig)];
+    const cats = categoriesFor(def.rig);          // the character's own animations, with their pictures (no "Modes" group)
     if (!cats.length) { root.replaceChildren(h('p', { class: 'sub' }, 'No admin animations are available for this character.')); return; }
     const curRef = selectedRef();
     if (!cat || !cats.some(c => c.key === cat)) cat = (cats.find(c => curRef && c.animations.some(a => sameRef(a.ref, curRef))) || cats[0]).key;
