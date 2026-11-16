@@ -3121,6 +3121,9 @@ function mountStage() {
     if (camPointerDown(e)) return;
     if (syncFullView()) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2 && drag && (drag.mode === 'prop' || drag.mode === 'move')) {          // a second finger on the selected prop / character: pinch to resize
+      drag.pinch = { d0: pinchDist() || 1, w0: drag.prop?.w, h0: drag.prop?.h, mul0: layer()?.mul ?? 1 }; return;
+    }
     const bgc = bgOf();
     if (bgc && stage.camZoom <= 1.02 && !bgLockedNow(bgc)) {
       if (drag?.mode === 'bg' && pointers.size === 2) { drag.pinch = { d0: pinchDist() || 1, s0: bgXf(bgc).s }; return; }          // a second finger: pinch to resize
@@ -3131,6 +3134,14 @@ function mountStage() {
     }
     if (bgc && stage.camZoom <= 1.02 && !bgLockedNow(bgc) && !e.target.dataset?.c && !e.target.closest?.('.cs-ctx')) {          // the selected background layer: a finger anywhere moves it, two fingers resize it
       const xf = bgXf(bgc); drag = { mode: 'bg', kind: 'move', c: bgc, p0: { x: e.clientX, y: e.clientY }, x0: xf.x, y0: xf.y }; wrapEl.setPointerCapture(e.pointerId); return;
+    }
+    const chosen = S.propSel && S.props.find((x) => x.id === S.propSel && !isEffect(x));
+    if (chosen && stage.camZoom <= 1.02 && !e.target.dataset?.c && !e.target.closest?.('.cs-ctx')) {          // the selected prop / object: a finger anywhere moves it, two fingers resize it
+      if (propLockedNow(chosen)) { lockedToast(); updateSel(); return; }
+      const q = pt(e); chosen.w0 ??= chosen.w; chosen.h0 ??= chosen.h;
+      if (isHeld(chosen)) { const pl = stage.propPlacement(chosen, player.time); drag = { mode: 'hold', prop: chosen, p0: q, o0: { x: chosen.holdOff?.x || 0, y: chosen.holdOff?.y || 0 }, sign: pl?.flip ? -1 : 1 }; }
+      else drag = { mode: 'prop', prop: chosen, p0: q, x0: chosen.x ?? .5, y0: chosen.y ?? .65 };
+      updateSel(); S.dirty = true; wrapEl.setPointerCapture(e.pointerId); return;
     }
     const p = pt(e), hd = e.target.dataset?.c;
     if (stage.camZoom <= 1.02 && !hd) {
@@ -3156,7 +3167,9 @@ function mountStage() {
       const c = l.hpos?.[hd] || corners[hd];
       drag = { mode: 'scale', A: { x: corners[opp][0], y: corners[opp][1] }, C: { x: c[0], y: c[1] }, a0: { ...l.anchor }, mul0: l.mul ?? 1, tap: { x: e.clientX, y: e.clientY, t: performance.now(), pinned: e.target.classList?.contains('pinned'), key: l.key } };
     } else {
+      const prev = S.sel;
       l = stage.camZoom <= 1.02 ? stage.hitLayers(p)[0] : null;      // the character really under the mouse (its drawn shape), not just the biggest box
+      if (!l && prev && stage.camZoom <= 1.02) l = stage.layers.find((x) => x.key === prev) || null;          // nothing else under the finger: the selected character moves
       S.sel = l?.key ?? null;
       if (l && doubleTapOn(l, e)) { drag = null; S.sel = l.key; historyAction(() => fitCharInFrame(l)); updateSel(); return; }          // double tap / double click: the character comes back to 100% inside the frame if (l || !bgc) dropItemSelection();          // the clip tools close when a character is touched, or when empty space is (a selected background is moved instead)
       if (l && charLockedNow(l.key)) { lockedToast(); updateSel(); return; }          // a locked character is selected but not moved
@@ -3197,6 +3210,7 @@ function mountStage() {
     }
     if (drag?.mode === 'prop') {
       const p = pt(e), prop = drag.prop;
+      if (drag.pinch) { const k = Math.min(4, Math.max(0.1, pinchDist() / drag.pinch.d0)); prop.w = +(drag.pinch.w0 * k).toFixed(4); prop.h = +(drag.pinch.h0 * k).toFixed(4); updateSel(); S.dirty = true; return; }
       prop.x = Math.max(0, Math.min(1, drag.x0 + (p.x - drag.p0.x) / stage.W));
       prop.y = Math.max(0, Math.min(1, drag.y0 + (p.y - drag.p0.y) / stage.H));
       updateSel(); S.dirty = true; return;
@@ -3205,7 +3219,8 @@ function mountStage() {
     if (!drag || !l) return;
     const p = pt(e), W = stage.W, H = stage.H;
     let a;
-    if (drag.mode === 'move') a = { x: drag.a0.x + p.x - drag.p0.x, y: drag.a0.y + p.y - drag.p0.y };
+    if (drag.mode === 'move' && drag.pinch) { const k = Math.min(3 / drag.pinch.mul0, Math.max(0.2 / drag.pinch.mul0, pinchDist() / drag.pinch.d0)); l.mul = drag.pinch.mul0 * k; a = { x: drag.a0.x, y: drag.a0.y }; }
+    else if (drag.mode === 'move') a = { x: drag.a0.x + p.x - drag.p0.x, y: drag.a0.y + p.y - drag.p0.y };
     else {
       const vx = drag.C.x - drag.A.x, vy = drag.C.y - drag.A.y;
       const r = Math.min(3 / drag.mul0, Math.max(0.2 / drag.mul0, ((p.x - drag.A.x) * vx + (p.y - drag.A.y) * vy) / (vx * vx + vy * vy)));          // 20 % ... 300 %

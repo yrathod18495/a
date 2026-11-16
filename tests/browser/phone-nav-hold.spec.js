@@ -59,3 +59,23 @@ test('the selected background can be moved and resized with the Adjust tool', as
   await expect(sheet).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test('with a prop selected, a finger anywhere on the picture moves only that prop', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Prop');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(async () => { const T = window.__toon, S = T.S, c = document.createElement('canvas'); c.width = c.height = 16; c.getContext('2d').fillRect(0, 0, 16, 16);
+    S.props.push({ id: 'p1', name: 'Box', kind: 'prop', blob: await new Promise((r) => c.toBlob(r)), natW: 16, natH: 16, x: .5, y: .5, w: .1, h: .1, rotation: 0, visible: true, start: 0, end: 5 }); T.drawTimeline();
+    S.propSel = 'p1'; S.selectedPropId = 'p1'; });
+  await page.locator('.panel.open .sheet-close button').click({ timeout: 3000 }).catch(() => {});
+  const box = await page.locator('.stagewrap canvas').boundingBox();
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2); await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.3, { steps: 6 }); await page.mouse.up();
+  const p = await page.evaluate(() => { const o = window.__toon.S.props[0]; return { x: o.x, y: o.y }; });
+  expect(p.x).toBeGreaterThan(0.6); expect(p.y).toBeGreaterThan(0.55);
+  expect(errors).toEqual([]);
+});
