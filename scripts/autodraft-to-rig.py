@@ -26,6 +26,42 @@ def bone_map(view_bones, pose_dir):
         if torso in n and pose_dir == 'front-side': m['TORSO3'] = torso
     return {k: v for k, v in m.items() if v in n}
 SKIP = re.compile(r'expression|face|lip|eye|blink|mouth|leg_part|_leg|namaskar|namaste|pray|clap|claping|crossed|fold|hug|salaam', re.I)          # face / leg tracks, and gestures where the two hands must meet (their hand pictures are missing)
+LEGS = re.compile(r'climb|stair|jump|kick|dance|fall|faint|sit|seat|sleep|swim|cycl|ride|riding|drive|boat|horse|crawl|squat|skat|paddl|stand_to|get_up|lying|lie_|hang|fly|flying|beaten|slip|pick|bend|lift', re.I)          # whole-body moves: the legs must move too, and the rig has no way to do it here
+WALKISH = re.compile(r'walk|jog|march|limp|run', re.I)          # these get the legs of the rig's own walk / run
+def retime(frames, total_cycles, factor):
+    out = []; carry = 0.0
+    for c in range(total_cycles):
+        last = c == total_cycles - 1
+        for f in (frames if last else frames[:-1]):
+            d = f.get('duration', 0) * factor + carry; n = int(round(d)) if f.get('duration', 0) else 0; carry = d - n if f.get('duration', 0) else carry
+            o = dict(f); o['duration'] = n; out.append(o)
+    return out
+def cut(frames, t0, t1):
+    """the keys of a bone between frame t0 and t1, with the values at the two ends worked out (straight lines between keys)"""
+    keys = []; t = 0
+    for f in frames: keys.append((t, f)); t += f.get('duration', 0)
+    VAL = ('rotate', 'x', 'y')
+    def at(x):
+        for (ta, fa), (tb, fb) in zip(keys, keys[1:]):
+            if ta <= x <= tb and tb > ta:
+                k = (x - ta) / (tb - ta); o = dict(fa)
+                for v in VAL:
+                    if v in fa and v in fb: o[v] = fa[v] + (fb[v] - fa[v]) * k
+                return o
+        return dict(keys[-1][1])
+    pts = [t0] + [tt for tt, _ in keys if t0 < tt < t1] + [t1]; out = []
+    for i, tt in enumerate(pts):
+        o = at(tt) if tt in (t0, t1) else dict(next(f for k, f in keys if k == tt))
+        o['duration'] = (pts[i + 1] - tt) if i + 1 < len(pts) else 0; out.append(o)
+    return out
+def compose(conv, base, length, arm_names, gait):
+    """the legs, hips and body bounce of the rig's own walk / run (one stride, repeated to fill the length) with the arms of the pack"""
+    T = conv['duration']; n = max(1, round(T / gait)); factor = T / (n * gait)
+    bones = [b for b in base['bone'] if b['name'] not in arm_names]
+    for b in bones:
+        for k in list(b):
+            if k.endswith('Frame'): b[k] = retime(cut(b[k], 0, gait), n, factor)
+    return {'duration': T, 'playTimes': 0, 'bone': bones + conv['bone'], 'slot': [], 'zOrder': {'frame': []}, '_sourceFrameRate': 30}
 def convert(a, length, bmap):
     scale = 30.0 * length / a['duration'] if a['duration'] and length else 0.5
     bones = []
@@ -51,14 +87,28 @@ for view in manifest['views']:
         base = re.sub(r'[^A-Za-z0-9]+', '_', name).strip('_'); n = base; i = 2
         while n.lower() in have: n = f'{base}_{i}'; i += 1
         have.add(n.lower()); return n
-    bmap = bone_map(vb, pose); added = []; seen = set()
+    bmap = bone_map(vb, pose); added = []; seen = set(); own_seen = set()
+    bases = {}
+    for key in ('walk', 'run'):
+        ent = next((x for x in view['animations'] if x['name'].lower() == key and not x.get('source')), None)
+        if ent: bases[key] = next(iter(json.loads(zin.read(ent['file'])).values()))
     def add(label, group, src, length, source):
         if source.split(':')[1] in ('villageboy', 'svgmulti') and SKIP.search(label): return
         conv = convert(src, length, bmap)
         if not conv['bone']: return
+        if source.split(':')[1] == 'svgmulti' and re.sub(r'[^a-z0-9]','',label.lower()) in own_seen: return          # the Village Boy set already has this one (the SVG Multi copy differs only a little)
+        walkish = source.split(':')[1] in ('villageboy', 'svgmulti') and WALKISH.search(label) and not re.search(r'part', label, re.I)
+        if source.split(':')[1] in ('villageboy', 'svgmulti') and LEGS.search(label): return
+        if walkish:
+            base = bases.get('run' if re.search(r'jog|run', label, re.I) else 'walk')
+            if not base: return
+            arms = {v for v in bmap.values() if 'arm' in v or 'palm' in v or 'hand' in v}
+            conv = compose(conv, json.loads(json.dumps(base)), length, arms, 22 if re.search(r'jog|run', label, re.I) else 44)
         key = json.dumps(conv['bone'], sort_keys=True)
         if key in seen: return          # the same movement already added (the Village Boy and the SVG Multi sets share many)
         seen.add(key)
+        if conv['bone'] and max((max(f.get('rotate', 0) for f in b['rotateFrame']) - min(f.get('rotate', 0) for f in b['rotateFrame'])) for b in conv['bone'] if 'rotateFrame' in b) < 15: return          # nothing you can see moves
+        if source.split(':')[1] == 'villageboy': own_seen.add(re.sub(r'[^a-z0-9]','',label.lower()))
         name = uniq(label); conv['name'] = name; path = f'views/{vid}/animations/{name.lower()}.json'
         files[path] = json.dumps({name: conv}, separators=(',', ':'))
         arms = {v for k, v in bmap.items() if 'arm' in v or 'palm' in v or 'hand' in v}
