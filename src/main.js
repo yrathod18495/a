@@ -1076,8 +1076,15 @@ function drawTabsInner() {
       h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props', 'shadow', 'fx'].map((key) => railBtn(key)),
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
       h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
-  } else tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'),
-    h('div', { class: 'tabs-scroll', 'data-nav': S.tlCat }, ...phoneNav(button, byKey, upload, more)));          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
+  } else {
+    const was = tabsEl.querySelector('.tabs-scroll'), fresh = h('div', { class: 'tabs-scroll', 'data-nav': S.tlCat }, ...phoneNav(button, byKey, upload, more));
+    tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), fresh);
+    // the bar turns like a cube (up and down) when another group of layers is chosen: the old bar turns away, the new one turns in
+    if (was && was.dataset.nav !== S.tlCat && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      was.classList.add('cube-out'); fresh.classList.add('cube-in'); tabsEl.append(was); tabsEl.classList.add('cubing');
+      setTimeout(() => { was.remove(); fresh.classList.remove('cube-in'); tabsEl.classList.remove('cubing'); }, 380);
+    }
+  }          // the whole bar slides sideways: Upload first, More last, nothing is pinned          // the middle of the bottom bar scrolls sideways: Characters, Animations, Props, Objects, Background
   { const want = TAB_CAT[S.tab]; if (S.panelOpen && want && S.tlTabSeen !== S.tab) { S.tlTabSeen = S.tab; if (S.tlCat !== want) { S.tlCat = want; drawTimeline(); } } }          // opening a section shows its layers on the timeline
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}${['chars', 'handprops', 'props', 'canvas', 'effects'].includes(S.tab) ? ' tall-panel' : ''}`;
   const label = S.tab === 'audio' ? 'Upload' : (TABS.find(t => t[0] === S.tab)?.[1] || 'Tools');

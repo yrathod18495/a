@@ -934,6 +934,15 @@ body.studio-dark .selbox{border-width:1.5px}
 /* the bottom tools slide in softly instead of popping in */
 @keyframes bar-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @media(max-width:860px){
-  #app .ws .char-bar:not([hidden]),#app .ws .clip-nav:not([hidden]){animation:bar-in .2s ease-out}
+  #app .ws .char-bar:not([hidden]),#app .ws .clip-nav:not([hidden]){animation:cube-in .36s cubic-bezier(.3,.7,.3,1)}
 }
 @media(prefers-reduced-motion:reduce){#app .ws .char-bar,#app .ws .clip-nav{animation:none!important}}
+
+/* the bottom bar turns like a cube, up and down (a launcher's cube effect, turned on its side) */
+@keyframes cube-in{from{transform:perspective(520px) translateZ(-32px) rotateX(-90deg) translateZ(32px);opacity:.15}to{transform:perspective(520px) translateZ(-32px) rotateX(0) translateZ(32px);opacity:1}}
+@keyframes cube-out{from{transform:perspective(520px) translateZ(-32px) rotateX(0) translateZ(32px);opacity:1}to{transform:perspective(520px) translateZ(-32px) rotateX(90deg) translateZ(32px);opacity:.15}}
+@media(max-width:860px){
+  #app .ws .tabs.big.cubing{position:relative;overflow:visible}
+  #app .ws .tabs-scroll.cube-in{animation:cube-in .36s cubic-bezier(.3,.7,.3,1);backface-visibility:hidden}
+  #app .ws .tabs-scroll.cube-out{position:absolute;left:0;right:0;bottom:0;top:auto;animation:cube-out .36s cubic-bezier(.3,.7,.3,1) forwards;backface-visibility:hidden;pointer-events:none}
+}
