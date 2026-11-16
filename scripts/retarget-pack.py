@@ -65,7 +65,7 @@ for f in sorted(os.listdir(rdir)):
     sm = None
     if meta.get('id') is not None:
         sm = next(iter(json.load(open(f"{ROOT}/pose_animations/{pose}/{meta['id']}.json")).values())).get('slot', [])
-    sideOf = {'L_Palm': d['pair']['A'], 'R_Palm': 'right' if d['pair']['A'] == 'left' else 'left', 'Palm_L': d['pair']['A'], 'Palm_R': 'right' if d['pair']['A'] == 'left' else 'left'}
+    sideOf = {'L_Palm': d.get('pair', {'A': 'left'})['A'], 'R_Palm': 'right' if d.get('pair', {'A': 'left'})['A'] == 'left' else 'left', 'Palm_L': d.get('pair', {'A': 'left'})['A'], 'Palm_R': 'right' if d.get('pair', {'A': 'left'})['A'] == 'left' else 'left'}
     for s in sm or []:
         side = sideOf.get(s['name'])
         if not side or not hand_slot[side]: continue
