@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "vite --host",
-    "build": "vite build",
+    "build:viewer": "vite build --config vite.viewer.config.js",
+    "build": "vite build --config vite.viewer.config.js && vite build",
     "preview": "vite preview --host",
     "test": "node --experimental-test-module-mocks --test tests/*.test.js",
     "test:browser": "playwright test",

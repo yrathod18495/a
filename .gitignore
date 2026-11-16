@@ -17,3 +17,5 @@ dist
 artwork-audit.json
 __pycache__/
 *.pyc
+
+public/character-viewer.js

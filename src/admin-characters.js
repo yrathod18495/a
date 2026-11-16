@@ -11,6 +11,7 @@ import { checkManifest, gifName, CHARACTER_GROUPS, groupOf } from '../shared/cha
 import { listCloudCharacters, storeCharacter, deleteCloudCharacter, updateCloudCharacter, pictureUrl, characterSales, grantCharacter } from './cloud-characters.js';
 import { cleanStore, cleanViewStore, isPaid, hasStore, viewStoreOf, timeLeft, leftText, MAX_PRICE, STORE_DAYS } from '../shared/character-store.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
+import { buildCharacterHtml } from './character-html.js';
 
 const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // the small one: it only shows what the animation does
 /** preview quality the admin can pick: size in pixels (the picture is square), frames per second, colours (a GIF has 256 at most). Bigger = sharper, but heavier to store and to show. */
@@ -245,6 +246,15 @@ export async function charactersView({ back, home, toast }) {
     catch (e) { select.value = groupOf(c, c.categoryName); toast(`Could not change the group: ${friendlyError(e)}`); }
     finally { select.disabled = false; }
   }
+  async function downloadHtml(c, button) {
+    const old = button.textContent; button.disabled = true; st.busy = true;
+    try {
+      const { name, html } = await buildCharacterHtml(c, { progress: (t) => { button.textContent = t.slice(0, 22); } });
+      const a = h('a', { href: URL.createObjectURL(new Blob([html], { type: 'text/html' })), download: name }); document.body.append(a); a.click(); a.remove();
+      toast(`${name} was downloaded (${(html.length / 1048576).toFixed(1)} MB). Everything in it can be read by anyone you give it to.`);
+    } catch (e) { toast(`Could not make the HTML file: ${friendlyError(e)}`); }
+    finally { button.textContent = old; button.disabled = false; st.busy = false; }
+  }
   function card(c) {
     const img = h('img', { alt: '', loading: 'lazy' });
     if (c.thumb) pictureUrl(c.thumb).then((u) => { img.src = u; }).catch(() => {});
@@ -257,6 +267,7 @@ export async function charactersView({ back, home, toast }) {
       h('div', { class: 'admin-character-actions' },
         h('button', { class: 'btn sm', type: 'button', disabled: st.busy, onclick: () => rename(c) }, 'Rename'),
         h('button', { class: 'btn sm', type: 'button', disabled: st.busy, onclick: () => storeSettings(c) }, 'Store'),
+        h('button', { class: 'btn sm', type: 'button', disabled: st.busy, title: 'One HTML file with the rig, pictures and animations (for your own work)', 'data-act': 'download-html', onclick: (e) => downloadHtml(c, e.currentTarget) }, 'Download HTML'),
         h('button', { class: 'btn sm danger', type: 'button', disabled: st.busy, onclick: () => remove(c) }, 'Delete')));
   }
   const storeSummary = (c) => {
