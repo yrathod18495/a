@@ -113,3 +113,16 @@ node scripts/check-character-zip.mjs maya_office.zip                           #
 ```
 
 Within one view the bones and animations of all outfits are identical; only the skin (pictures) differs. Only the 6 original outfits have all four views; the new sarees exist only in 3/4 Front (`f34`) because the art was made for that view.
+
+### Named characters that the page puts together while it runs (Dayan, the Ranis ...)
+
+Their hair, horns, sarees and arms are built by the page's own code, so the static data alone gives a wrong picture. Read what the page really draws:
+
+```bash
+node scripts/wardrobe-extract.cjs dayan page.html /tmp/dayan-runtime.json        # opens the page in a headless browser (set CHROMIUM=<path> if needed)
+python3 -I scripts/chudail-shim.py /tmp/dayan-runtime.json page.html /tmp/dayan.html
+node scripts/character-zip.mjs /tmp/dayan.html dayan.zip --character dayan --source maya --name Dayan --category chudail --category-name Chudail
+node scripts/check-character-zip.mjs dayan.zip
+```
+
+`--source maya` is the id that the page uses internally; the ZIP builder replaces it in all part names with the new character's id.
