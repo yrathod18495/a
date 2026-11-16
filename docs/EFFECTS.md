@@ -22,3 +22,11 @@ An **Effect** is a look (Night, Ghost, Blurry, Neon glow ...) that sits on the t
 - An effect works only inside its time range; `ramp` fades it in and out.
 - Several effects on one target are merged (`mergeFx`): brightness, saturation, gamma and opacity multiply, everything else adds.
 - Tests: `tests/browser/effects.spec.js` (tab, scene vs item, time range, save, export job, migration).
+
+## Skills (fire, lightning, energy ball, magic circle)
+Flat **vector** powers that belong to one character. They are entries of the same effects list (`fx.skill = { kind, anchor, size, power, speed, color }`, target `char:<key>`), so they share the timeline row, drag, lock, copy / paste, delete, save and the export job. `fxAt` ignores them (they are not a colour pass); `Stage.drawSkills` draws them after the characters.
+- Drawing code: `shared/skills.js` (`drawSkill`, one function per skill; also used for the tile previews). It is plain canvas 2D, so it runs in the export worker too. To add a skill: add it to `SKILLS` + `SKILL_SCALE` and write its draw function.
+- Anchors: right / left hand (`heldAt`, the palm bone of the rig), head, chest, feet. A rig without the bone falls back to the middle of the character.
+- Each frame the skill is drawn into a small canvas, uploaded as a premultiplied texture (`r.texture(canvas, true)`) and thrown away after `r.end()`.
+- UI: Effects tab -> Skills card (needs a character); Edit opens `openSkillDock` (place, size, strength, speed, colour).
+- Tests: `tests/browser/skills.spec.js`.

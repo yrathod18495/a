@@ -103,6 +103,7 @@ export function mergeFx(list) {
 export function fxAt(list, t) {
   const per = new Map();
   for (const fx of list || []) {
+    if (fx?.skill) continue;          // a skill (fire, lightning ...) is drawn by the stage as vector art, not by the colour pass
     const w = fxWeight(fx, t); if (w <= 0) continue;
     const p = scaleFx(fx.params, w); if (!fxActive(p)) continue;
     const key = targetOf(fx); (per.get(key) || per.set(key, []).get(key)).push(p);

@@ -2,7 +2,7 @@
 // Characters are DragonBones armatures (src/db/glslot.js) drawn by our WebGL renderer (src/db/renderer.js).
 import { bgTint } from '../../shared/bg-effects.js';
 import { gradeAt } from '../../shared/color-grade.js';
-import { fxAt, mergeFx, cleanFx } from '../../shared/fx.js';
+import { fxAt, mergeFx, cleanFx, fxWeight } from '../../shared/fx.js';
 import { bindTearEyes, drawTears } from './tears.js';
 import { GLFactory } from './glslot.js';
 import { prepareArmature, assemble } from './prep.js';
@@ -10,6 +10,7 @@ import { GLRenderer } from './renderer.js';
 import { Motion, limbsFromArmature } from './motion.js';
 import { HOP, visemeName } from '../lipsync.js';
 import { EFFECT_BLENDS, propActive, sheetUv, isHeld, heldAt, heldPlacement } from '../../shared/studio-effects.js';
+import { drawSkill, SKILL_SCALE } from '../../shared/skills.js';
 
 /** the tallest a character gets at 100% size, as a share of the canvas height */
 export const CHARACTER_MAX_HEIGHT = 0.75;
@@ -589,11 +590,40 @@ export class Stage {
       if (lf) { r.setMask(null, W, H); r.itemEnd(lf, Math.floor(t * 30)); }
     }
     r.setMask(null, W, H);
+    this.drawSkills(th);
     this.drawProps(th, false);
     r.end(Math.floor(t * 30));
+    for (const x of this._skillTmp || []) x.dispose(); this._skillTmp = [];
     this.onFrame?.();
   }
 
+  /** where a skill sits on a character, in canvas pixels */
+  skillPoint(l, anchor) {
+    const M = l.mat, at = (b) => { const m = b.globalTransformMatrix; return { x: M[0] * m.tx + M[2] * m.ty + M[4], y: M[1] * m.tx + M[3] * m.ty + M[5] }; };
+    if (anchor === 'handR' || anchor === 'handL') { const h = heldAt(l, anchor === 'handR' ? 'R' : 'L'); if (h && h !== 'hidden') return { x: h.x, y: h.y }; }
+    if (anchor === 'head' && l.bones?.head) return at(l.bones.head);
+    if (anchor === 'chest') { const b = l.bones?.upper_body3 || l.bones?.upper_body4; if (b) return at(b); }
+    const bx = l.box; if (!bx) return null;
+    if (anchor === 'feet') return { x: l.anchor.x, y: l.anchor.y };
+    return { x: (bx.x0 + bx.x1) / 2, y: bx.y0 + (bx.y1 - bx.y0) * (anchor === 'head' ? 0.12 : 0.38) };
+  }
+  /** skills (fire, lightning, an energy ball, a magic circle): flat vector art drawn for every active skill on the timeline, on the character it belongs to */
+  drawSkills(t) {
+    const { r, W, H } = this; let any = false;
+    for (const f of this.fx || []) {
+      if (!f.skill || f.visible === false) continue;
+      const w = fxWeight(f, t); if (w <= 0) continue;
+      const key = String(f.target || '').startsWith('char:') ? f.target.slice(5) : null, l = key && this.layers.find((x) => x.key === key);
+      if (!l || l.visible === false || l.shown === false || !l.box) continue;
+      const at = this.skillPoint(l, f.skill.anchor); if (!at) continue;
+      const R = Math.max(1, l.box.y1 - l.box.y0) * (SKILL_SCALE[f.skill.kind] ?? 0.2) * (f.skill.size ?? 1), S = Math.max(64, Math.min(768, Math.ceil(R / 0.3125)));
+      if (!this._skillCv || this._skillCv.width !== S) this._skillCv = makeCanvas(S, S);
+      drawSkill(this._skillCv.getContext('2d'), f.skill.kind, S, t - f.start, f.skill, w);
+      if (!any) { r.setMask(null, W, H); any = true; }
+      const tex = this.r.texture(this._skillCv, true); (this._skillTmp ||= []).push(tex);
+      r.quad(tex, at.x - S / 2, at.y - S / 2, S, S, 1);
+    }
+  }
   /** props and effects: behind = true draws those the user sent behind the characters, otherwise the ones in front (effects always are in front) */
   /** cast shadows (editor and export): a flat black copy of the picture laid on the ground away from the light, with a soft edge. shadow = { on, angle (0 = to the right, 90 = toward the viewer, 180 = left, 270 = away), length, soft, opacity } */
   drawShadows(t) {

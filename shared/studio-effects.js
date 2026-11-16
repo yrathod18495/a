@@ -94,7 +94,7 @@ export function propFromAsset(asset, blob, id) {
 /* ---- props held in a character's hand: the prop follows the hand bone of that character ---- */
 export const HAND_BONES = Object.freeze({ L: 'L_Palm', R: 'R_Palm' });
 /** the bone names a rig may call a hand: converted rigs use L_Palm / R_Palm, others (Maya ...) have a grip or palm joint; the first one the character has is used */
-export const HAND_BONE_NAMES = Object.freeze({ L: ['L_Palm', 'left_grip', 'left_palm_jt', 'L_Hand', 'left_hand'], R: ['R_Palm', 'right_grip', 'right_palm_jt', 'R_Hand', 'right_hand'] });
+export const HAND_BONE_NAMES = Object.freeze({ L: ['L_Palm', 'left_grip', 'left_palm_jt', 'left_hand_palm_circle', 'L_Hand', 'left_hand'], R: ['R_Palm', 'right_grip', 'right_palm_jt', 'right_hand_palm_circle', 'R_Hand', 'right_hand'] });
 export function handBone(layer, hand) { for (const name of HAND_BONE_NAMES[hand] || []) { const bone = layer?.arm?.getBone?.(name); if (bone) return bone; } return null; }
 export const isHeld = (prop) => !!prop?.attach?.key && prop.attach.hand in HAND_BONES;
 /** where a held prop sits: the palm of `layer`'s character in canvas pixels, plus the direction the hand points (upright prop = 0).

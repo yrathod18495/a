@@ -63,10 +63,10 @@ void main(){
 const STRIDE = 8, MAXV = 32768;      // floats per vertex: x y u v r g b a
 
 export class GLTex {
-  constructor(r, source, mips) {
+  constructor(r, source, mips, premultiply = false) {          // the renderer works with premultiplied pictures: a canvas (straight alpha) is made premultiplied here
     const gl = r.gl; this.gl = gl; this.w = source.width; this.h = source.height; this.tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !!premultiply); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
     const uploadError = gl.getError();
     if (uploadError !== gl.NO_ERROR) { gl.deleteTexture(this.tex); throw new Error('Graphics memory is not available. Try lowering the preview quality.'); }
@@ -186,7 +186,7 @@ export class GLRenderer {
     try { gl.deleteTexture(sc.tex); gl.deleteFramebuffer(sc.fbo); if (sc.ms) gl.deleteFramebuffer(sc.ms); if (sc.rb) gl.deleteRenderbuffer(sc.rb); } catch { /* context lost */ }
     this.itemBuf = null;
   }
-  texture(source) { return new GLTex(this, source, this.mips); }
+  texture(source, premultiply = false) { return new GLTex(this, source, this.mips, premultiply); }
 
   /** camera: the canvas rectangle (x, y of its top-left corner, width, height; y down) that fills the screen */
   begin(W, H, cam) {

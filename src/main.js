@@ -14,6 +14,7 @@ import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark, swipeAway } from './dom.js';
 import { creditsBadge } from './credits-badge.js';
 import { lockedFor, PAID_MESSAGE } from '../shared/asset-access.js';
+import { SKILLS, SKILL_ANCHORS, newSkill, cleanSkill, drawSkill } from '../shared/skills.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
@@ -2007,6 +2008,15 @@ const fxThumbOf = (snap, params, name) => {
   try { box.append(fxThumb(snap, params, snap.width, snap.height)); } catch (e) { console.warn(`Effect preview failed (${name}):`, e.message); }
   return box;
 };
+/** the Skills card of the Effects tab: powers drawn as flat vector art on a character (fire, lightning, an energy ball, a magic circle) */
+function skillCard() {
+  const chars = S.speakers.filter((x) => x.charId), tgt = currentFxTarget(), key = tgt.startsWith('char:') ? tgt.slice(5) : chars[0]?.key || null;
+  const preview = (t) => { const c = document.createElement('canvas'); c.width = c.height = 96; c.className = 'skill-pic'; drawSkill(c.getContext('2d'), t.id, 96, 1.1, { color: t.color, power: 0.8, speed: 1 }, 1); return c; };
+  return h('div', { class: 'card flat skills-card' }, h('h3', { class: 'fx-h' }, 'Skills'),
+    h('p', { class: 'sub studio-help' }, chars.length ? `Powers for ${sOf(key)?.name || 'a character'}: fire, lightning, an energy ball, a magic circle. They move with the character. Tap one, then Edit to choose the hand, size, strength and colour.` : 'Add a character first. A skill belongs to a character.'),
+    h('div', { class: 'tile-grid fx-grid' }, SKILLS.map((t) => h('button', { type: 'button', class: 'tile skill-tile', 'data-skill': t.id, title: `${t.name}: ${t.hint}`, disabled: !chars.length, onclick: () => addSkill(t.id, key) },
+      h('span', { class: 'tile-pic' }, preview(t)), h('span', { class: 'tile-name' }, h('b', {}, t.name))))));
+}
 /** the Effects tab: where it goes (chips), the 19 looks with a preview made from the real picture, and the effects already in the scene */
 function tabFx() {
   const target = currentFxTarget(), snap = fxSnapshot(target), name = fxTargetName(target);
@@ -2022,11 +2032,36 @@ function tabFx() {
     : null;
   return h('div', { class: 'list' },
     h('div', { class: 'card flat' }, h('h2', {}, 'Effects'), h('p', { class: 'sub studio-help' }, `Tap a look to put it on: ${name}. Then drag it on the timeline to choose where it starts and ends, and tap Edit to change anything.`), chips),
+    skillCard(),
     ...FX_TEMPLATE_GROUPS.map((g) => h('div', { class: 'card flat' }, h('h3', { class: 'fx-h' }, g), grid(g))),
     inScene);
 }
+/** a skill (fire, lightning, energy ball, magic circle) on a character: it starts where the playhead is and lasts a few seconds */
+function addSkill(kind, key) {
+  if (!key || !sOf(key)?.charId) { toast('Please add a character first, then choose it. A skill belongs to a character.'); return null; }
+  const start = Math.max(0, Math.min(player.time, Math.max(0, player.total - 1))), end = Math.min(Math.max(player.total, start + 2), start + 4), fx = newSkill(kind, { id: uid(), target: `char:${key}`, start: +start.toFixed(2), end: +end.toFixed(2), ramp: 0.3 });
+  S.fx.push(fx); syncFx(); selectOnly('fx', fx.id); updateTotal(); drawTimeline(); redrawFxPanel(); commitClips();
+  if (!wideStudio() && S.panelOpen && S.tab === 'fx') { S.panelOpen = false; drawTabs(); }
+  return fx;
+}
+/** the editor of one skill: where it sits on the character, how big, how strong, how fast, its colour */
+function openSkillDock(fx) {
+  if (isKeyLocked(keyOf('fx', fx.id))) { lockedToast(); return; }
+  if (!wideStudio() && S.panelOpen) { S.panelOpen = false; drawTabs(); }
+  const K = () => (fx.skill = cleanSkill(fx.skill)), num = (key, label, lo, hi, step) => ({ key, label, min: lo * 100, max: hi * 100, step: step * 100, get: () => K()[key] * 100, set: (v) => { fx.skill = { ...K(), [key]: v / 100 }; }, fmt: (v) => `${Math.round(v)}%` });
+  openEditDock({
+    title: `${fx.name} · ${fxTargetName(fx.target)}`,
+    params: [{ key: 'ramp', label: 'Fade in / out', min: 0, max: 300, get: () => (fx.ramp ?? 0.3) * 100, set: (v) => { fx.ramp = v / 100; }, fmt: (v) => `${(v / 100).toFixed(1)}s` }, num('size', 'Size', 0.3, 3, 0.05), num('power', 'Strength', 0.1, 1, 0.05), num('speed', 'Speed', 0.3, 3, 0.05)],
+    onChange: () => syncFx(), onClose: () => { drawTimeline(); redrawFxPanel(); commitClips(false); },
+    extras: (key) => (key !== 'ramp' ? [] : [
+      h('div', { class: 'row fx-anchors', style: 'gap:6px;flex-wrap:wrap;margin:6px 0' }, SKILL_ANCHORS.map(([id, label]) => h('button', { type: 'button', class: `ed-chip${K().anchor === id ? ' on' : ''}`, 'data-anchor': id, 'aria-pressed': String(K().anchor === id), onclick: (e) => { fx.skill = { ...K(), anchor: id }; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => { const on = b.dataset.anchor === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); syncFx(); } }, label))),
+      h('label', { class: 'ed-colour' }, 'Colour ', h('input', { type: 'color', value: K().color, 'aria-label': 'Skill colour', oninput: (e) => { fx.skill = { ...K(), color: e.target.value }; syncFx(); } }))]),
+    onReset: () => { const t = SKILLS.find((x) => x.id === fx.skill.kind); fx.skill = cleanSkill({ kind: fx.skill.kind, color: t?.color, anchor: t?.anchor }); fx.ramp = 0.3; syncFx(); },
+  });
+}
 /** the editor of one effect: every number, with the same preview on the stage while the slider moves */
 function openFxDock(fx) {
+  if (fx.skill) { openSkillDock(fx); return; }
   if (isKeyLocked(keyOf('fx', fx.id))) { lockedToast(); return; }
   if (!wideStudio() && S.panelOpen) { S.panelOpen = false; drawTabs(); }          // on a phone the panel would cover the stage: the effect is watched on the stage while the sliders move
   const P = () => (fx.params = cleanFx(fx.params)), scale = (c) => (c.key === 'hue' ? 1 : 100), fmt = (c) => (v) => (c.key === 'hue' ? `${Math.round(v)}°` : (v / 100).toFixed(2));
@@ -4849,7 +4884,7 @@ async function loadSceneDoc(doc) {
   if (doc.aspect && doc.aspect !== S.aspect) { S.aspect = doc.aspect; stage.setSize(S.aspect, S.preview); }
   S.bgId = doc.bgId ?? null; stage.bg.preset = doc.bgPreset ?? 0;
   S.bgClips = JSON.parse(JSON.stringify(doc.bgClips || [])); S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null;
-  S.fx = (Array.isArray(doc.fx) ? clone(doc.fx) : []).filter((f) => f && f.id && Number.isFinite(f.start) && Number.isFinite(f.end)).map((f) => ({ ...f, params: cleanFx(f.params) }));
+  S.fx = (Array.isArray(doc.fx) ? clone(doc.fx) : []).filter((f) => f && f.id && Number.isFinite(f.start) && Number.isFinite(f.end)).map((f) => ({ ...f, params: cleanFx(f.params), ...(f.skill ? { skill: cleanSkill(f.skill) } : {}) }));
   migrateBgEffects(); syncFx();
   await stage.setBackgroundImage(S.myBgs.find((r) => r.id === S.bgId)?.blob ?? null);
   await syncBgClips();
