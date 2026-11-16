@@ -92,7 +92,9 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   expect([...server.characters.values()][0].name).toBe('Maya Devi');
   await page.locator('.admin-character-card select.admin-character-group').selectOption('girl');
   await expect.poll(() => [...server.characters.values()][0].group).toBe('girl');
-  await expect(page.locator('.admin-character-card')).toContainText('3/4 Front, Front, Side, Back · 88 animations');
+  await expect(page.locator('.admin-character-card')).toContainText('88 animations');
+  await expect(page.locator('.admin-character-card .ac-pose')).toHaveText(['3/4 Front', 'Front', 'Side', 'Back']);
+  await expect(page.locator('.admin-character-card .ac-tag')).toHaveText('Free');
   await expect.poll(() => page.locator('.admin-character-thumb img').evaluate((i) => [i.naturalWidth, i.naturalHeight])).toEqual([200, 320]);
   // delete
   page.once('dialog', (d) => d.accept());
