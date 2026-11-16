@@ -1965,7 +1965,7 @@ function fxSpan(target) {
   return { start: 0, end: Math.max(1, player.total) };
 }
 function addFx(tplId, target) {
-  const { start, end } = fxSpan(target), fx = newFx(tplId, { id: uid(), target, start: +start.toFixed(2), end: +end.toFixed(2), ramp: Math.min(0.3, (end - start) / 4) });
+  const { start, end } = fxSpan(target), fx = newFx(tplId, { id: uid(), target, start: +start.toFixed(2), end: +end.toFixed(2), ramp: start <= 0.001 && end >= player.total - 0.001 ? 0 : Math.min(0.3, (end - start) / 4) });          // a whole-scene effect has no fade: full strength at 0:00.0 and to the last frame
   S.fx.push(fx); syncFx(); selectOnly('fx', fx.id); updateTotal(); drawTimeline(); redrawFxPanel(); commitClips();
   if (!wideStudio() && S.panelOpen && S.tab === 'fx') { S.panelOpen = false; drawTabs(); }          // phone: show the stage with the effect on it (the Edit button is in the bar below the timeline)
   return fx;

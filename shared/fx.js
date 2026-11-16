@@ -75,7 +75,8 @@ export function fxWeight(fx, t) {
   if (!fx || fx.visible === false || t < fx.start || t >= fx.end) return 0;
   const len = Math.max(0.001, fx.end - fx.start), ramp = Math.min(Math.max(0, fx.ramp ?? 0.3), len / 2);
   if (ramp <= 0) return 1;
-  const k = Math.min((t - fx.start) / ramp, (fx.end - t) / ramp, 1), u = Math.max(0, k);
+  const kin = fx.start <= 0.001 ? 1 : (t - fx.start) / ramp;          // an effect that starts with the scene is at full strength from 0:00.0 (no fade-in)
+  const k = Math.min(kin, (fx.end - t) / ramp, 1), u = Math.max(0, k);
   return u * u * (3 - 2 * u);
 }
 /** the numbers of an effect at strength w: every control glides between neutral (w = 0) and its set value (w = 1) */
