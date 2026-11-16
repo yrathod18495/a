@@ -25,8 +25,30 @@ test('camera box: points L and P, zoom, preview, and removing the move', async (
   expect(keys.length).toBe(2); expect(keys[1].z).toBe(2.5);
   await sheet.locator('[data-point=L]').click();
   expect(await page.evaluate(() => window.__toon.player.time)).toBeCloseTo(keys[0].t, 1);
-  await sheet.getByRole('button', { name: 'Remove the camera move' }).click({ trial: true });
+  await sheet.getByRole('button', { name: 'Remove the camera move' }).first().click({ trial: true });
   await sheet.getByRole('button', { name: 'Close the camera' }).click();
   await expect(sheet).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('camera keys on the timeline can be removed on a phone: tap a diamond, then the trash icon', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  page.on('dialog', (d) => d.accept());
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Cam2');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.locator('.panel.open .sheet-close button').click({ timeout: 3000 }).catch(() => {});
+  await page.evaluate(() => { const T = window.__toon; T.S.camKeys.push({ id: 'k1', t: 0.5, cx: .5, cy: .5, zoom: 1.5, ease: 'smooth' }, { id: 'k2', t: 2, cx: .6, cy: .5, zoom: 2, ease: 'smooth' }); T.S.tlCat = 'chars'; T.drawTimeline(); });
+  await page.locator('.tl-cats .tl-cat', { hasText: 'Characters' }).click();
+  await page.locator('.lane2.cam .kf').first().click();
+  const sheet = page.locator('.cam-sheet');
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('button', { name: 'Remove the camera move' }).first().click();
+  await expect(sheet).toBeHidden();
+  expect(await page.evaluate(() => window.__toon.S.camKeys.length)).toBe(0);
+  await expect(page.locator('.lane2.cam')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

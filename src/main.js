@@ -1340,7 +1340,7 @@ function drawTimeline() {
       });
       cl.append(d);
     }
-    labels.push(h('div', { class: 'rl audio', 'data-cat': 'chars', style: 'height:38px', onclick: () => openTab('camera') }, timelineIcon(null, 'camera'), h('span', { class: 'lt' }, 'Camera'))); lanes.push(cl);
+    labels.push(h('div', { class: 'rl audio', 'data-cat': 'chars', style: 'height:38px', onclick: () => (wideStudio() ? openTab('camera') : openCamBox()) }, timelineIcon(null, 'camera'), h('span', { class: 'lt' }, 'Camera'))); lanes.push(cl);
   }
   // the layers are sorted into groups (Audio, Characters, Background, Props, Effects): only the group of the open section is on the timeline, so it never fills up with everything at once
   const cat = S.tlCat || (S.tlCat = 'chars'), counts = {};
@@ -2574,7 +2574,7 @@ function dragKey(e, k, d) {
   const x0 = e.clientX, t0 = k.t, pps = S.pps; let moved = false;
   d.setPointerCapture(e.pointerId);
   const mv = (ev) => { if (Math.abs(ev.clientX - x0) > 2) moved = true; k.t = Math.max(0, +snap(t0 + (ev.clientX - x0) / pps).toFixed(2)); d.style.left = `${k.t * pps}px`; syncCam(); };
-  const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); d.removeEventListener('pointercancel', up); player.seek(Math.min(player.total, k.t)); drawTimeline(); if (S.tab === 'camera') drawTabs(); };
+  const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); d.removeEventListener('pointercancel', up); player.seek(Math.min(player.total, k.t)); drawTimeline(); if (S.tab === 'camera') drawTabs(); if (!moved && !wideStudio()) { S.camSel = k.id; openCamBox(); } };
   d.addEventListener('pointermove', mv); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
   if (S.tab === 'camera') drawTabs();
 }
@@ -2676,7 +2676,7 @@ function paintCamBox() {
     S.camSel = null; player.seek(a.t); redraw(); paintCamBox(); toast(`The camera now follows ${s.name}.`);
   };
   camSheetEl.replaceChildren(
-    h('div', { class: 'vs-head' }, h('b', {}, 'Camera'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the camera', title: 'Close', onclick: closeCamBox }, icon('x'))),
+    h('div', { class: 'vs-head' }, h('b', {}, 'Camera'), h('span', { class: 'sp' }), keys.length ? h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Remove the camera move', title: 'Remove the whole camera move', onclick: () => { if (confirm('Delete the whole camera move and go back to the automatic shots?')) { S.camKeys = []; S.camSel = null; redraw(); closeCamBox(); } } }, icon('trash')) : null, h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the camera', title: 'Close', onclick: closeCamBox }, icon('x'))),
     h('div', { class: 'list hold-panel' },
       h('div', { class: 'card flat' }, h('h3', {}, 'Points'),
         h('div', { class: 'hd-row' }, ...keys.map((k) => chip(`${nameOf(k)} · ${k.t.toFixed(1)}s`, sel === k, () => select(k), { 'data-point': nameOf(k) })), chip('+ Point', false, addPoint, { 'data-act': 'add-point' })),
