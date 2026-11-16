@@ -50,7 +50,7 @@ test('admin: Download HTML makes one file that plays the character with its anim
   await expect.poll(() => page.evaluate(() => window.__toast), { timeout: 5 * 60 * 1000, intervals: [2000] }).toMatch(/is saved/);
   const download = page.waitForEvent('download', { timeout: 120000 });
   await page.locator('[data-act=download-html]').first().click();
-  const file = await download, path = await file.path();
+  const file = await download, path = `/tmp/${file.suggestedFilename()}`; await file.saveAs(path);
   expect(file.suggestedFilename()).toMatch(/^12toons-.*\.html$/);
   const html = readFileSync(path, 'utf8');
   expect(html.length).toBeGreaterThan(100000);
@@ -58,9 +58,8 @@ test('admin: Download HTML makes one file that plays the character with its anim
   // the file works on its own: opened from disk it draws the character and offers the animations
   const viewer = await browser.newPage({ viewport: { width: 1100, height: 800 } });
   const viewerErrors = []; viewer.on('pageerror', (e) => viewerErrors.push(e.message));
-  viewer.on('console', (m) => console.log('VC', m.type(), m.text().slice(0, 300)));
   await viewer.goto('file://' + path);
-  await viewer.waitForTimeout(4000); console.log('VERR', JSON.stringify(viewerErrors), (await viewer.locator('body').innerHTML()).slice(0, 400));
+
   await expect(viewer.locator('aside select').nth(1).locator('option').first()).toBeAttached({ timeout: 30000 });
   await viewer.waitForTimeout(3000);
   const painted = async () => { const shot = (await viewer.locator('.cv-stage canvas').screenshot()).toString('base64'); return viewer.evaluate(async (b64) => { const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode(); const g = document.createElement('canvas'); g.width = g.height = 60; const x = g.getContext('2d'); x.drawImage(img, 0, 0, 60, 60); const d = x.getImageData(0, 0, 60, 60).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - d[0]) + Math.abs(d[i + 1] - d[1]) > 40) n++; return n; }, shot); };
