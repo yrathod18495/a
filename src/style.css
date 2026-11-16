@@ -989,3 +989,5 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .cv-info{flex:1;min-width:0}.cv-info b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cv-info small{display:block;color:var(--mute);font-size:11.5px;margin-top:2px}
 .cv-actions{display:flex;gap:6px;flex:none}
+.cs-stk{padding:8px}.cs-stk-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;margin-top:6px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px}.cs-stk-row.on{border-color:var(--acc,#7c6cf5);background:#7c6cf51a}
+.cs-stk-ctl{display:grid;gap:6px;margin-top:8px}.cs-stk-s{display:grid;grid-template-columns:92px 1fr 52px;align-items:center;gap:8px;font-size:12px}.cs-stk-s input{width:100%}.cs-stk-s b{text-align:right;font-weight:650}

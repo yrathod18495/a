@@ -4,7 +4,7 @@ import { AssetCache } from './asset-cache.js';
 
 import { loadAnimRules, cachedRules } from './cloud.js';
 import { rigInfo, dirOf } from './db/info.js';
-import { bakeSke } from './rigedit.js';
+import { bakeSke, stickerAtlasJson, STICKER_PAGE } from './rigedit.js';
 import { setFit } from './universal.js';
 import { assetAddress } from '../shared/library-url.js';
 import { groupOf } from '../shared/character-package.js';
@@ -92,7 +92,8 @@ export async function hydrateCharacter(rec) {
   const base = await fetchLibraryCharacter(entry), pr = rec.profile || {};
   if (pr.fit) setFit(rec.id, pr.fit);
   const tex = base.tex.map((t) => ({ json: t.json, image: rec.pages?.[t.json.imagePath] || t.image }));
-  const ske = bakeSke(base.ske, { face: pr.face, xf: pr.xf, attach: pr.attach, skins: pr.skins, hide: pr.hide }), { bones, slots, skins, ...extra } = base.rig;
+  if (pr.stickers?.length && pr.stickerAtlas && rec.pages?.[STICKER_PAGE]) tex.push({ json: stickerAtlasJson(pr.stickerAtlas), image: rec.pages[STICKER_PAGE] });          // the stickers the creator placed (a scar, a blood mark ...)
+  const ske = bakeSke(base.ske, { face: pr.face, xf: pr.xf, attach: pr.attach, skins: pr.skins, hide: pr.hide, stickers: pr.stickers }), { bones, slots, skins, ...extra } = base.rig;
   return { ...base, id: rec.id, name: rec.name, pose: rec.pose || base.pose, lib: false, base: rec.base, baseSke: base.ske, ske, tex, thumb: rec.thumb, thumbnail: undefined, profile: pr, pages: rec.pages || {}, skins: null, rig: rigInfo(ske, extra) };
 }
 /** hydrate a list, dropping what cannot be loaded */

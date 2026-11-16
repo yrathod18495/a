@@ -182,7 +182,7 @@ export class Stage {
   /** forget a loaded character (its pictures changed) */
   unload(charId) { const a = this.assets.get(charId); if (a) { a.pages.forEach((t) => t.dispose()); this.assets.delete(charId); } for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); }
   /** replace the armature data of a loaded character (Character Editor edits) without reloading its textures */
-  setRig(charId, ske) { const a = this.assets.get(charId); if (a) { a.def = { ...a.def, ske }; for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); } }      // the cache is keyed by character AND outfit set, so every key of this character goes
+  setRig(charId, ske, tex) { const a = this.assets.get(charId); if (a) { a.def = { ...a.def, ske, ...(tex ? { tex } : {}) }; for (const k of [...this.prepCache.keys()]) if (k.startsWith(`${charId}|`)) this.prepCache.delete(k); } }      // the cache is keyed by character AND outfit set, so every key of this character goes
   /** an edited Character Editor canvas page */
   async loadArtworkCanvas(key, canvas) {
     const k = Math.min(1, this.maxTex / Math.max(canvas.width, canvas.height));

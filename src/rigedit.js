@@ -75,7 +75,25 @@ export function dragToEdit(arm, slotName, wx, wy) {
   const lx = (m.d * wx - m.c * wy) / det, ly = (-m.b * wx + m.a * wy) / det;      // world -> the bone's own axes
   return { dx: lx, dy: -ly };
 }
-export function patchRig(ske, { xf = {}, bones = {}, attach = {}, order = {} } = {}) {
+/** stickers (a scar, a blood mark, a patch ...): a picture of its own on the same bone as the layer it was placed on, drawn right above that layer, so it moves with the body.
+    sticker = { name (atlas picture), slot (the layer's slot), x, y (bone-local), s (size), rot (degrees), a (0..1 opacity) } */
+export function addStickers(ske, stickers = []) {
+  if (!stickers?.length) return ske;
+  const arm = ske.armature[0], slots = arm.slot.slice(), added = [];
+  for (const k of stickers) {
+    const i = slots.findIndex((x) => x.name === k.slot); if (i < 0) continue;
+    slots.splice(i + 1, 0, { name: `stk_${k.name}`, parent: slots[i].parent, displayIndex: 0, color: { aM: Math.round((k.a ?? 1) * 100) } });
+    added.push(k);
+  }
+  if (!added.length) return ske;
+  const skin = arm.skin.map((sk, n) => (sk.name === 'default' || (n === 0 && !arm.skin.some((x) => x.name === 'default'))
+    ? { ...sk, slot: [...sk.slot, ...added.map((k) => ({ name: `stk_${k.name}`, display: [{ type: 'image', name: k.name, transform: { x: k.x || 0, y: k.y || 0, skX: k.rot || 0, skY: k.rot || 0, scX: k.s ?? 1, scY: k.s ?? 1 } }] }))] } : sk));
+  return { ...ske, armature: [{ ...arm, slot: slots, skin }] };
+}
+/** the DragonBones atlas description of the sticker picture page: atlas = { w, h, regs: { name: { x, y, w, h } } } */
+export const STICKER_PAGE = 'stickers.png';
+export const stickerAtlasJson = (atlas) => ({ name: 'stickers', imagePath: STICKER_PAGE, width: atlas.w, height: atlas.h, SubTexture: Object.entries(atlas.regs).map(([name, r]) => ({ name, x: r.x, y: r.y, width: r.w, height: r.h })) });
+export function patchRig(ske, { xf = {}, bones = {}, attach = {}, order = {}, stickers = [] } = {}) {
   const arm = ske.armature[0], out = { ...arm };
   if (Object.keys(order).length) out.slot = reorderSlots(arm.slot, order);
   if (Object.keys(attach).length) out.slot = out.slot.map((sl) => (sl.name in attach ? { ...sl, _defaultAtt: attach[sl.name] || null } : sl));      // which picture of a slot is shown ('' = none)
@@ -103,7 +121,7 @@ export function patchRig(ske, { xf = {}, bones = {}, attach = {}, order = {} } =
       return slots ? { ...sk, slot: slots } : sk;
     });
   }
-  return { ...ske, armature: [out] };
+  return addStickers({ ...ske, armature: [out] }, stickers);
 }
 
 /** the face profile (sliders) as bone + attachment edits for an 12toons-style head */
@@ -148,8 +166,8 @@ export function editsOf(ske, { face, xf = {}, attach = {}, order = {} }) {
   return { xf: all, bones: fe.bones, attach, order };
 }
 /** the finished skeleton of a character: the template skeleton + the profile (face, xf, attach, skins, hide), as a new object */
-export function bakeSke(ske, { face, xf, attach, order, skins = null, hide = [] }) {
-  const out = JSON.parse(JSON.stringify(patchRig(ske, editsOf(ske, { face, xf, attach, order })))), arm = out.armature[0], gone = new Set(hide);
+export function bakeSke(ske, { face, xf, attach, order, skins = null, hide = [], stickers = [] }) {
+  const out = JSON.parse(JSON.stringify(patchRig(ske, { ...editsOf(ske, { face, xf, attach, order }), stickers }))), arm = out.armature[0], gone = new Set(hide);
   arm.skin = arm.skin.filter((k) => !skins || k.name === 'default' || skins.includes(k.name));
   for (const k of arm.skin) k.slot = k.slot.filter((sl) => !gone.has(sl.name));
   return out;
