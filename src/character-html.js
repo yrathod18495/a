@@ -1,7 +1,8 @@
 // "Download HTML" (admin): one stand-alone HTML file with a character's rig, pictures and animations and a small player.
 // Everything is inside the file, readable by anyone who gets it. It is meant for the admin's own work (for example to show the
 // character to an AI tool); do not publish it.
-import { getJson, loadCloudView } from './cloud-characters.js';
+import { getFiles, loadCloudView } from './cloud-characters.js';
+import { refSha } from '../shared/character-package.js';
 
 const dataUrl = (blob) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(r.error); r.readAsDataURL(blob); });
 const safeJson = (value) => JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028|\u2029/g, ' ');
@@ -25,8 +26,11 @@ export async function buildCharacterHtml(character, { progress = () => {} } = {}
     const textures = [];
     for (const t of tex) textures.push({ json: t.json, image: await dataUrl(t.image) });
     const list = (character.animations?.[id]?.animations || []);
+    // all animation files of the view in ONE batch (the server answers up to 60 files per request; files this browser already has are not asked for again)
+    progress(`${meta.label || id}: ${list.length} animations…`);
+    const files = await getFiles(list.map((a) => a.file));
     const animations = [];
-    for (const [i, a] of list.entries()) { progress(`${meta.label || id}: animation ${i + 1} / ${list.length}`); animations.push({ name: a.name, label: a.label || a.name, group: a.group || '', layer: a.layer || 'body', length: a.length, json: await getJson(a.file) }); }
+    for (const a of list) { const blob = files.get(refSha(a.file)); if (!blob) continue; animations.push({ name: a.name, label: a.label || a.name, group: a.group || '', layer: a.layer || 'body', length: a.length, json: JSON.parse(await blob.text()) }); }
     views.push({ id, label: meta.label || id, ske, tex: textures, animations });
   }
   if (!views.length) throw new Error('This character has no views to export.');
