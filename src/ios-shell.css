@@ -195,3 +195,21 @@
 .sa-skel-a{display:block;height:16px;width:46%;border-radius:8px}
 .sa-skel-b{display:block;height:12px;width:70%;border-radius:8px}
 .ls-where{display:block;margin-top:10px;font-size:12px;color:var(--mute,#8a8f98);text-align:center}
+
+/* ---- Projects page: a lighter, tighter card; the message toast always stays inside the screen ---- */
+:root[data-theme] body .toast{left:12px!important;right:12px!important;width:fit-content;max-width:min(calc(100vw - 24px),440px)!important;margin-inline:auto;transform:none!important;animation:toast-fade .22s ease both!important;text-align:center;overflow-wrap:anywhere}
+@keyframes toast-fade{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+:root[data-theme] body .projects-grid{gap:12px}
+:root[data-theme] body .project-card{display:grid;gap:4px;padding:14px 14px 12px;border-radius:18px}
+:root[data-theme] body .project-card .project-name{font-size:17px;line-height:1.25;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:root[data-theme] body .project-card .project-created{margin:0;font-size:12px;opacity:.75}
+:root[data-theme] body .project-card .project-state{display:inline-flex;align-items:center;gap:6px;justify-self:start;margin:4px 0 8px;padding:3px 10px 3px 8px;border-radius:99px;font-size:11.5px;font-weight:600;background:color-mix(in srgb,#34c77b 16%,transparent);color:#1f8f55}
+:root[data-theme] body .project-card .project-state::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+:root[data-theme] body .project-card .project-state.pending{background:color-mix(in srgb,#f39a3d 20%,transparent);color:#b36a14}
+:root[data-theme] body .project-card .project-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+:root[data-theme] body .project-card .project-row .project-open{grid-column:1/-1;min-height:44px;font-size:15px}
+:root[data-theme] body .project-card .project-row .btn{min-height:40px;font-size:14px;border-radius:12px}
+:root[data-theme] body .project-card .project-actions{display:flex;gap:6px;margin:6px 0 0;padding:8px 0 0;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent)}
+:root[data-theme] body .project-card .project-actions .btn{min-height:30px;padding:0 12px;font-size:12.5px;border-radius:99px}
+:root[data-theme] body .projects-search-row{display:flex;gap:8px;width:100%}
+:root[data-theme] body .projects-search-row .projects-search{flex:1;min-width:0}
