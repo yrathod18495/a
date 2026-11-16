@@ -3148,7 +3148,8 @@ function mountStage() {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 1) tapStart = { x: e.clientX, y: e.clientY, t: performance.now() };
     if (pointers.size === 2 && drag && (drag.mode === 'prop' || drag.mode === 'move')) {          // a second finger on the selected prop / character: pinch to resize
-      drag.pinch = { d0: pinchDist() || 1, w0: drag.prop?.w, h0: drag.prop?.h, mul0: layer()?.mul ?? 1 }; return;
+      drag.pinch = { d0: Math.max(24, pinchDist()), w0: drag.prop ? (+drag.prop.w || 0.18) : undefined, h0: drag.prop ? (+drag.prop.h || 0.18) : undefined, mul0: layer()?.mul ?? 1 };          // a prop without its own size uses the default 0.18: no NaN
+      try { wrapEl.setPointerCapture(e.pointerId); } catch { /* the second finger is followed too */ } return;
     }
     const bgc = bgOf();
     if (bgc && stage.camZoom <= 1.02 && !bgLockedNow(bgc)) {
@@ -3240,7 +3241,7 @@ function mountStage() {
     }
     if (drag?.mode === 'prop') {
       const p = pt(e), prop = drag.prop;
-      if (drag.pinch) { const k = Math.min(4, Math.max(0.1, pinchDist() / drag.pinch.d0)); prop.w = +(drag.pinch.w0 * k).toFixed(4); prop.h = +(drag.pinch.h0 * k).toFixed(4); updateSel(); S.dirty = true; return; }
+      if (drag.pinch) { if (pointers.size < 2) return; const k = Math.min(4, Math.max(0.1, pinchDist() / drag.pinch.d0)); prop.w = +Math.min(1.5, drag.pinch.w0 * k).toFixed(4); prop.h = +Math.min(1.5, drag.pinch.h0 * k).toFixed(4); updateSel(); S.dirty = true; return; }
       prop.x = Math.max(0, Math.min(1, drag.x0 + (p.x - drag.p0.x) / stage.W));
       prop.y = Math.max(0, Math.min(1, drag.y0 + (p.y - drag.p0.y) / stage.H));
       updateSel(); S.dirty = true; return;
@@ -3255,6 +3256,7 @@ function mountStage() {
       l.rot = +deg.toFixed(1); saveXf(l); stage.layout(); updateSel(); S.dirty = true; return;
     }
     let a;
+    if (drag.mode === 'move' && drag.pinch && pointers.size < 2) return;
     if (drag.mode === 'move' && drag.pinch) { const k = Math.min(3 / drag.pinch.mul0, Math.max(0.2 / drag.pinch.mul0, pinchDist() / drag.pinch.d0)); l.mul = drag.pinch.mul0 * k; a = { x: drag.a0.x, y: drag.a0.y }; }
     else if (drag.mode === 'move') a = { x: drag.a0.x + p.x - drag.p0.x, y: drag.a0.y + p.y - drag.p0.y };
     else {

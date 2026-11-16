@@ -79,3 +79,28 @@ test('with a prop selected, a finger anywhere on the picture moves only that pro
   expect(p.x).toBeGreaterThan(0.6); expect(p.y).toBeGreaterThan(0.55);
   expect(errors).toEqual([]);
 });
+
+test('two fingers resize the selected prop: it grows and shrinks smoothly, also when it has no size of its own, and never becomes NaN', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Pinch');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(async () => { const T = window.__toon, S = T.S, c = document.createElement('canvas'); c.width = c.height = 16; c.getContext('2d').fillRect(0, 0, 16, 16);
+    S.props.push({ id: 'p1', name: 'Box', kind: 'prop', blob: await new Promise((r) => c.toBlob(r)), natW: 16, natH: 16, x: .5, y: .5, rotation: 0, visible: true, start: 0, end: 5 }); T.drawTimeline();          // no w / h: the default size
+    S.propSel = 'p1'; S.selectedPropId = 'p1'; });
+  await page.locator('.panel.open .sheet-close button').click({ timeout: 3000 }).catch(() => {});
+  const box = await page.locator('.stagewrap canvas').boundingBox(), cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  const fire = (type, id, x, y) => page.evaluate(([t, i, px, py]) => { const el = document.querySelector('.stagewrap'); el.dispatchEvent(new PointerEvent(t, { pointerId: i, pointerType: 'touch', isPrimary: i === 1, clientX: px, clientY: py, bubbles: true, cancelable: true })); }, [type, id, x, y]);
+  await fire('pointerdown', 1, cx - 20, cy); await fire('pointerdown', 2, cx + 20, cy);
+  await fire('pointermove', 2, cx + 80, cy); await fire('pointermove', 1, cx - 80, cy);
+  const big = await page.evaluate(() => { const o = window.__toon.S.props[0]; return [o.w, o.h]; });
+  expect(Number.isFinite(big[0]) && Number.isFinite(big[1])).toBe(true); expect(big[0]).toBeGreaterThan(0.18);
+  await fire('pointermove', 2, cx + 10, cy); await fire('pointermove', 1, cx - 10, cy);
+  const small = await page.evaluate(() => { const o = window.__toon.S.props[0]; return [o.w, o.h]; });
+  expect(small[0]).toBeLessThan(big[0]); expect(small[0]).toBeGreaterThan(0.01);
+  await fire('pointerup', 2, cx + 10, cy); await fire('pointerup', 1, cx - 10, cy);
+  expect(errors).toEqual([]);
+});
