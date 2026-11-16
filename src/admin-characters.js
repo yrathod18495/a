@@ -13,6 +13,7 @@ import { listCloudCharacters, storeCharacter, deleteCloudCharacter, updateCloudC
 import { cleanStore, cleanViewStore, isPaid, hasStore, viewStoreOf, timeLeft, leftText, MAX_PRICE, STORE_DAYS } from '../shared/character-store.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { buildCharacterHtml } from './character-html.js';
+import { working } from './admin-working.js';
 
 const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // the small one: it only shows what the animation does
 /** preview quality the admin can pick: size in pixels (the picture is square), frames per second, colours (a GIF has 256 at most). Bigger = sharper, but heavier to store and to show. */
@@ -117,7 +118,7 @@ export async function charactersView({ back, home, toast }) {
   const bar = h('progress', { class: 'admin-characters-progress', max: 1, value: 0, hidden: true });
 
   async function refresh() {
-    try { st.list = await listCloudCharacters(); } catch (e) { toast(`Could not load the characters: ${friendlyError(e)}`); }
+    try { st.list = (await listCloudCharacters()).filter((x) => !st.gone?.has(x.id)); } catch (e) { toast(`Could not load the characters: ${friendlyError(e)}`); }
     draw();
   }
   async function open(file) {
@@ -234,15 +235,20 @@ export async function charactersView({ back, home, toast }) {
     const views = Object.keys(c.views || {}).length, anims = Object.values(c.animations || {}).reduce((n, v) => n + (v.animations?.length || 0), 0);
     const last = !st.list.some((x) => x.id !== c.id && x.category === c.category);
     if (!confirm(`Delete ${c.name}? Its rig and pictures (${views} views) are removed from the database and R2.${last ? ` It is the last character of "${c.categoryName}", so its ${anims} animations and their previews are removed too.` : ''} This cannot be undone.`)) return;
-    try { const r = await deleteCloudCharacter(c.id); toast(`${c.name} was deleted (${r.removedFiles} files removed).`); await refresh(); }
-    catch (e) { toast(`Could not delete ${c.name}: ${friendlyError(e)}`); }
+    const w = working(content.querySelector(`.admin-character-card[data-id="${c.id}"]`), 'Deleting… this can take a few seconds');
+    try {
+      const r = await deleteCloudCharacter(c.id);
+      (st.gone ||= new Set()).add(c.id); st.list = st.list.filter((x) => x.id !== c.id); draw();          // it leaves the screen at once; the list is read again in the background
+      toast(`${c.name} was deleted (${r.removedFiles} files removed).`); refresh();
+    } catch (e) { w.done(); toast(`Could not delete ${c.name}: ${friendlyError(e)}`); }
   }
 
   async function rename(c) {
     const name = prompt('New name for this character (1 to 60 characters):', c.name);
     if (name === null || name.trim() === c.name) return;
-    try { await updateCloudCharacter(c.id, { name }); toast(`Renamed to "${name.trim()}".`); await refresh(); }
-    catch (e) { toast(`Could not rename ${c.name}: ${friendlyError(e)}`); }
+    const w = working(content.querySelector(`.admin-character-card[data-id="${c.id}"]`), 'Saving…');
+    try { await updateCloudCharacter(c.id, { name }); c.name = name.trim(); draw(); toast(`Renamed to "${name.trim()}".`); refresh(); }
+    catch (e) { w.done(); toast(`Could not rename ${c.name}: ${friendlyError(e)}`); }
   }
   async function regroup(c, select) {
     select.disabled = true;

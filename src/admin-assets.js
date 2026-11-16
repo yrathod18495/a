@@ -1,4 +1,5 @@
 import { h, logo } from './dom.js';
+import { working } from './admin-working.js';
 import { loadCatalog, libraryCharacters, cdn } from './catalog.js';
 import { deleteStudioAsset, listStudioAssets, saveStudioAsset, saveStudioAnimation, setAssetAccess } from './studio-assets.js';
 
@@ -92,8 +93,9 @@ export async function assetsView({ user, home, back, toast }) {
   }
   async function remove(asset) {
     if (!confirm(`Remove “${asset.name}” from the studio library? Existing project copies stay saved.`)) return;
+    const w = working(document.activeElement?.closest?.('article'), 'Removing…');
     try { await deleteStudioAsset(asset.id); const preview = state.previews.get(asset.id); if (preview) URL.revokeObjectURL(preview); state.previews.delete(asset.id); state.assets = state.assets.filter((a) => a.id !== asset.id); draw(); toast('Asset removed from the library.'); }
-    catch (e) { toast(`Could not remove the asset: ${e.message}`); }
+    catch (e) { w.done(); toast(`Could not remove the asset: ${e.message}`); }
   }
   // pick one image or many at once (40–50 is fine): each is uploaded and saved as its own library record, a few at a time
   fileInput = h('input', { class: 'admin-assets-file', type: 'file', accept: 'image/*', multiple: true, onchange: async (e) => {

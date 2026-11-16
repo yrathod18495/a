@@ -1136,3 +1136,12 @@ dialog.admin-store-dialog h2{margin:0 0 10px;font-size:18px}.admin-store-rows{di
 /* the background's corner handles are big enough for a finger */
 @media(pointer:coarse){.stagewrap .bg-hd{width:32px!important;height:32px!important}}
 @media(pointer:coarse){.stagewrap .bg-tl{left:-16px;top:-16px}.stagewrap .bg-tr{right:-16px;top:-16px}.stagewrap .bg-bl{left:-16px;bottom:-16px}.stagewrap .bg-br{right:-16px;bottom:-16px}}
+
+/* a card or row that is being deleted / saved: dimmed, cannot be pressed, with a moving bar */
+.is-working{position:relative;pointer-events:none}
+.is-working>*:not(.work-overlay){opacity:.45;filter:grayscale(.4)}
+.work-overlay{position:absolute;inset:0;z-index:5;display:grid;place-content:center;gap:8px;justify-items:center;padding:8px;text-align:center;border-radius:inherit;background:#0b0d1e99;color:#fff;font-size:12.5px;font-weight:650}
+.work-bar{display:block;width:min(160px,70%);height:4px;border-radius:4px;background:#ffffff33;overflow:hidden;position:relative}
+.work-bar::after{content:"";position:absolute;top:0;bottom:0;width:40%;border-radius:4px;background:#8f82ff;animation:work-slide 1s ease-in-out infinite}
+@keyframes work-slide{from{left:-40%}to{left:100%}}
+@media(prefers-reduced-motion:reduce){.work-bar::after{animation:none;width:100%}}

@@ -1,5 +1,6 @@
 // Admin → Add Assets → Add Props / Add Effects (also usable as a page of its own): admins upload props and effects once; every creator sees them in the studio's Props / Effects tabs.
 // Data: studioAssets collection (type 'prop' | 'effect'), files in R2, a tiny thumbnail stored with each record (see shared/studio-effects.js).
+import { working } from './admin-working.js';
 import { h, logo } from './dom.js';
 import { deleteStudioAsset, listStudioAssets, saveStudioAsset, setPropGroup, setAssetAccess } from './studio-assets.js';
 import { cleanAssetMeta } from '../shared/studio-effects.js';
@@ -30,8 +31,9 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
   }
   async function remove(asset) {
     if (!confirm(`Remove "${asset.name}" from the library? It will remain in projects that already use it.`)) return;
+    const w = working(document.activeElement?.closest?.('article'), 'Removing…');
     try { await deleteStudioAsset(asset.id); state.assets = state.assets.filter((a) => a.id !== asset.id); draw(); toast(`${asset.name} removed from the library.`); }
-    catch (e) { toast(`Could not remove it: ${friendlyError(e)}`); }
+    catch (e) { w.done(); toast(`Could not remove it: ${friendlyError(e)}`); }
   }
 
   async function changeAccess(asset, access, select) {
