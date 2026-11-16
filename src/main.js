@@ -2080,7 +2080,7 @@ function drawClipNav() {
     h('div', { class: 'cb-list' },
       btn('x', 'Close', clearClipSelection, { title: 'Close: back to the Upload / Characters / Animations tabs', 'aria-label': 'Close the clip tools and go back to the tabs' }),
       ...(kind === 'fx' ? [btn('pencil', 'Edit', () => openFxDock(it.fx), { title: 'Opacity, blur, contrast, saturation, tint and more' })] : []),
-      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected)]),
+      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many })]),
       ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
@@ -2260,7 +2260,6 @@ function editTools() {
   return h('div', { class: 'edittools', role: 'toolbar', 'aria-label': 'Edit the selected clip' },
     b('prev', 'Prev', 'skip-back', () => jumpEdge(-1), 'Jump to the previous clip edge'), b('next', 'Next', 'skip-forward', () => jumpEdge(1), 'Jump to the next clip edge'),
     b('split', 'Split', 'scissors', splitSelected, 'Cut the selected clip at the playhead', 'needs-sel'),
-    b('copy', 'Copy', 'copy', copySelected, 'Copy the selected clip (Ctrl+C)', 'needs-sel'),
     b('dup', 'Duplicate', 'layers', duplicateSelected, 'Add the same clip again, right after this one', 'needs-sel'),
     b('del', 'Delete', 'trash', deleteSelected, 'Delete the selected clip', 'needs-sel del'));
 }
