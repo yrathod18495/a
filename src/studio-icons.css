@@ -881,16 +881,3 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
 .voice-sheet .vo-cam>summary::after{content:"▾";opacity:.6}
 .voice-sheet .vo-cam[open]>summary::after{content:"▴"}
 .voice-sheet .vo-cam[open]>summary{margin-bottom:8px}
-/* phone player bar: one calm rounded strip, equal round buttons, Play in the accent colour, a thin divider before the clip tools */
-@media(max-width:860px){
-  #app .ws .tltools{display:flex!important;flex-wrap:nowrap!important;align-items:center;gap:6px!important;padding:6px 8px!important;border:1px solid var(--line);border-radius:18px;background:var(--card2,#1f2024);overflow-x:auto}
-  #app .ws .tltools>button,#app .ws .tltools .edit-btn{flex:0 0 auto;width:42px!important;height:42px!important;min-width:0;padding:0!important;border-radius:50%!important;border:0;background:var(--card,#2a2b31);color:var(--text);display:grid;place-items:center}
-  #app .ws .tltools>button svg,#app .ws .tltools .edit-btn svg{width:20px;height:20px}
-  #app .ws .tltools>button:first-child{width:48px!important;height:48px!important;background:var(--acc,#7c6cf5);color:#fff;box-shadow:0 4px 14px color-mix(in srgb,var(--acc,#7c6cf5) 45%,transparent)}
-  #app .ws .tltools .snap-toggle[aria-pressed=true]{background:color-mix(in srgb,var(--acc,#7c6cf5) 35%,var(--card,#2a2b31));color:#fff}
-  #app .ws .tltools .edittools{display:flex;gap:6px;margin-left:auto;padding-left:8px;border-left:1px solid var(--line)}
-  #app .ws .tltools .edit-btn.edit-del{color:#ff7a7a;background:color-mix(in srgb,#d63a3a 18%,var(--card,#2a2b31))}
-  #app .ws .tltools :disabled{opacity:.4}
-  #app .ws .tltools .timeline-title{display:none}
-  #app .ws .controls{border:1px solid var(--line);border-radius:16px;background:var(--card2,#1f2024);padding:4px 6px}
-}
