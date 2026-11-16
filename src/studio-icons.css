@@ -915,7 +915,7 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
 body.studio-dark .stagewrap>.hd{width:11px;height:11px;border-radius:50%;background:#7c6cf5;border:2px solid #fff;box-shadow:0 1px 4px #0008}
 body.studio-dark .stagewrap>.hd::before{content:"";position:absolute;inset:-14px;border-radius:50%}
 .stagewrap>.hd.h-rot{cursor:grab;background:#fff;border-color:#7c6cf5}
-.stagewrap>.hd.h-rot::after{content:"";position:absolute;left:50%;top:100%;width:1.5px;height:var(--stick,26px);margin-left:-.75px;background:#7c6cf5;border-radius:2px;pointer-events:none}
+.stagewrap>.hd.h-rot::after{content:"";position:absolute;left:50%;top:100%;width:1.5px;height:var(--stick,26px);margin-left:-.75px;background:#7c6cf5;border-radius:2px;pointer-events:none;transform-origin:50% 0;transform:rotate(var(--ang,0deg))}
 body.studio-dark .selbox{border-width:1.5px}
 
 /* the player bar: every button the same round size and height, icons only, nothing crooked */

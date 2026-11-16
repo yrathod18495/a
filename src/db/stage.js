@@ -350,6 +350,7 @@ export class Stage {
         l.box = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
       }
       l.anchor = { x: ax, y: ayD };
+      l.pivot = { x: ax, y: ayD - (b.h * S) / 2, half: (b.h * S) / 2 };          // the middle the character turns around (does not move while tilting)
     });
   }
 

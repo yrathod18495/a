@@ -3185,7 +3185,7 @@ function mountStage() {
     let l = layer();
     if (hd && l && charLockedNow(l.key)) { lockedToast(); return; }
     if (hd === 'rot' && l) {          // the round handle on the stick: turn the character around its middle
-      const r = stage.out.getBoundingClientRect(), k = r.width / stage.W, cx = r.left + ((l.box.x0 + l.box.x1) / 2) * k, cy = r.top + ((l.box.y0 + l.box.y1) / 2) * k;
+      const r = stage.out.getBoundingClientRect(), k = r.width / stage.W, cx = r.left + l.pivot.x * k, cy = r.top + l.pivot.y * k;
       drag = { mode: 'rot', cx, cy, ang0: Math.atan2(e.clientY - cy, e.clientX - cx), rot0: l.rot || 0 }; wrapEl.setPointerCapture(e.pointerId); return;
     }
     if (hd && l) {
@@ -3246,7 +3246,8 @@ function mountStage() {
     if (!drag || !l) return;
     const p = pt(e), W = stage.W, H = stage.H;
     if (drag.mode === 'rot') {
-      let deg = drag.rot0 + (Math.atan2(e.clientY - drag.cy, e.clientX - drag.cx) - drag.ang0) * 180 / Math.PI;
+      let da = Math.atan2(e.clientY - drag.cy, e.clientX - drag.cx) - drag.ang0; da = Math.atan2(Math.sin(da), Math.cos(da));          // the shortest turn
+      let deg = drag.rot0 + da * 180 / Math.PI * 0.7;          // a little calmer than the finger
       deg = ((deg + 540) % 360) - 180; if (Math.abs(deg) < 3) deg = 0;          // it clicks back to upright
       l.rot = +deg.toFixed(1); saveXf(l); stage.layout(); updateSel(); S.dirty = true; return;
     }
@@ -3355,12 +3356,13 @@ function updateSel() {
   // handles stay inside the picture even when the character is bigger than the frame
   l.hpos = {};
   for (const [c, [x, y]] of Object.entries({ tl: [b.x0, b.y0], tr: [b.x1, b.y0], bl: [b.x0, b.y1], br: [b.x1, b.y1] })) {
-    const px = Math.min(cw - m, Math.max(m, x * k)), py = Math.min(ch - m, Math.max(m, y * k)), el = handleEls[c];
-    el.hidden = false; el.style.left = `${px}px`; el.style.top = `${py}px`;
-    el.classList.toggle('pinned', Math.abs(px - x * k) > 1 || Math.abs(py - y * k) > 1);
-    l.hpos[c] = [px / k, py / k];
+    const px = x * k, py = y * k, el = handleEls[c];
+    el.hidden = px < -2 || px > cw + 2 || py < -2 || py > ch + 2;          // a corner outside the picture stays where it really is (hidden), it is not pulled inside
+    el.style.left = `${px}px`; el.style.top = `${py}px`; el.classList.remove('pinned');
+    l.hpos[c] = [x, y];
   }
-  { const el = handleEls.rot, tx = ((b.x0 + b.x1) / 2) * k, ty = Math.max(m, b.y0 * k - 44); el.hidden = charLockedNow(l.key); el.style.setProperty('--stick', `${Math.max(0, Math.round(b.y0 * k - Math.min(ch - m, ty) - 6))}px`); el.style.left = `${Math.min(cw - m, Math.max(m, tx))}px`; el.style.top = `${Math.min(ch - m, ty)}px`; }          // the tilt handle on a stick above the box
+  { const el = handleEls.rot, pv = l.pivot, th = (l.rot || 0) * Math.PI / 180, d = pv.half + 40 / k, hx = (pv.x + Math.sin(th) * d) * k, hy = (pv.y - Math.cos(th) * d) * k;          // on a stick above the head, turning with the character (it does not jump while tilting)
+    el.hidden = charLockedNow(l.key) || hx < 0 || hx > cw || hy < 0 || hy > ch; el.style.left = `${hx}px`; el.style.top = `${hy}px`; el.style.setProperty('--stick', `${Math.round(40 - 6)}px`); el.style.setProperty('--ang', `${l.rot || 0}deg`); }
   if (selToolsEl) updateSelTools(l, b, k, cw, ch);
 }
 /** a small floating toolbox over the selected character, for the tools that act on one character — tap a button to jump straight into that tool */
