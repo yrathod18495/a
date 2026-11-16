@@ -46,6 +46,17 @@ const makeCanvas = (w = 1, h = 1) => {
 };
 /** decodes an image once and (optionally) shrinks it so huge character sheets use less memory */
 async function loadImage(blob, maxSide, knownSize) {
+  try { return await loadImageNow(blob, maxSide, knownSize); }
+  catch (first) {
+    // some pictures (odd colour profiles, a wrong file extension, very large ones) are refused with the strict options: try the browser's own decoder, then a plain bitmap
+    try {
+      const url = URL.createObjectURL(blob);
+      try { const img = new Image(); img.src = url; await img.decode(); const k = maxSide && Math.max(img.naturalWidth, img.naturalHeight) > maxSide ? maxSide / Math.max(img.naturalWidth, img.naturalHeight) : 1; return await createImageBitmap(img, k < 1 ? { resizeWidth: Math.round(img.naturalWidth * k), resizeHeight: Math.round(img.naturalHeight * k), resizeQuality: 'high' } : undefined); }
+      finally { URL.revokeObjectURL(url); }
+    } catch { throw first; }
+  }
+}
+async function loadImageNow(blob, maxSide, knownSize) {
   const opts = { premultiplyAlpha: 'premultiply', colorSpaceConversion: 'none' };   // premultiplied = no dark edges when the sheet is filtered / shrunk
   if (knownSize && maxSide && Math.max(knownSize.w, knownSize.h) > maxSide) {
     const k = maxSide / Math.max(knownSize.w, knownSize.h);

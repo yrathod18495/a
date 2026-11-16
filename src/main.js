@@ -3173,6 +3173,15 @@ function mountStage() {
   let tapStart = null;          // where and when the single finger went down: a short tap that did not move, away from the selected thing, lets go of it
   const tapAway = (e) => { S.sel = null; S.selectedPropId = null; clearClipSelection(); updateSel(); S.dirty = true; };
   const pointers = new Map(), pinchDist = () => { const [a, b] = [...pointers.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
+  // a picture from the computer, or a background tile, dropped on the canvas becomes a background clip at the playhead
+  wrapEl.addEventListener('dragover', (e) => { const t = [...(e.dataTransfer?.types || [])]; if (t.includes('Files') || t.includes('text/x-12toons-bg')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; wrapEl.classList.add('drop-over'); } });
+  wrapEl.addEventListener('dragleave', () => wrapEl.classList.remove('drop-over'));
+  wrapEl.addEventListener('drop', async (e) => {
+    wrapEl.classList.remove('drop-over'); const id = e.dataTransfer?.getData('text/x-12toons-bg'), files = [...(e.dataTransfer?.files || [])].filter((f) => f.type.startsWith('image/'));
+    if (!id && !files.length) return; e.preventDefault();
+    if (id) { const rec = S.myBgs.find((r) => r.id === id); if (rec) await addBgClip(rec); return; }
+    await addBackgroundFiles(files);
+  });
   wrapEl.addEventListener('wheel', (e) => {            // mouse wheel over the canvas resizes the selected background (when nothing else is selected)
     const c = bgOf(); if (!c || bgLockedNow(c) || S.exporting || S.sel || S.selectedPropId || stage.camZoom > 1.02) return;
     e.preventDefault(); bgXf(c).s = clampBgScale(bgXf(c).s * Math.exp(-e.deltaY * 0.0015)); pushBg(c);
@@ -4107,7 +4116,7 @@ async function placeVideo(f, mode) {
 const filterTiles = (grid) => { const q = (grid.dataset.q || '').trim().toLowerCase(); for (const t of grid.querySelectorAll('.tile:not(.add)')) t.hidden = !!q && !(t.dataset.name || '').includes(q); };
 const tileSearch = (grid, label) => h('input', { type: 'search', class: 'tile-search', placeholder: `Search ${label} by name…`, 'aria-label': `Search ${label} by name`, oninput: (e) => { grid.dataset.q = e.target.value; filterTiles(grid); } });
 /** one picture tile of the Props / Effects / Background lists (same look as the animation cards): a picture with its name underneath; `add` makes the dashed "+" tile */
-function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, onclick, onremove, onview, viewing, onhold }) {
+function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, onclick, onremove, onview, viewing, onhold, dragId }) {
   // onhold: pressing and holding the tile (half a second) opens its options instead of adding it
   let timer = 0, held = false;
   const cancel = () => { clearTimeout(timer); timer = 0; };
@@ -4116,7 +4125,8 @@ function tile({ src, icon: glyph = '🖼', name, on, locked, add, cover, title, 
     onpointermove: (e) => { const a = e.currentTarget._at; if (a && Math.hypot(e.clientX - a.x, e.clientY - a.y) > 10) cancel(); },
     onpointerup: cancel, onpointercancel: cancel, onpointerleave: cancel, oncontextmenu: (e) => { e.preventDefault(); cancel(); if (!held) { held = true; onhold(); } },
   } : {};
-  return h('button', { type: 'button', 'data-name': String(name || '').toLowerCase(), class: `tile${add ? ' add' : ''}${on ? ' on' : ''}${locked ? ' locked' : ''}${cover ? ' cover' : ''}`, title: title || name, 'aria-disabled': locked ? 'true' : undefined, ...holdProps, onclick: (e) => { if (held) { held = false; e.preventDefault(); return; } onclick?.(e); } },
+  const dragProps = dragId ? { draggable: 'true', ondragstart: (e) => { cancel(); e.dataTransfer.setData('text/x-12toons-bg', dragId); e.dataTransfer.effectAllowed = 'copy'; } } : {};
+  return h('button', { type: 'button', 'data-name': String(name || '').toLowerCase(), ...dragProps, class: `tile${add ? ' add' : ''}${on ? ' on' : ''}${locked ? ' locked' : ''}${cover ? ' cover' : ''}`, title: title || name, 'aria-disabled': locked ? 'true' : undefined, ...holdProps, onclick: (e) => { if (held) { held = false; e.preventDefault(); return; } onclick?.(e); } },
     locked ? lockBadge() : null,
     h('span', { class: 'tile-pic' }, add ? h('span', { class: 'tile-plus' }, '+') : src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : glyph),
     h('span', { class: 'tile-name' }, h('b', {}, name)),
@@ -4197,7 +4207,13 @@ const friendlyBgName = (name, n) => { const base = name.replace(/\.[^.]+$/, '');
 async function addBgClip(rec, preset = 0) {
   if (S.bgReplace && await replaceBgWith(rec, preset)) return;
   const start = snapTo(Math.max(0, player.time)), c = { id: uid(), bgId: rec?.id ?? null, preset, start, dur: 5 };
-  S.bgClips.push(c); S.bgSel = c.id; await syncBgClips(); updateTotal(); drawTimeline(); drawTabs();
+  S.bgClips.push(c); S.bgSel = c.id;
+  try { await syncBgClips(); }
+  catch (e) {          // the picture cannot be read: do not leave an empty clip on the timeline
+    S.bgClips = S.bgClips.filter((x) => x !== c); S.bgSel = null; try { await syncBgClips(); } catch { /* the earlier backgrounds stay */ }
+    toast(`This picture could not be opened${rec?.name ? ` (${rec.name})` : ''}. Please try a JPG or PNG that is smaller than 3 MB.`); drawTimeline(); drawTabs(); return;
+  }
+  updateTotal(); drawTimeline(); drawTabs();
 }
 /** pictures chosen as backgrounds (the Background tab and the Upload tab): each is kept in the project and the last one goes on the timeline */
 async function addBackgroundFiles(picked) {
@@ -4242,7 +4258,7 @@ function tabCanvas() {
   // one list: "+" first (opens the device's files), then the pictures this project already has, the generated ones and the admin's shared scenes
   const mine = h('div', { class: 'tile-grid' },
     tile({ add: true, name: 'Add image', title: 'Add your own image from this device', onclick: () => file.click() }),
-    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: `${r.name} · hold for effects and delete`, onclick: () => pickBg(r), onhold: () => openBgOptions(r) })),
+    S.myBgs.map((r) => tile({ src: URL.createObjectURL(r.blob), name: r.name.replace(/\.[^.]+$/, ''), cover: true, on: S.bgId === r.id, title: `${r.name} · tap to add it · hold for effects and delete · drag it onto the picture`, dragId: r.id, onclick: () => pickBg(r), onhold: () => openBgOptions(r) })),
     shared('background').map(sharedTile));
   generatedTiles(pickBg, mine);
   // plain colours: small round swatches, the last one opens the colour picker so the user can make any colour of their own
@@ -5052,7 +5068,7 @@ function loop(now) {
 }
 window.addEventListener('keydown', (e) => { if (!$app.hidden && S.step === 3 && e.code === 'Space' && !e.target.closest('button,input,select,textarea,summary,a,[contenteditable=true]')) { e.preventDefault(); togglePlay(); } });
 
-if (location.search.includes("debug")) window.__toon = { historyAction, historyDepth: () => historyDepth, S, addFx, openFxDock, migrateBgEffects, syncFx, propHit, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
+if (location.search.includes("debug")) window.__toon = { addBgClipForTest: (rec) => addBgClip(rec), historyAction, historyDepth: () => historyDepth, S, addFx, openFxDock, migrateBgEffects, syncFx, propHit, exportJob, applyMoves, applyPath, addClip, splitSelected, rateOf, applyLayers, commitClips, sceneDoc, loadSceneDoc, musicAudio, openTab, openCharTool, saveXf, startPathShadow, refreshSite, drawClipBar, drawCharBar, hideSelBar, commitClips, updateSaveStatus, fillSoloLengths, sharedBlobs, drawTimeline, sceneLen, prepareStudio, syncCam, get stage() { return stage; }, get player() { return player; }, get metrics() { return { renderCount, framePending: !!frameId, loadedRigs: stage?.assets.size, cachedDefinitions: S.libDefs.size }; } };
 
 /* ---------------- entry points used by the 12toons shell ---------------- */
 let booted = false, homeFn = null;
