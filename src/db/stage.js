@@ -663,6 +663,13 @@ export class Stage {
     }
   }
   /** the rectangle of the preview picture (in its pixels) that a character or prop covers at time t; null for the whole scene and the background. Used to crop the Effects previews to what the user is working on. */
+  /** where a slot's bone sits on the canvas right now: [a, b, c, d, e, f] (canvas 2D order) taking a point in the bone's own space to canvas pixels; null while the layer is not laid out */
+  boneMatrix(key, slotName) {
+    const l = this.layers.find((x) => x.key === key), bone = l?.mat && l.arm.getSlot(slotName)?.parent;
+    if (!bone) return null;
+    const m = bone.globalTransformMatrix, [a, b, c, d, tx, ty] = l.mat;
+    return [a * m.a + c * m.b, b * m.a + d * m.b, a * m.c + c * m.d, b * m.c + d * m.d, a * m.tx + c * m.ty + tx, b * m.tx + d * m.ty + ty];
+  }
   boundsOf(target, t) {
     const kind = String(target).split(':')[0], id = String(target).slice(kind.length + 1); let b = null;
     if (kind === 'char') { const l = this.layers.find((x) => x.key === id); if (l?.box && l.shown !== false) b = { x0: l.box.x0, y0: l.box.y0, x1: l.box.x1, y1: l.box.y1 }; }

@@ -104,6 +104,7 @@ export async function view({ user, home, toast, localPreview = false }) {
     try {
       const cameraPlan = [{ start: 0, end: 1e9, speaker: 'c', type: st.zoom, focus: 'auto' }];
       stage.render(t, dt, mouthClips(t), cameraPlan);
+      overlayFrame();
     } catch (e) { console.warn(e); }
   };
 
@@ -396,14 +397,119 @@ export async function view({ user, home, toast, localPreview = false }) {
   function stickerPanel() {
     const file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) addSticker(f); } });
     const sel = st.stickers.find((k) => k.id === st.stkSel), target = layers().find((l) => l.region === st.guideFocus);
-    const slider = (label, key, min, max, step, fmt = (v) => v) => h('label', { class: 'cs-stk-s' }, h('span', {}, label), h('input', { type: 'range', min, max, step, value: sel[key], oninput: (ev) => { sel[key] = +ev.target.value; ev.target.nextSibling.textContent = fmt(sel[key]); queueSticker(sel); } }), h('b', {}, fmt(sel[key])));
+    const slider = (label, key, min, max, step, fmt = (v) => v) => h('label', { class: 'cs-stk-s' }, h('span', {}, label), h('input', { type: 'range', 'data-k': key, min, max, step, value: sel[key], oninput: (ev) => { sel[key] = +ev.target.value; ev.target.nextSibling.textContent = fmt(sel[key]); queueSticker(sel); } }), h('b', {}, fmt(sel[key])));
     return h('div', { class: 'cs-lgroup cs-stk' }, h('div', { class: 'cs-ghead static' }, h('span', { class: 'cs-gic' }, icon('star')), h('b', {}, 'Stickers'), h('small', {}, `${st.stickers.length} placed`)),
       h('p', { class: 'hint', style: 'text-align:left;margin:6px 0' }, 'First tap the body part in the list below (for example the upper arm). Then tap a sticker, or add your own PNG / SVG (you can also drop a picture on the canvas). It moves with that part.'),
       libraryGrid(),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', onclick: () => file.click() }, icon('upload'), h('span', {}, target ? `Your own picture on ${labelOf(target)}` : 'Your own picture')), file),
       ...st.stickers.map((k) => h('div', { class: `cs-stk-row${k.id === st.stkSel ? ' on' : ''}`, onclick: () => { st.stkSel = k.id; draw(); } }, h('b', {}, `Sticker on ${k.layer.split('/').pop()}`), h('button', { class: 'ib', type: 'button', title: 'Remove this sticker', 'aria-label': 'Remove this sticker', onclick: (ev) => { ev.stopPropagation(); removeSticker(k.id); } }, icon('trash')))),
+      h('label', { class: 'tog cs-stk-solo', title: 'Hides every other body part and zooms in on the chosen one, so it is easy to place the sticker' }, h('input', { type: 'checkbox', checked: !!st.stkSolo, onchange: (ev) => { st.stkSolo = ev.target.checked; applySolo(); } }), 'Show only the chosen layer (hide the rest and zoom in)'),
+      st.stkSolo && focusLayer() ? h('button', { class: 'btn sm', type: 'button', onclick: () => frameLayer() }, 'Zoom to this layer') : null,
+      sel ? h('p', { class: 'hint', style: 'text-align:left;margin:6px 0' }, 'Drag the sticker on the picture to move it, the corner dot to resize, the round knob to turn. On a touch screen use two fingers to resize and turn.', sel.clip ? ' The faint, blurred part is outside the body part and will be cut away.' : '') : null,
       sel ? h('label', { class: 'tog cs-stk-clip', title: 'The sticker is cut to the shape of the body part, so nothing sticks out at the edge' }, h('input', { type: 'checkbox', checked: !!sel.clip, onchange: (ev) => { sel.clip = ev.target.checked; syncStickers(); } }), 'Keep it inside the body part (cut at the edge)') : null,
       sel ? h('div', { class: 'cs-stk-ctl' }, slider('Left / right', 'x', -600, 600, 1), slider('Up / down', 'y', -600, 600, 1), slider('Size', 's', 0.05, 3, 0.01, (v) => `${Math.round(v * 100)}%`), slider('Turn', 'rot', -180, 180, 1, (v) => `${v}°`), slider('Opacity', 'a', 0.1, 1, 0.01, (v) => `${Math.round(v * 100)}%`)) : null);
+  }
+
+  /* ---------- sticker handles on the picture: drag to move, corner to resize, round knob to turn; two fingers resize + turn. The part that will be cut away shows faint and blurred. ---------- */
+  st.stkSolo = true;
+  const mmul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
+  const minv = (m) => { const d = m[0] * m[3] - m[1] * m[2] || 1e-9; return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d]; };
+  const mpt = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+  const focusLayer = () => layers().find((l) => l.region === st.guideFocus) || layers().find((l) => l.region === st.stickers.find((k) => k.id === st.stkSel)?.layer) || null;
+  /** the slots to hide so that only the chosen layer (and its stickers) stays on the picture; the saved "hidden" list is not touched */
+  function soloHide() {
+    const l = st.stkSolo && st.tab === 'create' && st.def ? focusLayer() : null; if (!l) return [];
+    const keep = new Set([l.slot, ...st.stickers.filter((k) => k.layer === l.region).map((k) => `stk_${k.name}`)]);
+    return st.def.ske.armature[0].slot.map((x) => x.name).filter((n) => !keep.has(n)).concat(st.stickers.filter((k) => k.layer !== l.region).map((k) => `stk_${k.name}`));
+  }
+  let shapeCache = null;
+  const shapeOf = (l) => { if (shapeCache?.region === l.region) return shapeCache.sh; const sh = layerShape(l); shapeCache = { region: l.region, sh }; return sh; };
+  /** bring the chosen layer to the front of the picture: hide the rest and zoom in on it */
+  function applySolo({ frame = true } = {}) {
+    rebuild(); shapeCache = null;
+    if (!st.stkSolo || !focusLayer()) { if (frame) st.resetView?.(); return; }
+    if (frame) frameLayer();
+  }
+  function frameLayer(tries = 0) {
+    const l = focusLayer(), sh = l && shapeOf(l), M = l && stage.boneMatrix('c', l.slot);
+    if (!l || !sh) return;
+    if (!M) { if (tries < 12) setTimeout(() => frameLayer(tries + 1), 100); return; }
+    const w = sh.canvas.width / sh.f, hgt = sh.canvas.height / sh.f, pts = [[sh.ox, sh.oy], [sh.ox + w, sh.oy], [sh.ox, sh.oy + hgt], [sh.ox + w, sh.oy + hgt]].map(([x, y]) => mpt(M, x, y));
+    const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0])), y0 = Math.min(...pts.map((p) => p[1])), y1 = Math.max(...pts.map((p) => p[1]));
+    const zoom = Math.min(16, Math.max(0.3, Math.min(stage.W / Math.max(40, (x1 - x0) * 1.2), stage.H / Math.max(40, (y1 - y0) * 1.2))));
+    stage.userCam = { zoom, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+    stageBox.querySelector('.cs-zoomhint')?.classList.add('on');
+  }
+  const ov = { box: h('div', { class: 'cs-stk-box', title: 'Drag to move · two fingers to resize and turn' }), rs: h('div', { class: 'cs-stk-h rs', title: 'Drag to resize' }), rot: h('div', { class: 'cs-stk-h rot', title: 'Drag to turn' }), cv: h('canvas', { class: 'cs-stk-over', 'aria-hidden': 'true' }) };
+  stageBox.append(ov.cv, ov.box, ov.rs, ov.rot);
+  for (const e of [ov.box, ov.rs, ov.rot, ov.cv]) e.style.display = 'none';
+  let ovQ = null, ghost = null, ghostKey = '', ghostAt = 0;
+  const selSticker = () => st.stickers.find((k) => k.id === st.stkSel) || null;
+  function syncSliders(k) { for (const key of ['x', 'y', 's', 'rot']) { const inp = panel.querySelector(`.cs-stk-s input[data-k="${key}"]`); if (inp) { inp.value = k[key]; const out = inp.nextSibling; if (out) out.textContent = key === 's' ? `${Math.round(k.s * 100)}%` : key === 'rot' ? `${Math.round(k.rot)}°` : Math.round(k[key]); } } }
+  /** the faint, blurred picture of the part of the sticker that lies outside the body part (it is cut away when saved), drawn once per change in the bone's own space */
+  function buildGhost(k, l) {
+    const sh = shapeOf(l); if (!sh || !k.clip) return null;
+    const cs = Math.cos((k.rot || 0) * Math.PI / 180), sn = Math.sin((k.rot || 0) * Math.PI / 180), hw = k.img.width * k.s / 2, hh = k.img.height * k.s / 2;
+    const cp = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([u, v]) => [k.x + u * cs - v * sn, k.y + u * sn + v * cs]);
+    const sw = sh.canvas.width / sh.f, shh = sh.canvas.height / sh.f;
+    const x0 = Math.min(sh.ox, ...cp.map((p) => p[0])) - 4, y0 = Math.min(sh.oy, ...cp.map((p) => p[1])) - 4, x1 = Math.max(sh.ox + sw, ...cp.map((p) => p[0])) + 4, y1 = Math.max(sh.oy + shh, ...cp.map((p) => p[1])) + 4;
+    const g = Math.min(1, 480 / Math.max(x1 - x0, y1 - y0)), c = makeCanvas(Math.max(1, Math.ceil((x1 - x0) * g)), Math.max(1, Math.ceil((y1 - y0) * g))), x = c.getContext('2d');
+    x.save(); try { x.filter = 'blur(2px)'; } catch { /* no blur in this browser: the faint picture is still shown */ }
+    x.globalAlpha = 0.45; x.translate((k.x - x0) * g, (k.y - y0) * g); x.rotate((k.rot || 0) * Math.PI / 180);
+    x.drawImage(k.img, -hw * g, -hh * g, hw * 2 * g, hh * 2 * g); x.restore();
+    x.globalCompositeOperation = 'destination-out'; x.drawImage(sh.canvas, (sh.ox - x0) * g, (sh.oy - y0) * g, sw * g, shh * g);          // what is inside the part stays out of it: it is already drawn for real
+    return { c, x0, y0, g };
+  }
+  function overlayFrame() {
+    const k = selSticker(), l = k && layers().find((x) => x.region === k.layer), M = k && st.tab === 'create' ? stage.boneMatrix('c', k.slot) : null, v = stage.view;
+    if (!k || !l || !M || !v) { if (ov.box.style.display !== 'none') for (const e of [ov.box, ov.rs, ov.rot, ov.cv]) e.style.display = 'none'; ovQ = null; return; }
+    const sbr = stageBox.getBoundingClientRect(), sb = { left: sbr.left + stageBox.clientLeft, top: sbr.top + stageBox.clientTop, width: stageBox.clientWidth, height: stageBox.clientHeight }, cr = stage.out.getBoundingClientRect(), f = cr.width / v.w, ox = cr.left - sb.left, oy = cr.top - sb.top;
+    const P = [f, 0, 0, f, -v.x * f + ox, -v.y * f + oy], Q = mmul(P, M); ovQ = { Q, left: sb.left, top: sb.top };
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (ov.cv.width !== Math.round(sb.width * dpr) || ov.cv.height !== Math.round(sb.height * dpr)) { ov.cv.width = Math.round(sb.width * dpr); ov.cv.height = Math.round(sb.height * dpr); ov.cv.style.width = `${sb.width}px`; ov.cv.style.height = `${sb.height}px`; }
+    for (const e of [ov.box, ov.rs, ov.rot, ov.cv]) e.style.display = '';
+    const w = k.img.width, hgt = k.img.height, r = (k.rot || 0) * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r);
+    const T = mmul(Q, mmul([1, 0, 0, 1, k.x, k.y], mmul([cs, sn, -sn, cs, 0, 0], mmul([k.s, 0, 0, k.s, 0, 0], [1, 0, 0, 1, -w / 2, -hgt / 2]))));
+    ov.box.style.width = `${w}px`; ov.box.style.height = `${hgt}px`; ov.box.style.transformOrigin = '0 0'; ov.box.style.transform = `matrix(${T[0]},${T[1]},${T[2]},${T[3]},${T[4]},${T[5]})`;
+    const lp = (u, vv) => mpt(Q, k.x + (u * cs - vv * sn) * k.s, k.y + (u * sn + vv * cs) * k.s), c0 = lp(0, 0), br = lp(w / 2, hgt / 2), tp = lp(0, -hgt / 2), dx = tp[0] - c0[0], dy = tp[1] - c0[1], dl = Math.hypot(dx, dy) || 1, kn = [tp[0] + dx / dl * 34, tp[1] + dy / dl * 34];
+    ov.rs.style.transform = `translate(${br[0]}px,${br[1]}px)`; ov.rot.style.transform = `translate(${kn[0]}px,${kn[1]}px)`;
+    const g = ov.cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, sb.width, sb.height);
+    const gk = `${k.id}|${k.x}|${k.y}|${k.s}|${k.rot}|${k.clip}|${l.region}`;
+    if (gk !== ghostKey && performance.now() - ghostAt > 60) { ghostKey = gk; ghostAt = performance.now(); ghost = buildGhost(k, l); }
+    if (ghost && k.clip) { g.save(); const G = mmul(Q, [1 / ghost.g, 0, 0, 1 / ghost.g, ghost.x0, ghost.y0]); g.setTransform(dpr * G[0], dpr * G[1], dpr * G[2], dpr * G[3], dpr * G[4], dpr * G[5]); g.drawImage(ghost.c, 0, 0); g.restore(); }
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.lineWidth = 1.5; g.strokeStyle = '#7c6cff'; g.setLineDash([6, 4]);
+    const corners = [lp(-w / 2, -hgt / 2), lp(w / 2, -hgt / 2), lp(w / 2, hgt / 2), lp(-w / 2, hgt / 2)];
+    g.beginPath(); corners.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.stroke();
+    g.setLineDash([]); g.beginPath(); g.moveTo(tp[0], tp[1]); g.lineTo(kn[0], kn[1]); g.stroke();
+    g.fillStyle = '#fff'; for (const p of [br, kn]) { g.beginPath(); g.arc(p[0], p[1], 7, 0, Math.PI * 2); g.fill(); g.stroke(); }
+  }
+  {
+    const pts = new Map(); let mode = null, k0 = null, base = null;
+    const local = (inv, e) => mpt(inv, e.clientX - ovQ.left, e.clientY - ovQ.top);
+    const begin = (e, m) => {
+      const k = selSticker(); if (!k || !ovQ) return; e.preventDefault(); e.stopPropagation();
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* the pointer may already be gone */ }
+      pts.set(e.pointerId, { cx: e.clientX, cy: e.clientY });
+      const inv = minv(ovQ.Q);
+      if (pts.size >= 2) { const [a, b] = [...pts.values()].map((p) => mpt(inv, p.cx - ovQ.left, p.cy - ovQ.top)); mode = 'pinch'; k0 = { x: k.x, y: k.y, s: k.s, rot: k.rot || 0 }; base = { inv, a, b, d: Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ang: Math.atan2(b[1] - a[1], b[0] - a[0]), mid: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] }; return; }
+      mode = m; k0 = { x: k.x, y: k.y, s: k.s, rot: k.rot || 0 }; base = { inv, p: local(inv, e) };
+    };
+    const move = (e) => {
+      const k = selSticker(); if (!k || !mode || !pts.has(e.pointerId)) return; e.preventDefault();
+      pts.set(e.pointerId, { cx: e.clientX, cy: e.clientY });
+      const inv = base.inv;
+      if (mode === 'pinch' && pts.size >= 2) {
+        const [a, b] = [...pts.values()].map((p) => mpt(inv, p.cx - ovQ.left, p.cy - ovQ.top)), d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ang = Math.atan2(b[1] - a[1], b[0] - a[0]), mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        k.s = Math.min(3, Math.max(0.05, k0.s * d / base.d)); k.rot = ((k0.rot + (ang - base.ang) * 180 / Math.PI + 540) % 360) - 180; k.x = k0.x + mid[0] - base.mid[0]; k.y = k0.y + mid[1] - base.mid[1];
+      } else if (mode === 'move') { const p = local(inv, e); k.x = k0.x + p[0] - base.p[0]; k.y = k0.y + p[1] - base.p[1]; }
+      else if (mode === 'scale') { const p = local(inv, e), d0 = Math.hypot(base.p[0] - k0.x, base.p[1] - k0.y) || 1; k.s = Math.min(3, Math.max(0.05, k0.s * Math.hypot(p[0] - k0.x, p[1] - k0.y) / d0)); }
+      else if (mode === 'rot') { const p = local(inv, e); k.rot = ((k0.rot + (Math.atan2(p[1] - k0.y, p[0] - k0.x) - Math.atan2(base.p[1] - k0.y, base.p[0] - k0.x)) * 180 / Math.PI + 540) % 360) - 180; }
+      k.x = Math.round(k.x * 10) / 10; k.y = Math.round(k.y * 10) / 10; k.s = +k.s.toFixed(3); k.rot = Math.round(k.rot * 10) / 10;
+      syncSliders(k); queueSticker(k);
+    };
+    const end = (e) => { pts.delete(e.pointerId); if (pts.size === 0) { mode = null; if (selSticker()?.clip) syncStickers().catch(() => {}); } else if (pts.size === 1 && mode === 'pinch') { mode = null; } };
+    for (const [el, m] of [[ov.box, 'move'], [ov.rs, 'scale'], [ov.rot, 'rot']]) { el.addEventListener('pointerdown', (e) => begin(e, m)); el.addEventListener('pointermove', move); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); }
+    ov.box.addEventListener('wheel', (e) => { const k = selSticker(); if (!k) return; e.preventDefault(); k.s = Math.min(3, Math.max(0.05, +(k.s * Math.exp(-e.deltaY * 0.001)).toFixed(3))); syncSliders(k); queueSticker(k); }, { passive: false });
   }
 
   /* ---------- model: rig edits (nudges + face profile) ---------- */
@@ -419,7 +525,7 @@ export async function view({ user, home, toast, localPreview = false }) {
     stage.setRig(st.def.id, currentRig(), stickerEntry() ? [...st.def.tex, stickerEntry()] : st.def.tex);
     const anims = st.anim && st.anim.json ? { [st.anim.key]: st.anim.json } : {};
     if (st.over && st.anim && st.over.json) anims[st.over.key] = st.over.json;
-    stage.setLayers([{ key: 'c', charId: st.def.id, artworkPages: { ...st.artworkPages }, anims, clips: st.anim ? [{ id: 'a', kind: 'body', name: st.anim.key, start: 0, dur: 36000, off: 0 }, ...(st.over ? [{ id: 'o', kind: st.over.kind, name: st.over.key, start: 0, dur: 36000, off: 0 }] : [])] : [], flip: false, slot: 0, visible: true, xf: null, skins: st.skins, hide: [...st.hide], fit: st.fit, lockBounds: true }]);
+    stage.setLayers([{ key: 'c', charId: st.def.id, artworkPages: { ...st.artworkPages }, anims, clips: st.anim ? [{ id: 'a', kind: 'body', name: st.anim.key, start: 0, dur: 36000, off: 0 }, ...(st.over ? [{ id: 'o', kind: st.over.kind, name: st.over.key, start: 0, dur: 36000, off: 0 }] : [])] : [], flip: false, slot: 0, visible: true, xf: null, skins: st.skins, hide: [...new Set([...st.hide, ...soloHide()])], fit: st.fit, lockBounds: true }]);
   }
   const queueRig = () => { clearTimeout(rigTimer); rigTimer = setTimeout(rebuild, 120); };
 
@@ -474,6 +580,7 @@ export async function view({ user, home, toast, localPreview = false }) {
   // creators only upload their own parts (Start / Create / Save)
   const TABS = [['start', 'Start'], ['create', 'Create'], ['save', 'Save']];
   function draw() {
+    if (st.def) { const sk = soloHide().join('|'); if (sk !== st.soloKey) { const was = !!st.soloKey; st.soloKey = sk; rebuild(); if (was && !sk) st.resetView?.(); } }          // a sticker's solo view comes and goes with the tab and the chosen layer
     if (!TABS.some(([key]) => key === st.tab)) st.tab = 'start';       // a tab this page does not offer is never shown (e.g. an old saved draft)
     tabs.replaceChildren(...TABS.filter(([k]) => !localPreview || k !== 'save').map(([k, l]) => h('button', { class: st.tab === k ? 'on' : '', disabled: k !== 'start' && !st.def, onclick: () => { st.tab = k; draw(); } }, l)));
     panel.replaceChildren(...{ start: panelStart, create: panelCreate, save: panelSave }[st.tab]().filter(Boolean));      // a missing item must not show up as the word "null"
@@ -704,7 +811,7 @@ export async function view({ user, home, toast, localPreview = false }) {
     for (const l of rows) (groups.get(l.group) || groups.set(l.group, []).get(l.group)).push(l);
     const row = (l) => {
       const reg = st.regions.get(l.region), e = st.edit.get(l.region), file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) putImage(l, f).then(draw); } });
-      return h('div', { class: `cs-lrow cs-crow ${e?.img ? 'done' : ''} ${st.guideFocus === l.region ? 'rig-guide-selected' : ''}`, 'data-rig-region': l.region, title: 'Tap to choose this part (for stickers and the guide)', onclick: (ev) => { if (ev.target.closest('button,input,label,a')) return; st.guideFocus = st.guideFocus === l.region ? null : l.region; draw(); } }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, labelOf(l)), h('small', {}, `${reg.w}×${reg.h}px${isUtility(l) ? ' · Transparent utility slot' : e?.img ? ` · PNG ${e.img.width}×${e.img.height}px` : ''}`)),
+      return h('div', { class: `cs-lrow cs-crow ${e?.img ? 'done' : ''} ${st.guideFocus === l.region ? 'rig-guide-selected' : ''}`, 'data-rig-region': l.region, title: 'Tap to choose this part (for stickers and the guide)', onclick: (ev) => { if (ev.target.closest('button,input,label,a')) return; st.guideFocus = st.guideFocus === l.region ? null : l.region; draw(); if (st.stkSolo) applySolo(); } }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, labelOf(l)), h('small', {}, `${reg.w}×${reg.h}px${isUtility(l) ? ' · Transparent utility slot' : e?.img ? ` · PNG ${e.img.width}×${e.img.height}px` : ''}`)),
         h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, icon('download')), h('button', { class: `btn sm cs-up ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, icon(e?.img ? 'refresh' : 'upload'), h('span', {}, e?.img ? 'Replace' : 'Upload')), file);
     };
     return [

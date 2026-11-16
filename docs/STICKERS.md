@@ -17,3 +17,7 @@
 **Cut at the edge:** by default a sticker is cut to the shape of its body part (the part's picture, flat or bent mesh, is drawn in the bone's space and the sticker keeps only what lies on it); the original is stored beside the cut picture (`_src`) so it can be edited again. Turn it off in the panel to let it stick out.
 
 **Known limits:** the cut follows the part in the set-up pose (it does not bend with the part), a very bendy joint stretches it a little; up to 12 stickers per character; the sticker is placed in the pose the creator is editing.
+
+## Working on a sticker (handles, solo view)
+
+In the Character Editor → Create tab, with a sticker selected: "Show only the chosen layer" (on by default) hides every other slot for the preview only (`soloHide()` in `src/charstudio.js`, never saved) and zooms in on that layer. The sticker has handles on the picture: drag to move, corner dot to resize, knob to turn, two fingers to resize + turn (pointer events, so mouse and touch work the same). The handles are placed with `Stage.boneMatrix()` and all maths happens in the bone's own space. When "Keep it inside the body part" is on, the part outside the layer shows faint and blurred (`buildGhost`), because it will be cut away. Tests: `tests/browser/sticker-handles.spec.js`, `sticker-handles-real.spec.js`.

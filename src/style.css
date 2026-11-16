@@ -1002,3 +1002,9 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .sk-times{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}
 .sk-handle{position:absolute;z-index:6;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;border:3px solid #fff;background:#7c6cf5aa;box-shadow:0 2px 10px #0008;display:grid;place-items:center;touch-action:none;cursor:grab;color:#fff}
 .sk-handle svg{width:18px;height:18px}.sk-path{position:absolute;inset:0;pointer-events:none;z-index:5}
+
+.cs-stk-over{position:absolute;left:0;top:0;pointer-events:none;z-index:4}
+.cs-stk-box{position:absolute;left:0;top:0;z-index:5;cursor:move;touch-action:none;background:transparent}
+.cs-stk-h{position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;z-index:6;touch-action:none;cursor:nwse-resize;background:transparent}
+.cs-stk-h.rot{cursor:grab}
+.cs-stage canvas.cs-stk-over{max-width:none;max-height:none;border-radius:0}
