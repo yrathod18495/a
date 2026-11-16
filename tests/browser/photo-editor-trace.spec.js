@@ -58,6 +58,17 @@ test('tracing: reference picture, pen dot to dot with curves, dot-to-dot selecti
   const alphaAt = (x, y) => A((api, [x, y]) => api.D.getContext('2d').getImageData(x, y, 1, 1).data[3], [x, y]);
   // tools exist
   for (const t of ['pen', 'poly', 'ref']) await expect(page.locator(`.pe-tool[data-tool="${t}"]`)).toHaveCount(1);
+  // every tool has its own mouse pointer: a pen nib, a bucket, an eyedropper, a wand, arrows, a hand; brushes show a ring of their size
+  const cur = () => page.locator('.pe-canvas').evaluate((el) => el.style.cursor);
+  for (const t of ['pen', 'bucket', 'dropper', 'wand', 'poly']) { await page.locator(`.pe-tool[data-tool="${t}"]`).click(); expect(await cur(), t).toContain('data:image/svg+xml'); }
+  await page.locator('.pe-tool[data-tool="move"]').click(); expect(await cur()).toBe('move');
+  await page.locator('.pe-tool[data-tool="hand"]').click(); expect(await cur()).toBe('grab');
+  await page.locator('.pe-tool[data-tool="rect"]').click(); expect(await cur()).toBe('crosshair');
+  await page.locator('.pe-tool[data-tool="brush"]').click(); const cb0 = await page.locator('.pe-canvas').boundingBox(); await page.mouse.move(cb0.x + 200, cb0.y + 200); await page.mouse.move(cb0.x + 210, cb0.y + 205);
+  expect(await cur()).toBe('none'); await expect(page.locator('.pe-cursor')).toBeVisible();
+  await page.locator('.pe-brush[data-style="marker"]').click(); await page.mouse.move(cb0.x + 220, cb0.y + 210); await expect(page.locator('.pe-cursor.mk')).toBeVisible();
+  await page.locator('.pe-tool[data-tool="eraser"]').click(); await page.mouse.move(cb0.x + 230, cb0.y + 215); await expect(page.locator('.pe-cursor.er')).toBeVisible();
+  await page.locator('.pe-tool[data-tool="brush"]').click(); await page.locator('.pe-brush[data-style="soft"]').click();
   // the Trace tab: add a reference picture; it is faint, "keep transparent" goes off, the picture opacity can be lowered
   await page.locator('.pe-ptabs button', { hasText: 'Trace' }).click();
   await page.locator('.pe-panel input[type=file]').setInputFiles({ name: 'ref.png', mimeType: 'image/png', buffer: PNG });

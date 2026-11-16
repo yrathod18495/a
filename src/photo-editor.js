@@ -57,6 +57,16 @@ const TOOLS = [
   ['pen', 'Pen (dot to dot)', 'pen'], ['poly', 'Dot-to-dot select', 'poly'], ['ref', 'Move reference', 'ref'],
   ['move', 'Move pixels', 'move'], ['hand', 'Move view', 'hand'],
 ];
+/** the mouse pointer of each tool: a pen nib for the pen, a bucket for fill, an eyedropper for the colour picker, a wand for magic select ... (the hot spot is the tip) */
+const svgCursor = (body, hx, hy, fallback) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'><g stroke='#fff' stroke-width='4.2'>${body}</g><g stroke='#000' stroke-width='1.8'>${body}</g></svg>`)}") ${hx} ${hy}, ${fallback}`;
+const CURSORS = {
+  pen: svgCursor("<path d='M4 21l1-5 11-11 4 4-11 11z'/><path d='M14 7l4 4'/>", 3, 26, 'crosshair'),
+  bucket: svgCursor("<path d='M5 12l7-7 7 7-6 6a2 2 0 0 1-3 0z'/><path d='M20 15c1 1.500 2 2.500 2 3.500a2 2 0 0 1-4 0c0-1 1-2 2-3.500z'/>", 3, 24, 'crosshair'),
+  dropper: svgCursor("<path d='M16 4l4 4-3 3-4-4z'/><path d='M13 9L4 18v2h2l9-9'/>", 3, 26, 'crosshair'),
+  wand: svgCursor("<path d='M4 20L15 9'/><path d='M17 3v4M15 5h4M20 10v3M18.500 11.500h3'/>", 3, 26, 'crosshair'),
+  poly: svgCursor("<path d='M12 3v18M3 12h18'/><circle cx='12' cy='12' r='3'/>", 14, 14, 'crosshair'),
+  ref: 'move', move: 'move', hand: 'grab', gradient: 'crosshair', rect: 'crosshair', ellipse: 'crosshair', lasso: 'crosshair',
+};
 const SHORT = { 'Rectangle select': 'Rect.', 'Ellipse select': 'Ellipse', 'Freehand select': 'Free', 'Magic select': 'Magic', 'Pick colour': 'Pick', 'Move pixels': 'Move', 'Move view': 'Pan', 'Pen (dot to dot)': 'Pen', 'Dot-to-dot select': 'Dots', 'Move reference': 'Ref.' };
 const SWATCHES = ['#000000', '#ffffff', '#6b6b6b', '#c0c0c0', '#8b1e2d', '#e03a3a', '#f08a24', '#f4d03f', '#7ab648', '#2e8b57', '#2aa6c9', '#2f5fd0', '#6a3fc4', '#d65db1', '#d9b38c', '#8a5a3c'];
 
@@ -534,7 +544,8 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   function renderTools() {
     toolBar.replaceChildren(...TOOLS.map(([id, label, ico]) => h('button', { type: 'button', class: `pe-tool${state.tool === id ? ' on' : ''}`, 'data-tool': id, title: label, 'aria-label': label, 'aria-pressed': String(state.tool === id), onclick: () => setTool(id) }, ic(ico), h('small', {}, SHORT[label] || label))));
   }
-  function setTool(id) { state.tool = id; if (id === 'eraser' || id === 'smudge' || id === 'blur' || id === 'clone') state.panel = 'brush'; renderTools(); syncOptions(); updateCursor(); }
+  function applyCursor() { stageCv.style.cursor = state.space ? 'grab' : (CURSORS[state.tool] || 'crosshair'); }
+  function setTool(id) { state.tool = id; applyCursor(); if (id === 'eraser' || id === 'smudge' || id === 'blur' || id === 'clone') state.panel = 'brush'; renderTools(); syncOptions(); updateCursor(); }
   const optBar = h('div', { class: 'pe-opts' });
   const slider = (label, key, min, max, step = 1, fmt = (v) => v, on) => { const out = h('b', {}, fmt(state[key] ?? adj[key])); return h('label', { class: 'pe-s' }, h('span', {}, label), h('input', { type: 'range', min, max, step, value: state[key] ?? adj[key], 'data-k': key, oninput: (ev) => { const v = +ev.target.value; if (key in state) state[key] = v; else adj[key] = v; out.textContent = fmt(v); on?.(v); updateCursor(); } }), out); };
   const check = (label, key, on, title) => h('label', { class: 'pe-ck', title: title || label }, h('input', { type: 'checkbox', checked: !!state[key], onchange: (ev) => { state[key] = ev.target.checked; on?.(); } }), h('span', {}, label));
@@ -684,7 +695,10 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     const show = e && e.pointerType === 'mouse' && ['brush', 'eraser', 'smudge', 'blur', 'clone'].includes(state.tool) && e.target === stageCv && !state.space;
     if (!show) { cursor.style.display = 'none'; return; }
     const r = rectOfView(), d = Math.max(4, state.size * state.scale);
-    cursor.style.cssText = `display:block;width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+    const marker = state.tool === 'brush' && state.style === 'marker', w = d, hh = marker ? d * 0.6 : d;
+    cursor.className = `pe-cursor${state.tool === 'eraser' ? ' er' : ''}${marker ? ' mk' : ''}${state.tool === 'smudge' || state.tool === 'blur' ? ' soft' : ''}`;
+    cursor.style.cssText = `display:block;width:${w}px;height:${hh}px;left:${e.clientX - r.left - w / 2}px;top:${e.clientY - r.top - hh / 2}px`;
+    stageCv.style.cursor = d >= 9 ? 'none' : 'crosshair';          // a big brush shows its own size as a ring
   }
   const titleEl = h('b', { class: 'pe-title' }, title);
   function close(apply) {
@@ -714,7 +728,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     else if (mod && k === 'y') { e.preventDefault(); e.stopPropagation(); redo(); }
     else if (mod && k === 'a') { e.preventDefault(); e.stopPropagation(); setSel(new Uint8Array(W * H).fill(255)); }
     else if (mod && k === 'd') { e.preventDefault(); e.stopPropagation(); setSel(null); }
-    else if (k === ' ') { e.preventDefault(); state.space = true; stageCv.style.cursor = 'grab'; }
+    else if (k === ' ') { e.preventDefault(); state.space = true; applyCursor(); cursor.style.display = 'none'; }
     else if (k === 'escape' && picker) { e.stopPropagation(); closePicker(); }
     else if (k === 'escape' && state.tool === 'poly' && poly.pts.length) { e.stopPropagation(); poly.pts = []; poly.mouse = null; draw(); syncOptions(); }
     else if (k === 'escape' && state.tool === 'pen' && pen.pts.length) { e.stopPropagation(); penClear(); }
@@ -729,10 +743,11 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     else if (k === 'x') { [state.fg, state.bg] = [state.bg, state.fg]; renderColours(); }
     else if (!mod) { const hot = { b: 'brush', e: 'eraser', g: 'bucket', i: 'dropper', m: 'rect', l: 'lasso', w: 'wand', p: 'pen', d: 'poly', r: 'ref', v: 'move', s: 'smudge', h: 'hand' }[k]; if (hot) setTool(hot); }
   };
-  const onKeyUp = (e) => { if (e.key === ' ') { state.space = false; stageCv.style.cursor = ''; } };
+  const onKeyUp = (e) => { if (e.key === ' ') { state.space = false; applyCursor(); } };
   document.addEventListener('keydown', onKey, true); document.addEventListener('keyup', onKeyUp, true);
   stageCv.addEventListener('pointerdown', onDown); stageCv.addEventListener('pointermove', onMove); stageCv.addEventListener('pointerup', onUp); stageCv.addEventListener('pointercancel', onUp);
   stageCv.addEventListener('pointerleave', () => { cursor.style.display = 'none'; });
+  applyCursor();
   stageCv.addEventListener('wheel', (e) => { e.preventDefault(); if (state.tool === 'ref' && ref && !ref.locked) { ref.scale = clamp(ref.scale * Math.exp(-e.deltaY * 0.001), 0.02, 20); renderPanel(); draw(); return; } const r = rectOfView(); zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0016))); }, { passive: false });
   stageCv.addEventListener('contextmenu', (e) => e.preventDefault());
   stageCv.addEventListener('dblclick', () => { if (state.tool === 'poly' && poly.pts.length >= 3) polyFinish(); });
