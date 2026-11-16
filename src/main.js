@@ -26,7 +26,7 @@ import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, del
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
 import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, isLockedCharacter, fetchLibraryCharacter, cdn, modePools, idleRef, modeEntries, MODE_REFS, cloudRef } from './catalog.js';
-import { pictureUrl, releaseMemory } from './cloud-characters.js';
+import { pictureUrl, pictureUrlNow, releaseMemory } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { exportFileName } from './export-name.js';
@@ -230,14 +230,16 @@ const animKey = (r) => (r.source === 'lib' ? `a${r.id}` : r.source === 'custom' 
 /** the small picture of an animation in the list; an uploaded character's GIF is downloaded once and kept by the browser */
 function posterImg(poster, type = 'gif') {
   if (!String(poster).startsWith('cloud:')) return h('img', { src: assetUrl(poster), alt: '', loading: 'lazy', decoding: 'async' });
+  const ref = cloudRef(poster), known = pictureUrlNow(ref);          // a picture seen before is shown in the same moment, not after a wait
   if (type === 'mp4') {                                              // the preview is a tiny looping video (muted, plays by itself, like a GIF)
     const video = h('video', { class: 'animation-poster', loop: true, playsinline: true, preload: 'auto', 'aria-hidden': 'true', tabindex: '-1' });
     video.muted = true; video.autoplay = true;
-    pictureUrl(cloudRef(poster), 'video/mp4').then((u) => { video.src = u; video.play().catch(() => {}); }).catch(() => { video.remove(); });
+    if (known) { video.src = known; video.play().catch(() => {}); }
+    else pictureUrl(ref, 'video/mp4').then((u) => { video.src = u; video.play().catch(() => {}); }).catch(() => { video.remove(); });
     return video;
   }
   const img = h('img', { alt: '', decoding: 'async' });
-  pictureUrl(cloudRef(poster)).then((u) => { img.src = u; }).catch(() => { img.remove(); });
+  if (known) img.src = known; else pictureUrl(ref).then((u) => { img.src = u; }).catch(() => { img.remove(); });
   return img;
 }
 async function animJson(def, r) {
@@ -373,11 +375,12 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     const windowEl = h('div', { class: 'animation-window' });
     const sizeWindow = () => { windowEl.style.height = `${Math.ceil(list.length / cols) * ROW}px`; windowEl.dataset.cols = String(cols); windowEl.dataset.row = String(ROW); };
     sizeWindow();
+    for (const a of list.slice(0, 48)) if (String(a.poster || '').startsWith('cloud:')) pictureUrl(cloudRef(a.poster), a.posterType === 'mp4' ? 'video/mp4' : null).catch(() => {});          // the first previews are fetched together (one request), so a quick scroll finds them ready
     viewport.append(windowEl);
     let start = -1, end = -1;
     const paint = () => {
       const c = colsNow(); if (c !== cols) { cols = c; start = end = -1; sizeWindow(); }
-      const firstRow = Math.max(0, Math.floor(viewport.scrollTop / ROW) - 1), rows = Math.ceil((viewport.clientHeight || 640) / ROW) + 3;
+      const firstRow = Math.max(0, Math.floor(viewport.scrollTop / ROW) - 3), rows = Math.ceil((viewport.clientHeight || 640) / ROW) + 7;          // a few rows more than the screen shows: a fast scroll does not meet empty cards
       const nextStart = firstRow * cols, nextEnd = Math.min(list.length, nextStart + rows * cols);
       if (nextStart === start && nextEnd === end) return;
       start = nextStart; end = nextEnd;

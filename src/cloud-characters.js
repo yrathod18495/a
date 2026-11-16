@@ -22,6 +22,8 @@ export const grantCharacter = ({ id, view = null, email }) => call({ action: 'gr
 
 const memory = new Map();         // sha -> Promise<Blob> for this page (only the most recent ones: see trimMemory)
 const sizes = new Map();          // sha -> bytes of a finished entry in `memory`
+const touched = new Map();        // sha -> when it was last asked for: nothing is let go of within 6 seconds (a quick scroll up and down shows the pictures at once)
+const KEEP_MS = 6000;
 const MEMORY_LIMIT = 48 * 1024 * 1024;
 /** RAM is for what is on screen now: the files stay on the phone's disk (browser cache), and the oldest ones leave RAM first */
 function trimMemory() {
@@ -29,7 +31,8 @@ function trimMemory() {
   for (const sha of [...memory.keys()]) {            // Map keeps insertion order: oldest first
     if (total <= MEMORY_LIMIT) break;
     if (!sizes.has(sha)) continue;                    // still downloading
-    total -= sizes.get(sha); sizes.delete(sha); memory.delete(sha);
+    if (performance.now() - (touched.get(sha) || 0) < KEEP_MS) continue;          // used a moment ago
+    total -= sizes.get(sha); sizes.delete(sha); memory.delete(sha); touched.delete(sha);
   }
 }
 /** the page goes to the background: give everything that can be read again from the disk back to the system */
@@ -48,6 +51,7 @@ export async function getFiles(refs) {
   await Promise.all(refs.filter(Boolean).map(async (r) => {
     const sha = refSha(r);
     if (!sha || out.has(sha)) return;
+    touched.set(sha, performance.now());
     if (memory.has(sha)) { out.set(sha, await memory.get(sha)); return; }
     const hit = await fromCache(sha);
     if (hit) { out.set(sha, hit); memory.set(sha, Promise.resolve(hit)); sizes.set(sha, hit.size); trimMemory(); } else if (!missing.some((m) => refSha(m) === sha)) missing.push(r);
@@ -72,6 +76,9 @@ export async function getFiles(refs) {
 }
 export async function getJson(ref) { return JSON.parse(await (await getFiles([ref])).get(refSha(ref)).text()); }
 const urls = new Map();
+const resolved = new Map();       // sha -> object URL once it is ready: a card that is drawn again gets its picture in the same moment (no empty box while scrolling)
+/** the picture's URL if it is already known, else null (then use pictureUrl) */
+export function pictureUrlNow(ref) { const sha = refSha(ref); return (sha && resolved.get(sha)) || null; }
 let queue = [], flushing = null;
 /** pictures asked for in the same moment are fetched with ONE request (a list of 30 animation previews used to make 30 requests) */
 function batched(ref) {
@@ -94,8 +101,8 @@ function batched(ref) {
 export async function pictureUrl(ref, type = null) {
   const sha = refSha(ref);
   if (!sha) return null;
-  while (urls.size > 120) { const [oldSha, oldUrl] = urls.entries().next().value; urls.delete(oldSha); Promise.resolve(oldUrl).then((u) => u && URL.revokeObjectURL(u)).catch(() => {}); }          // keep at most 120 picture URLs alive
-  if (!urls.has(sha)) urls.set(sha, batched(ref).then((b) => URL.createObjectURL(type ? new Blob([b], { type }) : b)).catch((e) => { urls.delete(sha); throw e; }));
+  while (urls.size > 240) { const [oldSha, oldUrl] = urls.entries().next().value; urls.delete(oldSha); resolved.delete(oldSha); Promise.resolve(oldUrl).then((u) => u && URL.revokeObjectURL(u)).catch(() => {}); }          // keep at most 120 picture URLs alive
+  if (!urls.has(sha)) urls.set(sha, batched(ref).then((b) => { const u = URL.createObjectURL(type ? new Blob([b], { type }) : b); resolved.set(sha, u); return u; }).catch((e) => { urls.delete(sha); throw e; }));
   return urls.get(sha);
 }
 /** start downloading these pictures now (one request), so the list shows them as soon as it opens */
