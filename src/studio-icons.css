@@ -883,3 +883,30 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
 .voice-sheet .vo-cam[open]>summary{margin-bottom:8px}
 /* the camera box leaves the picture visible: it is short and scrolls inside */
 @media(max-width:860px){.voice-sheet.cam-sheet{max-height:42dvh!important}.cam-sheet .joy{width:92px;height:92px}.cam-sheet .joy-knob{width:34px;height:34px;left:calc(50% - 17px);top:calc(50% - 17px)}}
+
+/* ---- animated bottom navigation (phone): buttons pop in one after another, press with a squish, and every icon has its own small motion ---- */
+@keyframes nav-pop{0%{opacity:0;transform:translateY(14px) scale(.8)}60%{opacity:1;transform:translateY(-2px) scale(1.06)}100%{opacity:1;transform:none}}
+@keyframes nav-ico-mic{0%,100%{transform:scale(1)}30%{transform:scale(1.18)}60%{transform:scale(.96)}}
+@keyframes nav-ico-note{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(-4px) rotate(-8deg)}60%{transform:translateY(1px) rotate(6deg)}}
+@keyframes nav-ico-gear{to{transform:rotate(180deg)}}
+@keyframes nav-ico-up{0%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}70%{transform:translateY(1px)}}
+@keyframes nav-ico-wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-10deg)}75%{transform:rotate(10deg)}}
+@keyframes nav-ico-zoom{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}
+@keyframes nav-glow{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc,#7c6cf5) 45%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
+@media(max-width:860px) and (prefers-reduced-motion:no-preference){
+  #app .ws .tabs-scroll>button,#app .ws .tabs-scroll>details{animation:nav-pop .46s cubic-bezier(.3,1.4,.5,1) both}
+  #app .ws .tabs-scroll>:nth-child(2){animation-delay:.05s}#app .ws .tabs-scroll>:nth-child(3){animation-delay:.1s}#app .ws .tabs-scroll>:nth-child(4){animation-delay:.15s}#app .ws .tabs-scroll>:nth-child(5){animation-delay:.2s}#app .ws .tabs-scroll>:nth-child(6){animation-delay:.25s}#app .ws .tabs-scroll>:nth-child(7){animation-delay:.3s}
+  #app .ws .tabs-scroll>button{transition:transform .16s cubic-bezier(.3,1.5,.5,1),background-color .2s,color .2s}
+  #app .ws .tabs-scroll>button:active{transform:scale(.88)}
+  #app .ws .tabs-scroll>button .ti svg,#app .ws .tabs-scroll>details .ti svg{transition:transform .25s}
+  #app .ws .tabs-scroll>button.on{animation:nav-pop .46s cubic-bezier(.3,1.4,.5,1) both,nav-glow 2.2s ease-in-out .6s infinite}
+  /* each icon moves in its own way while its button is pressed or active */
+  #app .ws .tabs-scroll>button[title=Voices]:is(:active,.on) .ti svg{animation:nav-ico-mic .7s ease-in-out infinite}
+  #app .ws .tabs-scroll>button:is([title=Music],[title=Objects]):is(:active,.on) .ti svg{animation:nav-ico-note .8s ease-in-out infinite}
+  #app .ws .tabs-scroll>button:is([title="Edit voice"],[title=Edit],[title=Settings]):is(:active,.on) .ti svg,#app .ws .tabs-scroll>details[open] summary .ti svg{animation:nav-ico-gear 1.6s linear infinite}
+  #app .ws .tabs-scroll>button:is([title=Upload]):is(:active,.on) .ti svg{animation:nav-ico-up .8s ease-in-out infinite}
+  #app .ws .tabs-scroll>button:is([title=Hold],[title=Props],[title="Hand props"],[title=Characters],[title=Animations]):is(:active,.on) .ti svg{animation:nav-ico-wiggle .6s ease-in-out infinite}
+  #app .ws .tabs-scroll>button:is([title=Camera],[title=Pick],[title=Filter],[title=Colour],[title=Effects],[title=Overlays],[title=Move],[title=Shadow]):is(:active,.on) .ti svg{animation:nav-ico-zoom .7s ease-in-out infinite}
+  /* the first touch gives a quick one-time nudge so even a short tap shows the motion */
+  #app .ws .tabs-scroll>button:active .ti{transform:translateY(-2px)}
+}
