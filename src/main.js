@@ -1038,7 +1038,7 @@ function phoneNav(button, byKey, upload, more) {
     tab('grade', 'Colour')];
   if (cat === 'props') return [tab('handprops'), tab('props'), act('hand', 'Hold', () => openHoldTool()), tab('shadow')];
   if (cat === 'effects') return [tab('fx'), tab('effects'), tab('grade', 'Colour')];
-  return [tab('chars'), tab('anim'), tab('motion'), act('video', 'Camera', () => openCamBox(), !!(camSheetEl && !camSheetEl.hidden)), more];
+  return [tab('chars'), tab('anim'), tab('motion'), more];
 }
 function drawTabs() { drawTabsInner(); syncCloudPill(); }
 function drawTabsInner() {
@@ -2278,11 +2278,14 @@ function jumpEdge(dir) {
 let editBtns = {};
 function editTools() {
   const b = (key, label, ic, fn, tip, cls = '') => (editBtns[key] = h('button', { type: 'button', class: `edit-btn edit-${key} ${cls}`, title: tip, 'aria-label': tip, onclick: fn }, icon(ic), h('span', {}, label)));
+  const soon = (name, ic) => h('button', { type: 'button', class: 'edit-btn edit-ai', title: `${name} (coming soon)`, 'aria-label': `${name}, coming soon`, onclick: () => toast(`${name} is coming soon.`) }, icon(ic), h('span', {}, name), h('i', { class: 'soon-lock', 'aria-hidden': 'true' }, icon('lock')));
   return h('div', { class: 'edittools', role: 'toolbar', 'aria-label': 'Edit the selected clip' },
     b('prev', 'Prev', 'skip-back', () => jumpEdge(-1), 'Jump to the previous clip edge'), b('next', 'Next', 'skip-forward', () => jumpEdge(1), 'Jump to the next clip edge'),
     b('split', 'Split', 'scissors', splitSelected, 'Cut the selected clip at the playhead', 'needs-sel'),
     b('dup', 'Duplicate', 'layers', duplicateSelected, 'Add the same clip again, right after this one', 'needs-sel'),
-    b('del', 'Delete', 'trash', deleteSelected, 'Delete the selected clip', 'needs-sel del'));
+    b('del', 'Delete', 'trash', deleteSelected, 'Delete the selected clip', 'needs-sel del'),
+    b('cam', 'Camera', 'video', () => openCamBox(), 'Camera'),
+    soon('AI Motion', 'wand'), soon('AI Voice', 'sparkles'));
 }
 function updateEditTools() {
   const many = multi.size >= 2, has = !!selectedItem() || many;
