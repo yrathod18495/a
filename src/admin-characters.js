@@ -269,12 +269,11 @@ export async function charactersView({ back, home, toast }) {
     });
     const act = (ic, text, onclick, extra = {}) => h('button', { class: `btn sm ac-act${extra.danger ? ' danger' : ''}`, type: 'button', disabled: st.busy, title: extra.title || text, 'aria-label': extra.label || text, ...(extra.attrs || {}), onclick }, icon(ic));
     return h('article', { class: 'admin-character-card' },
-      h('div', { class: 'admin-character-thumb' }, img, tag),
+      h('div', { class: 'admin-character-thumb' }, img, tag, h('div', { class: 'ac-poses', 'aria-label': 'Poses' }, ...poses)),
       h('div', { class: 'admin-character-copy' }, h('b', {}, c.name), h('div', { class: 'ac-meta' },
           h('select', { class: 'admin-character-group', 'aria-label': `Group of ${c.name}`, title: 'The group the creators find this character in', disabled: st.busy, onchange: (e) => regroup(c, e.target) },
           CHARACTER_GROUPS.map(([id, label]) => h('option', { value: id, selected: groupOf(c, c.categoryName) === id }, label))),
           h('small', {}, `${anims} anim.`)),
-        h('div', { class: 'ac-poses', 'aria-label': 'Poses' }, ...poses),
         h('small', { class: `admin-character-store ${hasStore(c) ? 'paid' : ''}` }, storeSummary(c))),
       h('div', { class: 'admin-character-actions' },
         act('pencil', 'Rename', () => rename(c)),
