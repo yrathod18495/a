@@ -1080,7 +1080,7 @@ function drawTabsInner() {
     const was = tabsEl.querySelector('.tabs-scroll'), fresh = h('div', { class: 'tabs-scroll', 'data-nav': S.tlCat }, ...phoneNav(button, byKey, upload, more));
     tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), fresh);
     // the bar turns like a cube (up and down) when another group of layers is chosen: the old bar turns away, the new one turns in
-    if (was && was.dataset.nav !== S.tlCat && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (was && was.dataset.nav !== S.tlCat && !S.sel && !(multi.size >= 2 || selectedItem()) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       was.classList.add('cube-out'); fresh.classList.add('cube-in'); tabsEl.append(was); tabsEl.classList.add('cubing');
       setTimeout(() => { was.remove(); fresh.classList.remove('cube-in'); tabsEl.classList.remove('cubing'); }, 380);
     }
