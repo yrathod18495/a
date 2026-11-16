@@ -54,6 +54,14 @@ test('stickers: library, own picture, sliders, draft and save', async ({ page })
   await page.locator('.cs-stk-tile:not(.locked)').first().click();
   await expect(page.locator('.cs-stk-row')).toHaveCount(1, { timeout: 10000 });
   expect(t.counts().gets).toBe(1);
+  // the sticker is cut to its body part by default (the original is kept beside the cut picture); the checkbox turns the cut off
+  await expect.poll(() => page.evaluate(() => Object.keys(window.__charstudio.st.stkAtlas?.regs || {}).length)).toBe(2);
+  expect(await page.evaluate(() => !!window.__charstudio.st.stickers[0].tf)).toBe(true);
+  await page.locator('.cs-stk-clip input').uncheck();
+  await expect.poll(() => page.evaluate(() => Object.keys(window.__charstudio.st.stkAtlas?.regs || {}).length)).toBe(1);
+  expect(await page.evaluate(() => window.__charstudio.st.stickers[0].tf)).toBeNull();
+  await page.locator('.cs-stk-clip input').check();
+  await expect.poll(() => page.evaluate(() => Object.keys(window.__charstudio.st.stkAtlas?.regs || {}).length)).toBe(2);
   // the sliders change the sticker
   const before = await page.evaluate(() => window.__charstudio.st.stickers[0].s);
   await page.locator('.cs-stk-s input').nth(2).evaluate((el) => { el.value = '1.2'; el.dispatchEvent(new Event('input', { bubbles: true })); });

@@ -276,22 +276,73 @@ export async function view({ user, home, toast, localPreview = false }) {
   let stkEntry = null;
   const stickerEntry = () => (st.stickers.length ? stkEntry : null);
   /** all sticker pictures packed into one picture page (stickers.png) */
+  /** the picture of a body part as it stands in the set-up pose, drawn in the local space of the bone it hangs on (bone pixels); works for flat pictures and for bent meshes.
+      Returns { canvas, ox, oy, f } (the canvas starts at bone point ox, oy and is f times the size of the bone space) or null. */
+  function layerShape(l) {
+    let built = null;
+    try { built = stage.armatureFor(st.def.id, st.skins); } catch { return null; }
+    try {
+      const sd = st.def.ske.armature[0].slot.find((x) => x.name === l.slot), slot = built.arm.getSlot(l.slot), idx = built.prep.disp.get(l.slot)?.get(l.key), bone = sd && built.arm.getBone(sd.parent);
+      if (!slot || idx == null || !bone) return null;
+      slot.displayIndex = idx; built.arm.advanceTime(0);
+      const list = []; slot.collect(list); if (!list.length) return null;
+      const m = bone.globalTransformMatrix, det = m.a * m.d - m.b * m.c; if (Math.abs(det) < 1e-9) return null;
+      const toLocal = (x, y) => { const dx = x - m.tx, dy = y - m.ty; return [(m.d * dx - m.c * dy) / det, (-m.b * dx + m.a * dy) / det]; };
+      const tris = []; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const it of list) {
+        const page = st.work[it.atlas.imagePath] || st.orig[it.atlas.imagePath]; if (!page) continue;
+        const pts = []; for (let i = 0; i < it.verts.length; i += 2) { const [lx, ly] = toLocal(it.verts[i], it.verts[i + 1]); pts.push([lx, ly]); if (lx < x0) x0 = lx; if (lx > x1) x1 = lx; if (ly < y0) y0 = ly; if (ly > y1) y1 = ly; }
+        for (let i = 0; i < it.idx.length; i += 3) tris.push({ page, p: [it.idx[i], it.idx[i + 1], it.idx[i + 2]].map((k) => pts[k]), u: [it.idx[i], it.idx[i + 1], it.idx[i + 2]].map((k) => [it.uvs[k * 2] * page.width, it.uvs[k * 2 + 1] * page.height]) });
+      }
+      if (!tris.length || !(x1 > x0) || !(y1 > y0)) return null;
+      const f = Math.min(1, 2048 / Math.max(x1 - x0, y1 - y0)), c = makeCanvas(Math.max(1, Math.ceil((x1 - x0) * f)), Math.max(1, Math.ceil((y1 - y0) * f))), g = c.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      for (const t of tris) {
+        const [[ax, ay], [bx, by], [cx, cy]] = t.p.map(([x, y]) => [(x - x0) * f, (y - y0) * f]), [[au, av], [bu, bv], [cu, cv]] = t.u;
+        const d = (au * (bv - cv) + bu * (cv - av) + cu * (av - bv)); if (Math.abs(d) < 1e-9) continue;
+        const A = (ax * (bv - cv) + bx * (cv - av) + cx * (av - bv)) / d, C = (ax * (cu - bu) + bx * (au - cu) + cx * (bu - au)) / d, E = (ax * (bu * cv - cu * bv) + bx * (cu * av - au * cv) + cx * (au * bv - bu * av)) / d;
+        const B = (ay * (bv - cv) + by * (cv - av) + cy * (av - bv)) / d, D = (ay * (cu - bu) + by * (au - cu) + cy * (bu - au)) / d, F = (ay * (bu * cv - cu * bv) + by * (cu * av - au * cv) + cy * (au * bv - bu * av)) / d;
+        g.save(); g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.lineTo(cx, cy); g.closePath(); g.clip(); g.setTransform(A, B, C, D, E, F); g.drawImage(t.page, 0, 0); g.restore();
+      }
+      return { canvas: c, ox: x0, oy: y0, f };
+    } catch (e) { console.warn('shape of the layer failed', e); return null; } finally { stage.disposeTemp(built); }
+  }
+  /** the sticker cut to the shape of its body part: placed on the part's picture (in bone space), then everything outside the part's opaque pixels is removed */
+  function clipSticker(k) {
+    const l = layers().find((x) => x.region === k.layer), sh = l && layerShape(l); if (!sh) return null;
+    const { canvas: base, ox, oy, f } = sh, c = makeCanvas(base.width, base.height), g = c.getContext('2d');
+    g.save(); g.translate((k.x - ox) * f, (k.y - oy) * f); g.rotate((k.rot || 0) * Math.PI / 180);
+    const w = k.img.width * (k.s ?? 1) * f, h = k.img.height * (k.s ?? 1) * f; g.drawImage(k.img, -w / 2, -h / 2, w, h); g.restore();
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(base, 0, 0);
+    return { canvas: c, tf: { x: ox + base.width / (2 * f), y: oy + base.height / (2 * f), skX: 0, skY: 0, scX: 1 / f, scY: 1 / f } };
+  }
+  /** all sticker pictures packed into one picture page (stickers.png); a cut sticker is stored as its cut picture (shown) plus its original (`_src`, kept so it can be edited again) */
   async function packStickers() {
     if (!st.stickers.length) { stkEntry = null; st.stkAtlas = null; st.stkBlob = null; return; }
-    const W = Math.max(...st.stickers.map((k) => k.img.width)); let y = 0; const regs = {};
-    for (const k of st.stickers) { regs[k.name] = { x: 0, y, w: k.img.width, h: k.img.height }; y += k.img.height + 2; }
-    const c = makeCanvas(W, y), g = c.getContext('2d');
-    for (const k of st.stickers) g.drawImage(k.img, 0, regs[k.name].y);
-    st.stkAtlas = { w: W, h: y, regs }; st.stkBlob = await toBlob(c, 'image/png');
+    const parts = [];          // [regionName, canvas]
+    for (const k of st.stickers) {
+      const cut = k.clip ? clipSticker(k) : null;
+      k.tf = cut ? cut.tf : null;
+      parts.push([k.name, cut ? cut.canvas : k.img]); if (cut) parts.push([`${k.name}_src`, k.img]);
+    }
+    const W = Math.max(...parts.map(([, c]) => c.width)); let y = 0; const regs = {};
+    for (const [name, c] of parts) { regs[name] = { x: 0, y, w: c.width, h: c.height }; y += c.height + 2; }
+    const cv = makeCanvas(W, y), g = cv.getContext('2d');
+    for (const [name, c] of parts) g.drawImage(c, 0, regs[name].y);
+    st.stkAtlas = { w: W, h: y, regs }; st.stkBlob = await toBlob(cv, 'image/png');
     stkEntry = { json: stickerAtlasJson(st.stkAtlas), image: st.stkBlob };
     const old = st.artworkPages[STICKER_PAGE], key = { page: STICKER_PAGE };
-    await stage.loadArtworkCanvas(key, c); st.artworkPages[STICKER_PAGE] = key; if (old) stage.dropArtworkCanvas(old);
+    await stage.loadArtworkCanvas(key, cv); st.artworkPages[STICKER_PAGE] = key; if (old) stage.dropArtworkCanvas(old);
   }
   async function syncStickers() { await packStickers(); rebuild(); }
+  let stkTimer = 0;
+  /** a slider moved: a cut sticker is cut again (a moment after the last move); a free one only moves */
+  function queueSticker(k) { if (!k.clip) { queueRig(); return; } clearTimeout(stkTimer); stkTimer = setTimeout(() => { syncStickers().catch((e) => console.warn('sticker update failed', e)); }, 140); }
   function displayOf(l) {
     const sk = st.def.ske.armature[0].skin;
-    for (const k of sk) { const sl = k.slot.find((x) => x.name === l.slot), d = sl?.display?.find((x) => x.name === l.key); if (d) return d.transform || {}; }
-    return {};
+    let found = null;
+    for (const k of sk) { if (k.name !== 'default' && st.skins && !st.skins.includes(k.name)) continue; const sl = k.slot.find((x) => x.name === l.slot), d = sl?.display?.find((x) => x.name === l.key); if (d) found = d.transform || {}; }          // the worn outfit's picture replaces the default one, like on the stage
+    return found || {};
   }
   async function addSticker(file) {
     if (!st.def) { toast('Pick a template first.'); return; }
@@ -301,9 +352,9 @@ export async function view({ user, home, toast, localPreview = false }) {
     let src; try { src = await readImage(file, file.name); } catch { toast('This picture could not be read. Please use a PNG or SVG.'); return; }
     const k = Math.min(1, STK_MAX / Math.max(src.width, src.height)), img = makeCanvas(Math.max(1, Math.round(src.width * k)), Math.max(1, Math.round(src.height * k)));
     img.getContext('2d').drawImage(src, 0, 0, img.width, img.height);
-    const reg = st.regions.get(l.region), t = displayOf(l), size = Math.min(2, Math.max(0.05, (Math.min(reg.w, reg.h) * 0.6) / img.width));
+    const reg = st.regions.get(l.region), sh = layerShape(l), t = sh ? { x: sh.ox + sh.canvas.width / (2 * sh.f), y: sh.oy + sh.canvas.height / (2 * sh.f) } : displayOf(l), size = Math.min(2, Math.max(0.05, (Math.min(reg.w, reg.h) * 0.6) / img.width));
     const id = `k${Math.random().toString(36).slice(2, 7)}`;
-    const sticker = { id, name: `stk_${id}`, slot: l.slot, layer: l.region, img, x: t.x || 0, y: t.y || 0, s: +size.toFixed(3), rot: 0, a: 1 };
+    const sticker = { id, name: `stk_${id}`, slot: l.slot, layer: l.region, img, x: t.x || 0, y: t.y || 0, s: +size.toFixed(3), rot: 0, a: 1, clip: true };
     st.stickers.push(sticker); st.stkSel = id; await syncStickers(); draw();
     toast('Sticker added. Use the sliders to move, resize and turn it.');
   }
@@ -313,11 +364,11 @@ export async function view({ user, home, toast, localPreview = false }) {
     st.stickers = []; st.stkSel = null; stkEntry = null;
     if (!pr?.stickers?.length || !pr.stickerAtlas || !pages?.[STICKER_PAGE]) return;
     const bmp = await createImageBitmap(pages[STICKER_PAGE]);
-    for (const k of pr.stickers) { const r = pr.stickerAtlas.regs[k.name]; if (!r) continue; const img = makeCanvas(r.w, r.h); img.getContext('2d').drawImage(bmp, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h); st.stickers.push({ ...k, img }); }
+    for (const k of pr.stickers) { const r = pr.stickerAtlas.regs[`${k.name}_src`] || pr.stickerAtlas.regs[k.name]; if (!r) continue; const img = makeCanvas(r.w, r.h); img.getContext('2d').drawImage(bmp, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h); st.stickers.push({ ...k, img }); }
     st.stkSel = st.stickers.at(-1)?.id || null; bmp.close?.();
     await packStickers();
   }
-  const stickerProfile = () => (st.stickers.length ? { stickers: st.stickers.map(({ id, name, slot, layer, x, y, s: sz, rot, a }) => ({ id, name, slot, layer, x, y, s: sz, rot, a })), stickerAtlas: st.stkAtlas } : {});
+  const stickerProfile = () => (st.stickers.length ? { stickers: st.stickers.map(({ id, name, slot, layer, x, y, s: sz, rot, a, clip, tf }) => ({ id, name, slot, layer, x, y, s: sz, rot, a, clip: !!clip, tf: tf || null })), stickerAtlas: st.stkAtlas } : {});
   /** the admin's sticker library (R2 files, one small record each in the database, a tiny thumbnail inside it): the list is read once and kept for a few minutes */
   function loadStickerLibrary() {
     if (st.libState) return; st.libState = 'loading';
@@ -345,12 +396,13 @@ export async function view({ user, home, toast, localPreview = false }) {
   function stickerPanel() {
     const file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) addSticker(f); } });
     const sel = st.stickers.find((k) => k.id === st.stkSel), target = layers().find((l) => l.region === st.guideFocus);
-    const slider = (label, key, min, max, step, fmt = (v) => v) => h('label', { class: 'cs-stk-s' }, h('span', {}, label), h('input', { type: 'range', min, max, step, value: sel[key], oninput: (ev) => { sel[key] = +ev.target.value; ev.target.nextSibling.textContent = fmt(sel[key]); queueRig(); } }), h('b', {}, fmt(sel[key])));
+    const slider = (label, key, min, max, step, fmt = (v) => v) => h('label', { class: 'cs-stk-s' }, h('span', {}, label), h('input', { type: 'range', min, max, step, value: sel[key], oninput: (ev) => { sel[key] = +ev.target.value; ev.target.nextSibling.textContent = fmt(sel[key]); queueSticker(sel); } }), h('b', {}, fmt(sel[key])));
     return h('div', { class: 'cs-lgroup cs-stk' }, h('div', { class: 'cs-ghead static' }, h('span', { class: 'cs-gic' }, icon('star')), h('b', {}, 'Stickers'), h('small', {}, `${st.stickers.length} placed`)),
       h('p', { class: 'hint', style: 'text-align:left;margin:6px 0' }, 'First tap the body part in the list below (for example the upper arm). Then tap a sticker, or add your own PNG / SVG (you can also drop a picture on the canvas). It moves with that part.'),
       libraryGrid(),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', onclick: () => file.click() }, icon('upload'), h('span', {}, target ? `Your own picture on ${labelOf(target)}` : 'Your own picture')), file),
       ...st.stickers.map((k) => h('div', { class: `cs-stk-row${k.id === st.stkSel ? ' on' : ''}`, onclick: () => { st.stkSel = k.id; draw(); } }, h('b', {}, `Sticker on ${k.layer.split('/').pop()}`), h('button', { class: 'ib', type: 'button', title: 'Remove this sticker', 'aria-label': 'Remove this sticker', onclick: (ev) => { ev.stopPropagation(); removeSticker(k.id); } }, icon('trash')))),
+      sel ? h('label', { class: 'tog cs-stk-clip', title: 'The sticker is cut to the shape of the body part, so nothing sticks out at the edge' }, h('input', { type: 'checkbox', checked: !!sel.clip, onchange: (ev) => { sel.clip = ev.target.checked; syncStickers(); } }), 'Keep it inside the body part (cut at the edge)') : null,
       sel ? h('div', { class: 'cs-stk-ctl' }, slider('Left / right', 'x', -600, 600, 1), slider('Up / down', 'y', -600, 600, 1), slider('Size', 's', 0.05, 3, 0.01, (v) => `${Math.round(v * 100)}%`), slider('Turn', 'rot', -180, 180, 1, (v) => `${v}°`), slider('Opacity', 'a', 0.1, 1, 0.01, (v) => `${Math.round(v * 100)}%`)) : null);
   }
 
@@ -359,7 +411,7 @@ export async function view({ user, home, toast, localPreview = false }) {
   function rigEdits() {
     const fe = faceEdits(st.face, st.def.ske), xf = { ...fe.xf };
     for (const [k, e] of Object.entries(st.xf)) xf[k] = mergeEdit(xf[k], e);
-    return { xf, bones: fe.bones, attach: st.attach, order: st.order, stickers: st.stickers.map(({ name, slot, x, y, s: sz, rot, a }) => ({ name, slot, x, y, s: sz, rot, a })) };
+    return { xf, bones: fe.bones, attach: st.attach, order: st.order, stickers: st.stickers.map(({ name, slot, x, y, s: sz, rot, a, tf }) => ({ name, slot, x, y, s: sz, rot, a, tf })) };
   }
   const currentRig = () => patchRig(st.def.ske, rigEdits());
   function rebuild() {

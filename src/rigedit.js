@@ -87,7 +87,7 @@ export function addStickers(ske, stickers = []) {
   }
   if (!added.length) return ske;
   const skin = arm.skin.map((sk, n) => (sk.name === 'default' || (n === 0 && !arm.skin.some((x) => x.name === 'default'))
-    ? { ...sk, slot: [...sk.slot, ...added.map((k) => ({ name: `stk_${k.name}`, display: [{ type: 'image', name: k.name, transform: { x: k.x || 0, y: k.y || 0, skX: k.rot || 0, skY: k.rot || 0, scX: k.s ?? 1, scY: k.s ?? 1 } }] }))] } : sk));
+    ? { ...sk, slot: [...sk.slot, ...added.map((k) => ({ name: `stk_${k.name}`, display: [{ type: 'image', name: k.name, transform: k.tf ? { ...k.tf } : { x: k.x || 0, y: k.y || 0, skX: k.rot || 0, skY: k.rot || 0, scX: k.s ?? 1, scY: k.s ?? 1 } }] }))] } : sk));          // `tf`: a sticker that is cut to the shape of its body part sits exactly where that part's picture sits
   return { ...ske, armature: [{ ...arm, slot: slots, skin }] };
 }
 /** the DragonBones atlas description of the sticker picture page: atlas = { w, h, regs: { name: { x, y, w, h } } } */

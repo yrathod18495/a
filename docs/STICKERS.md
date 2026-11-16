@@ -14,4 +14,6 @@
 
 **Tests:** `tests/rigedit-stickers.test.js`, `tests/studio-sticker-api.test.js`, `tests/browser/character-stickers.spec.js`, `tests/browser/admin-stickers.spec.js`, `tests/browser/sticker.spec.js` (needs a character ZIP).
 
-**Known limits:** a sticker is not clipped to the body part (it can stick out at the edge); a very bendy joint stretches it a little; up to 12 stickers per character; the sticker is placed in the pose the creator is editing.
+**Cut at the edge:** by default a sticker is cut to the shape of its body part (the part's picture, flat or bent mesh, is drawn in the bone's space and the sticker keeps only what lies on it); the original is stored beside the cut picture (`_src`) so it can be edited again. Turn it off in the panel to let it stick out.
+
+**Known limits:** the cut follows the part in the set-up pose (it does not bend with the part), a very bendy joint stretches it a little; up to 12 stickers per character; the sticker is placed in the pose the creator is editing.
