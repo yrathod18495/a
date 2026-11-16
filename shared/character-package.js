@@ -104,7 +104,7 @@ export function cleanRecord(input) {
       if (!isId(vid) || !Array.isArray(v.animations) || v.animations.length > MAX_ANIMATIONS) bad(`View ${vid}: the animation list is not valid.`);
       category.views[vid] = { animations: v.animations.map((a) => {
         if (typeof a?.name !== 'string' || !a.name || a.name.length > 80) bad(`View ${vid}: an animation name is not valid.`);
-        return { name: a.name, label: String(a.label || a.name).slice(0, 80), group: String(a.group || 'Body').slice(0, 30), layer: a.layer === 'hand' ? 'hand' : 'body', length: Math.min(600, Math.max(0.05, Number(a.length) || 1)),
+        return { name: a.name, label: String(a.label || a.name).slice(0, 80), group: String(a.group || 'Body').slice(0, 30), layer: ['hand', 'face', 'legs'].includes(a.layer) ? a.layer : 'body', length: Math.min(600, Math.max(0.05, Number(a.length) || 1)),
           file: ref(a.file, `Animation ${a.name}`), gif: a.gif ? ref(a.gif, `The preview of ${a.name}`) : null, gifName: String(a.gifName || gifName(a.name, g.id)).slice(0, 120) };
       }) };
     }

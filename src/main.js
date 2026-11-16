@@ -1480,8 +1480,10 @@ function wireBoxSelect() {
   // a tap on empty space in the timeline leaves the selected clip / character: the bottom bar is the normal menu again
   tlInner.addEventListener('click', (e) => {
     if (S.exporting || e.target.closest('.tclip,.ruler,.phead,.pflag,button,input,.kf,.dia,.lane2.char')) return;
-    const had = dropItemSelection();
+    const had = dropItemSelection(), hadSel = !!S.sel;
+    if (had || hadSel || S.mclip || S.lineExplicit) { S.navDismissed = true; S.lineExplicit = false; }
     if (S.sel) { S.sel = null; updateSel(); S.dirty = true; } else if (had) updateSel();
+    drawClipBar();
   });
   tlInner.addEventListener('pointerdown', (e) => {
     if (e.button || S.exporting || e.pointerType === 'touch' || e.target.closest('.tclip,.ruler,.phead,button')) return;      // a finger scrolls the timeline; the box is for mouse and pen
@@ -2081,7 +2083,6 @@ function drawClipNav() {
     holdButton(h('button', { type: 'button', class: 'btn sm icon-btn', 'aria-label': which === 'start' ? 'Move later' : 'Longer' }, icon('chevron-right')), (k) => nudgeSelected(which, NUDGE * k)));
   clipNav.replaceChildren(
     h('div', { class: 'cb-list' },
-      btn('x', 'Close', clearClipSelection, { title: 'Close: back to the Upload / Characters / Animations tabs', 'aria-label': 'Close the clip tools and go back to the tabs' }),
       ...(kind === 'fx' ? [btn('pencil', 'Edit', () => openFxDock(it.fx), { title: 'Opacity, blur, contrast, saturation, tint and more' })] : []),
       ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many })]),
       ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('arrow-lr', 'Adjust', () => openBgAdjust(it.bc), { title: 'Move and resize the background with a joystick and a slider' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
@@ -3110,6 +3111,8 @@ function mountStage() {
   stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor();
   mountCamBox();
   let drag = null;
+  let tapStart = null;          // where and when the single finger went down: a short tap that did not move, away from the selected thing, lets go of it
+  const tapAway = (e) => { S.sel = null; S.selectedPropId = null; clearClipSelection(); updateSel(); S.dirty = true; };
   const pointers = new Map(), pinchDist = () => { const [a, b] = [...pointers.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
   wrapEl.addEventListener('wheel', (e) => {            // mouse wheel over the canvas resizes the selected background (when nothing else is selected)
     const c = bgOf(); if (!c || bgLockedNow(c) || S.exporting || S.sel || S.selectedPropId || stage.camZoom > 1.02) return;
@@ -3123,6 +3126,7 @@ function mountStage() {
     if (camPointerDown(e)) return;
     if (syncFullView()) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) tapStart = { x: e.clientX, y: e.clientY, t: performance.now() };
     if (pointers.size === 2 && drag && (drag.mode === 'prop' || drag.mode === 'move')) {          // a second finger on the selected prop / character: pinch to resize
       drag.pinch = { d0: pinchDist() || 1, w0: drag.prop?.w, h0: drag.prop?.h, mul0: layer()?.mul ?? 1 }; return;
     }
@@ -3241,7 +3245,14 @@ function mountStage() {
     l.axf = a.x / W; l.ayf = (H - a.y) / H;
     saveXf(l); stage.layout(); updateSel(); S.dirty = true;
   });
-  const end = async (e) => { pointers.delete(e?.pointerId); if (drag?.mode === 'bg') { if (!pointers.size || drag.pinch) { drag = null; S.dirty = true; } return; } if (camPointerUp()) return; if (drag?.mode === 'hold') { try { await dbPut('props', drag.prop); } catch (e) { toast(`Could not save the prop: ${e.message}`); } } if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag?.mode === 'scale' && drag.tap?.pinned && e?.type === 'pointerup' && performance.now() - drag.tap.t < 600 && Math.hypot(e.clientX - drag.tap.x, e.clientY - drag.tap.y) < 8) {
+  const end = async (e) => {
+    const wasTap = tapStart && e?.type === 'pointerup' && drag && !drag.pinch && performance.now() - tapStart.t < 450 && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 8; tapStart = null;
+    if (wasTap && !S.exporting) {
+      const q = pt(e);
+      if ((drag.mode === 'prop' || drag.mode === 'hold') && !propHit(drag.prop, q)) { pointers.delete(e.pointerId); drag = null; tapAway(e); return; }
+      if (drag.mode === 'move' && !stage.hitLayers(q).some((x) => x.key === S.sel)) { pointers.delete(e.pointerId); drag = null; tapAway(e); return; }
+    }
+    pointers.delete(e?.pointerId); if (drag?.mode === 'bg') { if (!pointers.size || drag.pinch) { drag = null; S.dirty = true; } return; } if (camPointerUp()) return; if (drag?.mode === 'hold') { try { await dbPut('props', drag.prop); } catch (e) { toast(`Could not save the prop: ${e.message}`); } } if (drag?.mode === 'prop') { try { await dbPut('props', drag.prop); drawTabs(); } catch (e) { toast(`Could not save the prop's position: ${e.message}`); } } if (drag?.mode === 'scale' && drag.tap?.pinned && e?.type === 'pointerup' && performance.now() - drag.tap.t < 600 && Math.hypot(e.clientX - drag.tap.x, e.clientY - drag.tap.y) < 8) {
       // a DOUBLE tap on a handle that is stuck to the edge of the picture = the character is out of the frame: bring it back, 100%, inside (a single tap does nothing)
       const lay = stage.layers.find((x) => x.key === drag.tap.key), tap = { x: e.clientX, y: e.clientY, key: drag.tap.key, t: performance.now() }; drag = null;
       const twice = lastHandleTap && lastHandleTap.key === tap.key && tap.t - lastHandleTap.t < 450 && Math.hypot(tap.x - lastHandleTap.x, tap.y - lastHandleTap.y) < 40;

@@ -57,7 +57,11 @@ try {
       const m = meta[animName] || {}, file = `${base}/animations/${slug(animName)}.json`;
       zip.file(file, JSON.stringify({ [animName]: { ...data, _sourceFrameRate: fps } }));
       // Body = a whole-body animation; Left / Right / Both = arm actions that play on top of a body animation (the "hand" layer)
-      const layer = /^(left|right|both)$/i.test(m.group || '') ? 'hand' : 'body';
+      // an animation that only changes pictures (eyes, mouth) and moves no bone is a face expression: it plays on top of a body animation too
+      const faceOnly = !(data.bone && data.bone.length) && !!(data.slot && data.slot.length);
+      // an animation that moves only arm / hand / prop bones plays on top of a body animation as well (the "hand" layer)
+      const armOnly = !!(data.bone && data.bone.length) && data.bone.every((b) => /hand|palm|arm|prop/i.test(b.name));
+      const layer = /^(left|right|both)$/i.test(m.group || '') || armOnly ? 'hand' : (faceOnly || /^expressions?$/i.test(m.group || '')) ? 'face' : 'body';
       list.push({ name: animName, label: (m.label || animName).replace(/_/g, ' '), group: m.group || 'Body', layer, length: +(m.length || data.duration / fps).toFixed(3), file });
     }
     views.push({ id: v.view, label: v.label, skeleton: `${base}/skeleton.json`, textures, animations: list });

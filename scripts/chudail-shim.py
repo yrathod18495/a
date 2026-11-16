@@ -14,7 +14,7 @@ from PIL import Image
 def main():
     if len(sys.argv) < 4: print(__doc__); sys.exit(1)
     runtime, html, out = sys.argv[1:4]
-    d = json.load(open(runtime)); P = d['P']; extra = [json.load(open(f)) for f in sys.argv[4:]]
+    d = json.load(open(runtime)); P = d['P']; extra = [a for f in sys.argv[4:] for a in (lambda v: v if isinstance(v, list) else [v])(json.load(open(f)))]
     text = open(html, encoding='utf8').read(); body = text[text.index('<script>') + 8:]
     m = re.search(r'(?:^|\n)const ANIMS_BY\s*=\s*', body); anims = json.JSONDecoder().raw_decode(body[m.end():])[0]
     W = H = 4096; page = Image.new('RGBA', (W, H), (0, 0, 0, 0)); occ = []; reg = {}

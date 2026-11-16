@@ -143,13 +143,14 @@ export const cloudFile = (ref) => (ref?.db ? `cloud:db:${ref.db}` : ref?.r2 ? `c
 export const cloudRef = (file) => { const [, where, sha, size] = String(file).split(':'); return where === 'db' ? { db: sha } : { r2: sha, size: Number(size) }; };
 function cloudCategories(rig) {
   const all = rig.cloudAnims.map((a) => ({ ...a, label: a.label || a.name }));
-  const mk = (a) => ({ ref: { source: 'lib', id: `${rig.category}:${a.name}`, name: a.label, file: cloudFile(a.file), overlay: a.layer === 'hand', layer: a.layer === 'hand' ? 'hand' : undefined }, name: a.label, length: a.length, poster: a.gif ? cloudFile(a.gif) : undefined, posterType: a.posterType });
-  const body = all.filter((a) => a.layer !== 'hand'), pick = (re) => body.filter((a) => re.test(a.name));
+  const mk = (a) => ({ ref: { source: 'lib', id: `${rig.category}:${a.name}`, name: a.label, file: cloudFile(a.file), overlay: a.layer === 'hand' || a.layer === 'face', layer: a.layer === 'hand' || a.layer === 'face' ? a.layer : undefined }, name: a.label, length: a.length, poster: a.gif ? cloudFile(a.gif) : undefined, posterType: a.posterType });
+  const body = all.filter((a) => a.layer !== 'hand' && a.layer !== 'face'), pick = (re) => body.filter((a) => re.test(a.name));
   const talk = pick(/talk|speak|explain/i), idle = pick(/stand|idle|bored|yawn|think|sad|fed_up|sleep/i).filter((a) => !talk.includes(a)), move = pick(/walk|run|dance|swim|jump|kick|punch/i).filter((a) => !talk.includes(a) && !idle.includes(a));
   const rest = body.filter((a) => ![...talk, ...idle, ...move].includes(a));
   const cat = (key, name, list, overlay = false, layer) => ({ key: `cloud:${key}`, name, overlay, layer, animations: list.map(mk) });
   return [cat('talk', 'Talking', talk), cat('idle', 'Idle', idle), cat('move', 'Walk / run / dance', move), cat('body', 'Body animations', rest),
-    cat('hand', 'Arms & hands (layer)', all.filter((a) => a.layer === 'hand'), true, 'hand')].filter((c) => c.animations.length);
+    cat('hand', 'Arms & hands (layer)', all.filter((a) => a.layer === 'hand'), true, 'hand'),
+    cat('face', 'Face & expressions (layer)', all.filter((a) => a.layer === 'face'), true, 'face')].filter((c) => c.animations.length);
 }
 function allCategories(rig) {
   if (rig?.cloudAnims) return cloudCategories(rig);

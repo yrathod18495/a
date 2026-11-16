@@ -917,3 +917,11 @@ body.studio-dark .stagewrap>.hd{width:22px;height:22px;border-radius:50%;backgro
 .stagewrap>.hd.h-rot{cursor:grab;background:#fff;border-color:#7c6cf5}
 .stagewrap>.hd.h-rot::after{content:"";position:absolute;left:50%;top:100%;width:3px;height:var(--stick,28px);margin-left:-1.5px;background:#7c6cf5;border-radius:2px;pointer-events:none}
 @media(pointer:coarse){.stagewrap>.hd.h-rot{--stick:34px}}
+
+/* the player bar: every button the same round size and height, icons only, nothing crooked */
+@media(max-width:860px){
+  #app .ws .tltools .edittools{align-items:center}
+  #app .ws .tltools .edit-btn{width:42px!important;min-width:0!important;height:42px!important;padding:0!important;border-radius:14px!important;display:inline-grid!important;place-items:center}
+  #app .ws .tltools .edit-btn span:not(.ic){display:none!important}
+  #app .ws .tltools>button{align-self:center}
+}

@@ -5,7 +5,7 @@ const wav = (seconds) => { const rate = 8000, n = seconds * rate, b = Buffer.all
   b.writeUInt32LE(rate, 24); b.writeUInt32LE(rate * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40);
   for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin(i / 20) * 20000), 44 + i * 2); return b; };
 // On a phone, a selected clip replaces the bottom tabs (Upload / Characters / Animations ...) with the clip tools: they must have an obvious Close that brings the tabs back.
-test('phone: the clip tools have a visible Close that brings the bottom tabs back', async ({ page }) => {
+test('phone: tapping empty space leaves the selected clip and brings the bottom tabs back (there is no Close button)', async ({ page }) => {
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
@@ -20,7 +20,8 @@ test('phone: the clip tools have a visible Close that brings the bottom tabs bac
   });
   const nav = page.locator('.clip-nav');
   await expect(nav).toBeVisible();
-  await nav.getByRole('button', { name: /Close the clip tools and go back/ }).click();
+  await expect(nav.getByRole('button', { name: /Close/ })).toHaveCount(0);
+  await page.locator('.tl-inner').dispatchEvent('click');
   await expect(nav).toBeHidden();          // and it stays gone: the audio line under the playhead must not bring the tools straight back
   expect(await page.evaluate(() => window.__toon.S.mclip)).toBe(null);
   await page.locator('.drop input[type=file]').setInputFiles([{ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: wav(4) }, { name: '002-Amit.wav', mimeType: 'audio/wav', buffer: wav(4) }]);
@@ -29,7 +30,7 @@ test('phone: the clip tools have a visible Close that brings the bottom tabs bac
   await page.evaluate(() => { const T = window.__toon; T.drawTimeline(); });
   await page.locator('.tclip.voice').first().dispatchEvent('click');
   await expect(nav).toBeVisible();          // only tapping an audio clip itself shows the audio tools
-  await nav.getByRole('button', { name: /Close the clip tools and go back/ }).click();
+  await page.locator('.tl-inner').dispatchEvent('click');
   await expect(nav).toBeHidden();
 });
 
