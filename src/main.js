@@ -274,7 +274,7 @@ async function useCharacter(s, id) {
     finally { loading.done(); }
   }
   s.charId = id; s._chosen = true; if (id) S.sel = s.key;
-  // a character that has only the automatic name ("Character 2") is called by the name of the character it got (Roshan, Maya ...); a second one gets a number
+  // a character that has only the automatic name ("Character 2") is called by the name of the character it got (Rohan ...); a second one gets a number
   const picked = id ? charOf(s) : null;
   if (picked?.name && (s._auto || /^Character \d+$/.test(s.name))) {
     let name = picked.name, n = 2; while (S.speakers.some((x) => x !== s && x.name === name)) name = `${picked.name} ${n++}`;

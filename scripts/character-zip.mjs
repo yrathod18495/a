@@ -3,7 +3,7 @@
 // Everything inside the ZIP is DragonBones data (CLAUDE.md): the Spine step in between happens only here, offline.
 //
 //   node scripts/character-zip.mjs <page.html> <out.zip> --character maya --name Maya --category female --category-name "Female" [--source <character id inside the page>]
-//   (--source is the character's name inside the page when it differs from the new character's id, e.g. --character roshan --source william)
+//   (--source is the character's name inside the page when it differs from the new character's id, e.g. --character rohan --source <id of the character inside the page>)
 //
 // ZIP layout (format "12toons-character", version 1):
 //   manifest.json                                   what is inside (below)
