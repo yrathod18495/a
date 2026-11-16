@@ -114,8 +114,15 @@ async function boot() {
   stage.onLost = () => { clearTimeout(lostTimer); lostTimer = setTimeout(() => { if (stage.lost) toast('The preview lost its graphics memory. Please reopen the project if the picture does not come back.', 'warn'); }, 6000); };
   stage.onRecovered = async (err) => {
     clearTimeout(lostTimer);
-    if (err) { toast(`Could not restore the preview: ${err.message}`); return; }
-    try { await applyLayers(); } catch (e) { toast(`Could not restore the preview: ${e.message}`); }
+    const why = (e) => (e?.message && e.message !== 'null' ? e.message : 'the phone has no free graphics memory right now');
+    if (err) {          // the pictures could not be put back: try again once with smaller pictures before telling anyone
+      try { await new Promise((r) => setTimeout(r, 700)); await stage.setTextureLimit(1024); await applyLayers(); S.dirty = true; requestStudioFrame?.(); return; }
+      catch (e) { toast(`The preview could not be restored (${why(err)}). Please close other apps and reload the page.`); return; }
+    }
+    try { await applyLayers(); } catch (e) {
+      try { await new Promise((r) => setTimeout(r, 700)); await stage.setTextureLimit(1024); await applyLayers(); }
+      catch (e2) { toast(`The preview could not be restored (${why(e2)}). Please close other apps and reload the page.`); }
+    }
     S.dirty = true; requestStudioFrame?.();
   };
   stage.setSize(S.aspect, S.preview);
@@ -429,7 +436,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let editDockEl, bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, clipNav, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
+let ovEl, ovCanvas, ovHead, editDockEl, bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, clipNav, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -850,6 +857,7 @@ function viewStudio() {
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard(), startPill = h('button', { class: 'start-pill', type: 'button', hidden: true, title: 'Show the quick start guide', 'aria-label': 'Show the quick start guide', onclick: () => setStartHidden(false) }, '☰ Quick start')),
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), overflowBtn(), layoutTools()),
+        ovEl = h('div', { class: 'ov-bar', role: 'slider', 'aria-label': 'Overview of the layers: tap or drag to jump', onpointerdown: (e) => { ovEl.setPointerCapture(e.pointerId); overviewSeek(e); ovEl.onpointermove = overviewSeek; }, onpointerup: () => { ovEl.onpointermove = null; }, onpointercancel: () => { ovEl.onpointermove = null; } }, ovCanvas = h('canvas', { class: 'ov-canvas' }), ovHead = h('i', { class: 'ov-head', 'aria-hidden': 'true' })),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, h('div', { class: 'scene-row' }, sceneTabs(), grip), tools, tlCatsEl = h('div', { class: 'tl-cats', role: 'group', 'aria-label': 'Timeline layers' }), tlBox),
       h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), clipNav = h('div', { class: 'clip-nav', hidden: true, role: 'toolbar', 'aria-label': 'Selected clip' }), editDockEl = h('div', { class: 'edit-dock', hidden: true, role: 'region', 'aria-label': 'Editor' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
@@ -1167,7 +1175,38 @@ function drawTlCats(counts = {}) {
     badge.hidden = !n; if (badge.textContent !== String(n)) badge.textContent = String(n);
   }
 }
+/** a thin overview under the time: for every group of layers a slice in its own colour, from where it starts to where it ends; where layers overlap the slices share the height */
+const OV_GROUPS = [['audio', '--cat-audio', '#34c77b'], ['chars', '--cat-chars', '#8f86ff'], ['background', '--cat-background', '#4f8ef7'], ['props', '--cat-props', '#f39a3d'], ['effects', '--cat-effects', '#e064c0']];
+function overviewRanges() {
+  const total = player.total || 1, r = Object.fromEntries(OV_GROUPS.map(([k]) => [k, []]));
+  for (const c of player.clips || []) r.audio.push([c.start, c.end]);
+  if (S.music) r.audio.push([0, total]);
+  for (const list of Object.values(S.manual || {})) for (const m of list || []) r.chars.push([m.start, m.start + m.dur]);
+  for (const c of S.bgClips || []) r.background.push([c.start, c.start + c.dur]);
+  if ((S.bgId || stage?.bg?.preset) && !(S.bgClips || []).some((c) => c.base)) r.background.push([0, total]);
+  for (const pr of S.props || []) { if (isEffect(pr)) r.effects.push([pr.start || 0, pr.end ?? total]); else r.props.push([pr.start || 0, pr.end ?? total]); }
+  for (const f of S.fx || []) r.effects.push([f.start, f.end]);
+  return r;
+}
+function drawOverview() {
+  if (!ovCanvas || !ovEl.isConnected) return;
+  const total = player.total || 1, w = ovEl.clientWidth || 300, hgt = 8, dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (ovCanvas.width !== Math.round(w * dpr)) { ovCanvas.width = Math.round(w * dpr); ovCanvas.height = Math.round(hgt * dpr); }
+  const g = ovCanvas.getContext('2d'), ranges = overviewRanges(), cs = getComputedStyle(document.documentElement);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, hgt);
+  const cuts = new Set([0, total]); for (const list of Object.values(ranges)) for (const [a, b] of list) { cuts.add(Math.max(0, Math.min(total, a))); cuts.add(Math.max(0, Math.min(total, b))); }
+  const points = [...cuts].sort((a, b) => a - b);
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1]; if (b - a < 1e-3) continue;
+    const mid = (a + b) / 2, active = OV_GROUPS.filter(([k]) => ranges[k].some(([s, e]) => s <= mid && e >= mid));
+    if (!active.length) continue;
+    const x = (a / total) * w, wid = Math.max(1.5, ((b - a) / total) * w), slice = hgt / active.length;
+    active.forEach(([, v, fallback], j) => { g.fillStyle = cs.getPropertyValue(v).trim() || fallback; g.fillRect(x, j * slice, wid, Math.max(1.5, slice - (active.length > 1 ? 0.5 : 0))); });
+  }
+}
+function overviewSeek(e) { const r = ovEl.getBoundingClientRect(), t = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (player.total || 0); player.seek(t); S.dirty = true; }
 function drawTimeline() {
+  drawOverview();
   if (!tlInner) return;
   const total = player.total || 1, pps = S.pps;
   const background = S.myBgs.find(bg => bg.id === S.bgId);
@@ -3473,7 +3512,7 @@ function drawSelBar(l) {
     h('button', { class: 'btn sm icon-btn', title: 'Hide the box', 'aria-label': 'Hide the box', onclick: () => { S.sel = null; selBar.dataset.key = ''; updateSel(); S.dirty = true; } }, icon('x')),
     h('button', { class: 'btn sm icon-btn', title: 'Reset size & position', 'aria-label': 'Reset size and position', onclick: () => resetChar(l, s) }, icon('rotate')));
 }
-window.addEventListener('resize', () => fitEditor());
+window.addEventListener('resize', () => { fitEditor(); drawOverview(); });
 
 async function removeCharacterFrom(s) {
   if (S.exporting || !s?.charId) return;
@@ -5007,6 +5046,7 @@ function loop(now) {
     if (player.playing && tlScroll && (x < tlScroll.scrollLeft + 10 || x > tlScroll.scrollLeft + tlScroll.clientWidth - 40)) tlScroll.scrollLeft = Math.max(0, x - 40);
   }
   if (timeEl) timeEl.textContent = `${fmt(t)} / ${fmt(player.total)}`;
+  if (ovHead) ovHead.style.left = `${Math.min(100, (t / (player.total || 1)) * 100)}%`;
   refreshLayerAnim(false);
   if (playBtn && playBtn.dataset.state !== String(player.playing)) { playBtn.dataset.state = String(player.playing); playBtn.replaceChildren(icon(player.playing ? 'pause' : 'play')); playBtn.setAttribute('aria-label', player.playing ? 'Pause' : 'Play'); playBtn.dataset.tip = player.playing ? 'Pause (Space)' : 'Play (Space)'; }
 }
