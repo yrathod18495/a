@@ -72,20 +72,25 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 .project-skel{display:flex;flex-direction:column;pointer-events:none}
 .project-skel .rf-sk{display:block}
 
-/* login: animated mark (a thought becomes a playing video) */
+/* login: a little cartoon on a stage, with a timeline that plays under it */
 .lg-hero{display:grid;place-items:center;margin:-6px 0 0}
 .lg-hero svg{overflow:visible}
-.lg-line{stroke-dasharray:150;stroke-dashoffset:150;animation:lgDraw 3.6s var(--ios-ease) infinite}
-.lg-play{transform-origin:108px 58px;animation:lgPop 3.6s var(--ios-ease) infinite}
-.lg-ring{transform-origin:108px 58px;opacity:0;animation:lgRing 3.6s ease-out infinite}
-.lg-sparks path{transform-box:fill-box;transform-origin:center;opacity:0;animation:lgSpark 3.6s ease-in-out infinite}
-.lg-sparks .s2{animation-delay:.25s}.lg-sparks .s3{animation-delay:.5s}
-@keyframes lgDraw{0%{stroke-dashoffset:150}35%,82%{stroke-dashoffset:0}100%{stroke-dashoffset:-150}}
-@keyframes lgPop{0%,28%{transform:scale(.4);opacity:0}42%{transform:scale(1.08);opacity:1}50%,84%{transform:scale(1);opacity:1}100%{transform:scale(.4);opacity:0}}
-@keyframes lgRing{0%,42%{transform:scale(1);opacity:0}46%{opacity:.7}75%,100%{transform:scale(1.55);opacity:0}}
-@keyframes lgSpark{0%,44%{transform:scale(0) rotate(0);opacity:0}56%{transform:scale(1) rotate(45deg);opacity:1}78%,100%{transform:scale(0) rotate(90deg);opacity:0}}
+.lg-toon{transform-origin:100px 100px;animation:lgBob 1.8s ease-in-out infinite}
+.lg-eyes{transform-box:fill-box;transform-origin:center;animation:lgBlink 3.6s infinite}
+.lg-arm{transform-box:fill-box;transform-origin:0 100%;animation:lgWave 1.8s ease-in-out infinite}
+.lg-cloud{animation:lgCloud 7s ease-in-out infinite}
+.lg-fill{transform-box:fill-box;transform-origin:0 50%;animation:lgFill 5s linear infinite}
+.lg-head{animation:lgHead 5s linear infinite}
+.lg-sparks path{transform-box:fill-box;transform-origin:center;animation:lgSpark 2.4s ease-in-out infinite}.lg-sparks .s2{animation-delay:1.1s}
+@keyframes lgBob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
+@keyframes lgBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes lgWave{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(14deg)}}
+@keyframes lgCloud{0%,100%{transform:translateX(0)}50%{transform:translateX(14px)}}
+@keyframes lgFill{0%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+@keyframes lgHead{0%{transform:translateX(0)}100%{transform:translateX(140px)}}
+@keyframes lgSpark{0%,100%{transform:scale(.3) rotate(0);opacity:0}50%{transform:scale(1) rotate(45deg);opacity:1}}
 .lg-card .lg-tag{font-size:17px;color:var(--text);opacity:.85;margin-bottom:24px}
-@media(prefers-reduced-motion:reduce){.lg-line{animation:none;stroke-dashoffset:0}.lg-play{animation:none}.lg-ring,.lg-sparks path{animation:none}.lg-sparks path{opacity:1}}
+@media(prefers-reduced-motion:reduce){.lg-toon,.lg-eyes,.lg-arm,.lg-cloud,.lg-fill,.lg-head,.lg-sparks path{animation:none}.lg-fill{transform:scaleX(.5)}.lg-head{transform:translateX(70px)}}
 
 /* ---- dashboard tool cards: a living picture, a glow that drifts, cards that rise in one after another ---- */
 .st-tool{animation:stRise .5s var(--ios-ease) both;transition:transform .2s var(--ios-ease)}

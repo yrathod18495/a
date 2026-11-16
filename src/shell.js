@@ -387,11 +387,16 @@ function loginView() {
   const g = h('span', { class: 'lg-g' }); g.innerHTML = G;
   // an animated mark: a thought (the line drawing itself) turns into a playing video (the play button), with small sparks around it
   const hero = h('div', { class: 'lg-hero', 'aria-hidden': 'true' });
-  hero.innerHTML = '<svg viewBox="0 0 160 120" width="200" height="150" fill="none"><defs><linearGradient id="lgG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b3a9ff"/><stop offset="1" stop-color="#6d5cf0"/></linearGradient></defs>'
-    + '<path class="lg-line" d="M14 86c14-30 26 18 40-10s22-34 34-12" stroke="url(#lgG)" stroke-width="4" stroke-linecap="round"/>'
-    + '<g class="lg-play"><circle cx="108" cy="58" r="30" fill="url(#lgG)"/><path d="M99 44.500v27l23-13.500z" fill="#fff"/></g>'
-    + '<circle class="lg-ring" cx="108" cy="58" r="30" stroke="#8b7bff" stroke-width="2"/>'
-    + '<g class="lg-sparks" stroke="#c4bcff" stroke-width="3" stroke-linecap="round"><path class="s1" d="M146 22v10M141 27h10"/><path class="s2" d="M62 18v8M58 22h8"/><path class="s3" d="M150 92v8M146 96h8"/></g></svg>';
+  hero.innerHTML = '<svg viewBox="0 0 200 150" width="220" height="165" fill="none"><defs><linearGradient id="lgG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b3a9ff"/><stop offset="1" stop-color="#6d5cf0"/></linearGradient><linearGradient id="lgS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f1ff"/><stop offset="1" stop-color="#e3deff"/></linearGradient></defs>'
+    + '<rect x="14" y="10" width="172" height="104" rx="16" fill="url(#lgS)" stroke="#cfc8ff" stroke-width="2"/>'
+    + '<g class="lg-cloud"><ellipse cx="46" cy="38" rx="16" ry="7" fill="#fff"/><ellipse cx="58" cy="34" rx="10" ry="6" fill="#fff"/></g>'
+    + '<path d="M14 98h172v4a12 12 0 0 1-12 12H26a12 12 0 0 1-12-12z" fill="#d9d3ff"/>'
+    + '<g class="lg-toon"><g class="lg-body"><circle cx="100" cy="62" r="26" fill="#ffd9b8" stroke="#6d5cf0" stroke-width="3"/><path d="M76 56c4-18 44-18 48 0-10-6-38-6-48 0z" fill="#3a2f6b"/>'
+    + '<g class="lg-eyes"><ellipse cx="91" cy="64" rx="3.4" ry="4.6" fill="#2b2350"/><ellipse cx="109" cy="64" rx="3.4" ry="4.6" fill="#2b2350"/></g>'
+    + '<path class="lg-smile" d="M91 76q9 9 18 0" stroke="#2b2350" stroke-width="3" stroke-linecap="round"/><circle cx="84" cy="73" r="4" fill="#ff9fb0" opacity=".6"/><circle cx="116" cy="73" r="4" fill="#ff9fb0" opacity=".6"/></g>'
+    + '<path class="lg-arm" d="M126 88q16-4 20-22" stroke="#6d5cf0" stroke-width="6" stroke-linecap="round"/></g>'
+    + '<rect x="30" y="128" width="140" height="8" rx="4" fill="#e6e1ff"/><rect class="lg-fill" x="30" y="128" width="140" height="8" rx="4" fill="url(#lgG)"/><circle class="lg-head" cx="30" cy="132" r="8" fill="#fff" stroke="#6d5cf0" stroke-width="3"/>'
+    + '<g class="lg-sparks" stroke="#c4bcff" stroke-width="3" stroke-linecap="round"><path class="s1" d="M176 24v10M171 29h10"/><path class="s2" d="M30 74v8M26 78h8"/></g></svg>';
   return h('div', { class: 'sh sh-center lg-page' },
     h('button', { class: 'lg-back', 'aria-label': 'Back to home', onclick: () => go('#/') }, h('span', { 'aria-hidden': 'true' }, '‹'), 'Home'),
     h('div', { class: 'sh-login lg-card' },
