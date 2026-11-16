@@ -2801,6 +2801,7 @@ function placeSheet(el) {
 let voiceSheetEl = null;
 function paintVoiceSheet() {
   if (!voiceSheetEl) return;
+  voiceSheetEl.dataset.line = S.lineSel || '';
   placeSheet(voiceSheetEl);
   voiceSheetEl.replaceChildren(h('div', { class: 'vs-head' }, h('b', {}, 'Voice'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the voice settings', title: 'Close', onclick: closeVoiceSheet }, icon('x'))), tabVoice(), h('button', { type: 'button', class: 'sheet-fab', title: 'Close', 'aria-label': 'Close the voice settings', onclick: closeVoiceSheet }, icon('x')));
 }
@@ -2858,6 +2859,7 @@ function setMix(id, patch, { redraw = true } = {}) {
   if (redraw) { if (player.playing) player.seek(player.time); drawTimeline(); drawLineBox(); }          // playing: restart the sound so the new level is heard at once
 }
 function drawLineBox() {
+  if (voiceSheetEl && !voiceSheetEl.hidden && voiceSheetEl.dataset.line !== (S.lineSel || '')) paintVoiceSheet();          // the open voice popup always shows the selected layer
   if (!lineBox) return;
   const L = lineById(S.lineSel);
   const details = lineBox.closest('.line-details'); if (details) details.hidden = !player.clips.length;

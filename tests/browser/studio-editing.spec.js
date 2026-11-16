@@ -124,7 +124,7 @@ test('audio lines: mute silences a line, solo plays only the solo lines, both ar
 test('audio lines: volume and fades change the real sound level (rendered with the same code the export uses)', async ({ page }) => {
   await withTwoLines(page);
   await page.locator('.tclip.voice').first().click();
-  await page.getByRole('slider', { name: 'Volume' }).fill('0.5');
+  await page.getByRole('slider', { name: 'Volume' }).fill('50');
   await page.getByRole('slider', { name: 'Fade in' }).fill('2');
   await page.getByRole('slider', { name: 'Fade out' }).fill('2');
   const line = await page.evaluate(() => { const l = window.__toon.S.lines[0]; return { volume: l.volume, fadeIn: l.fadeIn, fadeOut: l.fadeOut }; });
