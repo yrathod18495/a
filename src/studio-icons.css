@@ -910,3 +910,10 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
   /* the first touch gives a quick one-time nudge so even a short tap shows the motion */
   #app .ws .tabs-scroll>button:active .ti{transform:translateY(-2px)}
 }
+
+/* character handles: round, big enough for a finger, and a tilt handle on a stick above the box */
+body.studio-dark .stagewrap>.hd{width:22px;height:22px;border-radius:50%;background:#7c6cf5;border:3px solid #fff;box-shadow:0 2px 8px #0008}
+@media(pointer:coarse){body.studio-dark .stagewrap>.hd{width:34px;height:34px}}
+.stagewrap>.hd.h-rot{cursor:grab;background:#fff;border-color:#7c6cf5}
+.stagewrap>.hd.h-rot::after{content:"";position:absolute;left:50%;top:100%;width:3px;height:var(--stick,28px);margin-left:-1.5px;background:#7c6cf5;border-radius:2px;pointer-events:none}
+@media(pointer:coarse){.stagewrap>.hd.h-rot{--stick:34px}}

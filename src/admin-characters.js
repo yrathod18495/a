@@ -16,7 +16,7 @@ import { buildCharacterHtml } from './character-html.js';
 
 const GIF = { size: 128, fps: 8, maxSeconds: 4, colors: 32 };     // the small one: it only shows what the animation does
 /** preview quality the admin can pick: size in pixels (the picture is square), frames per second, colours (a GIF has 256 at most). Bigger = sharper, but heavier to store and to show. */
-export const GIF_QUALITY = { low: { label: 'Small · 128 px (lightest)', ...GIF, bitrate: 60_000 }, 480: { label: 'Good · 480 px (recommended)', size: 480, fps: 12, maxSeconds: 4, colors: 256, bitrate: 200_000 }, 720: { label: 'Best · 720 px', size: 720, fps: 12, maxSeconds: 4, colors: 256, bitrate: 420_000 } };
+export const GIF_QUALITY = { low: { label: 'Small · 128 px (lightest)', ...GIF, bitrate: 60_000 }, 320: { label: 'Light · 320 px (recommended)', size: 320, fps: 10, maxSeconds: 4, colors: 128, bitrate: 110_000 }, 480: { label: 'Good · 480 px', size: 480, fps: 12, maxSeconds: 4, colors: 256, bitrate: 200_000 }, 720: { label: 'Best · 720 px', size: 720, fps: 12, maxSeconds: 4, colors: 256, bitrate: 420_000 } };
 const PREVIEW = 420;
 const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
 
@@ -106,7 +106,7 @@ export async function animationGif(stage, def, name, anim, length, opts = GIF) {
 export async function charactersView({ back, home, toast }) {
   const root = h('div', { class: 'sh admin-characters' });
   const content = h('main', { class: 'admin-characters-main' });
-  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '480', name: '', group: 'male', sell: false, price: 500, sales: null };
+  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '320', name: '', group: 'male', sell: false, price: 500, sales: null };
   const stage = new Stage({ maxTex: 2048 }); stage.setSize('1:1', PREVIEW); stage.fullView = false;          // the preview is small: 2048 px pages use a quarter of the GPU memory of 4096 px pages
   let raf = 0, last = 0, loadJob = 0, lastDraw = 0, dirty = true, drawError = '';
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
@@ -187,7 +187,7 @@ export async function charactersView({ back, home, toast }) {
     try {
       const gifs = new Map(), thumbs = new Map();
       let thumb = null;
-      const q = GIF_QUALITY[st.gifQuality] || GIF_QUALITY[480], small = new Stage({ maxTex: 2048 }); small.setSize('1:1', q.size); small.fullView = false; let gifBytes = 0;
+      const q = GIF_QUALITY[st.gifQuality] || GIF_QUALITY[320], small = new Stage({ maxTex: 2048 }); small.setSize('1:1', q.size); small.fullView = false; let gifBytes = 0;
       const total = views().reduce((n, v) => n + v.animations.length, 0); let made = 0, uploading = '';   // every character gets its own previews, also when it uses a category's saved animations
       const report = () => say(total ? `Making the animation previews ${made} / ${total}${uploading ? ` · ${uploading}` : ''}` : (uploading || 'Saving…'), total ? (made / total) * 0.8 : 0.5);
       // 1) a picture of every view (quick)

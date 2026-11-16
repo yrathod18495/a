@@ -3097,7 +3097,7 @@ function mountStage() {
   selEl = h('div', { class: 'selbox', hidden: true });
   bgSelEl = h('div', { class: 'bg-sel', hidden: true, 'aria-label': 'Selected background; drag to move, drag a corner or pinch to resize' }, ...['tl', 'tr', 'bl', 'br'].map((c) => h('i', { class: `bg-hd bg-${c}`, 'data-bg': c })));
   propSelEl = h('div', { class: 'prop-sel', hidden: true, 'aria-label': 'Selected prop; drag to move' });
-  handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true })]));
+  handleEls = Object.fromEntries(['tl', 'tr', 'bl', 'br', 'rot'].map((c) => [c, h('i', { class: `hd h-${c}`, 'data-c': c, hidden: true, ...(c === 'rot' ? { title: 'Drag to tilt', 'aria-label': 'Tilt the character: drag the round handle' } : {}) })]));
   tearHandlesEl = h('div', { class: 'tear-handles', hidden: true }, tearHandle('left'), tearHandle('right'));
   selToolsEl = h('div', { class: 'sel-tools', hidden: true });
   overflowEl = h('div', { class: 'of-clip', hidden: true }, h('div', { class: 'of-frame' }), h('span', { class: 'of-note' }, 'Dimmed = outside the video frame'));
@@ -3160,6 +3160,10 @@ function mountStage() {
     }
     let l = layer();
     if (hd && l && charLockedNow(l.key)) { lockedToast(); return; }
+    if (hd === 'rot' && l) {          // the round handle on the stick: turn the character around its middle
+      const r = stage.out.getBoundingClientRect(), k = r.width / stage.W, cx = r.left + ((l.box.x0 + l.box.x1) / 2) * k, cy = r.top + ((l.box.y0 + l.box.y1) / 2) * k;
+      drag = { mode: 'rot', cx, cy, ang0: Math.atan2(e.clientY - cy, e.clientX - cx), rot0: l.rot || 0 }; wrapEl.setPointerCapture(e.pointerId); return;
+    }
     if (hd && l) {
       // A = the real opposite corner (stays put); C = where the handle is drawn (pinned inside the picture when the corner is off-screen)
       const b = l.box, corners = { tl: [b.x0, b.y0], tr: [b.x1, b.y0], bl: [b.x0, b.y1], br: [b.x1, b.y1] }, opp = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' }[hd];
@@ -3217,6 +3221,11 @@ function mountStage() {
     const l = layer();
     if (!drag || !l) return;
     const p = pt(e), W = stage.W, H = stage.H;
+    if (drag.mode === 'rot') {
+      let deg = drag.rot0 + (Math.atan2(e.clientY - drag.cy, e.clientX - drag.cx) - drag.ang0) * 180 / Math.PI;
+      deg = ((deg + 540) % 360) - 180; if (Math.abs(deg) < 3) deg = 0;          // it clicks back to upright
+      l.rot = +deg.toFixed(1); saveXf(l); stage.layout(); updateSel(); S.dirty = true; return;
+    }
     let a;
     if (drag.mode === 'move' && drag.pinch) { const k = Math.min(3 / drag.pinch.mul0, Math.max(0.2 / drag.pinch.mul0, pinchDist() / drag.pinch.d0)); l.mul = drag.pinch.mul0 * k; a = { x: drag.a0.x, y: drag.a0.y }; }
     else if (drag.mode === 'move') a = { x: drag.a0.x + p.x - drag.p0.x, y: drag.a0.y + p.y - drag.p0.y };
@@ -3257,6 +3266,7 @@ function updateBgSel() {
   Object.assign(bgSelEl.style, { left: `${x0}px`, top: `${y0}px`, width: `${Math.max(0, x1 - x0)}px`, height: `${Math.max(0, y1 - y0)}px` });
 }
 function saveXf(l) {
+  { const sp = S.speakers.find((x) => x.key === l.key); if (sp) sp.xf = { ...(sp.xf || { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf }), rot: l.rot || 0 }; }          // the tilt is saved also while the character has movement keys
   const keys = S.charKeys[l.key];
   if (keys?.length) {
     // With keyframes (a path, a movement) the character's size belongs to the whole movement, not to one moment: every keyframe is scaled by the same amount,
@@ -3273,7 +3283,7 @@ function saveXf(l) {
     }
     writeCharKey(l); return;
   }
-  const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf };
+  const s = S.speakers.find((x) => x.key === l.key); if (s) s.xf = { mul: l.mul ?? 1, axf: l.axf, ayf: l.ayf, rot: l.rot || 0 };
 }
 /** the "◆ move" lane of a character: open while that character is selected, shut otherwise; a lane the user opened (or shut) by hand stays that way until they change it */
 const moveLaneOpen = (key) => (key in S.moveOpen ? S.moveOpen[key] : S.sel === key);
@@ -3319,6 +3329,7 @@ function updateSel() {
     el.classList.toggle('pinned', Math.abs(px - x * k) > 1 || Math.abs(py - y * k) > 1);
     l.hpos[c] = [px / k, py / k];
   }
+  { const el = handleEls.rot, tx = ((b.x0 + b.x1) / 2) * k, ty = Math.max(m, b.y0 * k - 44); el.hidden = charLockedNow(l.key); el.style.left = `${Math.min(cw - m, Math.max(m, tx))}px`; el.style.top = `${Math.min(ch - m, ty)}px`; }          // the tilt handle on a stick above the box
   if (selToolsEl) updateSelTools(l, b, k, cw, ch);
 }
 /** a small floating toolbox over the selected character, for the tools that act on one character — tap a button to jump straight into that tool */
@@ -3359,13 +3370,13 @@ function doubleTapOn(l, e) {
 }
 /** size 100% and back to its own place inside the frame (a character that was dragged out of the picture or made huge / tiny) */
 function fitCharInFrame(l) {
-  l.mul = 1; l.axf = l.ayf = null; stage.layout();
+  l.mul = 1; l.rot = 0; l.axf = l.ayf = null; stage.layout();
   l.axf = l.anchor.x / stage.W; l.ayf = (stage.H - l.anchor.y) / stage.H;
   saveXf(l); stage.layout(); S.dirty = true;
 }
 function hideSelBar() { if (selBar) selBar.hidden = true; if (charBar) { charBar.hidden = true; charBar.dataset.key = ''; } }
 const mirrorChar = (l, s) => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; };
-const resetChar = (l, s) => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; };
+const resetChar = (l, s) => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.rot = 0; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; };
 /** phone: when a character is selected, a bar with a named button for each thing you can do with it replaces the bottom menu */
 /** the tool you are in is lit: the open tab, or Path while its shadow is being dragged */
 function markCharBar(l) { for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', b.dataset.tab === 'motion' ? S.pathDraw?.key === l.key : S.tab === b.dataset.tab && S.panelOpen && !S.pathDraw); }

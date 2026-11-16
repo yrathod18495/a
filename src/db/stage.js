@@ -223,7 +223,7 @@ export class Stage {
       const tex = new Map(a.pages);
       for (const [page, key] of Object.entries(s.artworkPages || {})) { const t = this.artworkTextures.get(key); if (t) tex.set(page, t); }
       const bone = (...names) => names.map((n) => arm.getBone(n)).find(Boolean) || null;
-      const layer = { shadow: s.shadow || null, tears: s.tears || null, key: s.key, flip: s.flip, slot: s.slot, visible: s.visible, mask: s.mask || null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', mul: s.xf?.mul ?? 1, axf: s.xf?.axf ?? null, ayf: s.xf?.ayf ?? null, charId: s.charId,
+      const layer = { shadow: s.shadow || null, tears: s.tears || null, key: s.key, flip: s.flip, slot: s.slot, visible: s.visible, mask: s.mask || null, maskKeys: s.maskKeys || [], maskFollow: s.maskFollow || '', mul: s.xf?.mul ?? 1, rot: s.xf?.rot ?? 0, axf: s.xf?.axf ?? null, ayf: s.xf?.ayf ?? null, charId: s.charId,
         hide: new Set(s.hide || []), arm, factory: f, dbName, prep, tex, anim: new Set(arm.armatureData.animationNames), clips: [], present: s.present || null, shown: true, bounds: null, lipOk: new Map(),
         bones: { head: bone('head', 'HEAD'), neck: bone('neck', 'NECK'), upper_body3: bone('upper_body3', 'TORSO3'), upper_body4: bone('upper_body4', 'TORSO2') }, lip: lipSetup(prep), states: [], mat: [1, 0, 0, 1, 0, 0],
         phase: [...s.key].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 1000, 7) / 159 };
@@ -308,7 +308,8 @@ export class Stage {
     const real = [], boxes = [];
     for (const l of [...this.layers].reverse()) {
       if (l.visible === false || l.shown === false || !l.mat || !l.box) continue;
-      const x = (p.x - l.mat[4]) / l.mat[0], y = (p.y - l.mat[5]) / l.mat[3];
+      const [ma, mb, mc, md, mtx, mty] = l.mat, det = ma * md - mb * mc || 1, dx = p.x - mtx, dy = p.y - mty;
+      const x = (md * dx - mc * dy) / det, y = (-mb * dx + ma * dy) / det;          // the point in the character's own space (also when it is tilted)
       let on = false;
       for (const it of this.collect(l)) {
         const v = it.verts, idx = it.idx;
@@ -341,6 +342,13 @@ export class Stage {
       l.mat = [S * dir, 0, 0, S, ax - c * S * dir, ayD - (b.y + b.h) * S];
       // selection box in canvas pixels (y down)
       l.box = { x0: ax - (b.w / 2) * S, x1: ax + (b.w / 2) * S, y0: ayD - b.h * S, y1: ayD };
+      if (l.rot) {          // tilted: turned around the middle of the character; the box is the one around the turned picture
+        const th = l.rot * Math.PI / 180, cs = Math.cos(th), sn = Math.sin(th), px = ax, py = ayD - (b.h * S) / 2, [ma, mb, mc, md, mtx, mty] = l.mat;
+        l.mat = [cs * ma - sn * mb, sn * ma + cs * mb, cs * mc - sn * md, sn * mc + cs * md, cs * (mtx - px) - sn * (mty - py) + px, sn * (mtx - px) + cs * (mty - py) + py];
+        const xs = [], ys = [];
+        for (const [qx, qy] of [[l.box.x0, l.box.y0], [l.box.x1, l.box.y0], [l.box.x0, l.box.y1], [l.box.x1, l.box.y1]]) { xs.push(cs * (qx - px) - sn * (qy - py) + px); ys.push(sn * (qx - px) + cs * (qy - py) + py); }
+        l.box = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+      }
       l.anchor = { x: ax, y: ayD };
     });
   }
