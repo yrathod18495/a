@@ -437,7 +437,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
 }
 
 /* ---------------- step 3: studio ---------------- */
-let ovEl, ovCanvas, ovHead, editDockEl, bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, clipNav, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
+let skillPathEl, skillHandleEl, ovEl, ovCanvas, ovHead, editDockEl, bgSelEl, tlUndo, tlRedo, clipBar, camEl, camHandles = {}, emptyEl, headEl, timeEl, playBtn, panelEl, tabsEl, selEl, propSelEl, selBar, charBar, clipNav, selToolsEl, wrapEl, exportBtn, hintEl, tlScroll, tlInner, tlLabels, tlBox, lineBox, startPill, handleEls = {};
 
 const sOf = (k) => S.speakers.find((x) => x.key === k);
 const lineById = (id) => player.clips.find((c) => c.id === id);
@@ -798,7 +798,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Overlays', 'zap'], ['fx', 'Effects', 'wand'], ['export', 'Export', 'download'], ['uploads', 'Uploads', 'upload']];
+const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Overlays', 'zap'], ['fx', 'Effects', 'wand'], ['export', 'Export', 'download'], ['uploads', 'Uploads', 'upload'], ['skills', 'Skills', 'zap']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri icon-btn play-btn', title: 'Play (Space)', 'aria-label': 'Play', onclick: togglePlay }, icon('play'));
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -1054,7 +1054,7 @@ function drawTabsInner() {
   stopAll();
   { const want = TAB_CAT[S.tab]; if (S.panelOpen && want && S.tlTabSeen !== S.tab) { S.tlTabSeen = S.tab; if (S.tlCat !== want) { S.tlCat = want; drawTimeline(); } } }          // the group first: the phone bar below follows it
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
-  const advanced = new Set(['motion', 'camera', 'mask', 'ai', 'tears', 'effects', 'grade', 'uploads']);
+  const advanced = new Set(['motion', 'camera', 'mask', 'ai', 'tears', 'effects', 'grade', 'uploads', 'skills']);
   const button = ([key, label, ic], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
     if (S.tab === key && !openOnly && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
     drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
@@ -1070,7 +1070,7 @@ function drawTabsInner() {
     },
   },
     h('summary', { title: 'More tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('settings')), h('span', { class: 'sr' }, 'More')),
-    h('div', { class: 'advanced-tools-list' }, ...adv('Bring in', ['uploads']), ...adv('Look', ['tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai']), ...adv('Finish', ['export'])));
+    h('div', { class: 'advanced-tools-list' }, ...adv('Bring in', ['uploads']), ...adv('Look', ['skills', 'tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai']), ...adv('Finish', ['export'])));
   // phone bar: Upload (the voices), Characters, Animations, Props, Background and Advanced (which ends with Export; Export is also in the header)
   const upload = h('button', { type: 'button', class: S.tab === 'audio' && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === 'audio' && S.panelOpen), title: 'Upload', 'aria-label': 'Upload', onclick: () => {
     if (S.tab === 'audio' && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = 'audio'; S.panelOpen = true; }
@@ -1084,7 +1084,7 @@ function drawTabsInner() {
     tabsEl.replaceChildren(h('div', { class: 'rail-title' }, 'Start here'), railBtn('audio', 1), railBtn('chars', 2), railBtn('anim', 3),
       h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props', 'shadow', 'fx'].map((key) => railBtn(key)),
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
-      h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['uploads', 'tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
+      h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['uploads', 'skills', 'tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
   } else {
     const was = tabsEl.querySelector('.tabs-scroll'), fresh = h('div', { class: 'tabs-scroll', 'data-nav': S.tlCat }, ...phoneNav(button, byKey, upload, more));
     tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), fresh);
@@ -1098,7 +1098,7 @@ function drawTabsInner() {
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}${['chars', 'handprops', 'props', 'canvas', 'effects'].includes(S.tab) ? ' tall-panel' : ''}`;
   const label = S.tab === 'audio' ? 'Upload' : (TABS.find(t => t[0] === S.tab)?.[1] || 'Tools');
   panelEl.replaceChildren(h('div', { class: 'sheet-grip', role: 'button', tabindex: 0, 'aria-label': 'Drag to resize this panel, drag down to close it', onpointerdown: startSheetDrag, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSheetSize(); } } }, h('i')), h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
-    { audio: tabAudio, uploads: tabUploads, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab](),
+    { audio: tabAudio, uploads: tabUploads, skills: tabSkills, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab](),
     h('button', { type: 'button', class: 'sheet-fab', title: 'Close', 'aria-label': 'Close this panel', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x')));
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeFab(); placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
@@ -1162,7 +1162,7 @@ const signs = (list) => { const on = list.filter(Boolean); return on.length ? h(
 /** the groups of timeline layers; the open section (tab) decides which group is shown, and a chip above the timeline can switch it by hand */
 const TL_CATS = [['audio', 'Audio'], ['chars', 'Characters'], ['background', 'Background'], ['props', 'Props'], ['effects', 'Effects']];
 const TL_EMPTY = { audio: 'No audio yet. Use Upload → Voices or Music.', chars: 'No characters yet. Add one in the Characters tab.', background: 'No background layer yet. Pick one in the Background tab.', props: 'No props or objects yet. Add them in the Props or Objects tab.', effects: 'No effects yet. Add one in the Effects tab.' };
-const TAB_CAT = { audio: 'audio', chars: 'chars', anim: 'chars', motion: 'chars', tears: 'chars', camera: 'chars', mask: 'chars', ai: 'chars', canvas: 'background', handprops: 'props', props: 'props', shadow: 'props', fx: 'effects', effects: 'effects', grade: 'effects' };
+const TAB_CAT = { audio: 'audio', chars: 'chars', anim: 'chars', motion: 'chars', tears: 'chars', camera: 'chars', mask: 'chars', ai: 'chars', canvas: 'background', handprops: 'props', props: 'props', shadow: 'props', fx: 'effects', skills: 'effects', effects: 'effects', grade: 'effects' };
 const catOfItem = (kind, id) => (kind === 'clip' ? 'chars' : kind === 'bg' ? 'background' : kind === 'shadow' ? 'props' : kind === 'fx' ? 'effects' : kind === 'prop' ? (isEffect(S.props.find((p) => p.id === id)) ? 'effects' : 'props') : kind === 'line' ? 'audio' : null);
 let tlCatsEl = null;
 function drawTlCats(counts = {}) {
@@ -2008,14 +2008,81 @@ const fxThumbOf = (snap, params, name) => {
   try { box.append(fxThumb(snap, params, snap.width, snap.height)); } catch (e) { console.warn(`Effect preview failed (${name}):`, e.message); }
   return box;
 };
-/** the Skills card of the Effects tab: powers drawn as flat vector art on a character (fire, lightning, an energy ball, a magic circle) */
-function skillCard() {
-  const chars = S.speakers.filter((x) => x.charId), tgt = currentFxTarget(), key = tgt.startsWith('char:') ? tgt.slice(5) : chars[0]?.key || null;
-  const preview = (t) => { const c = document.createElement('canvas'); c.width = c.height = 96; c.className = 'skill-pic'; drawSkill(c.getContext('2d'), t.id, 96, 1.1, { color: t.color, power: 0.8, speed: 1 }, 1); return c; };
-  return h('div', { class: 'card flat skills-card' }, h('h3', { class: 'fx-h' }, 'Skills'),
-    h('p', { class: 'sub studio-help' }, chars.length ? `Powers for ${sOf(key)?.name || 'a character'}: fire, lightning, an energy ball, a magic circle. They move with the character. Tap one, then Edit to choose the hand, size, strength and colour.` : 'Add a character first. A skill belongs to a character.'),
-    h('div', { class: 'tile-grid fx-grid' }, SKILLS.map((t) => h('button', { type: 'button', class: 'tile skill-tile', 'data-skill': t.id, title: `${t.name}: ${t.hint}`, disabled: !chars.length, onclick: () => addSkill(t.id, key) },
-      h('span', { class: 'tile-pic' }, preview(t)), h('span', { class: 'tile-name' }, h('b', {}, t.name))))));
+/** the round handle (and the dashed way) on the picture: the end point of the selected skill's path; drag it to move the end */
+function updateSkillHandle() {
+  if (!skillHandleEl) return;
+  const f = selectedSkill(), show = !!(f?.skill.move && S.tab === 'skills' && S.panelOpen !== false && !player.playing && !S.exporting && stage.camZoom <= 1.02);
+  const ends = show ? stage.skillEnds(f) : null;
+  if (!ends?.p1) { skillHandleEl.hidden = skillPathEl.hidden = true; return; }
+  const cv = stage.out, k = cv.clientWidth / stage.W, ox = cv.offsetLeft, oy = cv.offsetTop, X = (v) => ox + v * k, Y = (v) => oy + v * k, { p0, p1 } = ends, m = f.skill.move;
+  const len = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1, mx = (p0.x + p1.x) / 2 - ((p1.y - p0.y) / len) * m.arc * len, my = (p0.y + p1.y) / 2 + ((p1.x - p0.x) / len) * m.arc * len;
+  skillPathEl.hidden = false; skillPathEl.setAttribute('viewBox', `0 0 ${wrapEl.clientWidth} ${wrapEl.clientHeight}`); skillPathEl.firstChild.setAttribute('d', `M${X(p0.x)} ${Y(p0.y)} Q${X(mx)} ${Y(my)} ${X(p1.x)} ${Y(p1.y)}`);
+  skillHandleEl.hidden = m.mode === 'char'; skillHandleEl.style.left = `${X(p1.x)}px`; skillHandleEl.style.top = `${Y(p1.y)}px`;
+}
+function wireSkillHandle() {
+  let drag = null;
+  skillHandleEl.addEventListener('pointerdown', (e) => { const f = selectedSkill(); if (!f?.skill.move || isKeyLocked(keyOf('fx', f.id))) return; e.stopPropagation(); e.preventDefault(); drag = f; skillHandleEl.setPointerCapture(e.pointerId); });
+  skillHandleEl.addEventListener('pointermove', (e) => {
+    if (!drag) return; const r = stage.out.getBoundingClientRect(), x = Math.min(1.2, Math.max(-0.2, (e.clientX - r.left) / r.width)), y = Math.min(1.2, Math.max(-0.2, (e.clientY - r.top) / r.height));
+    drag.skill = cleanSkill({ ...drag.skill, move: { ...drag.skill.move, mode: 'point', to: { x, y } } }); syncFx();
+  });
+  const up = () => { if (drag) { drag = null; commitClips(false); } };
+  skillHandleEl.addEventListener('pointerup', up); skillHandleEl.addEventListener('pointercancel', up);
+}
+/* ---------------- Skills: powers on a character (fire, lightning, energy ball, magic circle) ---------------- */
+const SKILL_LEVEL_LABEL = { fire: 'Flame level', lightning: 'Bolt power', energy: 'Energy level', circle: 'Glow level' };
+const skillsInScene = () => S.fx.filter((f) => f.skill);
+const selectedSkill = () => skillsInScene().find((f) => f.id === S.fxSel) || null;
+function addSkill(kind, key) {
+  if (!key || !sOf(key)?.charId) { toast('Please add a character first, then choose it. A skill belongs to a character.'); return null; }
+  const start = Math.max(0, Math.min(player.time, Math.max(0, player.total - 1))), end = Math.min(Math.max(player.total, start + 2), start + 4), fx = newSkill(kind, { id: uid(), target: `char:${key}`, start: +start.toFixed(2), end: +end.toFixed(2), ramp: 0.3 });
+  S.fx.push(fx); syncFx(); selectOnly('fx', fx.id); updateTotal(); drawTimeline(); redrawPanel(); commitClips();
+  return fx;
+}
+/** the whole Skills tool: choose the character, add a skill, then set where it sits, how it looks, whether it flies along a path, and when it plays */
+function tabSkills() {
+  const chars = S.speakers.filter((x) => x.charId), sel = selectedSkill();
+  const key = sel ? targetId(sel.target) : (S.sel && sOf(S.sel)?.charId ? S.sel : chars.find((x) => x.key === S.skillChar)?.key || chars[0]?.key || null);
+  const set = (fx, patch, redraw = false) => { fx.skill = cleanSkill({ ...fx.skill, ...patch }); syncFx(); if (redraw) redrawPanel(); };
+  const slider = (fx, label, prop, lo, hi, step, fmt) => { const out = h('b', {}, fmt(fx.skill[prop])); return h('label', { class: 'sk-s' }, h('span', {}, label), h('input', { type: 'range', min: lo, max: hi, step, value: fx.skill[prop], 'aria-label': label, oninput: (e) => { set(fx, { [prop]: +e.target.value }); out.textContent = fmt(fx.skill[prop]); } }), out); };
+  const pct = (v) => `${Math.round(v * 100)}%`, sec = (v) => `${(+v).toFixed(1)}s`;
+  const moveSlider = (fx, label, prop, lo, hi, step) => { const out = h('b', {}, pct(fx.skill.move[prop])); return h('label', { class: 'sk-s' }, h('span', {}, label), h('input', { type: 'range', min: lo, max: hi, step, value: fx.skill.move[prop], 'aria-label': label, oninput: (e) => { set(fx, { move: { ...fx.skill.move, [prop]: +e.target.value } }); out.textContent = pct(fx.skill.move[prop]); } }), out); };
+  const rampSlider = (fx) => { const out = h('b', {}, sec(fx.ramp ?? 0.3)); return h('label', { class: 'sk-s' }, h('span', {}, 'Fade in / out'), h('input', { type: 'range', min: 0, max: 3, step: 0.1, value: fx.ramp ?? 0.3, 'aria-label': 'Fade in / out', oninput: (e) => { fx.ramp = +e.target.value; syncFx(); out.textContent = sec(fx.ramp); } }), out); };
+  const chip = (text, on, onclick, extra = {}) => h('button', { type: 'button', class: `ed-chip${on ? ' on' : ''}`, 'aria-pressed': String(on), onclick, ...extra }, text);
+  const tiles = h('div', { class: 'tile-grid fx-grid' }, SKILLS.map((t) => { const c = document.createElement('canvas'); c.width = c.height = 96; c.className = 'skill-pic'; drawSkill(c.getContext('2d'), t.id, 96, 1.1, { color: t.color, power: 0.8, speed: 1 }, 1);
+    return h('button', { type: 'button', class: 'tile skill-tile', 'data-skill': t.id, title: `${t.name}: ${t.hint}`, disabled: !chars.length, onclick: () => addSkill(t.id, key) }, h('span', { class: 'tile-pic' }, c), h('span', { class: 'tile-name' }, h('b', {}, t.name))); }));
+  const list = skillsInScene();
+  const rows = list.length ? h('div', { class: 'card flat fx-list' }, h('h2', {}, 'In the scene'), ...list.map((f) => h('div', { class: `fx-row${f.id === S.fxSel ? ' on' : ''}`, 'data-id': f.id },
+    h('button', { type: 'button', class: 'fx-row-main', onclick: () => { selectOnly('fx', f.id); drawTimeline(); redrawPanel(); } }, h('b', {}, f.name), h('small', {}, `${fxTargetName(f.target)} · ${SKILL_ANCHORS.find(([k]) => k === f.skill.anchor)?.[1] || ''} · ${f.start.toFixed(1)}–${f.end.toFixed(1)}s${f.skill.move ? ' · flies' : ''}`)),
+    h('button', { type: 'button', class: 'ib', title: f.visible === false ? 'Show' : 'Hide', 'aria-label': f.visible === false ? 'Show this skill' : 'Hide this skill', onclick: () => { f.visible = f.visible === false; syncFx(); drawTimeline(); redrawPanel(); } }, icon(f.visible === false ? 'eye-off' : 'eye')),
+    h('button', { type: 'button', class: 'ib', title: 'Delete', 'aria-label': `Delete ${f.name}`, onclick: () => { selectOnly('fx', f.id); deleteSelected(); } }, icon('trash'))))) : null;
+  const editor = () => {
+    if (!sel) return null;
+    const fx = sel, K = fx.skill, locked = isKeyLocked(keyOf('fx', fx.id)), move = K.move, otherChars = chars.filter((x) => x.key !== targetId(fx.target));
+    const groups = ['Body', 'Arms'].map((g) => h('div', { class: 'sk-group' }, h('small', {}, g), h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, SKILL_ANCHORS.filter(([, , gg]) => gg === g).map(([id, label]) => chip(label, K.anchor === id, () => set(fx, { anchor: id }, true), { 'data-anchor': id })))));
+    return h('div', { class: 'card flat sk-editor', 'data-skill-editor': fx.id }, h('h2', {}, `${fx.name} on ${fxTargetName(fx.target)}`), locked ? h('p', { class: 'sub' }, 'This skill is locked. Unlock it on the timeline to change it.') : null,
+      h('h3', { class: 'fx-h' }, 'Where on the character'), ...groups,
+      slider(fx, 'Move left / right', 'dx', -0.5, 0.5, 0.01, (v) => pct(v)), slider(fx, 'Move up / down', 'dy', -0.5, 0.5, 0.01, (v) => pct(v)),
+      h('h3', { class: 'fx-h' }, 'How it looks'),
+      slider(fx, 'Size', 'size', 0.3, 3, 0.05, pct), slider(fx, SKILL_LEVEL_LABEL[K.kind] || 'Level', 'power', 0.1, 1, 0.05, pct), slider(fx, 'Speed', 'speed', 0.3, 3, 0.05, pct), slider(fx, 'Opacity', 'opacity', 0.1, 1, 0.05, pct), slider(fx, 'Width / spread', 'width', 0.4, 2, 0.05, pct), slider(fx, 'Turn', 'angle', -180, 180, 1, (v) => `${Math.round(v)}°`),
+      h('label', { class: 'ed-colour' }, 'Colour ', h('input', { type: 'color', value: K.color, 'aria-label': 'Skill colour', oninput: (e) => set(fx, { color: e.target.value }) })),
+      h('h3', { class: 'fx-h' }, 'Movement'),
+      h('p', { class: 'sub studio-help' }, 'Let it leave the character and fly: a fire ball from the hand, a bolt to another character. Drag the round handle on the picture to choose where it ends.'),
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, chip('Stays on the character', !move, () => set(fx, { move: null }, true), { 'data-move': 'none' }), chip('Flies to a point', move?.mode === 'point', () => set(fx, { move: { ...(move || {}), mode: 'point' } }, true), { 'data-move': 'point' }),
+        ...(otherChars.length ? [chip('Flies to a character', move?.mode === 'char', () => set(fx, { move: { ...(move || {}), mode: 'char', char: move?.char && otherChars.some((x) => x.key === move.char) ? move.char : otherChars[0].key } }, true), { 'data-move': 'char' })] : [])),
+      ...(move?.mode === 'char' ? [h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:6px' }, otherChars.map((x) => chip(x.name, move.char === x.key, () => set(fx, { move: { ...move, char: x.key } }, true))))] : []),
+      ...(move ? [moveSlider(fx, 'Curve of the way', 'arc', -1, 1, 0.05), moveSlider(fx, 'Flying time (of its length)', 'travel', 0.1, 1, 0.05),
+        h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: move.trail, onchange: (e) => set(fx, { move: { ...move, trail: e.target.checked } }) }), 'Leave a fading trail'),
+        h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: move.aim, onchange: (e) => set(fx, { move: { ...move, aim: e.target.checked } }) }), 'Turn toward where it flies (flames trail behind)')] : []),
+      h('h3', { class: 'fx-h' }, 'When'),
+      h('div', { class: 'sk-times' }, ...[['Starts at', 'start'], ['Lasts', 'len']].map(([label, k]) => h('label', { class: 'cb-n' }, label, h('input', { type: 'number', min: 0, step: 0.1, 'aria-label': label, value: (k === 'start' ? fx.start : fx.end - fx.start).toFixed(1), onchange: (e) => { const v = Math.max(k === 'start' ? 0 : 0.3, +e.target.value || 0); if (k === 'start') { const len = fx.end - fx.start; fx.start = +v.toFixed(2); fx.end = +(fx.start + len).toFixed(2); } else fx.end = +(fx.start + v).toFixed(2); syncFx(); updateTotal(); drawTimeline(); commitClips(); redrawPanel(); } })))),
+      rampSlider(fx),
+      h('div', { class: 'row', style: 'gap:6px;margin-top:8px' }, h('button', { type: 'button', class: 'btn sm', onclick: () => { duplicateFx(); redrawPanel(); } }, icon('layers'), h('span', {}, 'Duplicate')), h('button', { type: 'button', class: 'btn sm danger', onclick: () => deleteSelected() }, icon('trash'), h('span', {}, 'Delete'))));
+  };
+  return h('div', { class: 'list' },
+    h('div', { class: 'card flat' }, h('h2', {}, 'Skills'), h('p', { class: 'sub studio-help' }, chars.length ? `Powers for your characters: fire, lightning, an energy ball, a magic circle. Choose the character, tap a skill, then set where it sits, how it looks and whether it flies.` : 'Add a character first. A skill belongs to a character.'),
+      chars.length > 1 ? h('div', { class: 'fx-targets', role: 'group', 'aria-label': 'Put the skill on' }, chars.map((x) => chip(x.name, x.key === key, () => { S.skillChar = x.key; redrawPanel(); }, { 'data-char': x.key }))) : null, tiles),
+    rows, editor());
 }
 /** the Effects tab: where it goes (chips), the 19 looks with a preview made from the real picture, and the effects already in the scene */
 function tabFx() {
@@ -2032,36 +2099,12 @@ function tabFx() {
     : null;
   return h('div', { class: 'list' },
     h('div', { class: 'card flat' }, h('h2', {}, 'Effects'), h('p', { class: 'sub studio-help' }, `Tap a look to put it on: ${name}. Then drag it on the timeline to choose where it starts and ends, and tap Edit to change anything.`), chips),
-    skillCard(),
     ...FX_TEMPLATE_GROUPS.map((g) => h('div', { class: 'card flat' }, h('h3', { class: 'fx-h' }, g), grid(g))),
     inScene);
 }
-/** a skill (fire, lightning, energy ball, magic circle) on a character: it starts where the playhead is and lasts a few seconds */
-function addSkill(kind, key) {
-  if (!key || !sOf(key)?.charId) { toast('Please add a character first, then choose it. A skill belongs to a character.'); return null; }
-  const start = Math.max(0, Math.min(player.time, Math.max(0, player.total - 1))), end = Math.min(Math.max(player.total, start + 2), start + 4), fx = newSkill(kind, { id: uid(), target: `char:${key}`, start: +start.toFixed(2), end: +end.toFixed(2), ramp: 0.3 });
-  S.fx.push(fx); syncFx(); selectOnly('fx', fx.id); updateTotal(); drawTimeline(); redrawFxPanel(); commitClips();
-  if (!wideStudio() && S.panelOpen && S.tab === 'fx') { S.panelOpen = false; drawTabs(); }
-  return fx;
-}
-/** the editor of one skill: where it sits on the character, how big, how strong, how fast, its colour */
-function openSkillDock(fx) {
-  if (isKeyLocked(keyOf('fx', fx.id))) { lockedToast(); return; }
-  if (!wideStudio() && S.panelOpen) { S.panelOpen = false; drawTabs(); }
-  const K = () => (fx.skill = cleanSkill(fx.skill)), num = (key, label, lo, hi, step) => ({ key, label, min: lo * 100, max: hi * 100, step: step * 100, get: () => K()[key] * 100, set: (v) => { fx.skill = { ...K(), [key]: v / 100 }; }, fmt: (v) => `${Math.round(v)}%` });
-  openEditDock({
-    title: `${fx.name} · ${fxTargetName(fx.target)}`,
-    params: [{ key: 'ramp', label: 'Fade in / out', min: 0, max: 300, get: () => (fx.ramp ?? 0.3) * 100, set: (v) => { fx.ramp = v / 100; }, fmt: (v) => `${(v / 100).toFixed(1)}s` }, num('size', 'Size', 0.3, 3, 0.05), num('power', 'Strength', 0.1, 1, 0.05), num('speed', 'Speed', 0.3, 3, 0.05)],
-    onChange: () => syncFx(), onClose: () => { drawTimeline(); redrawFxPanel(); commitClips(false); },
-    extras: (key) => (key !== 'ramp' ? [] : [
-      h('div', { class: 'row fx-anchors', style: 'gap:6px;flex-wrap:wrap;margin:6px 0' }, SKILL_ANCHORS.map(([id, label]) => h('button', { type: 'button', class: `ed-chip${K().anchor === id ? ' on' : ''}`, 'data-anchor': id, 'aria-pressed': String(K().anchor === id), onclick: (e) => { fx.skill = { ...K(), anchor: id }; e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => { const on = b.dataset.anchor === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); syncFx(); } }, label))),
-      h('label', { class: 'ed-colour' }, 'Colour ', h('input', { type: 'color', value: K().color, 'aria-label': 'Skill colour', oninput: (e) => { fx.skill = { ...K(), color: e.target.value }; syncFx(); } }))]),
-    onReset: () => { const t = SKILLS.find((x) => x.id === fx.skill.kind); fx.skill = cleanSkill({ kind: fx.skill.kind, color: t?.color, anchor: t?.anchor }); fx.ramp = 0.3; syncFx(); },
-  });
-}
 /** the editor of one effect: every number, with the same preview on the stage while the slider moves */
 function openFxDock(fx) {
-  if (fx.skill) { openSkillDock(fx); return; }
+  if (fx.skill) { S.fxPickTab = 'skills'; openTab('skills'); return; }
   if (isKeyLocked(keyOf('fx', fx.id))) { lockedToast(); return; }
   if (!wideStudio() && S.panelOpen) { S.panelOpen = false; drawTabs(); }          // on a phone the panel would cover the stage: the effect is watched on the stage while the sliders move
   const P = () => (fx.params = cleanFx(fx.params)), scale = (c) => (c.key === 'hue' ? 1 : 100), fmt = (c) => (v) => (c.key === 'hue' ? `${Math.round(v)}°` : (v / 100).toFixed(2));
@@ -3199,7 +3242,10 @@ function mountStage() {
   tearHandlesEl = h('div', { class: 'tear-handles', hidden: true }, tearHandle('left'), tearHandle('right'));
   selToolsEl = h('div', { class: 'sel-tools', hidden: true });
   overflowEl = h('div', { class: 'of-clip', hidden: true }, h('div', { class: 'of-frame' }), h('span', { class: 'of-note' }, 'Dimmed = outside the video frame'));
-  wrapEl = h('div', { class: 'stagewrap' }, stage.out, overflowEl, bgSelEl, selEl, propSelEl, ...Object.values(handleEls), tearHandlesEl, selToolsEl);
+  skillPathEl = h('svg', { class: 'sk-path', hidden: true, 'aria-hidden': 'true' }, h('path', { d: '', fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-dasharray': '7 6', 'stroke-linecap': 'round' }));
+  skillHandleEl = h('div', { class: 'sk-handle', hidden: true, role: 'slider', 'aria-label': 'Where the skill ends: drag me', title: 'Drag to choose where it ends' }, icon('target'));
+  wrapEl = h('div', { class: 'stagewrap' }, stage.out, overflowEl, bgSelEl, selEl, propSelEl, ...Object.values(handleEls), tearHandlesEl, selToolsEl, skillPathEl, skillHandleEl);
+  wireSkillHandle();
   stageObserver?.disconnect();
   const box = document.getElementById('stagebox'); box.replaceChildren(wrapEl);
   stageObserver = new ResizeObserver(fitEditor); stageObserver.observe(box); fitEditor();
@@ -5092,7 +5138,7 @@ function loop(now) {
   try { stage.render(t, player.playing ? dt : 0, player.clips, shotPlan()); renderCount++; lastPreviewFrame = now; } catch (e) { console.error(e); }
   if (S.selectedPropId) { const sp = S.props.find((q) => q.id === S.selectedPropId); if (sp && isHeld(sp)) updateSel(); }          // the box of a held prop follows the hand
   if (player.playing) followLine();
-  updateSel(); updateCamBox(); updateTearHandles();
+  updateSel(); updateCamBox(); updateTearHandles(); updateSkillHandle();
   if (S.tab === 'grade' && S.gradeKeys.length && Math.abs(player.time - gradeSeen) > 0.02) { gradeSeen = player.time; refreshGradeFields(); }
   if (headEl) {
     const x = t * S.pps;

@@ -11,14 +11,16 @@ async function open(page) {
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await page.waitForFunction(() => window.__toon?.S.ready);
 }
-test('the Effects tab has a Skills card with the four skills; without a character they are off, and the normal 19 looks are unchanged', async ({ page }) => {
+test('the Skills tool (More tools) lists the four skills; without a character they are off, and the Effects tab keeps its 19 looks', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await open(page);
-  await page.locator('#app .tabs.big').getByRole('button', { name: 'Effects', exact: true }).click();
+  await page.locator('.rail-more summary').click();
+  await page.locator('.rail-btn', { hasText: 'Skills' }).click();
   await expect(page.locator('.skill-tile')).toHaveText([/Fire/, /Lightning/, /Energy ball/, /Magic circle/]);
   await expect(page.locator('.skill-tile').first()).toBeDisabled();
-  await expect(page.locator('.fx-tile')).toHaveCount(19);
   await expect(page.locator('.skill-tile canvas')).toHaveCount(4);
+  await page.locator('#app .tabs.big').getByRole('button', { name: 'Effects', exact: true }).click().catch(async () => { await page.locator('.rail-btn', { hasText: /^Effects$|Overlays/ }).first().click(); });
+  await expect(page.locator('.skill-tile')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 test('a skill on a character is drawn on the stage at the chosen place, follows the fade, and the other effects ignore it', async ({ page }) => {

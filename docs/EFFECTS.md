@@ -24,9 +24,10 @@ An **Effect** is a look (Night, Ghost, Blurry, Neon glow ...) that sits on the t
 - Tests: `tests/browser/effects.spec.js` (tab, scene vs item, time range, save, export job, migration).
 
 ## Skills (fire, lightning, energy ball, magic circle)
-Flat **vector** powers that belong to one character. They are entries of the same effects list (`fx.skill = { kind, anchor, size, power, speed, color }`, target `char:<key>`), so they share the timeline row, drag, lock, copy / paste, delete, save and the export job. `fxAt` ignores them (they are not a colour pass); `Stage.drawSkills` draws them after the characters.
-- Drawing code: `shared/skills.js` (`drawSkill`, one function per skill; also used for the tile previews). It is plain canvas 2D, so it runs in the export worker too. To add a skill: add it to `SKILLS` + `SKILL_SCALE` and write its draw function.
-- Anchors: right / left hand (`heldAt`, the palm bone of the rig), head, chest, feet. A rig without the bone falls back to the middle of the character.
-- Each frame the skill is drawn into a small canvas, uploaded as a premultiplied texture (`r.texture(canvas, true)`) and thrown away after `r.end()`.
-- UI: Effects tab -> Skills card (needs a character); Edit opens `openSkillDock` (place, size, strength, speed, colour).
-- Tests: `tests/browser/skills.spec.js`.
+Flat **vector** powers that belong to one character. They are entries of the same effects list (`fx.skill`, target `char:<key>`), so they share the timeline row, drag, lock, copy / paste, delete, save and the export job. `fxAt` ignores them (they are not a colour pass); `Stage.drawSkills` draws them after the characters.
+- **Settings** (`cleanSkill` in `shared/skills.js`): `anchor` (head, chest, belly, legs, feet, upper arm / lower arm / hand, right and left), `dx` / `dy` (nudge), `size`, `power` (flame level / bolt power / energy level / glow level), `speed`, `opacity`, `width`, `angle`, `color`, and `move` (null = stays; `{ mode: 'point' | 'char', to, char, arc, travel, trail, aim }` = it leaves its anchor and flies to the end point along an arc, with a fading trail and flames that trail behind).
+- **Drawing:** `drawSkill` (one function per skill; also the tile previews). Plain canvas 2D, so it runs in the export worker. To add a skill: `SKILLS` + `SKILL_SCALE` + a draw function.
+- **Where it sits:** `skillAnchorPoint` (bone names per rig family in `NAMES`; a rig without the bone falls back to the middle of the body). `Stage.skillEnds` gives the start and end points in canvas pixels; `skillPlace` the place at time t.
+- **Rendering:** each frame the skill is drawn into a small canvas, uploaded as a premultiplied texture (`r.texture(canvas, true)`) and disposed after `r.end()`.
+- **UI:** More tools -> **Skills** (`tabSkills`): character, skill tiles, the skills in the scene, and the editor (where, how it looks, movement, when). A round handle and a dashed way on the picture set the end point (`updateSkillHandle`).
+- **Tests:** `tests/browser/skills.spec.js` (tiles, drawing, fade), `tests/browser/skills-export.spec.js` (a real export on a PC-size and a phone-size window: the fire is in the video and has flown to the right).

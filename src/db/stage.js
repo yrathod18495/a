@@ -10,7 +10,7 @@ import { GLRenderer } from './renderer.js';
 import { Motion, limbsFromArmature } from './motion.js';
 import { HOP, visemeName } from '../lipsync.js';
 import { EFFECT_BLENDS, propActive, sheetUv, isHeld, heldAt, heldPlacement } from '../../shared/studio-effects.js';
-import { drawSkill, SKILL_SCALE } from '../../shared/skills.js';
+import { drawSkill, SKILL_SCALE, skillAnchorPoint, skillPlace } from '../../shared/skills.js';
 
 /** the tallest a character gets at 100% size, as a share of the canvas height */
 export const CHARACTER_MAX_HEIGHT = 0.75;
@@ -597,33 +597,41 @@ export class Stage {
     this.onFrame?.();
   }
 
-  /** where a skill sits on a character, in canvas pixels */
-  skillPoint(l, anchor) {
-    const M = l.mat, at = (b) => { const m = b.globalTransformMatrix; return { x: M[0] * m.tx + M[2] * m.ty + M[4], y: M[1] * m.tx + M[3] * m.ty + M[5] }; };
-    if (anchor === 'handR' || anchor === 'handL') { const h = heldAt(l, anchor === 'handR' ? 'R' : 'L'); if (h && h !== 'hidden') return { x: h.x, y: h.y }; }
-    if (anchor === 'head' && l.bones?.head) return at(l.bones.head);
-    if (anchor === 'chest') { const b = l.bones?.upper_body3 || l.bones?.upper_body4; if (b) return at(b); }
-    const bx = l.box; if (!bx) return null;
-    if (anchor === 'feet') return { x: l.anchor.x, y: l.anchor.y };
-    return { x: (bx.x0 + bx.x1) / 2, y: bx.y0 + (bx.y1 - bx.y0) * (anchor === 'head' ? 0.12 : 0.38) };
+  /** the two ends of a skill's way in canvas pixels: where it starts (its place on the character, nudged by dx / dy) and where it goes (a point on the picture, or another character) */
+  skillEnds(f) {
+    const key = String(f.target || '').startsWith('char:') ? f.target.slice(5) : null, l = key && this.layers.find((x) => x.key === key);
+    if (!l || l.visible === false || l.shown === false || !l.box) return null;
+    const sk = f.skill, a = skillAnchorPoint(l, sk.anchor); if (!a) return null;
+    const h = Math.max(1, l.box.y1 - l.box.y0), p0 = { x: a.x + (sk.dx || 0) * h, y: a.y + (sk.dy || 0) * h };
+    let p1 = null;
+    if (sk.move) {
+      if (sk.move.mode === 'char') { const o = this.layers.find((x) => x.key === sk.move.char && x.box && x.visible !== false && x.shown !== false); p1 = o ? skillAnchorPoint(o, 'chest') : null; }
+      else p1 = { x: sk.move.to.x * this.W, y: sk.move.to.y * this.H };
+    }
+    return { l, p0, p1, h };
   }
-  /** skills (fire, lightning, an energy ball, a magic circle): flat vector art drawn for every active skill on the timeline, on the character it belongs to */
+  /** skills (fire, lightning, an energy ball, a magic circle): flat vector art drawn for every active skill on the timeline, on the character it belongs to; with a path it flies from the character to its end point */
   drawSkills(t) {
     const { r, W, H } = this; let any = false;
     for (const f of this.fx || []) {
       if (!f.skill || f.visible === false) continue;
       const w = fxWeight(f, t); if (w <= 0) continue;
-      const key = String(f.target || '').startsWith('char:') ? f.target.slice(5) : null, l = key && this.layers.find((x) => x.key === key);
-      if (!l || l.visible === false || l.shown === false || !l.box) continue;
-      const at = this.skillPoint(l, f.skill.anchor); if (!at) continue;
-      const R = Math.max(1, l.box.y1 - l.box.y0) * (SKILL_SCALE[f.skill.kind] ?? 0.2) * (f.skill.size ?? 1), S = Math.max(64, Math.min(768, Math.ceil(R / 0.3125)));
+      const ends = this.skillEnds(f); if (!ends) continue;
+      const sk = f.skill, R = ends.h * (SKILL_SCALE[sk.kind] ?? 0.2) * (sk.size ?? 1), S = Math.max(64, Math.min(768, Math.ceil(R / 0.3125)));
+      const pl = skillPlace(sk, f, t, ends.p0, ends.p1), aim = sk.move?.aim !== false && pl.dir != null && pl.e < 1, turn = aim ? pl.dir + Math.PI / 2 : 0;          // flames trail behind a flying fire ball
       if (!this._skillCv || this._skillCv.width !== S) this._skillCv = makeCanvas(S, S);
-      drawSkill(this._skillCv.getContext('2d'), f.skill.kind, S, t - f.start, f.skill, w);
+      drawSkill(this._skillCv.getContext('2d'), sk.kind, S, t - f.start, sk, w, turn);
       if (!any) { r.setMask(null, W, H); any = true; }
       const tex = this.r.texture(this._skillCv, true); (this._skillTmp ||= []).push(tex);
-      r.quad(tex, at.x - S / 2, at.y - S / 2, S, S, 1);
+      if (sk.move?.trail && pl.e > 0 && pl.e < 1) for (let i = 4; i >= 1; i--) {          // a few fading copies behind it
+        const e2 = Math.max(0, pl.e - i * 0.045), q = skillPlace(sk, { ...f, start: f.start }, f.start + (f.end - f.start) * sk.move.travel * this.invEase(e2), ends.p0, ends.p1), sc = 1 - i * 0.12;
+        r.add({ verts: new Float32Array([q.x - S * sc / 2, q.y - S * sc / 2, q.x + S * sc / 2, q.y - S * sc / 2, q.x + S * sc / 2, q.y + S * sc / 2, q.x - S * sc / 2, q.y + S * sc / 2]), uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), idx: new Uint16Array([0, 1, 2, 0, 2, 3]), alpha: 0.5 - i * 0.1, r: 1, g: 1, b: 1, blend: 0 }, tex, [1, 0, 0, 1, 0, 0]);
+      }
+      r.quad(tex, pl.x - S / 2, pl.y - S / 2, S, S, 1);
     }
   }
+  /** the opposite of the smooth start / stop curve (so a trail copy can ask "where was it a moment ago") */
+  invEase(e) { let lo = 0, hi = 1; for (let i = 0; i < 18; i++) { const m = (lo + hi) / 2; (m * m * (3 - 2 * m) < e ? (lo = m) : (hi = m)); } return (lo + hi) / 2; }
   /** props and effects: behind = true draws those the user sent behind the characters, otherwise the ones in front (effects always are in front) */
   /** cast shadows (editor and export): a flat black copy of the picture laid on the ground away from the light, with a soft edge. shadow = { on, angle (0 = to the right, 90 = toward the viewer, 180 = left, 270 = away), length, soft, opacity } */
   drawShadows(t) {
