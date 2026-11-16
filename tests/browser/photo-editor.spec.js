@@ -51,7 +51,7 @@ test('picture editor: brushes, fill, selections, adjustments, undo, touch, apply
   const drag = async (a, b, steps = 8) => { const p = await at(...a), q = await at(...b); await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.move(q.x, q.y, { steps }); await page.mouse.up(); };
   // the layer row has an Edit button that opens the editor over the page
   await page.locator('.cs-crow').first().locator('.cs-edit').click();
-  await expect(page.locator('.pe')).toBeVisible(); await expect(page.locator('.pe-tool')).toHaveCount(14); await expect(page.locator('.pe-brush')).toHaveCount(14);
+  await expect(page.locator('.pe')).toBeVisible(); await expect(page.locator('.pe-tool')).toHaveCount(17); await expect(page.locator('.pe-brush')).toHaveCount(14);
   await page.waitForTimeout(300);
   const start = await sig();
   const setFg = (hex) => pe((api, c) => { const v = parseInt(c.slice(1), 16); api.state.fg = [(v >> 16) & 255, (v >> 8) & 255, v & 255]; }, hex);
