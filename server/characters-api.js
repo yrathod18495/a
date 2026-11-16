@@ -91,7 +91,7 @@ export const CHARACTER_BODY_MAX = 600 * 1024;
 /** one character action; `b` is the request body with its action name without the "character:" prefix */
 export async function characterAction(req, res, b) {
   try {
-    const adminWrite = ['putFile', 'commit', 'delete', 'update', 'grant'].includes(b.action), adminAction = adminWrite || b.action === 'sales';
+    const adminWrite = ['putFile', 'commit', 'delete', 'update', 'grant'].includes(b.action), adminAction = adminWrite || b.action === 'sales' || b.action === 'haveFiles';
     const who = await access(req, { admin: adminAction, write: adminWrite || b.action === 'buy', cache: !adminAction && b.action !== 'buy' });
     if (!who.admin && await maintenanceOn()) throw bad('maintenance', '12toons is under maintenance right now. Please try again shortly.', 503);
     const svc = services(), store = kv(svc), firestore = svc.db, now = Date.now();
@@ -167,6 +167,13 @@ export async function characterAction(req, res, b) {
       }
       for (const [owner, hashes] of owners) Object.assign(r2, await signDownloads(owner, hashes));
       return send(res, 200, { db, r2 });
+    }
+
+    if (b.action === 'haveFiles') {          // which of these files are stored already: the admin then sends only the new ones (a rig shared by many characters goes up once)
+      if (!Array.isArray(b.shas) || b.shas.length > 500 || !b.shas.every(isSha)) throw bad('invalid_file', 'The file list is not valid.');
+      const have = [];
+      for (const sha of b.shas) if (await store.get(`characterFiles/${sha}/size`)) have.push(sha);
+      return send(res, 200, { have });
     }
 
     if (b.action === 'putFile') {

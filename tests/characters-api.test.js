@@ -47,6 +47,15 @@ test('only admins can store files, save and delete characters; a creator can lis
   assert.equal((await call({ action: 'list' }, creator)).statusCode, 200);
 });
 
+test('haveFiles tells which files are stored already, so a shared rig is not sent again; creators may not ask', async () => {
+  const raw = JSON.stringify({ rig: 'shared' }), h = sha(raw), other = sha('never stored');
+  await call({ action: 'putFile', sha: h, gz: gzipSync(raw).toString('base64') });
+  const r = await call({ action: 'haveFiles', shas: [h, other] });
+  assert.equal(r.statusCode, 200); assert.deepEqual(r.body.have, [h]);
+  assert.equal((await call({ action: 'haveFiles', shas: ['not-a-sha'] })).statusCode, 400);
+  assert.equal((await call({ action: 'haveFiles', shas: [h] }, creator)).statusCode, 403);
+});
+
 test('a small file is stored once in the database, checked against its SHA-256; a changed or too big file is refused', async () => {
   const raw = JSON.stringify({ hello: 'world' }), h = sha(raw);
   assert.equal((await call({ action: 'putFile', sha: h, gz: gzipSync(raw).toString('base64') })).statusCode, 200);

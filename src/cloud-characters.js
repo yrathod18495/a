@@ -130,7 +130,14 @@ export async function storeCharacter({ manifest, files, name = null, group = nul
   await Promise.all(jobs);                                       // hashes of all these files are worked out side by side
   // phase 1: the database files and the pictures go up now, side by side (the GIFs may still be in the making)
   let done = 0; const total = small.length + r2.size + manifest.views.reduce((n, v) => n + v.animations.length, 0), tick = (what) => progress(`${what} ${++done} / ${total}…`, done, total);
-  const putSmall = pool(small, async (f) => { await call({ action: 'putFile', sha: f.sha, gz: await gzipBase64(f.blob) }); tick('Saving files'); });
+  let reused = 0;
+  const putSmall = (async () => {
+    let have = new Set();
+    try { have = new Set((await call({ action: 'haveFiles', shas: small.map((f) => f.sha).slice(0, 500) })).have || []); } catch { /* older server: just send everything */ }
+    const todo = small.filter((f) => !have.has(f.sha)); reused = small.length - todo.length;
+    await pool(todo, async (f) => { await call({ action: 'putFile', sha: f.sha, gz: await gzipBase64(f.blob) }); tick('Saving files'); });
+    done += reused;
+  })();
   const putFirstPictures = r2.size ? uploadAssets(owner(), r2).then(() => { done += r2.size; progress(`Pictures uploaded (${r2.size})`, done, total); }) : Promise.resolve();
   const phase1 = Promise.all([putSmall, putFirstPictures]);
   phase1.catch(() => {});                                        // reported below, when it is waited for
