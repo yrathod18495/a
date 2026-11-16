@@ -838,3 +838,7 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
 .hold-sheet .joy-wrap{gap:8px;margin:0 0 4px;flex-wrap:nowrap}
 .hold-sheet .vo-row{display:grid;grid-template-columns:44px 1fr 48px;align-items:center;gap:8px;margin:4px 0}
 .hold-sheet .hd-chip{white-space:normal;line-height:1.15}
+@media(max-width:860px){
+  #app .ws .panel > .sheet-fab{position:fixed;right:16px;bottom:var(--fab-b,84px);margin:0;z-index:40}
+  #app .ws .panel:not(.open) > .sheet-fab{display:none}
+}

@@ -997,6 +997,12 @@ function startSheetDrag(e) {
 function placeSelBar() { if (selBar && wideScreen.matches) panelEl?.querySelector('.sheet-close')?.after(selBar); }
 wideScreen.addEventListener?.('change', () => { if (S.ready && tabsEl) drawTabs(); });
 /** a transient file picker: opens the phone's file chooser and hands the chosen files to `handler` */
+/** the panel's close button floats at the bottom right, just above the bottom bar, wherever the panel's content ends */
+function placeFab() {
+  if (wideStudio()) return;
+  const r = tabsEl.getBoundingClientRect();
+  panelEl.style.setProperty('--fab-b', `${Math.round(innerHeight - r.top + 14)}px`);
+}
 function pickFiles(accept, multiple, handler) {
   const input = h('input', { type: 'file', accept, multiple, hidden: true, onchange: () => { const files = [...input.files]; input.remove(); if (files.length) handler(files); } });
   document.body.append(input); input.click();
@@ -1024,6 +1030,7 @@ function phoneNav(button, byKey, upload, more) {
 function drawTabs() { drawTabsInner(); syncCloudPill(); }
 function drawTabsInner() {
   stopAll();
+  { const want = TAB_CAT[S.tab]; if (S.panelOpen && want && S.tlTabSeen !== S.tab) { S.tlTabSeen = S.tab; if (S.tlCat !== want) { S.tlCat = want; drawTimeline(); } } }          // the group first: the phone bar below follows it
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
   const advanced = new Set(['motion', 'camera', 'mask', 'ai', 'tears', 'effects', 'grade']);
   const button = ([key, label, ic], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
@@ -1065,7 +1072,7 @@ function drawTabsInner() {
     { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab](),
     h('button', { type: 'button', class: 'sheet-fab', title: 'Close', 'aria-label': 'Close this panel', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x')));
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
-  placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
+  placeFab(); placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
   if (voiceSheetEl && !voiceSheetEl.hidden) { if (S.panelOpen) closeVoiceSheet(); else paintVoiceSheet(); }          // the voice popup gives way to a tab panel, and shows changes (Mute ...) at once
   placeSelBar();
   S.dirty = true; syncLayoutUi();
