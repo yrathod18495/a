@@ -72,3 +72,17 @@ test('the music layer opens the music settings', async ({ page }) => {
   await expect(page.locator('.modal')).toHaveCount(0);
   expect(await page.evaluate(() => window.__toon.S.music)).toBeNull();
 });
+
+test('scope "All voices" makes volume, fades and Mute change every voice; "This voice" changes only one', async ({ page }) => {
+  await withVoices(page);
+  await page.locator('.tclip.voice').first().dispatchEvent('click');
+  const panel = page.locator('.voice-sheet');
+  await panel.getByLabel('Volume').evaluate((e) => { e.value = '60'; e.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(await page.evaluate(() => window.__toon.S.lines[0].volume)).toBe(0.6);
+  expect(await page.evaluate(() => window.__toon.S.lines[1].volume ?? 1)).toBe(1);
+  await panel.locator('[data-scope=all]').click();
+  await panel.getByLabel('Volume').evaluate((e) => { e.value = '80'; e.dispatchEvent(new Event('input', { bubbles: true })); });
+  await panel.getByRole('button', { name: 'Mute', exact: true }).click();
+  const lines = await page.evaluate(() => window.__toon.S.lines.map((l) => ({ v: l.volume, m: !!l.muted })));
+  expect(lines).toEqual([{ v: 0.8, m: true }, { v: 0.8, m: true }, { v: 0.8, m: true }]);
+});

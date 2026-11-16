@@ -2819,13 +2819,14 @@ function tabVoice() {
   const L = lineById(S.lineSel);
   if (!L) return h('div', { class: 'list' }, h('p', { class: 'sub' }, 'Tap an audio layer on the timeline to change its voice, character, volume and fades.'));
   const id = L.id, idx = player.clips.indexOf(L), sp = sOf(L.speaker), def = sp?.charId ? charOf(sp) : null, len = Math.max(0.2, L.end - L.start), room = Math.round(Math.min(5, len) * 10) / 10;
-  const mix = (patch) => { setMix(id, patch, { redraw: false }); S.dirty = true; if (player.playing) player.seek(player.time); };
+  const all = S.voiceScope === 'all', targets = () => (all ? player.clips : [L]), count = player.clips.length;
+  const mix = (patch) => { for (const t of targets()) { const r = Math.min(5, Math.max(0.2, t.end - t.start)), p = { ...patch }; if ('fadeIn' in p) p.fadeIn = Math.min(p.fadeIn, r); if ('fadeOut' in p) p.fadeOut = Math.min(p.fadeOut, r); setMix(t.id, p, { redraw: false }); } S.dirty = true; if (player.playing) player.seek(player.time); drawTimeline(); };
   const row = (label, min, max, step, get, show, set) => {
     const out = h('output', {}, show(get()));
     const input = h('input', { type: 'range', min, max, step, value: get(), 'aria-label': label, oninput: (e) => { set(+e.target.value); out.textContent = show(+e.target.value); } });
     return h('label', { class: 'vo-row' }, h('span', {}, label), input, out);
   };
-  const toggle = (key, label, tip) => h('button', { type: 'button', class: `btn sm mix-btn ${L[key] ? 'on' : ''}`, 'aria-pressed': String(!!L[key]), title: tip, onclick: () => { setMix(id, { [key]: !L[key] }); drawTimeline(); drawTabs(); } }, label);
+  const toggle = (key, label, tip) => h('button', { type: 'button', class: `btn sm mix-btn ${L[key] ? 'on' : ''}`, 'aria-pressed': String(!!L[key]), title: tip, onclick: () => { const next = !L[key]; for (const t of targets()) setMix(t.id, { [key]: next }, { redraw: false }); S.dirty = true; drawTimeline(); drawTabs(); } }, label);
   const applyAll = () => {
     const n = player.clips.length;
     for (const l of player.clips) { const r = Math.min(5, Math.max(0.2, l.end - l.start)); setMix(l.id, { volume: L.volume ?? 1, fadeIn: Math.min(L.fadeIn || 0, r), fadeOut: Math.min(L.fadeOut || 0, r) }, { redraw: false }); }
@@ -2834,19 +2835,21 @@ function tabVoice() {
   };
   const thumb = sp && def ? portraitOf(sp) : null;
   const removeAll = async () => { if (S.exporting || !confirm('Remove all audio lines?')) return; S.lines = []; closeVoiceSheet(); await afterAudioChange(); };
+  const scopeBtn = (key, label) => h('button', { type: 'button', class: S.voiceScope === key || (!S.voiceScope && key === 'one') ? 'on' : '', 'aria-pressed': String(S.voiceScope === key || (!S.voiceScope && key === 'one')), 'data-scope': key, onclick: () => { S.voiceScope = key; paintVoiceSheet(); } }, label);
   return h('div', { class: 'list voice-panel' },
-    h('div', { class: 'card flat' },
+    h('div', { class: 'vo-card' },
       h('div', { class: 'vo-head' }, h('b', {}, `Voice ${idx + 1}`), h('span', { class: 'chip' }, `${fmt(L.start)} – ${fmt(L.end)}`)),
       h('div', { class: 'vo-who' }, thumb ? h('img', { src: thumb, alt: '' }) : h('span', { class: 'dot', style: `background:${sp?.color || '#94a3b8'}` }),
         h('span', { class: 'voice-char' }, h('small', {}, `Voice: ${sp?.name || L.speaker || ''}`), h('b', {}, def?.name || 'No character yet')),
-        h('button', { type: 'button', class: 'btn sm', onclick: () => { S.animFor = sp?.key || S.animFor; openTab('chars'); } }, def ? 'Change character' : 'Choose character')),
+        h('button', { type: 'button', class: 'btn sm', onclick: () => { S.animFor = sp?.key || S.animFor; openTab('chars'); } }, def ? 'Change' : 'Choose'))),
+    h('div', { class: 'vo-card' },
+      h('div', { class: 'vo-scope', role: 'group', 'aria-label': 'What the settings below change' }, scopeBtn('one', 'This voice'), scopeBtn('all', `All ${count} voices`)),
       h('div', { class: 'mix-buttons vo-buttons' }, toggle('muted', 'Mute', 'Silence this voice (its character still talks)'), toggle('solo', 'Solo', 'Hear only the solo voices')),
       row('Volume', 0, 200, 5, () => Math.round((L.volume ?? 1) * 100), (v) => `${v}%`, (v) => mix({ volume: +(v / 100).toFixed(2) })),
       row('Fade in', 0, room, 0.1, () => L.fadeIn || 0, (v) => `${(+v).toFixed(1)} s`, (v) => mix({ fadeIn: +v.toFixed(1) })),
       row('Fade out', 0, room, 0.1, () => L.fadeOut || 0, (v) => `${(+v).toFixed(1)} s`, (v) => mix({ fadeOut: +v.toFixed(1) })),
-      h('button', { type: 'button', class: 'btn pri vo-apply', 'data-act': 'apply-all', onclick: applyAll }, 'Apply to all voices'),
-      h('small', { class: 'vo-note' }, 'Gives every voice this volume and these fades.')),
-    h('div', { class: 'card flat' }, h('h2', {}, 'Camera and who is in frame'), lineBox),
+      all ? h('small', { class: 'vo-note' }, 'Every voice follows these changes.') : h('button', { type: 'button', class: 'btn sm vo-apply', 'data-act': 'apply-all', title: 'Gives every voice this volume and these fades', onclick: applyAll }, 'Apply to all voices')),
+    h('details', { class: 'vo-card vo-cam' }, h('summary', {}, 'Camera and who is in frame'), lineBox),
     h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }, h('button', { type: 'button', class: 'btn sm danger', onclick: async () => { const line = S.lines.find((l) => l.id === id); if (line && !S.exporting) { closeVoiceSheet(); await deleteLine(line); } } }, 'Remove this voice'), h('button', { type: 'button', class: 'btn sm', onclick: removeAll }, 'Remove all voices')));
 }
 function setMix(id, patch, { redraw = true } = {}) {

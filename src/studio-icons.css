@@ -859,3 +859,25 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
 #app .animation-thumb{background:linear-gradient(90deg,rgba(255,255,255,.03) 0,rgba(255,255,255,.09) 40px,rgba(255,255,255,.03) 80px) 0 0/200px 100% repeat-x;animation:thumb-shimmer 1.2s linear infinite}
 #app .animation-thumb:has(img[src],video[src]){animation:none;background:none}
 @media(prefers-reduced-motion:reduce){#app .animation-thumb{animation:none}}
+/* Voice popup: calm, compact cards */
+.voice-sheet .voice-panel{display:grid;gap:8px}
+.voice-sheet .vo-card{background:var(--card2,#1f2024);border:1px solid var(--line);border-radius:16px;padding:10px 12px;margin:0}
+.voice-sheet .vo-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.voice-sheet .vo-head b{font-size:15px}
+.voice-sheet .vo-who{display:flex;align-items:center;gap:10px}
+.voice-sheet .vo-who img,.voice-sheet .vo-who .dot{width:38px;height:38px;border-radius:50%;object-fit:cover;flex:none}
+.voice-sheet .voice-char{flex:1;min-width:0;display:grid;line-height:1.2}
+.voice-sheet .voice-char small{font-size:11px;opacity:.65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.voice-sheet .voice-char b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.voice-sheet .vo-scope{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;border-radius:12px;background:var(--page,#16171a);margin-bottom:10px}
+.voice-sheet .vo-scope button{min-height:34px;border:0;border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600}
+.voice-sheet .vo-scope button.on{background:var(--cat-audio,#34c77b);color:#06210f}
+.voice-sheet .vo-buttons{display:flex;gap:8px;margin-bottom:6px}
+.voice-sheet .vo-buttons .btn{flex:1;min-height:38px}
+.voice-sheet .vo-row{grid-template-columns:64px minmax(0,1fr) 48px;margin:4px 0;gap:8px}
+.voice-sheet .vo-apply{width:100%;margin-top:8px;min-height:36px}
+.voice-sheet .vo-note{display:block;margin-top:6px;opacity:.7;font-size:12px}
+.voice-sheet .vo-cam>summary{cursor:pointer;font-weight:700;font-size:14px;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.voice-sheet .vo-cam>summary::after{content:"▾";opacity:.6}
+.voice-sheet .vo-cam[open]>summary::after{content:"▴"}
+.voice-sheet .vo-cam[open]>summary{margin-bottom:8px}
