@@ -148,7 +148,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     if (state.tool === 'poly') drawPoly(vg, x, y);
     if (state.tool === 'ref' && ref && ref.visible) { vg.save(); vg.strokeStyle = '#7c6cff'; vg.lineWidth = 1.5; vg.setLineDash([6, 4]); vg.beginPath(); refCorners().forEach(([cx, cy], i) => (i ? vg.lineTo(x + cx * state.scale, y + cy * state.scale) : vg.moveTo(x + cx * state.scale, y + cy * state.scale))); vg.closePath(); vg.stroke(); vg.restore(); }
     vg.strokeStyle = 'rgba(0,0,0,.35)'; vg.lineWidth = 1; vg.strokeRect(x - 0.5, y - 0.5, w + 1, hh + 1);
-    zoomLabel.textContent = `${Math.round(state.scale * 100)}%`;
+    zoomLabel.textContent = zoomLabel2.textContent = `${Math.round(state.scale * 100)}%`;
   }
 
   /* ---------- brush engine ---------- */
@@ -537,7 +537,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   const stageCv = h('canvas', { class: 'pe-canvas', 'aria-label': 'Picture' });
   const cursor = h('div', { class: 'pe-cursor' });
   const vp = h('div', { class: 'pe-view' }, stageCv, cursor);
-  const zoomLabel = h('span', { class: 'pe-zoom' }, '100%');
+  const zoomLabel = h('span', { class: 'pe-zoom' }, '100%'), zoomLabel2 = h('span', { class: 'pe-zoom' }, '100%');
   const btn = (label, onclick, { title, cls = '', ico } = {}) => h('button', { type: 'button', class: `pe-btn ${cls}`, title: title || label, onclick }, ico ? (typeof ico === 'string' ? ic(ico) : ico) : null, label ? h('span', {}, label) : null);
   const undoBtn = btn('', undo, { title: 'Undo (Ctrl+Z)', ico: 'undo', cls: 'ib' }), redoBtn = btn('', redo, { title: 'Redo (Ctrl+Shift+Z)', ico: 'redo', cls: 'ib' });
   function syncButtons() { undoBtn.disabled = !state.undo.length; redoBtn.disabled = !state.redo.length; selButtons?.forEach((b) => { b.disabled = !state.sel; }); }
@@ -595,6 +595,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     const SW = 232, SH = 150, sv = mk(SW, SH), svg2 = sv.getContext('2d'), svBox = h('div', { class: 'pe-sv' }, sv), knob = h('i', { class: 'pe-svk' });
     svBox.append(knob);
     const hueIn = h('input', { type: 'range', min: 0, max: 360, step: 1, class: 'pe-hue', 'aria-label': 'Hue' });
+    hueIn.style.background = 'linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)';
     const chan = {}, num = {};
     const mkChan = (k, label) => { const r = h('input', { type: 'range', min: 0, max: 255, step: 1, 'aria-label': label }), n = h('input', { type: 'number', min: 0, max: 255, step: 1, 'aria-label': `${label} number` }); chan[k] = r; num[k] = n; return h('label', { class: 'pe-ch' }, h('b', {}, k.toUpperCase()), r, n); };
     const chRows = [mkChan('r', 'Red'), mkChan('g', 'Green'), mkChan('b', 'Blue')];
@@ -713,15 +714,16 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   const optWrap = h('div', { class: 'pe-optwrap' }, optBar), sideBox = h('aside', { class: 'pe-side' }, tabs, panelBox);
   const wide = window.matchMedia('(min-width: 821px)');
   /** on a computer the options of the chosen tool are at the top of the side panel; on a phone they are in a bar above the picture */
+  const zoomMid = (k) => { const r = rectOfView(); zoomAt(r.width / 2, r.height / 2, k); };
+  const zoomControls = (label) => [btn('', () => zoomMid(1 / 1.25), { title: 'Zoom out', ico: 'minus', cls: 'ib' }), label, btn('', () => zoomMid(1.25), { title: 'Zoom in', ico: 'plus', cls: 'ib' }), btn('Fit', fit, { title: 'Fit the picture in the window', cls: 'sm' }), btn('100%', () => { const r = rectOfView(); state.scale = 1; state.ox = (r.width - W) / 2; state.oy = (r.height - H) / 2; draw(); }, { title: 'Actual size', cls: 'sm' })];
+  const startAgain = () => { if (!changed() || confirm('Go back to the picture you started with?')) { pushUndo(); dg.putImageData(original, 0, 0); setSel(null); draw(); } };
   const placeOptions = () => { if (wide.matches) sideBox.prepend(optWrap); else root.insertBefore(optWrap, root.querySelector('.pe-main')); };
   const root = h('div', { class: 'pe', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Edit picture: ${title}` },
     h('header', { class: 'pe-head' }, h('span', { class: 'pe-brand', title: '12toons picture editor' }, ...brandWordmark()), h('span', { class: 'pe-sub' }, 'Picture editor'), titleEl, h('span', { class: 'pe-sp' }), coins, undoBtn, redoBtn,
-      btn('', () => zoomAt(rectOfView().width / 2, rectOfView().height / 2, 1 / 1.25), { title: 'Zoom out', ico: 'minus', cls: 'ib' }), zoomLabel, btn('', () => zoomAt(rectOfView().width / 2, rectOfView().height / 2, 1.25), { title: 'Zoom in', ico: 'plus', cls: 'ib' }),
-      btn('Fit', fit, { title: 'Fit the picture in the window', cls: 'sm' }), btn('100%', () => { const r = rectOfView(); state.scale = 1; state.ox = (r.width - W) / 2; state.oy = (r.height - H) / 2; draw(); }, { title: 'Actual size', cls: 'sm' }),
-      btn('Start again', () => { if (!changed() || confirm('Go back to the picture you started with?')) { pushUndo(); dg.putImageData(original, 0, 0); setSel(null); draw(); } }, { title: 'Go back to the picture you opened', cls: 'sm' }),
-      btn('Cancel', askClose, { cls: 'sm', title: 'Close without changes' }), btn('Apply', () => close(true), { cls: 'sm pri', ico: 'check', title: 'Put this picture on the layer' })),
+      h('span', { class: 'pe-zoomgrp' }, ...zoomControls(zoomLabel), btn('Start again', startAgain, { title: 'Go back to the picture you opened', cls: 'sm' })),
+      btn('Cancel', askClose, { cls: 'sm pe-cancel', title: 'Close without changes', ico: 'x' }), btn('Apply', () => close(true), { cls: 'sm pri', ico: 'check', title: 'Put this picture on the layer' })),
     optWrap,
-    h('div', { class: 'pe-main' }, toolBar, h('div', { class: 'pe-center' }, vp, flashEl), sideBox));
+    h('div', { class: 'pe-main' }, toolBar, h('div', { class: 'pe-center' }, vp, flashEl, h('div', { class: 'pe-zoombar' }, ...zoomControls(zoomLabel2), btn('', startAgain, { title: 'Start again: go back to the picture you opened', ico: 'refresh', cls: 'ib' }))), sideBox));
   const onKey = (e) => {
     if (e.target.matches?.('input[type=text],input[type=number],textarea')) return;
     const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
