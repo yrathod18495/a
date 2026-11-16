@@ -50,3 +50,9 @@ test('edge shadow darkens the edge but not the middle', () => {
 test('mask edge marks the border only', () => {
   const m = new Uint8Array(25).fill(255); const e = maskEdge(m, 5, 5); assert.equal(e[12], 0); assert.equal(e[0], 1);
 });
+import { rgb2hsv, hsv2rgb, parseHex } from '../src/photo-tools.js';
+test('colour picker maths: rgb <-> hsv and hex text', () => {
+  for (const c of [[255, 0, 0], [12, 200, 99], [0, 0, 0], [255, 255, 255], [128, 128, 128], [217, 179, 140]]) { const [hh, s, v] = rgb2hsv(...c); assert.deepEqual(hsv2rgb(hh, s, v), c); }
+  assert.deepEqual(rgb2hsv(0, 0, 255).map((x) => Math.round(x * 100) / 100), [240, 1, 1]);
+  assert.deepEqual(parseHex('#f80'), [255, 136, 0]); assert.deepEqual(parseHex('336699'), [51, 102, 153]); assert.equal(parseHex('zzz'), null); assert.equal(parseHex('#12345'), null);
+});

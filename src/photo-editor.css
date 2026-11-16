@@ -44,3 +44,28 @@ body.pe-open{overflow:hidden}
   .pe-side{order:3;width:auto;border-left:0;border-top:1px solid #2a2e38;max-height:34vh}
   .pe-title{max-width:30vw}.pe-s{grid-template-columns:auto 96px 40px}
 }
+
+.pe-col{position:relative;width:44px;height:36px;padding:3px;border:1px solid #444a5c;border-radius:8px;background:#222631;cursor:pointer;display:inline-grid}.pe-col i{border-radius:5px;display:block}
+.pe-cbtn{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:0 12px 0 6px;border:1px solid #6c5ce7;border-radius:9px;background:#2a2750;color:#fff;font:inherit;font-weight:600;cursor:pointer}.pe-cbtn i{width:24px;height:24px;border-radius:6px;border:1px solid #fff8;display:block}.pe-cbtn:hover{background:#34306a}
+.pe-colours>.pe-cbtn{width:100%;margin:8px 0 0;justify-content:center}
+.pe-pick{position:fixed;z-index:30;width:270px;max-height:calc(100vh - 16px);overflow-y:auto;padding:10px;border:1px solid #4a5066;border-radius:14px;background:#1d2029;box-shadow:0 14px 44px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:9px}
+.pe-pick-head{display:flex;align-items:center;justify-content:space-between}
+.pe-sv{position:relative;width:232px;height:150px;border-radius:8px;overflow:hidden;touch-action:none;cursor:crosshair;align-self:center}.pe-sv canvas{display:block;width:232px;height:150px}
+.pe-svk{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px #000;pointer-events:none}
+.pe-huel,.pe-ch{display:grid;grid-template-columns:34px 1fr 52px;align-items:center;gap:8px}.pe-huel{grid-template-columns:34px 1fr}.pe-huel b,.pe-ch b,.pe-hexrow b{font-size:10.5px;opacity:.7;letter-spacing:.05em}
+.pe-pick input[type=range]{-webkit-appearance:none;appearance:none;height:14px;border-radius:7px;outline:0;width:100%}.pe-pick input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid #000;cursor:pointer}.pe-pick input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #000;cursor:pointer}
+.pe-hue{background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+.pe-pick input[type=number],.pe-hex{width:100%;min-height:30px;padding:0 6px;border:1px solid #3a3f50;border-radius:7px;background:#14161b;color:inherit;font:inherit}
+.pe-hexrow{display:grid;grid-template-columns:1fr 44px 44px;align-items:end;gap:8px}.pe-hexrow label{display:grid;gap:3px}
+.pe-now,.pe-was{display:block;height:30px;border-radius:7px;border:1px solid #fff4}.pe-was{cursor:pointer}
+
+/* on a computer the options of the chosen tool sit in the side panel */
+@media (min-width:821px){
+.pe-side .pe-optwrap{border-bottom:1px solid #2a2e38;padding:10px;overflow:visible;background:#1d2029}
+.pe-side .pe-opts{flex-direction:column;align-items:stretch;gap:9px;white-space:normal;min-height:0}
+.pe-side .pe-opts .pe-s{grid-template-columns:76px 1fr 48px}
+.pe-side .pe-opts .pe-name{font-size:14px}.pe-side .pe-opts .pe-hint{max-width:none}
+.pe-side .pe-opts .pe-seg{width:100%}.pe-side .pe-opts .pe-seg button{flex:1}
+.pe-side .pe-opts .pe-cbtn,.pe-side .pe-opts .pe-btn{width:100%;justify-content:flex-start}
+.pe-side{width:320px;overflow-y:auto;min-height:0}.pe-side .pe-panel{overflow:visible;flex:none}
+}

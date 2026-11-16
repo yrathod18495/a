@@ -5,7 +5,7 @@
 import './photo-editor.css';
 import { h } from './dom.js';
 import { icon } from './icons.js';
-import { floodMask, combineMask, invertMask, growMask, blurMask, maskEdge, maskCount, adjustBrightnessContrast, adjustHSL, invertColours, grayscale, sharpen, blurFilter, edgeShadow, fillMask, clearMask, blurRGBA, hexToRgb, rgbToHex } from './photo-tools.js';
+import { floodMask, combineMask, invertMask, growMask, blurMask, maskEdge, maskCount, adjustBrightnessContrast, adjustHSL, invertColours, grayscale, sharpen, blurFilter, edgeShadow, fillMask, clearMask, blurRGBA, hexToRgb, rgbToHex, rgb2hsv, hsv2rgb, parseHex } from './photo-tools.js';
 
 const mk = (w, hh) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(hh)); return c; };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -351,7 +351,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   function pick(pos) {
     const x = Math.floor(pos.x), y = Math.floor(pos.y); if (x < 0 || y < 0 || x >= W || y >= H) return;
     const d = dg.getImageData(x, y, 1, 1).data; if (d[3] < 10) { flash('That spot is empty.'); return; }
-    state.fg = [d[0], d[1], d[2]]; renderColours(); flash(`Colour ${rgbToHex(state.fg)}`);
+    setColour('fg', [d[0], d[1], d[2]]); renderColours(); flash(`Colour ${rgbToHex(state.fg)}`);
   }
   function startMove(pos) {
     pushUndo(); const snapshot = state.undo[state.undo.length - 1];
@@ -393,31 +393,97 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   const sizeSlider = () => slider('Size', 'size', 1, 240, 1, (v) => `${v}px`), opacitySlider = () => slider('Opacity', 'opacity', 1, 100, 1, (v) => `${v}%`), hardSlider = () => slider('Softness', 'hard', 0, 100, 1, (v) => (v >= 85 ? 'Hard' : v <= 15 ? 'Soft' : `${100 - v}%`));
   function syncOptions() {
     const t = state.tool, st = style(), items = [];
-    if (t === 'brush') { items.push(h('span', { class: 'pe-name' }, st.name), sizeSlider(), opacitySlider()); if (st.round && !st.force) items.push(hardSlider()); if (st.lock !== true) items.push(check('Keep transparent areas', 'lock', null, 'Paint only where the picture already has pixels, so nothing spills outside the part')); items.push(h('small', { class: 'pe-hint' }, st.hint)); }
+    if (t === 'brush') { items.push(h('span', { class: 'pe-name' }, st.name)); if (!st.force) items.push(colourButton('fg')); items.push(sizeSlider(), opacitySlider()); if (st.round && !st.force) items.push(hardSlider()); if (st.lock !== true) items.push(check('Keep transparent areas', 'lock', null, 'Paint only where the picture already has pixels, so nothing spills outside the part')); items.push(h('small', { class: 'pe-hint' }, st.hint)); }
     else if (t === 'eraser') items.push(h('span', { class: 'pe-name' }, 'Eraser'), sizeSlider(), hardSlider());
     else if (t === 'smudge') items.push(h('span', { class: 'pe-name' }, 'Smudge'), sizeSlider(), slider('Strength', 'opacity', 5, 100, 1, (v) => `${v}%`), hardSlider(), h('small', { class: 'pe-hint' }, 'Drag to push the colours around.'));
     else if (t === 'blur') items.push(h('span', { class: 'pe-name' }, 'Blur'), sizeSlider(), slider('Strength', 'opacity', 5, 100, 1, (v) => `${v}%`), hardSlider(), h('small', { class: 'pe-hint' }, 'Paint over rough spots to soften them.'));
     else if (t === 'clone') items.push(h('span', { class: 'pe-name' }, 'Clone'), sizeSlider(), opacitySlider(), hardSlider(), btn('Set source', () => { state.armClone = true; flash('Now tap the spot to copy from.'); }, { title: 'Then tap the part of the picture to copy from (on a computer: Alt + click)' }), h('small', { class: 'pe-hint' }, state.cloneSrc ? 'Source set (red cross). Paint to copy from it.' : 'Choose a source first, then paint to copy it somewhere else.'));
-    else if (t === 'bucket') items.push(h('span', { class: 'pe-name' }, 'Fill'), slider('Tolerance', 'tol', 0, 100, 1, (v) => `${v}`), opacitySlider(), check('Only joined area', 'contiguous'), check('Keep transparent areas', 'bucketLock', null, 'Fill only where the picture has pixels'), check('Smooth edge', 'smoothWand'), h('small', { class: 'pe-hint' }, 'Tap an area to fill it with the front colour.'));
-    else if (t === 'gradient') items.push(h('span', { class: 'pe-name' }, 'Gradient'), seg([['linear', 'Line'], ['radial', 'Round']], 'gradKind'), seg([['fade', 'Colour to clear'], ['bg', 'Colour to back colour']], 'gradEnd'), opacitySlider(), check('Keep transparent areas', 'lock'), h('small', { class: 'pe-hint' }, 'Drag across the picture. Use it with a selection for soft shading.'));
+    else if (t === 'bucket') items.push(h('span', { class: 'pe-name' }, 'Fill'), colourButton('fg'), slider('Tolerance', 'tol', 0, 100, 1, (v) => `${v}`), opacitySlider(), check('Only joined area', 'contiguous'), check('Keep transparent areas', 'bucketLock', null, 'Fill only where the picture has pixels'), check('Smooth edge', 'smoothWand'), h('small', { class: 'pe-hint' }, 'Tap an area to fill it with the front colour.'));
+    else if (t === 'gradient') items.push(h('span', { class: 'pe-name' }, 'Gradient'), colourButton('fg'), colourButton('bg'), seg([['linear', 'Line'], ['radial', 'Round']], 'gradKind'), seg([['fade', 'Colour to clear'], ['bg', 'Colour to back colour']], 'gradEnd'), opacitySlider(), check('Keep transparent areas', 'lock'), h('small', { class: 'pe-hint' }, 'Drag across the picture. Use it with a selection for soft shading.'));
     else if (t === 'dropper') items.push(h('span', { class: 'pe-name' }, 'Pick colour'), h('small', { class: 'pe-hint' }, 'Tap the picture to take its colour. With any brush: Alt + click.'));
     else if (t === 'rect' || t === 'ellipse' || t === 'lasso') items.push(h('span', { class: 'pe-name' }, t === 'rect' ? 'Rectangle select' : t === 'ellipse' ? 'Ellipse select' : 'Freehand select'), selectModes(), slider('Soft edge', 'feather', 0, 40, 1, (v) => `${v}px`));
     else if (t === 'wand') items.push(h('span', { class: 'pe-name' }, 'Magic select'), selectModes(), slider('Tolerance', 'tol', 0, 100, 1, (v) => `${v}`), check('Only joined area', 'contiguous'), check('Smooth edge', 'smoothWand'), h('small', { class: 'pe-hint' }, 'Tap a colour to select all of it.'));
     else if (t === 'move') items.push(h('span', { class: 'pe-name' }, 'Move pixels'), h('small', { class: 'pe-hint' }, state.sel ? 'Drag to move the selected part.' : 'No selection: drag to move the whole picture.'));
     else items.push(h('span', { class: 'pe-name' }, 'Move view'), h('small', { class: 'pe-hint' }, 'Drag to move the picture around. Two fingers or the wheel zoom.'));
-    optBar.replaceChildren(...items.filter(Boolean));
+    optBar.replaceChildren(...items.filter(Boolean)); refreshSwatches();
   }
   const selectModes = () => seg([['replace', 'New'], ['add', 'Add'], ['subtract', 'Take away'], ['intersect', 'Overlap']], 'mode');
 
   /* right side: colours, brush list, selection, adjust */
   const colourBox = h('div', { class: 'pe-colours' });
-  const fgIn = h('input', { type: 'color', class: 'pe-col fg', 'aria-label': 'Front colour', title: 'Front colour', value: rgbToHex(state.fg), oninput: (ev) => { state.fg = hexToRgb(ev.target.value); } , onchange: () => addRecent() });
-  const bgIn = h('input', { type: 'color', class: 'pe-col bg', 'aria-label': 'Back colour', title: 'Back colour', value: rgbToHex(state.bg), oninput: (ev) => { state.bg = hexToRgb(ev.target.value); } });
+  /* ---------- colours: swatches, "my colours" (kept on this device) and a full colour picker (square, hue, R G B, hex, eyedropper) ---------- */
+  let mine = []; try { mine = JSON.parse(localStorage.getItem('12toons-pe-colours') || '[]').filter((c) => parseHex(c)).slice(0, 30); } catch { mine = []; }
+  const saveMine = () => { try { localStorage.setItem('12toons-pe-colours', JSON.stringify(mine)); } catch { /* storage may be blocked: the colours just stay for this session */ } };
+  function refreshSwatches() { for (const el of root.querySelectorAll('.pe-fgsw')) el.style.background = rgbToHex(state.fg); for (const el of root.querySelectorAll('.pe-bgsw')) el.style.background = rgbToHex(state.bg); }
+  function setColour(which, rgb) { state[which] = rgb; refreshSwatches(); }
+  /** the button that opens the colour picker; it shows the current front colour. Put it wherever a tool uses a colour. */
+  const colourButton = (which = 'fg') => h('button', { type: 'button', class: 'pe-cbtn', title: 'Open the colour picker: mix any colour you like', 'aria-label': 'Custom colour', onclick: (ev) => openPicker(ev.currentTarget, which) }, h('i', { class: which === 'fg' ? 'pe-fgsw' : 'pe-bgsw', style: `background:${rgbToHex(state[which])}` }), h('span', {}, 'Custom colour'));
+  let picker = null;
+  function closePicker() { if (!picker) return; picker.el.remove(); document.removeEventListener('pointerdown', picker.out, true); picker = null; }
+  function openPicker(anchor, startWhich = 'fg') {
+    closePicker();
+    let which = startWhich; const old = { fg: state.fg.slice(), bg: state.bg.slice() };
+    let [hh, sat, val] = rgb2hsv(...state[which]);
+    const SW = 232, SH = 150, sv = mk(SW, SH), svg2 = sv.getContext('2d'), svBox = h('div', { class: 'pe-sv' }, sv), knob = h('i', { class: 'pe-svk' });
+    svBox.append(knob);
+    const hueIn = h('input', { type: 'range', min: 0, max: 360, step: 1, class: 'pe-hue', 'aria-label': 'Hue' });
+    const chan = {}, num = {};
+    const mkChan = (k, label) => { const r = h('input', { type: 'range', min: 0, max: 255, step: 1, 'aria-label': label }), n = h('input', { type: 'number', min: 0, max: 255, step: 1, 'aria-label': `${label} number` }); chan[k] = r; num[k] = n; return h('label', { class: 'pe-ch' }, h('b', {}, k.toUpperCase()), r, n); };
+    const chRows = [mkChan('r', 'Red'), mkChan('g', 'Green'), mkChan('b', 'Blue')];
+    const hex = h('input', { type: 'text', class: 'pe-hex', maxlength: 7, spellcheck: 'false', 'aria-label': 'Colour code' });
+    const now = h('i', { class: 'pe-now' }), was = h('i', { class: 'pe-was', title: 'The colour you had. Tap to go back to it.' });
+    const whichBar = h('div', { class: 'pe-seg' }, [['fg', 'Front colour'], ['bg', 'Back colour']].map(([k, label]) => h('button', { type: 'button', 'data-w': k, class: which === k ? 'on' : '', onclick: () => { which = k; [hh, sat, val] = rgb2hsv(...state[k]); was.style.background = rgbToHex(old[k]); whichBar.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.w === k)); paint(true); } }, label)));
+    const mineRow = h('div', { class: 'pe-swatches' });
+    function paintSV() {
+      const g1 = svg2.createLinearGradient(0, 0, SW, 0); g1.addColorStop(0, '#fff'); g1.addColorStop(1, rgbToHex(hsv2rgb(hh, 1, 1))); svg2.fillStyle = g1; svg2.fillRect(0, 0, SW, SH);
+      const g2 = svg2.createLinearGradient(0, 0, 0, SH); g2.addColorStop(0, 'rgba(0,0,0,0)'); g2.addColorStop(1, '#000'); svg2.fillStyle = g2; svg2.fillRect(0, 0, SW, SH);
+    }
+    function paint(redrawSV = false) {
+      const rgb = hsv2rgb(hh, sat, val); setColour(which, rgb);
+      if (redrawSV) paintSV();
+      knob.style.left = `${sat * SW}px`; knob.style.top = `${(1 - val) * SH}px`; hueIn.value = hh; hueIn.style.setProperty('--hue', rgbToHex(hsv2rgb(hh, 1, 1)));
+      ['r', 'g', 'b'].forEach((k, i) => { chan[k].value = rgb[i]; num[k].value = rgb[i]; chan[k].style.background = `linear-gradient(90deg, ${rgbToHex(rgb.map((v, j) => (j === i ? 0 : v)))}, ${rgbToHex(rgb.map((v, j) => (j === i ? 255 : v)))})`; });
+      if (document.activeElement !== hex) hex.value = rgbToHex(rgb); now.style.background = rgbToHex(rgb);
+    }
+    function fromRgb(rgb) { [hh, sat, val] = rgb2hsv(...rgb); if (sat === 0 || val === 0) hh = hueIn.value ? +hueIn.value : hh; paint(true); }
+    const pickSV = (e) => { const r = sv.getBoundingClientRect(); sat = clamp((e.clientX - r.left) / r.width, 0, 1); val = 1 - clamp((e.clientY - r.top) / r.height, 0, 1); paint(); };
+    let dragging = false;
+    svBox.addEventListener('pointerdown', (e) => { dragging = true; svBox.setPointerCapture?.(e.pointerId); pickSV(e); e.preventDefault(); });
+    svBox.addEventListener('pointermove', (e) => { if (dragging) pickSV(e); }); svBox.addEventListener('pointerup', () => { dragging = false; }); svBox.addEventListener('pointercancel', () => { dragging = false; });
+    hueIn.addEventListener('input', () => { hh = +hueIn.value; paint(true); });
+    ['r', 'g', 'b'].forEach((k, i) => {
+      const upd = (v) => { const rgb = hsv2rgb(hh, sat, val); rgb[i] = clamp(Math.round(+v || 0), 0, 255); fromRgb(rgb); };
+      chan[k].addEventListener('input', () => upd(chan[k].value)); num[k].addEventListener('input', () => upd(num[k].value));
+    });
+    hex.addEventListener('input', () => { const c = parseHex(hex.value); if (c) fromRgb(c); });
+    hex.addEventListener('blur', () => { hex.value = rgbToHex(state[which]); });
+    was.addEventListener('click', () => fromRgb(old[which]));
+    const eyedrop = window.EyeDropper ? btn('Pick from screen', async () => { try { const r = await new window.EyeDropper().open(); const c = parseHex(r.sRGBHex); if (c) fromRgb(c); } catch { /* cancelled */ } }, { title: 'Take a colour from anywhere on your screen', cls: 'sm' }) : null;
+    function renderMine() {
+      mineRow.replaceChildren(...[h('small', {}, 'My colours'), ...mine.map((c) => h('button', { type: 'button', class: 'pe-sw', style: `background:${c}`, title: `${c} · tap to use, press and hold or right-click to remove`, 'aria-label': `My colour ${c}`, onclick: () => fromRgb(hexToRgb(c)), oncontextmenu: (ev) => { ev.preventDefault(); mine = mine.filter((x) => x !== c); saveMine(); renderMine(); renderColours(); } })), mine.length ? null : h('small', { class: 'pe-note' }, 'Nothing saved yet')].filter(Boolean));
+    }
+    const saveBtn = btn('Save to my colours', () => { const c = rgbToHex(state[which]); mine = [c, ...mine.filter((x) => x !== c)].slice(0, 30); saveMine(); renderMine(); renderColours(); flash('Colour saved.'); }, { title: 'Keep this colour in your list on this device', cls: 'sm' });
+    const el = h('div', { class: 'pe-pick', role: 'dialog', 'aria-label': 'Colour picker' },
+      h('div', { class: 'pe-pick-head' }, h('b', {}, 'Colour picker'), btn('Done', () => { addRecent(); closePicker(); }, { cls: 'sm pri', title: 'Close the colour picker' })),
+      whichBar, svBox, h('label', { class: 'pe-huel' }, h('b', {}, 'HUE'), hueIn), ...chRows,
+      h('div', { class: 'pe-hexrow' }, h('label', {}, h('b', {}, 'CODE'), hex), was, now), h('div', { class: 'pe-row' }, saveBtn, eyedrop), mineRow);
+    root.append(el);
+    const a = anchor.getBoundingClientRect(), pw = 270, ph = el.offsetHeight || 460, narrow = window.innerWidth < 820;
+    el.style.left = `${narrow ? Math.max(8, (window.innerWidth - pw) / 2) : a.left > pw + 20 ? a.left - pw - 10 : clamp(a.right + 10, 8, window.innerWidth - pw - 8)}px`;          // beside the button, not over the tool options
+    el.style.top = `${narrow ? Math.max(8, (window.innerHeight - ph) / 2) : clamp(a.top - 4, 8, Math.max(8, window.innerHeight - ph - 8))}px`;
+    was.style.background = rgbToHex(old[which]); renderMine(); paint(true);
+    const out = (ev) => { if (!el.contains(ev.target) && !anchor.contains(ev.target)) { addRecent(); closePicker(); } };
+    document.addEventListener('pointerdown', out, true); picker = { el, out };
+  }
   function renderColours() {
-    fgIn.value = rgbToHex(state.fg); bgIn.value = rgbToHex(state.bg);
-    const sw = (hex) => h('button', { type: 'button', class: 'pe-sw', style: `background:${hex}`, title: hex, 'aria-label': `Colour ${hex}`, onclick: () => { state.fg = hexToRgb(hex); renderColours(); } });
-    colourBox.replaceChildren(...[h('div', { class: 'pe-pair' }, fgIn, bgIn, btn('', () => { [state.fg, state.bg] = [state.bg, state.fg]; renderColours(); }, { title: 'Swap colours (X)', ico: 'swap', cls: 'ib' })),
-      h('div', { class: 'pe-swatches' }, SWATCHES.map(sw)), state.recent.length ? h('div', { class: 'pe-swatches recent' }, h('small', {}, 'Recent'), state.recent.map(sw)) : null].filter(Boolean));
+    refreshSwatches();
+    const sw = (hex) => h('button', { type: 'button', class: 'pe-sw', style: `background:${hex}`, title: hex, 'aria-label': `Colour ${hex}`, onclick: () => { setColour('fg', hexToRgb(hex)); } });
+    colourBox.replaceChildren(...[h('div', { class: 'pe-pair' }, h('button', { type: 'button', class: 'pe-col fg', title: 'Front colour: tap to mix a colour', 'aria-label': 'Front colour', onclick: (ev) => openPicker(ev.currentTarget, 'fg') }, h('i', { class: 'pe-fgsw' })), h('button', { type: 'button', class: 'pe-col bg', title: 'Back colour: tap to mix a colour', 'aria-label': 'Back colour', onclick: (ev) => openPicker(ev.currentTarget, 'bg') }, h('i', { class: 'pe-bgsw' })),
+      btn('', () => { [state.fg, state.bg] = [state.bg, state.fg]; refreshSwatches(); }, { title: 'Swap colours (X)', ico: 'swap', cls: 'ib' })),
+      colourButton('fg'), h('div', { class: 'pe-swatches' }, SWATCHES.map(sw)),
+      mine.length ? h('div', { class: 'pe-swatches' }, h('small', {}, 'My colours'), mine.map(sw)) : null,
+      state.recent.length ? h('div', { class: 'pe-swatches recent' }, h('small', {}, 'Recent'), state.recent.map(sw)) : null].filter(Boolean));
+    refreshSwatches();
   }
   const brushList = h('div', { class: 'pe-brushes' });
   function renderBrushes() {
@@ -437,7 +503,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     return h('div', { class: 'pe-group' }, h('h4', {}, 'Selection'),
       h('div', { class: 'pe-row' }, btn('All', () => setSel(new Uint8Array(W * H).fill(255)), { title: 'Select everything (Ctrl+A)' }), (() => { const b = btn('None', () => setSel(null), { title: 'Remove the selection (Ctrl+D)' }); selButtons.push(b); return b; })(), sb('Invert', () => setSel(invertMask(state.sel)), null, 'Select what is not selected')),
       h('div', { class: 'pe-row' }, sb('Grow', () => setSel(growMask(state.sel, W, H, 3)), null, 'Make the selection a little bigger'), sb('Shrink', () => setSel(growMask(state.sel, W, H, -3)), null, 'Make the selection a little smaller'), sb('Soften', () => setSel(blurMask(state.sel, W, H, 4)), null, 'Soften the edge of the selection')),
-      h('div', { class: 'pe-row' }, sb('Fill colour', fillSelection, 'bucket', 'Fill the selection with the front colour'), sb('Delete', clearSelection, 'trash', 'Erase the picture inside the selection (Delete)')));
+      h('div', { class: 'pe-row' }, colourButton('fg'), sb('Fill colour', fillSelection, 'bucket', 'Fill the selection with the front colour'), sb('Delete', clearSelection, 'trash', 'Erase the picture inside the selection (Delete)')));
   };
   const range = (label, key, min, max, fmt) => slider(label, key, min, max, 1, fmt || ((v) => v));
   const adjustPanel = () => h('div', { class: 'pe-group' }, h('h4', {}, 'Colour and effects'), h('p', { class: 'pe-note' }, 'Works on the selection, or on the whole picture if nothing is selected.'),
@@ -465,21 +531,25 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   }
   const titleEl = h('b', { class: 'pe-title' }, title);
   function close(apply) {
-    if (closed) return; closed = true; cancelAnimationFrame(rafId); document.removeEventListener('keydown', onKey, true); document.removeEventListener('keyup', onKeyUp, true); window.removeEventListener('resize', fit); ro.disconnect();
+    if (closed) return; closed = true; closePicker(); cancelAnimationFrame(rafId); document.removeEventListener('keydown', onKey, true); document.removeEventListener('keyup', onKeyUp, true); window.removeEventListener('resize', fit); wide.removeEventListener?.('change', placeOptions); ro.disconnect();
     let out = null; if (apply) { out = mk(W, H); out.getContext('2d').drawImage(D, 0, 0); }
     root.remove(); document.body.classList.remove('pe-open');
     if (apply) onApply?.(out); else onCancel?.();
   }
   const changed = () => state.undo.length > 0;
   const askClose = () => { if (changed() && !confirm('Close without applying? Your changes to this picture will be lost.')) return; close(false); };
+  const optWrap = h('div', { class: 'pe-optwrap' }, optBar), sideBox = h('aside', { class: 'pe-side' }, tabs, panelBox);
+  const wide = window.matchMedia('(min-width: 821px)');
+  /** on a computer the options of the chosen tool are at the top of the side panel; on a phone they are in a bar above the picture */
+  const placeOptions = () => { if (wide.matches) sideBox.prepend(optWrap); else root.insertBefore(optWrap, root.querySelector('.pe-main')); };
   const root = h('div', { class: 'pe', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Edit picture: ${title}` },
     h('header', { class: 'pe-head' }, titleEl, h('span', { class: 'pe-sp' }), undoBtn, redoBtn,
       btn('', () => zoomAt(rectOfView().width / 2, rectOfView().height / 2, 1 / 1.25), { title: 'Zoom out', ico: 'minus', cls: 'ib' }), zoomLabel, btn('', () => zoomAt(rectOfView().width / 2, rectOfView().height / 2, 1.25), { title: 'Zoom in', ico: 'plus', cls: 'ib' }),
       btn('Fit', fit, { title: 'Fit the picture in the window', cls: 'sm' }), btn('100%', () => { const r = rectOfView(); state.scale = 1; state.ox = (r.width - W) / 2; state.oy = (r.height - H) / 2; draw(); }, { title: 'Actual size', cls: 'sm' }),
       btn('Start again', () => { if (!changed() || confirm('Go back to the picture you started with?')) { pushUndo(); dg.putImageData(original, 0, 0); setSel(null); draw(); } }, { title: 'Go back to the picture you opened', cls: 'sm' }),
       btn('Cancel', askClose, { cls: 'sm', title: 'Close without changes' }), btn('Apply', () => close(true), { cls: 'sm pri', ico: 'check', title: 'Put this picture on the layer' })),
-    h('div', { class: 'pe-optwrap' }, optBar),
-    h('div', { class: 'pe-main' }, toolBar, h('div', { class: 'pe-center' }, vp, flashEl), h('aside', { class: 'pe-side' }, tabs, panelBox)));
+    optWrap,
+    h('div', { class: 'pe-main' }, toolBar, h('div', { class: 'pe-center' }, vp, flashEl), sideBox));
   const onKey = (e) => {
     if (e.target.matches?.('input[type=text],input[type=number],textarea')) return;
     const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
@@ -488,6 +558,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     else if (mod && k === 'a') { e.preventDefault(); e.stopPropagation(); setSel(new Uint8Array(W * H).fill(255)); }
     else if (mod && k === 'd') { e.preventDefault(); e.stopPropagation(); setSel(null); }
     else if (k === ' ') { e.preventDefault(); state.space = true; stageCv.style.cursor = 'grab'; }
+    else if (k === 'escape' && picker) { e.stopPropagation(); closePicker(); }
     else if (k === 'escape') { e.stopPropagation(); stroke ? cancelStroke() : state.sel ? setSel(null) : askClose(); }
     else if ((k === 'delete' || k === 'backspace') && state.sel) { e.preventDefault(); clearSelection(); }
     else if (k === '[') { state.size = clamp(state.size - 4, 1, 240); syncOptions(); }
@@ -504,6 +575,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   window.addEventListener('resize', fit);
   const ro = new ResizeObserver(() => { fit(); }); ro.observe(vp);
   document.body.append(root); document.body.classList.add('pe-open');
+  wide.addEventListener?.('change', placeOptions); placeOptions();
   renderTools(); renderBrushes(); renderColours(); renderPanel(); syncOptions(); syncButtons();
   requestAnimationFrame(() => { fit(); root.querySelector('.pe-tool.on')?.focus?.({ preventScroll: true }); });
   // for tests and for other tools: a handle on the running editor

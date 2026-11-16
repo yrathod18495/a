@@ -202,3 +202,19 @@ export function clearMask(data, mask) {
 }
 export const hexToRgb = (hex) => { const v = parseInt(String(hex).replace('#', '').padEnd(6, '0').slice(0, 6), 16) || 0; return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
 export const rgbToHex = ([r, g, b]) => `#${[r, g, b].map((x) => Math.round(clamp(x, 0, 255)).toString(16).padStart(2, '0')).join('')}`;
+/** hue 0..360, saturation 0..1, value 0..1 (the "brightness" of a colour picker square) <-> [r, g, b] */
+export function rgb2hsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let hh = 0;
+  if (d) hh = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [hh * 60, mx ? d / mx : 0, mx];
+}
+export function hsv2rgb(hh, s, v) {
+  hh = (((hh % 360) + 360) % 360) / 60; const i = Math.floor(hh), f = hh - i, p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f));
+  const [r, g, b] = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+/** "#abc", "#aabbcc", "aabbcc" -> [r, g, b], or null when it is not a colour */
+export function parseHex(text) {
+  let t = String(text).trim().replace(/^#/, ''); if (/^[0-9a-f]{3}$/i.test(t)) t = t.split('').map((c) => c + c).join('');
+  return /^[0-9a-f]{6}$/i.test(t) ? hexToRgb(t) : null;
+}
