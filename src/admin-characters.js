@@ -122,7 +122,7 @@ export async function charactersView({ back, home, toast }) {
   }
   async function open(file) {
     stop(); for (const id of [...stage.assets.keys()]) stage.unload(id);
-    status.textContent = 'Reading the ZIP…';
+    status.className = 'admin-characters-status'; status.textContent = 'Reading the ZIP…';
     try {
       const pkg = await readCharacterZip(file); pkg.stamp = Date.now(); pkg.fileName = file.name;
       Object.assign(st, { pkg, view: 0, index: 0, playing: true, defs: new Map(), anims: new Map(), time: 0 });
@@ -175,6 +175,7 @@ export async function charactersView({ back, home, toast }) {
     info.replaceChildren(a ? h('b', {}, a.label || a.name) : h('b', {}, 'No animations'), h('small', {}, a ? `${a.group} · ${a.layer === 'hand' ? 'arms only' : 'whole body'} · ${a.length.toFixed(1)} s · ${st.index + 1} / ${v.animations.length}` : ''));
   }
 
+  const say2 = (text, kind) => { status.textContent = text; status.className = `admin-characters-status ${kind}`; };
   async function done() {
     const pkg = st.pkg; if (!pkg || pkg.errors.length || st.busy) return;
     let priced = null;
@@ -222,9 +223,11 @@ export async function charactersView({ back, home, toast }) {
       say(`Previews ready (${(gifBytes / 1048576).toFixed(1)} MB in all). Finishing the upload…`, 0.85);
       const result = await stored;
       toast(`${pkg.manifest.character.name} is saved${result.categoryCreated ? ` with a new category "${pkg.manifest.category.name}"` : ''}. Creators can use the character now.`);
-      st.pkg = null; status.textContent = 'Saved.'; bar.hidden = true;
+      st.pkg = null; bar.hidden = true; st.savedId = pkg.manifest.character.id;
       await refresh();
-    } catch (e) { status.textContent = `The upload did not finish: ${friendlyError(e)} Nothing was published; you can press Done again.`; bar.hidden = true; }
+      say2(`✓ ${st.name.trim() || pkg.manifest.character.name} is saved. Creators can use it now.`, 'ok');
+      requestAnimationFrame(() => { const card = content.querySelector(`.admin-character-card[data-id="${st.savedId}"]`); status.scrollIntoView({ block: 'center', behavior: 'smooth' }); card?.classList.add('just-saved'); });
+    } catch (e) { say2(`✗ The upload did not finish: ${friendlyError(e)} Nothing was published; you can press Done again.`, 'err'); bar.hidden = true; status.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     finally { stopGifWorkers(); st.busy = false; draw(); if (st.pkg) show(); }
   }
   async function remove(c) {
@@ -268,7 +271,7 @@ export async function charactersView({ back, home, toast }) {
       return h('span', { class: `ac-pose${locked ? ' paid' : ''}`, title: locked ? (own ? `Paid pose: ${coins(c.viewStore[id].price)} Coins${c.viewStore[id].enabled === false ? ' (off sale)' : ''}` : 'Part of the paid character') : 'Free pose' }, locked ? icon('lock') : null, v.label || id, own && !wholePaid ? h('i', {}, coins(c.viewStore[id].price)) : null);
     });
     const act = (ic, text, onclick, extra = {}) => h('button', { class: `btn sm ac-act${extra.danger ? ' danger' : ''}`, type: 'button', disabled: st.busy, title: extra.title || text, 'aria-label': extra.label || text, ...(extra.attrs || {}), onclick }, icon(ic));
-    return h('article', { class: 'admin-character-card' },
+    return h('article', { class: 'admin-character-card', 'data-id': c.id },
       h('div', { class: 'admin-character-thumb' }, img, tag, h('div', { class: 'ac-poses', 'aria-label': 'Poses' }, ...poses)),
       h('div', { class: 'admin-character-copy' }, h('b', {}, c.name), h('div', { class: 'ac-meta' },
           h('select', { class: 'admin-character-group', 'aria-label': `Group of ${c.name}`, title: 'The group the creators find this character in', disabled: st.busy, onchange: (e) => regroup(c, e.target) },
