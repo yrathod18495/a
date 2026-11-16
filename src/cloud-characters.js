@@ -20,7 +20,22 @@ export const buyCharacter = ({ id, view = null, price, opId }) => call({ action:
 export const characterSales = () => call({ action: 'sales' });
 export const grantCharacter = ({ id, view = null, email }) => call({ action: 'grant', id, ...(view ? { view } : {}), email });
 
-const memory = new Map();         // sha -> Promise<Blob> for this page
+const memory = new Map();         // sha -> Promise<Blob> for this page (only the most recent ones: see trimMemory)
+const sizes = new Map();          // sha -> bytes of a finished entry in `memory`
+const MEMORY_LIMIT = 48 * 1024 * 1024;
+/** RAM is for what is on screen now: the files stay on the phone's disk (browser cache), and the oldest ones leave RAM first */
+function trimMemory() {
+  let total = 0; for (const n of sizes.values()) total += n;
+  for (const sha of [...memory.keys()]) {            // Map keeps insertion order: oldest first
+    if (total <= MEMORY_LIMIT) break;
+    if (!sizes.has(sha)) continue;                    // still downloading
+    total -= sizes.get(sha); sizes.delete(sha); memory.delete(sha);
+  }
+}
+/** the page goes to the background: give everything that can be read again from the disk back to the system */
+export function releaseMemory() {
+  for (const sha of [...memory.keys()]) if (sizes.has(sha)) { sizes.delete(sha); memory.delete(sha); }
+}
 async function fromCache(sha) { try { const hit = await (await caches.open(CACHE)).match(cacheUrl(sha)); return hit ? await hit.blob() : null; } catch { return null; } }
 async function keep(sha, blob) { try { await (await caches.open(CACHE)).put(cacheUrl(sha), new Response(blob)); } catch { /* only a shortcut */ } }
 async function gunzipBase64(b64) {
@@ -35,7 +50,7 @@ export async function getFiles(refs) {
     if (!sha || out.has(sha)) return;
     if (memory.has(sha)) { out.set(sha, await memory.get(sha)); return; }
     const hit = await fromCache(sha);
-    if (hit) { out.set(sha, hit); memory.set(sha, Promise.resolve(hit)); } else if (!missing.some((m) => refSha(m) === sha)) missing.push(r);
+    if (hit) { out.set(sha, hit); memory.set(sha, Promise.resolve(hit)); sizes.set(sha, hit.size); trimMemory(); } else if (!missing.some((m) => refSha(m) === sha)) missing.push(r);
   }));
   for (let i = 0; i < missing.length; i += 60) {
     const part = missing.slice(i, i + 60), answer = await call({ action: 'files', refs: part.map((r) => (r.db ? { db: r.db } : { r2: r.r2, size: r.size })) });
@@ -50,7 +65,7 @@ export async function getFiles(refs) {
         return blob;
       })();
       memory.set(sha, job);
-      try { out.set(sha, await job); } catch (e) { memory.delete(sha); throw e; }
+      try { const blob = await job; out.set(sha, blob); sizes.set(sha, blob.size); trimMemory(); } catch (e) { memory.delete(sha); throw e; }
     }));
   }
   return out;
@@ -79,6 +94,7 @@ function batched(ref) {
 export async function pictureUrl(ref, type = null) {
   const sha = refSha(ref);
   if (!sha) return null;
+  while (urls.size > 120) { const [oldSha, oldUrl] = urls.entries().next().value; urls.delete(oldSha); Promise.resolve(oldUrl).then((u) => u && URL.revokeObjectURL(u)).catch(() => {}); }          // keep at most 120 picture URLs alive
   if (!urls.has(sha)) urls.set(sha, batched(ref).then((b) => URL.createObjectURL(type ? new Blob([b], { type }) : b)).catch((e) => { urls.delete(sha); throw e; }));
   return urls.get(sha);
 }

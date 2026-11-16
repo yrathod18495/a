@@ -26,7 +26,7 @@ import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, del
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
 import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, isLockedCharacter, fetchLibraryCharacter, cdn, modePools, idleRef, modeEntries, MODE_REFS, cloudRef } from './catalog.js';
-import { pictureUrl } from './cloud-characters.js';
+import { pictureUrl, releaseMemory } from './cloud-characters.js';
 import { getFit, setFit } from './universal.js';
 import { onSyncStatus, syncStatus, syncCurrent } from './project-sync.js';
 import { exportFileName } from './export-name.js';
@@ -349,7 +349,8 @@ const thumbPlay = (() => {
       raf = requestAnimationFrame(frame);
     } catch { /* the still poster simply stays */ }
   }
-  return { start, stop };
+  const release = () => { stop(); if (mini) { for (const id of [...mini.assets.keys()]) mini.unload(id); loadedId = null; } };          // the small preview stage gives its pictures back
+  return { start, stop, release };
 })();
 function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
   const root = h('div', { class: 'ab' });
@@ -4855,7 +4856,7 @@ window.addEventListener('keydown', (e) => {
   if (k === 'c' && S.step === 3 && !window.getSelection?.().toString() && (S.mclip || S.bgSel || S.propSel || multi.size)) { e.preventDefault(); copySelected(); } else if (k === 'v' && S.step === 3 && S.clipboard) { e.preventDefault(); pasteClip(); }
   else if (k === 'z' && !e.shiftKey) { e.preventDefault(); stepHistory(-1); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); stepHistory(1); }
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) tick(); else { last = performance.now(); S.dirty = true; } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { tick(); releaseMemory(); thumbPlay.release(); } else { last = performance.now(); S.dirty = true; } });          // in the background: what can be read again from the disk leaves RAM
 
 /* ---------------- main loop ---------------- */
 let lastLiveProp = 0, last = performance.now(), frameId = 0, renderCount = 0, dirty = true, lastPreviewFrame = -Infinity;
