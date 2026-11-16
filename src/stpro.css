@@ -1127,3 +1127,6 @@ dialog.admin-store-dialog h2{margin:0 0 10px;font-size:18px}.admin-store-rows{di
 .admin-character-store{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .admin-character-copy{position:relative}
 .ac-meta{justify-content:flex-start}.ac-meta .admin-character-group{margin:0!important;align-self:center}
+/* no frame around the picture: an image that has no file yet (or could not load) shows nothing instead of the browser's thin white border */
+.admin-character-thumb img{border:0;outline:0;background:none}
+.admin-character-thumb img:not([src]),.admin-character-thumb img[src=""]{visibility:hidden}
