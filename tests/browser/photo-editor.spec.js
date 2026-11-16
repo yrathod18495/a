@@ -43,6 +43,9 @@ test('picture editor: brushes, fill, selections, adjustments, undo, touch, apply
   await page.goto('/?debug#/characters/' + id); await page.reload();
   await expect(page.locator('.cs-panel')).toBeVisible();
   await page.locator('.cs-tabs button', { hasText: 'Create' }).click();
+  // no user can download the part pictures or a ZIP from the Character Editor
+  await expect(page.getByRole('button', { name: /Download|Part template|Part boxes/i })).toHaveCount(0); await expect(page.locator('.cs-crow .ib[title*="Download"]')).toHaveCount(0);
+  await page.locator('.cs-tabs button', { hasText: 'Save' }).click(); await expect(page.getByRole('button', { name: /Download ZIP/i })).toHaveCount(0); await page.locator('.cs-tabs button', { hasText: 'Create' }).click();
   const pe = (fn, arg) => page.evaluate(([src, a]) => { const api = document.querySelector('.pe')._pe; return (0, eval)(`(${src})`)(api, a); }, [fn.toString(), arg]);
   const px = (x, y) => pe((api, [x, y]) => { const d = api.D.getContext('2d').getImageData(x, y, 1, 1).data; return [...d]; }, [x, y]);
   const sig = () => pe((api) => { const d = api.D.getContext('2d').getImageData(0, 0, api.D.width, api.D.height).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7 + d[i + 3] * 13) | 0; return h; });

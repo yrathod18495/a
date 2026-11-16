@@ -672,10 +672,6 @@ export async function view({ user, home, toast, localPreview = false }) {
     toast(parts.join(' '));
     draw();
   }
-  async function downloadLayer(l) {
-    const c = cropOf(l.region), blob = await toBlob(c, 'image/png'), a = h('a', { href: URL.createObjectURL(blob), download: `${safe(l.region)}.png` });
-    document.body.append(a); a.click(); a.remove();
-  }
   /* ---------- PSD: every picture of this pose as a named layer, and back ---------- */
   const normName = (n) => String(n).replace(/\.[^.]+$/, '').replace(/[\\/]+/g, '_').trim().toLowerCase();
   const PSD_GROUPS = new Set(['Top', 'Bottom', 'Face', 'Eyes', 'Eyebrows', 'Nose', 'Ears', 'Hair', 'Earrings', 'Lips']);   // clothes + the whole face (no palms)
@@ -732,12 +728,6 @@ export async function view({ user, home, toast, localPreview = false }) {
       draw();
     } catch (e) { console.warn(e); toast(`Could not read the PSD: ${e.message}`); }
   }
-  async function downloadAll() {
-    const z = new JSZip();
-    for (const l of layers()) { const blob = await toBlob(cropOf(l.region), 'image/png'); z.file(`${safe(l.region)}.png`, blob); }
-    const blob = await z.generateAsync({ type: 'blob' }), a = h('a', { href: URL.createObjectURL(blob), download: `${safe(st.def.name)}-layers.zip` });
-    document.body.append(a); a.click(); a.remove();
-  }
 
   /** the admin's name for a layer (falls back to the original name) */
   function baseOf() { return st.def?.rig?.toonChar || null; }
@@ -787,33 +777,6 @@ export async function view({ user, home, toast, localPreview = false }) {
     return all.sort((a, b) => rank(a.group) - rank(b.group) || labelOf(a).localeCompare(labelOf(b)));
   };
   /** one picture with a box per part (true proportions), its name and pixel size */
-  async function templateSheet() {
-    const rows = createRows(), W = 2400, M = 40, GAP = 20, HEAD = 150, FOOT = 80;
-    const dims = rows.map((l) => { const r = st.regions.get(l.region); return { l, w: r.w, h: r.h }; });
-    let k = 0.5, lay;
-    for (let it = 0; it < 30; it++, k *= 0.93) {            // biggest scale at which every box still fits the sheet width, tallest first
-      let x = M, y = HEAD, rowh = 0; lay = [];
-      for (const d of [...dims].sort((a, b) => b.h - a.h)) {
-        const w = Math.max(150, Math.round(d.w * k)), h = Math.max(70, Math.round(d.h * k));
-        if (x + w > W - M) { x = M; y += rowh + GAP + 26; rowh = 0; }
-        lay.push({ ...d, x, y, bw: w, bh: h }); x += w + GAP; rowh = Math.max(rowh, h);
-      }
-      if (y + rowh + FOOT < 3600) { lay.H = y + rowh + FOOT + 30; break; }
-    }
-    const H = lay.H || 3600, c = makeCanvas(W, H), g = c.getContext('2d');
-    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
-    const grad = g.createLinearGradient(0, 0, W, 0); grad.addColorStop(0, '#2563eb'); grad.addColorStop(1, '#0ea5e9'); g.fillStyle = grad; g.fillRect(0, 0, W, 110);
-    g.fillStyle = '#fff'; g.font = '700 56px sans-serif'; g.fillText('12toons', M, 74);
-    g.fillStyle = '#fff'; g.font = '600 34px sans-serif'; g.fillText(`${st.def.name} · PART TEMPLATE — draw each part inside its own box, same angle, keep the file name the same (shown as the small label inside the box)`, M + 290, 70);
-    for (const b of lay) {
-      g.fillStyle = GROUP_COLOUR[b.l.group] || '#ddd'; g.fillRect(b.x, b.y, b.bw, b.bh); g.strokeStyle = '#444'; g.lineWidth = 2; g.strokeRect(b.x, b.y, b.bw, b.bh);
-      g.fillStyle = '#111'; g.font = '600 20px sans-serif'; g.fillText(labelOf(b.l).slice(0, Math.max(8, Math.floor(b.bw / 11))), b.x + 8, b.y + 26); g.fillStyle = '#444'; g.font = '14px sans-serif'; g.fillText(safe(b.l.region).slice(0, Math.floor(b.bw / 8)), b.x + 8, b.y + 44); g.fillStyle = '#111';
-      g.fillStyle = '#555'; g.font = '16px sans-serif'; g.fillText(`${b.w}×${b.h}px`, b.x + 8, b.y + b.bh - 10);
-    }
-    g.fillStyle = '#2563eb'; g.font = '600 24px sans-serif'; g.fillText('12toons AI Animator Studio · Character template · upload the finished parts in the Character Editor (Create tab) or as a ZIP / PSD', M, H - 30);
-    const blob = await toBlob(c, 'image/png'), a = h('a', { href: URL.createObjectURL(blob), download: `12toons-${safe(st.def.name).replace(/[^\w\-]+/g, '_')}-part-template.png` });
-    document.body.append(a); a.click(); a.remove();
-  }
   function panelCreate() {
     const rows = createRows(), isUtility = l => localPreview && st.previewUtilityRegions?.has(l.region), artworkRows = rows.filter(l => !isUtility(l)), done = artworkRows.filter((l) => st.edit.get(l.region)?.img).length;
     const bulk = h('input', { type: 'file', multiple: true, accept: '.psd,.zip,image/*,.svg', style: 'display:none', onchange: (ev) => { const f = [...ev.target.files]; ev.target.value = ''; bulkUpload(f); } });
@@ -822,13 +785,11 @@ export async function view({ user, home, toast, localPreview = false }) {
     const row = (l) => {
       const reg = st.regions.get(l.region), e = st.edit.get(l.region), file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) putImage(l, f).then(draw); } });
       return h('div', { class: `cs-lrow cs-crow ${e?.img ? 'done' : ''} ${st.guideFocus === l.region ? 'rig-guide-selected' : ''}`, 'data-rig-region': l.region, title: 'Tap to choose this part (for stickers and the guide)', onclick: (ev) => { if (ev.target.closest('button,input,label,a')) return; st.guideFocus = st.guideFocus === l.region ? null : l.region; draw(); if (st.stkSolo) applySolo(); } }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, labelOf(l)), h('small', {}, `${reg.w}×${reg.h}px${isUtility(l) ? ' · Transparent utility slot' : e?.img ? ` · PNG ${e.img.width}×${e.img.height}px` : ''}`)),
-        h('button', { class: 'ib cs-edit', title: 'Edit this picture: brushes, fill, magic select, shadows', 'aria-label': `Edit ${labelOf(l)}`, onclick: (ev) => { ev.stopPropagation(); paintLayer(l); } }, icon('pencil')), h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, icon('download')), h('button', { class: `btn sm cs-up ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, icon(e?.img ? 'refresh' : 'upload'), h('span', {}, e?.img ? 'Replace' : 'Upload')), file);
+        h('button', { class: 'ib cs-edit', title: 'Edit this picture: brushes, fill, magic select, shadows', 'aria-label': `Edit ${labelOf(l)}`, onclick: (ev) => { ev.stopPropagation(); paintLayer(l); } }, icon('pencil')), h('button', { class: `btn sm cs-up ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, icon(e?.img ? 'refresh' : 'upload'), h('span', {}, e?.img ? 'Replace' : 'Upload')), file);
     };
     return [
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Draw these parts in your own style (same angle as the template, transparent background), upload them one by one, or all together with the template sheet / a PSD. The skeleton, animations, lip-sync and physics come with the base body, so every animation works on your character.'),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' },
-        h('button', { class: 'btn sm pri', title: 'One picture: a coloured box for every part, true proportions, names and sizes', onclick: templateSheet }, icon('download'), h('span', {}, 'Part template sheet')),
-        h('button', { class: 'btn sm', title: 'Every box as its own PNG', onclick: downloadAll }, icon('download'), h('span', {}, 'Part boxes (ZIP)')),
         h('button', { class: 'btn sm', title: 'An edited PSD or a ZIP / many files named like the parts', onclick: () => bulk.click() }, icon('upload'), h('span', {}, 'Upload many')), bulk),
       h('div', { class: 'cs-guide-status', 'aria-live': 'polite' }, (() => { const l = rows.find((item) => item.region === st.guideFocus); const img = l && st.edit.get(l.region)?.img; const reg = l && st.regions.get(l.region); return l ? `${labelOf(l)} · ${img ? `PNG ${img.width} × ${img.height}px · ` : ''}fixed universal-rig target ${reg.w} × ${reg.h}px · all uploaded parts stay visible` : `All template parts and uploaded parts show together.`; })()),
       stickerPanel(),
@@ -898,12 +859,8 @@ export async function view({ user, home, toast, localPreview = false }) {
       h('div', { class: 'row', style: 'margin-top:12px' },
         h('button', { class: 'btn pri', onclick: go(false) }, icon('download'), h('span', {}, st.savedId ? 'Update this character' : 'Save character')),
         st.savedId ? h('button', { class: 'btn', onclick: go(true) }, icon('plus'), h('span', {}, 'Save as a new copy')) : null,
-        h('button', { class: 'btn', onclick: async () => {
-          const { ske, tex } = await bake(), z = new JSZip(), base = safe(name.value.trim() || 'character').replace(/[^\w\-]+/g, '_');
-          z.file(`${base}_ske.json`, JSON.stringify(ske));
-          tex.forEach((t, i) => { z.file(`${base}_tex_${i}.json`, JSON.stringify(t.json)); z.file(safe(t.json.imagePath), t.image); });
-          const blob = await z.generateAsync({ type: 'blob' }), a = h('a', { href: URL.createObjectURL(blob), download: `${base}.zip` }); document.body.append(a); a.click(); a.remove();
-        } }, icon('download'), h('span', {}, 'Download ZIP'))), status,
+      ),
+      status,
       h('p', { class: 'hint', style: 'text-align:left' }, changed ? `${changed} change${changed > 1 ? 's' : ''} will be saved.` : 'Nothing changed yet — this saves the template as it is.'))];
   }
 
