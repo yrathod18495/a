@@ -378,14 +378,15 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     for (const a of list.slice(0, 48)) if (String(a.poster || '').startsWith('cloud:')) pictureUrl(cloudRef(a.poster), a.posterType === 'mp4' ? 'video/mp4' : null).catch(() => {});          // the first previews are fetched together (one request), so a quick scroll finds them ready
     viewport.append(windowEl);
     let start = -1, end = -1;
+    const present = new Map(), cardCache = new Map();          // index -> card element
     const paint = () => {
-      const c = colsNow(); if (c !== cols) { cols = c; start = end = -1; sizeWindow(); }
+      const c = colsNow(); if (c !== cols) { cols = c; start = end = -1; sizeWindow(); present.forEach((el) => el.remove()); present.clear(); cardCache.clear(); }
       const firstRow = Math.max(0, Math.floor(viewport.scrollTop / ROW) - 3), rows = Math.ceil((viewport.clientHeight || 640) / ROW) + 7;          // a few rows more than the screen shows: a fast scroll does not meet empty cards
       const nextStart = firstRow * cols, nextEnd = Math.min(list.length, nextStart + rows * cols);
       if (nextStart === start && nextEnd === end) return;
       start = nextStart; end = nextEnd;
-      windowEl.replaceChildren(...list.slice(start, end).map((a, offset) => {
-        const chosen = sameRef(selectedRef(), a.ref), index = start + offset, col = index % cols, hasGif = !!a.poster;
+      const build = (a, index) => {
+        const chosen = sameRef(selectedRef(), a.ref), col = index % cols, hasGif = !!a.poster;
         const apply = h('button', { class: 'animation-apply', 'aria-pressed': String(!!chosen), title: `Apply ${a.name}`, onclick: async () => {
           apply.disabled = true;
           try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
@@ -403,7 +404,15 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
           activePreview = video; modal(a.name, video, () => video.pause()); video.play().catch(() => {});
         } }, '▷'));
         return row;
-      }));
+      };
+      // cards are kept, not rebuilt: a card that leaves the screen and comes back is the same element, with its picture already there
+      for (const [i, el] of present) if (i < start || i >= end) { el.remove(); present.delete(i); }
+      for (let i = start; i < end; i++) {
+        if (present.has(i)) continue;
+        let el = cardCache.get(i); if (!el) { el = build(list[i], i); cardCache.set(i, el); }
+        windowEl.append(el); present.set(i, el); el.querySelector('video')?.play().catch(() => {});
+      }
+      if (cardCache.size > 90) for (const k of [...cardCache.keys()]) { if (cardCache.size <= 90) break; if (!present.has(k)) cardCache.delete(k); }
     };
     viewport.addEventListener('scroll', () => { scrollTop = viewport.scrollTop; paint(); }, { passive: true });
     root.replaceChildren(h('div', { class: 'animation-filters' },
