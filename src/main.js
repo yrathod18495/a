@@ -365,7 +365,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     if (!cats.length) { root.replaceChildren(h('p', { class: 'sub' }, 'No admin animations are available for this character.')); return; }
     const curRef = selectedRef();
     if (!cat || !cats.some(c => c.key === cat)) cat = (cats.find(c => curRef && c.animations.some(a => sameRef(a.ref, curRef))) || cats[0]).key;
-    if (S.animFocus && Date.now() - S.animFocus.at < 2500) { const f = cats.find(c => c.layer === S.animFocus.layer); if (f) cat = f.key; }          // the Face button opens the face expressions
+    if (S.animFocus && Date.now() - S.animFocus.at < 8000) { const f = cats.find(c => c.layer === S.animFocus.layer); if (f) cat = f.key; }          // the Face button opens the face expressions
     const current = cats.find(c => c.key === cat);
     const list = (q.trim() ? cats : [current]).flatMap(c => c.animations.map(a => ({ ...a, cat: c }))).filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase()));
     const viewport = h('div', { class: 'animation-list', tabindex: '0', 'aria-label': 'Animation results' });
@@ -418,7 +418,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     viewport.addEventListener('scroll', () => { scrollTop = viewport.scrollTop; paint(); }, { passive: true });
     root.replaceChildren(h('div', { class: 'animation-filters' },
       ...(chips ? [chips(draw)] : []),
-      h('div', { class: 'row' }, h('select', { 'aria-label': 'Animation category', onchange: e => { cat = e.target.value; q = ''; scrollTop = 0; draw(); } }, cats.map(c => h('option', { value: c.key, selected: c.key === cat }, `${c.name} (${c.animations.length})`)))),
+      h('div', { class: 'row' }, h('select', { 'aria-label': 'Animation category', onchange: e => { S.animFocus = null; cat = e.target.value; q = ''; scrollTop = 0; draw(); } }, cats.map(c => h('option', { value: c.key, selected: c.key === cat }, `${c.name} (${c.animations.length})`)))),
       h('input', { type: 'search', class: 'search', 'aria-label': 'Search animations', placeholder: 'Search animations…', value: q, oninput: e => { q = e.target.value; const caret = e.target.selectionStart; scrollTop = 0; draw(); const search = root.querySelector('.search'); search.focus(); search.setSelectionRange(caret, caret); } }),
       h('small', { class: 'animation-count', role: 'status' }, `${list.length} animation${list.length === 1 ? '' : 's'} · click to apply`)),
       list.length ? viewport : h('p', { class: 'sub' }, 'No matching animations. Try another category or search.'));
