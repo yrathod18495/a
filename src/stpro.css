@@ -1133,3 +1133,6 @@ dialog.admin-store-dialog h2{margin:0 0 10px;font-size:18px}.admin-store-rows{di
 .admin-characters-status.ok{padding:10px 14px;border-radius:12px;background:#1f8f55;color:#fff;font-weight:800;font-size:14px}
 .admin-characters-status.err{padding:10px 14px;border-radius:12px;background:#c0392b;color:#fff;font-weight:700;font-size:13px}
 .admin-character-card.just-saved{outline:2px solid #1f8f55;box-shadow:0 0 0 4px #1f8f5533}
+/* the background's corner handles are big enough for a finger */
+@media(pointer:coarse){.stagewrap .bg-hd{width:32px!important;height:32px!important}}
+@media(pointer:coarse){.stagewrap .bg-tl{left:-16px;top:-16px}.stagewrap .bg-tr{right:-16px;top:-16px}.stagewrap .bg-bl{left:-16px;bottom:-16px}.stagewrap .bg-br{right:-16px;bottom:-16px}}

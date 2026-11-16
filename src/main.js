@@ -2082,7 +2082,7 @@ function drawClipNav() {
       btn('x', 'Close', clearClipSelection, { title: 'Close: back to the Upload / Characters / Animations tabs', 'aria-label': 'Close the clip tools and go back to the tabs' }),
       ...(kind === 'fx' ? [btn('pencil', 'Edit', () => openFxDock(it.fx), { title: 'Opacity, blur, contrast, saturation, tint and more' })] : []),
       ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many })]),
-      ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
+      ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('arrow-lr', 'Adjust', () => openBgAdjust(it.bc), { title: 'Move and resize the background with a joystick and a slider' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
       ...(kind === 'prop' ? [btn('pencil', 'Edit', () => openPropEdit(it.pr), { title: 'Size, turn, opacity, glow, in front of or behind the characters' })] : []),
@@ -2696,6 +2696,45 @@ function paintCamBox() {
       chars.length ? h('div', { class: 'card flat' }, h('h3', {}, 'Follow'), h('div', { class: 'hd-row' }, ...chars.map((s) => chip(s.name, false, () => follow(s), { 'data-follow': s.key }))), h('p', { class: 'sub hd-note' }, 'The camera keeps this character in frame from L to P.')) : null,
       keys.length ? h('button', { type: 'button', class: 'btn sm danger', onclick: () => { if (confirm('Delete the whole camera move and go back to the automatic shots?')) { S.camKeys = []; S.camSel = null; redraw(); paintCamBox(); } } }, 'Remove the camera move') : null));
 }
+/* ---- Adjust the background: a joystick to move it, a slider for the size (for when the fingers cannot reach the picture) ---- */
+let bgAdjustEl = null, bgAdjustRaf = 0;
+function closeBgAdjust() { if (bgAdjustEl) bgAdjustEl.hidden = true; cancelAnimationFrame(bgAdjustRaf); }
+function openBgAdjust(c) {
+  c ||= bgOf() || S.bgClips[0];
+  if (!c) { toast('Add a background first.'); return; }
+  if (bgLockedNow(c)) { lockedToast(); return; }
+  if (S.panelOpen) { S.panelOpen = false; drawTabs(); }
+  closeVoiceSheet(); closeHoldSheet(); if (typeof closeCamBox === 'function') closeCamBox();
+  S.bgSel = c.id;
+  bgAdjustEl ||= h('section', { class: 'voice-sheet hold-sheet bg-adjust-sheet', role: 'dialog', 'aria-label': 'Adjust the background' });
+  if (!bgAdjustEl.isConnected) document.body.append(bgAdjustEl);
+  bgAdjustEl.hidden = false; paintBgAdjust(c);
+}
+function paintBgAdjust(c) {
+  if (!bgAdjustEl || bgAdjustEl.hidden) return;
+  placeSheet(bgAdjustEl);
+  const xf = bgXf(c);
+  const knob = h('i', { class: 'joy-knob' });
+  let vx = 0, vy = 0;
+  const loop = () => { if (vx || vy) { xf.x = clampBgPos(xf.x + vx * 0.006); xf.y = clampBgPos(xf.y + vy * 0.006); pushBg(c); } bgAdjustRaf = requestAnimationFrame(loop); };
+  const pad = h('div', { class: 'joy', role: 'application', 'aria-label': 'Move the background: drag the knob' }, h('b', { class: 'joy-h' }), h('b', { class: 'joy-v' }), knob);
+  const drag = (e) => { const r = pad.getBoundingClientRect(), rad = r.width / 2 - 14; let dx = (e.clientX - r.left - r.width / 2) / rad, dy = (e.clientY - r.top - r.height / 2) / rad; const len = Math.hypot(dx, dy); if (len > 1) { dx /= len; dy /= len; } vx = dx; vy = dy; knob.style.transform = `translate(${dx * 50}%, ${dy * 50}%)`; };
+  pad.addEventListener('pointerdown', (e) => { pad.setPointerCapture(e.pointerId); drag(e); pad.addEventListener('pointermove', drag); cancelAnimationFrame(bgAdjustRaf); bgAdjustRaf = requestAnimationFrame(loop); });
+  const rest = () => { pad.removeEventListener('pointermove', drag); vx = vy = 0; knob.style.transform = ''; cancelAnimationFrame(bgAdjustRaf); };
+  pad.addEventListener('pointerup', rest); pad.addEventListener('pointercancel', rest);
+  const nudge = (ic, label, f) => holdButton(h('button', { type: 'button', class: 'hd-nudge', 'aria-label': label, title: label }, icon(ic)), (k) => { f(k); pushBg(c); });
+  const out = h('output', {}, `${Math.round(xf.s * 100)}%`);
+  const slider = h('input', { type: 'range', min: 20, max: 600, step: 1, value: Math.round(xf.s * 100), 'aria-label': 'Size', oninput: (e) => { xf.s = clampBgScale(+e.target.value / 100); out.textContent = `${Math.round(xf.s * 100)}%`; pushBg(c); } });
+  bgAdjustEl.replaceChildren(
+    h('div', { class: 'vs-head' }, h('b', {}, 'Background'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the background tools', title: 'Close', onclick: closeBgAdjust }, icon('x'))),
+    h('div', { class: 'list hold-panel' },
+      h('div', { class: 'card flat' }, h('h3', {}, 'Move'),
+        h('div', { class: 'joy-wrap' }, nudge('zoom-out', 'Smaller', (k) => { xf.s = clampBgScale(xf.s - 0.01 * k); slider.value = Math.round(xf.s * 100); out.textContent = `${Math.round(xf.s * 100)}%`; }), pad, nudge('zoom-in', 'Bigger', (k) => { xf.s = clampBgScale(xf.s + 0.01 * k); slider.value = Math.round(xf.s * 100); out.textContent = `${Math.round(xf.s * 100)}%`; })),
+        h('label', { class: 'vo-row' }, h('span', {}, 'Size'), slider, out)),
+      h('div', { class: 'hd-row two' },
+        h('button', { type: 'button', class: 'hd-chip', onclick: () => { xf.x = 0; xf.y = 0; xf.s = 1; pushBg(c); paintBgAdjust(c); } }, 'Reset'),
+        h('button', { type: 'button', class: 'hd-chip on', onclick: closeBgAdjust }, 'Done'))));
+}
 /** one-click camera moves (zoom, pan, shake): they add keyframes at the playhead and last `camFx.dur` seconds */
 const camFx = { dur: 2, shakeDur: 0.8, strength: 'medium' };
 function applyCamPreset(kind) {
@@ -3089,6 +3128,9 @@ function mountStage() {
         const r = stage.out.getBoundingClientRect(), xf = bgXf(bgc), cx = r.left + r.width / 2 + xf.x * r.width, cy = r.top + r.height / 2 + xf.y * r.height;
         drag = { mode: 'bg', kind: 'scale', c: bgc, cx, cy, r0: Math.hypot(e.clientX - cx, e.clientY - cy) || 1, s0: xf.s }; wrapEl.setPointerCapture(e.pointerId); return;
       }
+    }
+    if (bgc && stage.camZoom <= 1.02 && !bgLockedNow(bgc) && !e.target.dataset?.c && !e.target.closest?.('.cs-ctx')) {          // the selected background layer: a finger anywhere moves it, two fingers resize it
+      const xf = bgXf(bgc); drag = { mode: 'bg', kind: 'move', c: bgc, p0: { x: e.clientX, y: e.clientY }, x0: xf.x, y0: xf.y }; wrapEl.setPointerCapture(e.pointerId); return;
     }
     const p = pt(e), hd = e.target.dataset?.c;
     if (stage.camZoom <= 1.02 && !hd) {

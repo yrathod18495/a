@@ -35,3 +35,27 @@ test('the phone bottom bar follows the timeline group and the Hold tool puts a p
   await expect(page.locator('.hold-sheet')).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test('the selected background can be moved and resized with the Adjust tool', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Bg');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(() => { const T = window.__toon, S = T.S; S.bgClips.push({ id: 'b1', preset: 1, start: 0, dur: 5 }); S.tlCat = 'background'; T.drawTimeline(); });
+  await page.locator('.panel.open .sheet-close button').click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.tl-cats .tl-cat', { hasText: 'Background' }).click();
+  await page.locator('.tclip.bg.mine').first().click();
+  await page.locator('.clip-nav').getByRole('button', { name: 'Adjust' }).click();
+  const sheet = page.locator('.bg-adjust-sheet');
+  await expect(sheet).toBeVisible();
+  await sheet.getByLabel('Size').evaluate((e) => { e.value = '150'; e.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(await page.evaluate(() => window.__toon.S.bgClips[0].xf.s)).toBeCloseTo(1.5, 2);
+  await sheet.getByRole('button', { name: 'Reset' }).click();
+  expect(await page.evaluate(() => window.__toon.S.bgClips[0].xf.s)).toBe(1);
+  await sheet.getByRole('button', { name: 'Close the background tools' }).filter({ visible: true }).click();
+  await expect(sheet).toBeHidden();
+  expect(errors).toEqual([]);
+});
