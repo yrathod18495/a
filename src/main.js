@@ -365,6 +365,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     if (!cats.length) { root.replaceChildren(h('p', { class: 'sub' }, 'No admin animations are available for this character.')); return; }
     const curRef = selectedRef();
     if (!cat || !cats.some(c => c.key === cat)) cat = (cats.find(c => curRef && c.animations.some(a => sameRef(a.ref, curRef))) || cats[0]).key;
+    if (S.animFocus) { const f = cats.find(c => c.layer === S.animFocus); if (f) cat = f.key; S.animFocus = null; }          // the Face button opens the face expressions
     const current = cats.find(c => c.key === cat);
     const list = (q.trim() ? cats : [current]).flatMap(c => c.animations.map(a => ({ ...a, cat: c }))).filter(a => a.name.toLowerCase().includes(q.trim().toLowerCase()));
     const viewport = h('div', { class: 'animation-list', tabindex: '0', 'aria-label': 'Animation results' });
@@ -3415,11 +3416,11 @@ function drawCharBar(l) {
   }
   charBar.dataset.key = l.key; queueMicrotask(() => { markCharBar(l); for (const inp of charBar.querySelectorAll('.cb-size')) inp.disabled = charLockedNow(l.key); });
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
-  const items = [['anim', 'Animations', 'film'], ['handprops', 'Props', 'sword'], ['motion', 'Path', 'route']];
+  const items = [['face', 'Face', 'smile'], ['handprops', 'Props', 'sword'], ['motion', 'Path', 'route']];
   const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']];
   charBar.replaceChildren(
     h('div', { class: 'cb-list' },
-      ...items.map(([tab, text, ic]) => btn(ic, text, () => (tab === 'motion' ? startPathShadow(s) : openCharTool(l.key, tab)), { 'data-tab': tab })),
+      ...items.map(([tab, text, ic]) => btn(ic, text, () => (tab === 'motion' ? startPathShadow(s) : tab === 'face' ? (S.animFocus = 'face', openCharTool(l.key, 'anim')) : openCharTool(l.key, tab)), { 'data-tab': tab })),
       btn('flip', 'Flip', () => mirrorChar(l, s), { title: 'Flip the character left / right' })),
     // everything else is one tap away in a list (no sideways scrolling to find it)
     h('details', { class: 'char-more' },

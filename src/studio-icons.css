@@ -911,12 +911,13 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
   #app .ws .tabs-scroll>button:active .ti{transform:translateY(-2px)}
 }
 
-/* character handles: round, big enough for a finger, and a tilt handle on a stick above the box */
-body.studio-dark .stagewrap>.hd{width:22px;height:22px;border-radius:50%;background:#7c6cf5;border:3px solid #fff;box-shadow:0 2px 8px #0008}
-@media(pointer:coarse){body.studio-dark .stagewrap>.hd{width:34px;height:34px}}
+/* character handles: small thin round dots (the touch area is bigger than the dot) and a tilt handle on a thin stick above the box */
+body.studio-dark .stagewrap>.hd{width:11px;height:11px;border-radius:50%;background:#7c6cf5;border:2px solid #fff;box-shadow:0 1px 4px #0008}
+body.studio-dark .stagewrap>.hd::before{content:"";position:absolute;inset:-14px;border-radius:50%}
 .stagewrap>.hd.h-rot{cursor:grab;background:#fff;border-color:#7c6cf5}
-.stagewrap>.hd.h-rot::after{content:"";position:absolute;left:50%;top:100%;width:3px;height:var(--stick,28px);margin-left:-1.5px;background:#7c6cf5;border-radius:2px;pointer-events:none}
-@media(pointer:coarse){.stagewrap>.hd.h-rot{--stick:34px}}
+.stagewrap>.hd.h-rot::after{content:"";position:absolute;left:50%;top:100%;width:1.5px;height:var(--stick,26px);margin-left:-.75px;background:#7c6cf5;border-radius:2px;pointer-events:none}
+@media(pointer:coarse){.stagewrap>.hd.h-rot{--stick:30px}}
+body.studio-dark .selbox{border-width:1.5px}
 
 /* the player bar: every button the same round size and height, icons only, nothing crooked */
 @media(max-width:860px){
@@ -924,4 +925,9 @@ body.studio-dark .stagewrap>.hd{width:22px;height:22px;border-radius:50%;backgro
   #app .ws .tltools .edit-btn{width:42px!important;min-width:0!important;height:42px!important;padding:0!important;border-radius:14px!important;display:inline-grid!important;place-items:center}
   #app .ws .tltools .edit-btn span:not(.ic){display:none!important}
   #app .ws .tltools>button{align-self:center}
+}
+
+/* phone: while the character or clip tools are on screen, the normal bottom menu is hidden under them (never two bars on top of each other) */
+@media(max-width:860px){
+  #app .ws .studio:has(.char-bar:not([hidden]),.clip-nav:not([hidden])) .tabs.big{visibility:hidden}
 }
