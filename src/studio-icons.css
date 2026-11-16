@@ -854,3 +854,8 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
 .hold-sheet .hold-panel,.voice-sheet .list{padding-bottom:12px}
 #app .ws .sheet-close{justify-content:space-between;align-items:center}
 #app .ws .sheet-close button{margin-left:auto;width:40px;height:40px}
+/* while an animation preview is still downloading, show a soft moving shimmer instead of an empty box */
+@keyframes thumb-shimmer{0%{background-position:-200px 0}100%{background-position:200px 0}}
+#app .animation-thumb{background:linear-gradient(90deg,rgba(255,255,255,.03) 0,rgba(255,255,255,.09) 40px,rgba(255,255,255,.03) 80px) 0 0/200px 100% repeat-x;animation:thumb-shimmer 1.2s linear infinite}
+#app .animation-thumb:has(img[src],video[src]){animation:none;background:none}
+@media(prefers-reduced-motion:reduce){#app .animation-thumb{animation:none}}

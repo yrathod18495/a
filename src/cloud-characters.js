@@ -57,13 +57,33 @@ export async function getFiles(refs) {
 }
 export async function getJson(ref) { return JSON.parse(await (await getFiles([ref])).get(refSha(ref)).text()); }
 const urls = new Map();
+let queue = [], flushing = null;
+/** pictures asked for in the same moment are fetched with ONE request (a list of 30 animation previews used to make 30 requests) */
+function batched(ref) {
+  return new Promise((resolve, reject) => {
+    queue.push({ ref, resolve, reject });
+    flushing ||= setTimeout(async () => {
+      const jobs = queue; queue = []; flushing = null;
+      const refs = jobs.map((j) => j.ref);
+      let files = null;
+      try { files = await getFiles(refs); }
+      catch { /* one broken picture must not take the others down: fall back to one by one */ }
+      for (const j of jobs) {
+        const blob = files?.get(refSha(j.ref));
+        if (blob) j.resolve(blob); else getFiles([j.ref]).then((m) => j.resolve(m.get(refSha(j.ref)))).catch(j.reject);
+      }
+    }, 30);
+  });
+}
 /** a picture (thumbnail, GIF preview) as an object URL, downloaded once */
 export async function pictureUrl(ref, type = null) {
   const sha = refSha(ref);
   if (!sha) return null;
-  if (!urls.has(sha)) urls.set(sha, getFiles([ref]).then((m) => URL.createObjectURL(type ? new Blob([m.get(sha)], { type }) : m.get(sha))).catch((e) => { urls.delete(sha); throw e; }));
+  if (!urls.has(sha)) urls.set(sha, batched(ref).then((b) => URL.createObjectURL(type ? new Blob([b], { type }) : b)).catch((e) => { urls.delete(sha); throw e; }));
   return urls.get(sha);
 }
+/** start downloading these pictures now (one request), so the list shows them as soon as it opens */
+export function warmPictures(refs) { for (const r of refs) if (r) pictureUrl(r).catch(() => {}); }
 /** one view of a character as the studio needs it: { ske, tex: [{ json, image }] } */
 export async function loadCloudView(character, viewId) {
   const v = character.views?.[viewId];
