@@ -9,7 +9,7 @@ test('the phone bottom bar follows the timeline group and the Hold tool puts a p
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Nav');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await page.waitForFunction(() => window.__toon?.S.ready);
-  await page.locator('.panel.open .sheet-fab').click({ timeout: 5000 }).catch(() => {});
+  await page.locator('.panel.open .sheet-close button').click({ timeout: 3000 }).catch(() => {});
   const bar = page.locator('.tabs-scroll > button');
   const names = async () => (await bar.evaluateAll((els) => els.map((e) => e.getAttribute('title'))));
   const chip = (t) => page.locator('.tl-cats .tl-cat', { hasText: t });
