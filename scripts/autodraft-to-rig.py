@@ -114,7 +114,7 @@ for view in manifest['views']:
         arms = {v for k, v in bmap.items() if 'arm' in v or 'palm' in v or 'hand' in v}
         layer = 'hand' if {b['name'] for b in conv['bone']} <= arms else 'body'
         view['animations'].append({'name': name, 'label': label.replace(' · ', ' ').replace('_', ' ').strip(), 'group': group, 'layer': layer, 'length': length, 'file': path, 'source': source}); added.append(name)
-    for t, lst in cat.get(pose, {}).items():
+    for t, lst in ({} if '--own-only' in flags else cat.get(pose, {})).items():
         for x in lst:
             if not ALL_POSE and x['id'] not in KEEP: continue
             src = next(iter(json.load(open(f"{root}/pose_animations/{pose}/{x['id']}.json")).values()))
