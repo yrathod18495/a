@@ -106,6 +106,8 @@ export async function view({ user, home, toast, localPreview = false }) {
 
   /* ---------- free zoom / pan on the preview: wheel = zoom at the cursor, drag = move, double click = back ---------- */
   {
+    { let mark = 0; const redraw = () => { cancelAnimationFrame(mark); mark = requestAnimationFrame(() => { try { stage.render(performance.now() / 1000, 0, [], [{ start: 0, end: 1e9, speaker: 'c', type: st.zoom, focus: 'auto' }]); } catch { /* the loop draws it again */ } }); };          // a browser zoom or a window resize changes the canvas size on screen: draw it again at once
+      window.addEventListener('resize', redraw); new ResizeObserver(redraw).observe(stageBox); }
     const cv = stage.out, hint = h('div', { class: 'cs-zoomhint' }, 'Wheel: zoom · drag: move · double-click: reset');
     stageBox.append(hint);
     const at = (e) => { const r = cv.getBoundingClientRect(); return { px: ((e.clientX - r.left) / r.width) * stage.W, py: ((e.clientY - r.top) / r.height) * stage.H }; };

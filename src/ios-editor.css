@@ -209,3 +209,9 @@
 @media(prefers-reduced-motion:reduce){
   :root[data-theme] body .cs *,:root[data-theme] body .cs *::before,:root[data-theme] body .bgg *{transition:none!important;animation:none!important}
 }
+
+/* the preview of the Character Editor sits in a sticky column: when the page was zoomed or scrolled the browser could leave a stale copy of the lower part of the picture under it.
+   Giving the column and the canvas their own compositor layer, and clipping the box, stops the left-over strip. */
+.cs-left{isolation:isolate;transform:translateZ(0)}
+.cs-stage{overflow:hidden;contain:paint}
+.cs-stage canvas{display:block;transform:translateZ(0);backface-visibility:hidden}
