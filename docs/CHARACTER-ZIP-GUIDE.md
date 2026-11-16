@@ -101,3 +101,15 @@ Character id: <small_letters_1>, name: <Name>, category id: <family>, category n
 Steps: 1) look at my source files and tell me what is missing for the layout and the features in the guide (lip-sync slots, eye slots, hand animations, bone names); 2) convert / arrange the files into the ZIP layout and write manifest.json (offline scripts only: scripts/character-zip.mjs, scripts/spine_to_dragonbones.py); 3) run `node scripts/check-character-zip.mjs <zip>` and fix every FAIL until it prints OK, and tell me each WARN in plain words; 4) do not change app code unless a check is wrong; if a check is wrong, say why before changing it; 5) at the end give me the ZIP path and the admin steps (Characters → choose ZIP → look at every animation → Done).
 Keep answers short and in plain English.
 ```
+
+## 8. Making ZIPs from a "wardrobe" page (SPECS / ASSETS)
+
+Some pages hold many outfits of one rig (`SPECS[view][outfit]`, `ASSETS`, `ANIMS_BY[view]`). Build one ZIP per outfit, all in the same category so the rig and its animations are shared:
+
+```bash
+python3 -I scripts/wardrobe-shim.py page.html office /tmp/office.html          # one outfit, every view, pictures composed into an atlas page
+node scripts/character-zip.mjs /tmp/office.html maya_office.zip --character maya_office --source maya --name "Maya office" --category female --category-name Female
+node scripts/check-character-zip.mjs maya_office.zip                           # must say OK
+```
+
+Within one view the bones and animations of all outfits are identical; only the skin (pictures) differs. Only the 6 original outfits have all four views; the new sarees exist only in 3/4 Front (`f34`) because the art was made for that view.
