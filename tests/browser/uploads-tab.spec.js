@@ -1,0 +1,32 @@
+import { test, expect } from '@playwright/test';
+test('Audio tab has only voices and music; the Uploads tab (More tools) has the rest', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Up');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.locator('.rail-btn', { hasText: 'Audio' }).click();
+  await expect(page.locator('.up-tile')).toHaveText([/Voices/, /Music/]);
+  await page.locator('.rail-more summary').click();
+  await page.locator('.rail-btn', { hasText: 'Uploads' }).click();
+  await expect(page.locator('.up-tile')).toHaveText([/Background/, /Objects/, /Props/, /Logo/, /Video/, /Characters/]);
+  expect(errors).toEqual([]);
+});
+test('phone: More tools lists Uploads', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Up');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.locator('.panel.open .sheet-close button').click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.tl-cats .tl-cat', { hasText: 'Characters' }).click();
+  await page.locator('.advanced-tools summary').click();
+  await page.locator('.advanced-tools-list button', { hasText: 'Uploads' }).click();
+  await expect(page.locator('.up-tile').first()).toBeVisible();
+  expect(await page.locator('.up-tile').count()).toBe(6);
+});

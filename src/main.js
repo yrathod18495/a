@@ -797,7 +797,7 @@ window.addEventListener('keydown', (e) => {
   if (run && !(e.shiftKey && key.length === 1 && key !== '?' && key !== '[' && key !== ']')) { e.preventDefault(); run(); }
 });
 
-const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Overlays', 'zap'], ['fx', 'Effects', 'wand'], ['export', 'Export', 'download']];
+const TABS = [['audio', 'Audio', 'mic'], ['chars', 'Characters', 'users'], ['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['motion', 'Move', 'move'], ['grade', 'Colour', 'palette'], ['camera', 'Camera', 'video'], ['mask', 'Mask', 'mask'], ['ai', 'AI', 'sparkles'], ['canvas', 'Background', 'image'], ['handprops', 'Props', 'sword'], ['props', 'Objects', 'log'], ['shadow', 'Shadow', 'shadow'], ['effects', 'Overlays', 'zap'], ['fx', 'Effects', 'wand'], ['export', 'Export', 'download'], ['uploads', 'Uploads', 'upload']];
 function viewStudio() {
   playBtn = h('button', { class: 'btn pri icon-btn play-btn', title: 'Play (Space)', 'aria-label': 'Play', onclick: togglePlay }, icon('play'));
   timeEl = h('span', { class: 'time' }, '0:00.0');
@@ -1053,7 +1053,7 @@ function drawTabsInner() {
   stopAll();
   { const want = TAB_CAT[S.tab]; if (S.panelOpen && want && S.tlTabSeen !== S.tab) { S.tlTabSeen = S.tab; if (S.tlCat !== want) { S.tlCat = want; drawTimeline(); } } }          // the group first: the phone bar below follows it
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
-  const advanced = new Set(['motion', 'camera', 'mask', 'ai', 'tears', 'effects', 'grade']);
+  const advanced = new Set(['motion', 'camera', 'mask', 'ai', 'tears', 'effects', 'grade', 'uploads']);
   const button = ([key, label, ic], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
     if (S.tab === key && !openOnly && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
     drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
@@ -1069,7 +1069,7 @@ function drawTabsInner() {
     },
   },
     h('summary', { title: 'More tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('settings')), h('span', { class: 'sr' }, 'More')),
-    h('div', { class: 'advanced-tools-list' }, ...adv('Look', ['tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai']), ...adv('Finish', ['export'])));
+    h('div', { class: 'advanced-tools-list' }, ...adv('Bring in', ['uploads']), ...adv('Look', ['tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai']), ...adv('Finish', ['export'])));
   // phone bar: Upload (the voices), Characters, Animations, Props, Background and Advanced (which ends with Export; Export is also in the header)
   const upload = h('button', { type: 'button', class: S.tab === 'audio' && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === 'audio' && S.panelOpen), title: 'Upload', 'aria-label': 'Upload', onclick: () => {
     if (S.tab === 'audio' && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = 'audio'; S.panelOpen = true; }
@@ -1083,7 +1083,7 @@ function drawTabsInner() {
     tabsEl.replaceChildren(h('div', { class: 'rail-title' }, 'Start here'), railBtn('audio', 1), railBtn('chars', 2), railBtn('anim', 3),
       h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props', 'shadow', 'fx'].map((key) => railBtn(key)),
       h('div', { class: 'rail-title' }, 'Finish'), railBtn('export'),
-      h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
+      h('details', { class: 'rail-more', open: advanced.has(S.tab) }, h('summary', {}, 'More tools'), ...['uploads', 'tears', 'effects', 'grade', 'motion', 'camera', 'mask', 'ai'].map((key) => railBtn(key))));
   } else {
     const was = tabsEl.querySelector('.tabs-scroll'), fresh = h('div', { class: 'tabs-scroll', 'data-nav': S.tlCat }, ...phoneNav(button, byKey, upload, more));
     tabsEl.replaceChildren(h('div', { class: 'rail-label' }, 'Create'), fresh);
@@ -1097,7 +1097,7 @@ function drawTabsInner() {
   panelEl.className = `panel${S.panelOpen ? ' open' : ''}${S.tab === 'anim' ? ' animation-panel-host' : ''}${['chars', 'handprops', 'props', 'canvas', 'effects'].includes(S.tab) ? ' tall-panel' : ''}`;
   const label = S.tab === 'audio' ? 'Upload' : (TABS.find(t => t[0] === S.tab)?.[1] || 'Tools');
   panelEl.replaceChildren(h('div', { class: 'sheet-grip', role: 'button', tabindex: 0, 'aria-label': 'Drag to resize this panel, drag down to close it', onpointerdown: startSheetDrag, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSheetSize(); } } }, h('i')), h('div', { class: 'sheet-close', title: 'Drag to place the panel anywhere · double-click to reset', onpointerdown: (e) => { if (!e.target.closest('button')) startDockDrag('panel', e); }, ondblclick: (e) => { if (!e.target.closest('button')) resetDock('panel'); } }, h('b', {}, label), h('button', { class: 'btn sm icon-btn', title: 'Close', 'aria-label': 'Close', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x'))),
-    { audio: tabAudio, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab](),
+    { audio: tabAudio, uploads: tabUploads, chars: tabChars, anim: tabAnim, tears: tabTears, motion: tabMotion, camera: tabCamera, mask: tabMask, ai: tabAi, canvas: tabCanvas, props: () => libraryTab('prop'), handprops: () => libraryTab('prop', 'hand'), shadow: tabShadow, fx: tabFx, effects: () => libraryTab('effect'), grade: tabGrade, export: tabExport }[S.tab](),
     h('button', { type: 'button', class: 'sheet-fab', title: 'Close', 'aria-label': 'Close this panel', onclick: () => { S.panelOpen = false; drawTabs(); } }, icon('x')));
   tabsEl.append(h('div', { class: 'dock-grip', title: 'Drag to place the menu anywhere · double-click to reset', 'aria-hidden': 'true', onpointerdown: (e) => startDockDrag('rail', e), ondblclick: () => resetDock('rail') }, '⠿⠿⠿'));
   placeFab(); placeDock('rail'); placeDock('panel');      // drawTabs rewrites the classes: put a dragged menu back where it was
@@ -3619,7 +3619,7 @@ function musicCard() {
       h('button', { class: 'btn sm danger', type: 'button', onclick: removeMusic }, 'Remove')));
 }
 /** the Upload tab: one big tile for every kind of file that can be brought into the scene (voices, music, backgrounds, objects, props, a logo, a video) */
-function uploadGrid() {
+function uploadGrid(kind = 'all') {
   const holder = () => S.speakers.find((sp) => sp.charId && sp.key === (S.sel || S.handHolder)) || null;
   const cell = (ic, label, hint, accept, multiple, handler, onTap = null) => {
     const input = h('input', { type: 'file', accept, ...(multiple ? { multiple: true } : {}), style: 'display:none', 'aria-label': `Choose ${label} files`, onchange: async (e) => { const files = [...e.target.files]; e.target.value = ''; if (files.length) await handler(files); } });
@@ -3627,17 +3627,18 @@ function uploadGrid() {
   };
   const IMG = 'image/*', route = async (files) => {          // files dropped on the grid go where their kind says
     const audio = files.filter((f) => /^audio\//.test(f.type) || /\.(zip|json|txt|wav|mp3|m4a|ogg)$/i.test(f.name)), video = files.filter((f) => /^video\//.test(f.type)), images = files.filter((f) => f.type.startsWith('image/'));
-    if (audio.length) await onFiles(audio); if (images.length) await addOwnProps(images); if (video.length) await addVideoClip(video);
+    if (kind !== 'other' && audio.length) await onFiles(audio.filter((f) => kind === 'audio' || true)); if (kind === 'other' && audio.length) await onFiles(audio.filter((f) => /\.(zip|json)$/i.test(f.name)));          // the Audio tab takes audio only; the Uploads tab takes the rest
+    if (kind !== 'audio') { if (images.length) await addOwnProps(images); if (video.length) await addVideoClip(video); }
   };
   const grid = h('div', { class: 'up-grid', ondragover: (e) => { e.preventDefault(); grid.classList.add('over'); }, ondragleave: () => grid.classList.remove('over'), ondrop: async (e) => { e.preventDefault(); grid.classList.remove('over'); await route([...e.dataTransfer.files]); } },
-    cell('mic', 'Voices', 'MP3, WAV or ZIP', '.zip,.json,.txt,audio/*', true, (f) => onFiles(f)),
-    cell('music', 'Music', 'A song under the voices', 'audio/*', false, (f) => addMusic(f[0])),
-    cell('image', 'Background', 'Pictures', IMG, true, (f) => addBackgroundFiles(f)),
+    ...(kind === 'other' ? [] : [cell('mic', 'Voices', 'MP3, WAV or ZIP', '.zip,.json,.txt,audio/*', true, (f) => onFiles(f)),
+    cell('music', 'Music', 'A song under the voices', 'audio/*', false, (f) => addMusic(f[0]))]),
+    ...(kind === 'audio' ? [] : [cell('image', 'Background', 'Pictures', IMG, true, (f) => addBackgroundFiles(f)),
     cell('package', 'Objects', 'Pictures or GIF', IMG, true, (f) => addOwnProps(f)),
     cell('hand', 'Props', 'Held in a hand', IMG, false, (f) => addOwnHandProp(f, holder())),
     cell('star', 'Logo', 'Top right corner', IMG, false, (f) => addLogo(f)),
     cell('video', 'Video', 'A short clip that loops', 'video/*,.mp4,.webm,.mov,.m4v', false, (f) => addVideoClip(f)),
-    cell('users', 'Characters', 'Your DragonBones files', '.zip,.json,.png,image/png', true, (f) => onFiles(f)));
+    cell('users', 'Characters', 'Your DragonBones files', '.zip,.json,.png,image/png', true, (f) => onFiles(f))]));
   return grid;
 }
 function tabAudio() {
@@ -3645,8 +3646,10 @@ function tabAudio() {
   const input = h('input', { type: 'file', multiple: true, accept: '.zip,.json,.txt,audio/*', style: 'display:none', onchange: async (e) => { const f = [...e.target.files]; e.target.value = ''; await onFiles(f); } });
   const drop = h('div', { class: 'drop sm', onclick: () => input.click() }, input);          // the Voices tile opens this file box
   drop.style.display = 'none';
-  return h('div', { class: 'list' }, uploadGrid(), drop);
+  return h('div', { class: 'list' }, uploadGrid('audio'), drop);
 }
+/** the Uploads tab (More tools): everything that is not audio: backgrounds, objects, props, a logo, a video, characters */
+function tabUploads() { return h('div', { class: 'list' }, uploadGrid('other')); }
 /** the music layer: volume, fades, mute, replace, remove (opened from the music layer on the timeline, or from the Music tile when a song is already there) */
 function openMusicSettings() {
   if (!S.music) return;
