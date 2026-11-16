@@ -118,7 +118,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     const x = state.ox, y = state.oy, w = W * state.scale, hh = H * state.scale;
     vg.save(); vg.beginPath(); vg.rect(x, y, w, hh); vg.clip();           // transparent squares
     vg.fillStyle = checker(vg); vg.save(); vg.translate(x, y); vg.fillRect(0, 0, w, hh); vg.restore();
-    vg.imageSmoothingEnabled = state.scale < 1; vg.imageSmoothingQuality = stroke || pinch ? 'low' : 'high';          // quick while you paint, crisp when you stop
+    vg.imageSmoothingEnabled = state.scale < 6; vg.imageSmoothingQuality = stroke || pinch ? 'low' : 'high';          // quick while you paint, crisp when you stop
     vg.drawImage(preview || D, x, y, w, hh);
     if (state.selViz) { vg.imageSmoothingEnabled = false; vg.drawImage(state.selViz, x, y, w, hh); }
     if (ghostSel) { vg.strokeStyle = '#fff'; vg.lineWidth = 1.5; vg.setLineDash([5, 4]); vg.beginPath(); ghostSel(vg, state.scale, x, y); vg.stroke(); vg.strokeStyle = '#000'; vg.lineDashOffset = 5; vg.beginPath(); ghostSel(vg, state.scale, x, y); vg.stroke(); vg.setLineDash([]); vg.lineDashOffset = 0; }
@@ -416,8 +416,8 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   function renderColours() {
     fgIn.value = rgbToHex(state.fg); bgIn.value = rgbToHex(state.bg);
     const sw = (hex) => h('button', { type: 'button', class: 'pe-sw', style: `background:${hex}`, title: hex, 'aria-label': `Colour ${hex}`, onclick: () => { state.fg = hexToRgb(hex); renderColours(); } });
-    colourBox.replaceChildren(h('div', { class: 'pe-pair' }, fgIn, bgIn, btn('', () => { [state.fg, state.bg] = [state.bg, state.fg]; renderColours(); }, { title: 'Swap colours (X)', ico: 'swap', cls: 'ib' })),
-      h('div', { class: 'pe-swatches' }, SWATCHES.map(sw)), state.recent.length ? h('div', { class: 'pe-swatches recent' }, h('small', {}, 'Recent'), state.recent.map(sw)) : null);
+    colourBox.replaceChildren(...[h('div', { class: 'pe-pair' }, fgIn, bgIn, btn('', () => { [state.fg, state.bg] = [state.bg, state.fg]; renderColours(); }, { title: 'Swap colours (X)', ico: 'swap', cls: 'ib' })),
+      h('div', { class: 'pe-swatches' }, SWATCHES.map(sw)), state.recent.length ? h('div', { class: 'pe-swatches recent' }, h('small', {}, 'Recent'), state.recent.map(sw)) : null].filter(Boolean));
   }
   const brushList = h('div', { class: 'pe-brushes' });
   function renderBrushes() {
