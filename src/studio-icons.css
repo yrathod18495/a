@@ -842,3 +842,9 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
   #app .ws .panel > .sheet-fab{position:fixed;right:16px;bottom:var(--fab-b,84px);margin:0;z-index:40}
   #app .ws .panel:not(.open) > .sheet-fab{display:none}
 }
+/* chips: never wider than their column — a colour bar on top, the name under it, the count as a small corner badge */
+#app .tl-cats{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:4px!important}
+#app .tl-cat{flex-direction:column;justify-content:center;gap:0;min-height:40px;padding:5px 1px 3px!important;font-size:clamp(9.5px,2.7vw,11.5px)!important;letter-spacing:-.02em;line-height:1.1;border-radius:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative}
+#app .tl-cat::before{position:absolute;top:0;left:18%;right:18%;width:auto;height:3px;border-radius:0 0 3px 3px}
+#app .tl-cat i{position:absolute;top:2px;right:3px;min-width:13px;height:13px;font-size:9px;padding:0 3px;line-height:13px}
+#app .tl-cat.on i{background:#ffffff40}
