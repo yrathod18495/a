@@ -26,7 +26,7 @@ test('PC: a tool switched off disappears for a user at once and shows lighter fo
   const tears = page.locator('.rail-btn', { hasText: 'Tears' });
   await expect(tears).toBeVisible(); await expect(tears).toHaveClass(/tool-off/); await expect(tears).toHaveAttribute('title', /off for users/);
   await expect(page.locator('.export-btn')).toBeVisible(); await expect(page.locator('.export-btn')).toHaveClass(/tool-off/);
-  expect(Number(await tears.evaluate((e) => getComputedStyle(e).opacity))).toBeLessThan(0.8);
+  expect(Number(await tears.locator('> *').first().evaluate((e) => getComputedStyle(e).opacity))).toBeLessThan(0.8);
   await flags(page, {}, true);                                                                           // switched on again
   await expect(page.locator('.rail-btn', { hasText: 'Tears' })).not.toHaveClass(/tool-off/);
   expect(errors).toEqual([]);
@@ -54,4 +54,16 @@ test('the studio follows the server by itself: within about half a minute a tool
   await expect(page.locator('.rail-btn', { hasText: 'Tears' })).toBeVisible();
   off = true;
   await expect(page.locator('.rail-btn', { hasText: 'Tears' })).toHaveCount(0, { timeout: 45000 });
+});
+test('an admin sees a small red "Hide" on a tool that is off for users, and the tool stays lighter', async ({ page }) => {
+  await open(page, { width: 1366, height: 800 });
+  await page.locator('.rail-more summary').click();
+  await flags(page, { tool_tears: false }, true);
+  await page.locator('.rail-more summary').click().catch(() => {});
+  const tears = page.locator('.rail-btn.tool-off', { hasText: 'Tears' });
+  await expect(tears).toBeVisible();
+  const tag = await tears.evaluate((e) => { const s = getComputedStyle(e, '::after'); return { text: s.content, color: s.color }; });
+  expect(tag.text).toContain('Hide'); expect(tag.color).toBe('rgb(255, 59, 59)');
+  expect(Number(await tears.locator('> *').first().evaluate((e) => getComputedStyle(e).opacity))).toBeLessThan(0.8);
+  await tears.screenshot({ path: '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/tool-hide.png' });
 });

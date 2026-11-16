@@ -966,5 +966,7 @@ body.studio-dark .selbox{border-width:1.5px}
 .stagewrap.drop-over{outline:3px dashed var(--acc,#7c6cf5);outline-offset:-3px}
 
 /* a tool the admin switched off for normal users: the admin still sees it, a little lighter */
-#app .ws .tool-off,#app .ws .tabs-scroll>button.tool-off,#app .ws .rail-btn.tool-off,.tool-off.export-btn{opacity:.45;filter:saturate(.6)}
-#app .ws .tool-off:is(:hover,:active,.on){opacity:.7}
+#app .ws .tool-off,#app .ws .tabs-scroll>button.tool-off,#app .ws .rail-btn.tool-off,.tool-off.export-btn{position:relative}
+#app .ws .tool-off>*,.tool-off.export-btn>*{opacity:.45;filter:saturate(.6)}          /* an admin sees a tool that is off for users lighter, with a small red "Hide" */
+#app .ws .tool-off:is(:hover,:active,.on)>*{opacity:.7}
+#app .ws .tool-off::after,.tool-off.export-btn::after{content:'Hide';position:absolute;right:4px;top:2px;font:700 8px/1 system-ui,sans-serif;letter-spacing:.2px;color:#ff3b3b;background:rgba(255,59,59,.14);padding:1px 3px;border-radius:4px;pointer-events:none}
