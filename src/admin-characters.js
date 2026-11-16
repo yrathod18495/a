@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import { encodeFrames } from './gifEncode.js';
 import { canEncodePreview, encodeMp4 } from './previewVideo.js';
 import { h, logo } from './dom.js';
+import { icon } from './icons.js';
 import { Stage } from './db/stage.js';
 import { rigInfo } from './db/info.js';
 import { checkManifest, gifName, CHARACTER_GROUPS, groupOf } from '../shared/character-package.js';
@@ -258,17 +259,27 @@ export async function charactersView({ back, home, toast }) {
   function card(c) {
     const img = h('img', { alt: '', loading: 'lazy' });
     if (c.thumb) pictureUrl(c.thumb).then((u) => { img.src = u; }).catch(() => {});
-    const views = Object.values(c.views || {}).map((v) => v.label).join(', '), anims = Object.values(c.animations || {}).reduce((n, v) => n + (v.animations?.length || 0), 0);
-    return h('article', { class: 'admin-character-card' }, h('div', { class: 'admin-character-thumb' }, img),
-      h('div', { class: 'admin-character-copy' }, h('b', {}, c.name), h('small', {}, `Category: ${c.categoryName}`), h('small', {}, `${views} · ${anims} animations`),
+    const anims = Object.values(c.animations || {}).reduce((n, v) => n + (v.animations?.length || 0), 0), wholePaid = isPaid(c);
+    const coins = (n) => Number(n).toLocaleString('en-IN');
+    // free or paid, for the whole character and for every pose: a Free tag, or a lock and a Paid tag with the price
+    const tag = wholePaid ? h('span', { class: 'ac-tag paid', title: 'Sold for Coins' }, icon('lock'), `Paid · ${coins(c.store.price)}`) : h('span', { class: 'ac-tag free' }, 'Free');
+    const poses = Object.entries(c.views || {}).map(([id, v]) => {
+      const own = viewStoreOf(c, id), locked = wholePaid || !!own;
+      return h('span', { class: `ac-pose${locked ? ' paid' : ''}`, title: locked ? (own ? `Paid pose: ${coins(c.viewStore[id].price)} Coins${c.viewStore[id].enabled === false ? ' (off sale)' : ''}` : 'Part of the paid character') : 'Free pose' }, locked ? icon('lock') : null, v.label || id, own && !wholePaid ? h('i', {}, coins(c.viewStore[id].price)) : null);
+    });
+    const act = (ic, text, onclick, extra = {}) => h('button', { class: `btn sm ac-act${extra.danger ? ' danger' : ''}`, type: 'button', disabled: st.busy, title: extra.title || text, 'aria-label': extra.label || text, ...(extra.attrs || {}), onclick }, icon(ic), h('span', {}, text));
+    return h('article', { class: 'admin-character-card' },
+      h('div', { class: 'admin-character-thumb' }, img, tag),
+      h('div', { class: 'admin-character-copy' }, h('b', {}, c.name), h('small', {}, `${c.categoryName} · ${anims} animations`),
+        h('div', { class: 'ac-poses', 'aria-label': 'Poses' }, ...poses),
         h('small', { class: `admin-character-store ${hasStore(c) ? 'paid' : ''}` }, storeSummary(c)),
         h('select', { class: 'admin-character-group', 'aria-label': `Group of ${c.name}`, title: 'The group the creators find this character in', disabled: st.busy, onchange: (e) => regroup(c, e.target) },
           CHARACTER_GROUPS.map(([id, label]) => h('option', { value: id, selected: groupOf(c, c.categoryName) === id }, label)))),
       h('div', { class: 'admin-character-actions' },
-        h('button', { class: 'btn sm', type: 'button', disabled: st.busy, onclick: () => rename(c) }, 'Rename'),
-        h('button', { class: 'btn sm', type: 'button', disabled: st.busy, onclick: () => storeSettings(c) }, 'Store'),
-        h('button', { class: 'btn sm', type: 'button', disabled: st.busy, title: 'One HTML file with the rig, pictures and animations (for your own work)', 'data-act': 'download-html', onclick: (e) => downloadHtml(c, e.currentTarget) }, 'Download HTML'),
-        h('button', { class: 'btn sm danger', type: 'button', disabled: st.busy, onclick: () => remove(c) }, 'Delete')));
+        act('pencil', 'Rename', () => rename(c)),
+        act('lock', 'Store', () => storeSettings(c)),
+        act('download', 'HTML', (e) => downloadHtml(c, e.currentTarget), { label: 'Download HTML', title: 'Download HTML: one file with the rig, pictures and animations (for your own work)', attrs: { 'data-act': 'download-html' } }),
+        act('trash', 'Delete', () => remove(c), { danger: true })));
   }
   const storeSummary = (c) => {
     const parts = [];
