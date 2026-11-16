@@ -423,7 +423,7 @@ export class Stage {
   /** live move / resize of one background clip while the user drags it on the canvas: xf = { x, y, s } (offset in canvas widths / heights, scale) */
   setBgXf(index, xf) { if (this.bgClips[index]) this.bgClips[index].xf = xf ? { ...xf } : null; }
   ensureBackground(t = 0) {
-    const clip = this.bgClips.find((c) => t >= c.start && t < c.end);
+    const clip = this.bgClips.findLast((c) => t >= c.start && t < c.end);
     this.bgXf = clip?.xf || null; this.bgFx = clip?.fx || null;
     this.bgTex = clip ? this.bgTexture(clip.preset, clip.image) : this.blankOutside ? this.bgTexture('blank', null) : this.bgTexture(this.bg.preset, this.bg.image);
   }
