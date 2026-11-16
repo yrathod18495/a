@@ -848,3 +848,9 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
 #app .tl-cat::before{position:absolute;top:0;left:18%;right:18%;width:auto;height:3px;border-radius:0 0 3px 3px}
 #app .tl-cat i{position:absolute;top:2px;right:3px;min-width:13px;height:13px;font-size:9px;padding:0 3px;line-height:13px}
 #app .tl-cat.on i{background:#ffffff40}
+/* the close X stays at the top right, where everyone looks for it: the round bottom button is switched off */
+#app .ws .panel > .sheet-fab,.sheet-fab{display:none!important}
+#app .ws .sheet-close button,.voice-sheet .vs-head .ed-icon,.hold-sheet .vs-head .ed-icon{display:inline-grid!important}
+.hold-sheet .hold-panel,.voice-sheet .list{padding-bottom:12px}
+#app .ws .sheet-close{justify-content:space-between;align-items:center}
+#app .ws .sheet-close button{margin-left:auto;width:40px;height:40px}
