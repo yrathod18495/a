@@ -50,8 +50,13 @@ test('colour picker: mix any colour with the square, hue, R G B, a colour code; 
   const at = async (fx, fy) => { const b = await canvasBox(), s = await pe((api) => ({ s: api.state.scale, ox: api.state.ox, oy: api.state.oy, w: api.D.width, h: api.D.height })); return { x: b.x + s.ox + s.s * s.w * fx, y: b.y + s.oy + s.s * s.h * fy }; };
   const drag = async (a, b, steps = 8) => { const p = await at(...a), q = await at(...b); await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.move(q.x, q.y, { steps }); await page.mouse.up(); };
   // the layer row has an Edit button that opens the editor over the page
+  await page.evaluate(async () => { const m = await import('/src/credits-badge.js'); m.setCoinUser('u-test'); m.setCoinBalance(500); });
   await page.locator('.cs-crow').first().locator('.cs-edit').click();
   await expect(page.locator('.pe')).toBeVisible(); await page.waitForTimeout(300);
+  // 12toons branding and the user's Coins are in the editor header
+  await expect(page.locator('.pe-head .pe-brand')).toContainText('12'); await expect(page.locator('.pe-head .pe-brand')).toContainText('toons');
+  await expect(page.locator('.pe-head .credit-badge')).toBeVisible(); await expect(page.locator('.pe-head .credit-badge')).toContainText('500');
+  await page.screenshot({ path: '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/pe-brand.png', clip: { x: 0, y: 0, width: 1280, height: 60 } });
   const fg = () => page.evaluate(() => document.querySelector('.pe')._pe.state.fg);
   // the "Custom colour" button is on the brush bar, on Fill, on Gradient (front and back) and on the Selection tab
   await expect(page.locator('.pe-opts .pe-cbtn')).toHaveCount(1);

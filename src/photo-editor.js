@@ -3,7 +3,8 @@
    Works with mouse, pen and touch (one finger paints, two fingers zoom and move the picture).
    openPhotoEditor({ canvas, title, onApply }) opens it over the page; onApply(canvas) gets the finished picture. The pure pixel maths is in photo-tools.js. */
 import './photo-editor.css';
-import { h } from './dom.js';
+import { h, brandWordmark } from './dom.js';
+import { creditsBadge } from './credits-badge.js';
 import { icon } from './icons.js';
 import { floodMask, combineMask, invertMask, growMask, blurMask, maskEdge, maskCount, adjustBrightnessContrast, adjustHSL, invertColours, grayscale, sharpen, blurFilter, edgeShadow, fillMask, clearMask, blurRGBA, hexToRgb, rgbToHex, rgb2hsv, hsv2rgb, parseHex } from './photo-tools.js';
 
@@ -700,9 +701,9 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     cursor.style.cssText = `display:block;width:${w}px;height:${hh}px;left:${e.clientX - r.left - w / 2}px;top:${e.clientY - r.top - hh / 2}px`;
     stageCv.style.cursor = d >= 9 ? 'none' : 'crosshair';          // a big brush shows its own size as a ring
   }
-  const titleEl = h('b', { class: 'pe-title' }, title);
+  const titleEl = h('b', { class: 'pe-title' }, title), coins = creditsBadge({ compact: true });          // the user's Coins stay in view, like on every other page
   function close(apply) {
-    if (closed) return; closed = true; closePicker(); cancelAnimationFrame(rafId); document.removeEventListener('keydown', onKey, true); document.removeEventListener('keyup', onKeyUp, true); window.removeEventListener('resize', fit); wide.removeEventListener?.('change', placeOptions); ro.disconnect();
+    if (closed) return; closed = true; closePicker(); coins.dispose?.(); cancelAnimationFrame(rafId); document.removeEventListener('keydown', onKey, true); document.removeEventListener('keyup', onKeyUp, true); window.removeEventListener('resize', fit); wide.removeEventListener?.('change', placeOptions); ro.disconnect();
     let out = null; if (apply) { out = mk(W, H); out.getContext('2d').drawImage(D, 0, 0); }
     root.remove(); document.body.classList.remove('pe-open');
     if (apply) onApply?.(out); else onCancel?.();
@@ -714,7 +715,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   /** on a computer the options of the chosen tool are at the top of the side panel; on a phone they are in a bar above the picture */
   const placeOptions = () => { if (wide.matches) sideBox.prepend(optWrap); else root.insertBefore(optWrap, root.querySelector('.pe-main')); };
   const root = h('div', { class: 'pe', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Edit picture: ${title}` },
-    h('header', { class: 'pe-head' }, titleEl, h('span', { class: 'pe-sp' }), undoBtn, redoBtn,
+    h('header', { class: 'pe-head' }, h('span', { class: 'pe-brand', title: '12toons picture editor' }, ...brandWordmark()), h('span', { class: 'pe-sub' }, 'Picture editor'), titleEl, h('span', { class: 'pe-sp' }), coins, undoBtn, redoBtn,
       btn('', () => zoomAt(rectOfView().width / 2, rectOfView().height / 2, 1 / 1.25), { title: 'Zoom out', ico: 'minus', cls: 'ib' }), zoomLabel, btn('', () => zoomAt(rectOfView().width / 2, rectOfView().height / 2, 1.25), { title: 'Zoom in', ico: 'plus', cls: 'ib' }),
       btn('Fit', fit, { title: 'Fit the picture in the window', cls: 'sm' }), btn('100%', () => { const r = rectOfView(); state.scale = 1; state.ox = (r.width - W) / 2; state.oy = (r.height - H) / 2; draw(); }, { title: 'Actual size', cls: 'sm' }),
       btn('Start again', () => { if (!changed() || confirm('Go back to the picture you started with?')) { pushUndo(); dg.putImageData(original, 0, 0); setSel(null); draw(); } }, { title: 'Go back to the picture you opened', cls: 'sm' }),
