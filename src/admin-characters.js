@@ -132,7 +132,7 @@ export async function charactersView({ back, home, toast }) {
       st.name = known?.name || pkg.manifest?.character?.name || '';           // the admin can change the name and the group before Done
       st.group = groupOf(known || { category: pkg.manifest?.category?.id, name: pkg.manifest?.character?.name }, pkg.manifest?.category?.name);
       st.sell = !!known?.store; st.price = known?.store?.price || 500;          // a character that is already for sale keeps its price unless it is changed here
-      status.textContent = pkg.errors.length ? '' : `${pkg.fileName} is ready. Look at the animations, then press Done.`;
+      status.textContent = '';
       draw(); if (!pkg.errors.length) await show();
     } catch (e) { status.textContent = `This ZIP could not be read: ${friendlyError(e)}`; st.pkg = null; draw(); }
   }
@@ -386,11 +386,10 @@ export async function charactersView({ back, home, toast }) {
   }
   function draw() {
     content.replaceChildren(
-      h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'CHARACTER LIBRARY'), h('h1', {}, 'Characters'),
-        h('p', {}, 'Upload a character ZIP made with scripts/character-zip.mjs. You can play every animation here before anything is uploaded. Done makes a small preview GIF of each animation and stores the character: the rig and animations in the database, the pictures in R2.')),
+      h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'CHARACTER LIBRARY'), h('h1', {}, 'Characters')),
       h('section', { class: 'admin-panel-card admin-characters-upload' }, h('button', { class: 'btn pri', type: 'button', disabled: st.busy, onclick: () => fileInput.click() }, '＋ Choose character ZIP'), fileInput,
         h('label', { class: 'admin-gif-quality' }, h('span', {}, 'Animation preview quality'), h('select', { 'aria-label': 'Animation preview quality', disabled: st.busy, onchange: (e) => { st.gifQuality = e.target.value; } }, Object.entries(GIF_QUALITY).map(([k, v]) => h('option', { value: k, selected: st.gifQuality === k }, v.label)))),
-        h('small', { class: 'admin-gif-note' }, 'Bigger previews look sharper but are heavier: about 1 MB per animation at 480 px and 2 MB at 720 px (a walk cycle; the small 128 px ones are under 0.1 MB), and they take longer to make. The total is shown before saving.'), status),
+        status),
       previewSection() || h('span'),
       h('section', { class: 'admin-panel-card admin-characters-list' }, h('h2', {}, `Saved characters (${st.list.length})`),
         st.list.length ? h('div', { class: 'admin-characters-grid' }, ...st.list.map(card)) : h('p', { class: 'admin-empty' }, 'No characters yet. Upload the first ZIP above.')),
