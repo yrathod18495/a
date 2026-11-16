@@ -39,7 +39,7 @@ export async function makeThumb(file, sheet = null) {
 export async function saveStudioAsset(type, name, file, meta = {}) {
   const owner = uid();
   if (!owner) throw new Error('Please sign in to add studio assets.');
-  if (!['background', 'prop', 'effect'].includes(type) || !file?.type?.startsWith('image/')) throw new Error('Please choose an image file.');
+  if (!['background', 'prop', 'effect', 'sticker'].includes(type) || !file?.type?.startsWith('image/')) throw new Error('Please choose an image file.');
   if (file.size > 40 * 1024 * 1024) throw new Error('The image must be 40 MB or smaller.');
   const hash = await digest(file), key = `assets/${hash}`, id = crypto.randomUUID();
   await uploadAssets(owner, new Map([[hash, file]]));

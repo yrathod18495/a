@@ -54,7 +54,7 @@ export default async function handler(req, res) {
 
     if (b.action === 'save') {
       const animation = b.type === 'animation';
-      if (!idOK(b.id) || !['background', 'prop', 'effect', 'animation'].includes(b.type) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 100 ||
+      if (!idOK(b.id) || !['background', 'prop', 'effect', 'sticker', 'animation'].includes(b.type) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 100 ||
           typeof b.key !== 'string' || !/^assets\/[a-f0-9]{64}$/.test(b.key) || !Number.isSafeInteger(b.size) || b.size < 1 || b.size > (animation ? MAX_ANIMATION_BYTES : 40 * 1024 * 1024) ||
           typeof b.mime !== 'string' || (animation ? b.mime !== 'application/json' || !animationTarget(b.target, manifest) || !ANIMATION_LAYERS.includes(b.layer) || !Number.isFinite(b.frameRate) || b.frameRate < 1 || b.frameRate > 120 : !b.mime.startsWith('image/')))
         throw new AccessError('invalid_asset', 'Please choose a valid asset and character pose.', 400);

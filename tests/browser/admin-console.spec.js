@@ -57,7 +57,7 @@ test('Add Assets opens at once and has the sub-tabs Background, Objects, Props, 
   await tabs.filter({ hasText: /^Add Assets$/ }).click();
   await expect(page.locator('.admin-assets-tab').first()).toBeVisible({ timeout: 1500 });
   expect(Date.now() - started).toBeLessThan(1500);
-  await expect(page.locator('.admin-assets-tab')).toHaveText(['Add Background', 'Add Objects', 'Add Props', 'Add Effects', 'Add Animation']);
+  await expect(page.locator('.admin-assets-tab')).toHaveText(['Add Background', 'Add Objects', 'Add Props', 'Add Effects', 'Add Stickers', 'Add Animation']);
   await expect(page.getByText('Characters →')).toHaveCount(0);
   await expect(tabs.filter({ hasText: /Props & Effects/ })).toHaveCount(0);
   await expect(tabs.filter({ hasText: /^Characters$/ })).toHaveCount(1);                    // Characters stays a main tab

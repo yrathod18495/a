@@ -31,7 +31,7 @@ export async function assetsView({ user, home, back, toast }) {
 
   function drawTabs() {
     tabs.replaceChildren(...[
-      ['background', 'Add Background'], ['object', 'Add Objects'], ['prop', 'Add Props'], ['effect', 'Add Effects'], ['animation', 'Add Animation'],
+      ['background', 'Add Background'], ['object', 'Add Objects'], ['prop', 'Add Props'], ['effect', 'Add Effects'], ['sticker', 'Add Stickers'], ['animation', 'Add Animation'],
     ].map(([key, label]) => h('button', { class: `admin-assets-tab ${state.type === key ? 'active' : ''}`, role: 'tab', 'aria-selected': state.type === key, onclick: () => { state.type = key; draw(); } }, label)));
   }
   // Props and Effects have their own screen (category, prop type, blend, sprite sheet ...): it is shown here, made once and kept
@@ -41,7 +41,7 @@ export async function assetsView({ user, home, back, toast }) {
     if (embedded.has(kind)) { content.replaceChildren(embedded.get(kind)); return; }
     content.replaceChildren(h('p', { class: 'admin-assets-empty' }, 'Loading…'));
     try {
-      const { propsEffectsView } = await import('./admin-props-effects.js'), node = await propsEffectsView({ back, home, toast, only: kind === 'effect' ? 'effect' : 'prop', group: kind === 'object' ? 'general' : kind === 'prop' ? 'hand' : null });
+      const { propsEffectsView } = await import('./admin-props-effects.js'), node = await propsEffectsView({ back, home, toast, only: kind === 'effect' ? 'effect' : kind === 'sticker' ? 'sticker' : 'prop', group: kind === 'object' ? 'general' : kind === 'prop' ? 'hand' : null });
       embedded.set(kind, node);
       if (mine === embedToken && state.type === kind) content.replaceChildren(node);
     } catch (e) { if (mine === embedToken) content.replaceChildren(h('p', { class: 'admin-assets-empty', role: 'alert' }, `Could not open this page: ${e.message}`)); }
@@ -49,7 +49,7 @@ export async function assetsView({ user, home, back, toast }) {
   function draw() {
     drawTabs();
     if (state.type === 'animation') { drawAnimations(); return; }
-    if (state.type === 'object' || state.type === 'prop' || state.type === 'effect') { drawEmbedded(state.type); return; }
+    if (state.type === 'object' || state.type === 'prop' || state.type === 'effect' || state.type === 'sticker') { drawEmbedded(state.type); return; }
     const kind = assetType(), label = kind === 'background' ? 'Backgrounds' : 'Props';
     const records = state.assets.filter((a) => a.type === kind);
     content.replaceChildren(

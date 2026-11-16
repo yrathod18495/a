@@ -11,6 +11,9 @@ import { characterPicker } from './charpick.js';
 import { refreshLayerRules, layerName, groupName, layerHidden } from './layerrules.js';
 import { ingest } from './ingest.js';
 import { readPsdLayers, planPsd, kindOf } from './psd.js';
+import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
+import { lockedFor, PAID_MESSAGE } from '../shared/asset-access.js';
+import { currentPlan, refreshPlan } from './export-plan.js';
 import { patchRig, faceEdits, faceDefaults, bakeSke, stickerAtlasJson, STICKER_PAGE } from './rigedit.js';
 import { LIMITS, mb } from './limits.js';
 import { saveCharacter, deleteCharacter, loadCharacters, get as getDraft, put as putDraft } from './store.js';
@@ -315,13 +318,38 @@ export async function view({ user, home, toast, localPreview = false }) {
     await packStickers();
   }
   const stickerProfile = () => (st.stickers.length ? { stickers: st.stickers.map(({ id, name, slot, layer, x, y, s: sz, rot, a }) => ({ id, name, slot, layer, x, y, s: sz, rot, a })), stickerAtlas: st.stkAtlas } : {});
+  /** the admin's sticker library (R2 files, one small record each in the database, a tiny thumbnail inside it): the list is read once and kept for a few minutes */
+  function loadStickerLibrary() {
+    if (st.libState) return; st.libState = 'loading';
+    Promise.all([listStudioAssets(), refreshPlan().catch(() => null)])
+      .then(([list]) => { st.lib = list.filter((a) => a.type === 'sticker'); st.libState = 'ready'; if (st.tab === 'create') draw(); })
+      .catch((e) => { st.libState = 'failed'; st.libError = friendlyError(e); if (st.tab === 'create') draw(); });
+  }
+  async function useLibrarySticker(asset) {
+    if (lockedFor(asset, currentPlan().tier)) { toast(PAID_MESSAGE); return; }
+    try { const blob = await downloadStudioAsset(asset); await addSticker(new File([blob], `${asset.name}.png`, { type: blob.type || 'image/png' })); }
+    catch (e) { toast(`Could not add the sticker: ${friendlyError(e)}`); }
+  }
+  function libraryGrid() {
+    loadStickerLibrary();
+    if (st.libState === 'loading') return h('p', { class: 'hint', style: 'text-align:left;margin:6px 0' }, 'Loading the sticker library…');
+    if (st.libState === 'failed') return h('p', { class: 'hint', style: 'text-align:left;margin:6px 0' }, `The sticker library could not be loaded (${st.libError}). You can still add your own picture.`);
+    const list = st.lib || []; if (!list.length) return null;
+    const cats = new Map(); for (const a of list) (cats.get(a.category || 'Stickers') || cats.set(a.category || 'Stickers', []).get(a.category || 'Stickers')).push(a);
+    const tier = currentPlan().tier;
+    return h('div', { class: 'cs-stk-lib' }, ...[...cats].map(([cat, items]) => h('div', {}, h('small', { class: 'cs-stk-cat' }, cat),
+      h('div', { class: 'cs-stk-grid' }, items.map((a) => { const locked = lockedFor(a, tier);
+        return h('button', { type: 'button', class: `cs-stk-tile${locked ? ' locked' : ''}`, title: locked ? `Paid accounts only: ${a.name}` : `Add ${a.name}`, 'aria-label': locked ? `${a.name}, paid accounts only` : `Add ${a.name}`, onclick: () => useLibrarySticker(a) },
+          a.thumb ? h('img', { src: a.thumb, alt: '', loading: 'lazy', decoding: 'async' }) : h('span', {}, '◌'), locked ? h('i', { class: 'cs-stk-lock', 'aria-hidden': 'true' }, icon('lock')) : null); })))));
+  }
   function stickerPanel() {
     const file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) addSticker(f); } });
     const sel = st.stickers.find((k) => k.id === st.stkSel), target = layers().find((l) => l.region === st.guideFocus);
     const slider = (label, key, min, max, step, fmt = (v) => v) => h('label', { class: 'cs-stk-s' }, h('span', {}, label), h('input', { type: 'range', min, max, step, value: sel[key], oninput: (ev) => { sel[key] = +ev.target.value; ev.target.nextSibling.textContent = fmt(sel[key]); queueRig(); } }), h('b', {}, fmt(sel[key])));
     return h('div', { class: 'cs-lgroup cs-stk' }, h('div', { class: 'cs-ghead static' }, h('span', { class: 'cs-gic' }, icon('star')), h('b', {}, 'Stickers'), h('small', {}, `${st.stickers.length} placed`)),
-      h('p', { class: 'hint', style: 'text-align:left;margin:6px 0' }, 'A scar, a blood mark, stitches, a patch: tap the body part in the list below (for example the upper arm), then add a PNG or SVG. You can also drop a picture on the canvas. It moves with that part.'),
-      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm pri', type: 'button', onclick: () => file.click() }, icon('upload'), h('span', {}, target ? `Add to ${labelOf(target)}` : 'Add a sticker')), file),
+      h('p', { class: 'hint', style: 'text-align:left;margin:6px 0' }, 'First tap the body part in the list below (for example the upper arm). Then tap a sticker, or add your own PNG / SVG (you can also drop a picture on the canvas). It moves with that part.'),
+      libraryGrid(),
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn sm', type: 'button', onclick: () => file.click() }, icon('upload'), h('span', {}, target ? `Your own picture on ${labelOf(target)}` : 'Your own picture')), file),
       ...st.stickers.map((k) => h('div', { class: `cs-stk-row${k.id === st.stkSel ? ' on' : ''}`, onclick: () => { st.stkSel = k.id; draw(); } }, h('b', {}, `Sticker on ${k.layer.split('/').pop()}`), h('button', { class: 'ib', type: 'button', title: 'Remove this sticker', 'aria-label': 'Remove this sticker', onclick: (ev) => { ev.stopPropagation(); removeSticker(k.id); } }, icon('trash')))),
       sel ? h('div', { class: 'cs-stk-ctl' }, slider('Left / right', 'x', -600, 600, 1), slider('Up / down', 'y', -600, 600, 1), slider('Size', 's', 0.05, 3, 0.01, (v) => `${Math.round(v * 100)}%`), slider('Turn', 'rot', -180, 180, 1, (v) => `${v}°`), slider('Opacity', 'a', 0.1, 1, 0.01, (v) => `${Math.round(v * 100)}%`)) : null);
   }
@@ -624,7 +652,7 @@ export async function view({ user, home, toast, localPreview = false }) {
     for (const l of rows) (groups.get(l.group) || groups.set(l.group, []).get(l.group)).push(l);
     const row = (l) => {
       const reg = st.regions.get(l.region), e = st.edit.get(l.region), file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) putImage(l, f).then(draw); } });
-      return h('div', { class: `cs-lrow cs-crow ${e?.img ? 'done' : ''} ${st.guideFocus === l.region ? 'rig-guide-selected' : ''}`, 'data-rig-region': l.region, }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, labelOf(l)), h('small', {}, `${reg.w}×${reg.h}px${isUtility(l) ? ' · Transparent utility slot' : e?.img ? ` · PNG ${e.img.width}×${e.img.height}px` : ''}`)),
+      return h('div', { class: `cs-lrow cs-crow ${e?.img ? 'done' : ''} ${st.guideFocus === l.region ? 'rig-guide-selected' : ''}`, 'data-rig-region': l.region, title: 'Tap to choose this part (for stickers and the guide)', onclick: (ev) => { if (ev.target.closest('button,input,label,a')) return; st.guideFocus = st.guideFocus === l.region ? null : l.region; draw(); } }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, labelOf(l)), h('small', {}, `${reg.w}×${reg.h}px${isUtility(l) ? ' · Transparent utility slot' : e?.img ? ` · PNG ${e.img.width}×${e.img.height}px` : ''}`)),
         h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, icon('download')), h('button', { class: `btn sm cs-up ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, icon(e?.img ? 'refresh' : 'upload'), h('span', {}, e?.img ? 'Replace' : 'Upload')), file);
     };
     return [
@@ -721,10 +749,11 @@ export async function view({ user, home, toast, localPreview = false }) {
     const fields = ['tpl','skins','xf','order','attach','face','fit','name','savedId','tab','open','openGroup','filter','zoom','mouth','createMode','outline','anim','over'];
     const state=structuredClone(Object.fromEntries(fields.map(k=>[k,st[k]??null])));
     state.hide=[...st.hide];state.locked=[...st.locked];state.camera=structuredClone(stage.userCam);
+    { const stk = stickerProfile(); state.stickers = stk.stickers || null; state.stickerAtlas = stk.stickerAtlas || null; }          // the stickers are kept in the draft too (their picture page is stored beside it)
     const edits=[...st.edit].map(([key,e])=>{if(e.img&&!imageIds.has(e.img))imageIds.set(e.img,++imageSeq);return [key,{...e,img:e.img?imageIds.get(e.img):null}];});
     const sig=JSON.stringify({id:st.def.id,state,edits});
     if(sig===draftSignature)return;
-    const draftDef=structuredClone(st.def), draftEdits=[...st.edit].map(([k,e])=>[k,{...e}]);
+    const stickerBlob=st.stickers.length?st.stkBlob:null, draftDef=structuredClone(st.def), draftEdits=[...st.edit].map(([k,e])=>[k,{...e}]);
     writingDraft=(async()=>{
       const serialized=[];
       for(const [key,e] of draftEdits){
@@ -732,7 +761,7 @@ export async function view({ user, home, toast, localPreview = false }) {
         if(e.img){if(!imageBlobs.has(e.img)){const c=makeCanvas(e.img.width,e.img.height);c.getContext('2d').drawImage(e.img,0,0);imageBlobs.set(e.img,await toBlob(c,'image/png'));}img=imageBlobs.get(e.img);}
         serialized.push([key,{...e,img}]);
       }
-      await putDraft('draft',{id:'current',def:draftDef,state,edits:serialized,ts:Date.now()});
+      await putDraft('draft',{id:'current',def:draftDef,state,edits:serialized,stickerPage:stickerBlob,ts:Date.now()});
       draftSignature=sig;
     })();
     try {await writingDraft;}finally{writingDraft=null;}
@@ -752,9 +781,12 @@ export async function view({ user, home, toast, localPreview = false }) {
   const draft=await getDraft('draft','current');
   if(draft?.def && !localPreview){
     await pick(draft.def);
-    Object.assign(st,draft.state,{hide:new Set(draft.state.hide),locked:new Set(draft.state.locked)});
+    const { stickers: draftStickers, stickerAtlas: draftAtlas, ...draftRest } = draft.state;
+    Object.assign(st,draftRest,{hide:new Set(draft.state.hide),locked:new Set(draft.state.locked)});
     st.edit=new Map(await Promise.all(draft.edits.map(async([key,e])=>[key,{...e,img:e.img?await readImage(e.img):null}])));
-    pending=new Set(st.edit.keys());await flush();rebuild();stage.userCam=draft.state.camera;
+    pending=new Set(st.edit.keys());await flush();
+    try { await restoreStickers({ stickers: draftStickers, stickerAtlas: draftAtlas }, { [STICKER_PAGE]: draft.stickerPage }); } catch (e) { console.warn('stickers not restored', e); st.stickers = []; }
+    rebuild();stage.userCam=draft.state.camera;
   }
   draw(); drawAnimBar();
   if (localPreview) {

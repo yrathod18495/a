@@ -5,9 +5,10 @@ import { h, logo } from './dom.js';
 import { deleteStudioAsset, listStudioAssets, saveStudioAsset, setPropGroup, setAssetAccess } from './studio-assets.js';
 import { cleanAssetMeta } from '../shared/studio-effects.js';
 import { animatedToSheet } from './animated-image.js';
+import { stickerPng } from './sticker-image.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 
-const KINDS = [['prop', 'Props'], ['effect', 'Effects']];
+const KINDS = [['prop', 'Props'], ['effect', 'Effects'], ['sticker', 'Stickers']];
 const ACCESS_LABEL = { paid: 'Paid accounts only', free: 'Free for everyone' };
 const GROUP_LABEL = { general: 'Object (Objects tab)', hand: 'Prop (character toolbox)' };
 const BLEND_LABEL = { normal: 'Normal', add: 'Glow (add)', screen: 'Screen' };
@@ -21,7 +22,7 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
 
   const inGroup = (asset) => !fixedGroup || asset.type !== 'prop' || (asset.group === 'hand') === (fixedGroup === 'hand');
   const records = () => state.assets.filter((asset) => asset.type === state.kind && inGroup(asset));
-  const noun = state.kind === 'effect' ? 'effect' : fixedGroup === 'hand' ? 'prop' : fixedGroup === 'general' ? 'object' : 'prop';
+  const noun = state.kind === 'sticker' ? 'sticker' : state.kind === 'effect' ? 'effect' : fixedGroup === 'hand' ? 'prop' : fixedGroup === 'general' ? 'object' : 'prop';
   const categories = () => [...new Set(records().map((asset) => asset.category).filter(Boolean))].sort();
   async function refresh() {
     state.loading = true; draw();
@@ -57,9 +58,9 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
 
   function form() {
     const effect = state.kind === 'effect';
-    const file = h('input', { type: 'file', accept: 'image/*', multiple: !effect, required: true, 'aria-label': 'Image file' });
+    const sticker = state.kind === 'sticker', file = h('input', { type: 'file', accept: sticker ? 'image/*,.svg' : 'image/*', multiple: !effect, required: true, 'aria-label': 'Image file' });
     const name = h('input', { type: 'text', maxlength: 100, placeholder: 'Leave blank to use the file name', 'aria-label': 'Name' });
-    const category = h('input', { type: 'text', maxlength: 40, list: 'asset-categories', placeholder: effect ? 'e.g. Weather, Light, Magic' : 'e.g. Furniture, Food, Nature', 'aria-label': 'Category' });
+    const category = h('input', { type: 'text', maxlength: 40, list: 'asset-categories', placeholder: sticker ? 'e.g. Wounds, Stitches, Bruises, Marks' : effect ? 'e.g. Weather, Light, Magic' : 'e.g. Furniture, Food, Nature', 'aria-label': 'Category' });
     const group = h('select', { 'aria-label': 'Prop type' }, Object.entries(GROUP_LABEL).map(([value, label]) => h('option', { value }, label)));
     const access = h('select', { 'aria-label': 'Who can use it' }, Object.entries(ACCESS_LABEL).map(([value, label]) => h('option', { value }, label)));
     const datalist = h('datalist', { id: 'asset-categories' }, categories().map((value) => h('option', { value })));
@@ -75,13 +76,14 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
       const files = [...(file.files || [])];
       if (!files.length) { toast('Please choose an image file first.'); return; }
       const meta = { category: category.value.trim(), access: access.value };
-      if (!effect) meta.group = fixedGroup || group.value;
+      if (!effect && !sticker) meta.group = fixedGroup || group.value;
       if (effect) Object.assign(meta, { blend: blend.value, opacity: Number(opacity.value), placement: placement.value, ...(state.sheet ? { sheet: { cols: Number(cols.value), rows: Number(rows.value), fps: Number(fps.value) } } : {}) });
       try { cleanAssetMeta(state.kind, meta); } catch (error) { toast(error.message); return; }
       submit.disabled = true; state.loading = true;
       try {
         for (const picture of files) {
           // an animated GIF / WebP / APNG is turned into a sprite sheet here, so it plays in the studio and in the video; a still picture is saved as it is
+          if (sticker) { await saveStudioAsset('sticker', name.value.trim() || picture.name.replace(/\.[^.]+$/, ''), await stickerPng(picture), meta); continue; }          // a sticker is saved as a see-through PNG (an SVG is drawn first)
           const anim = state.sheet ? null : await animatedToSheet(picture);
           await saveStudioAsset(state.kind, name.value.trim() || picture.name.replace(/\.[^.]+$/, ''), anim ? anim.file : picture, anim ? { ...meta, sheet: anim.sheet } : meta);
         }
@@ -90,9 +92,9 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
       } catch (e) { toast(`Could not publish: ${friendlyError(e)}`); }
       finally { state.loading = false; submit.disabled = false; }
     } },
-      field(effect ? 'Effect image / sprite sheet (up to 40 MB)' : `${noun[0].toUpperCase() + noun.slice(1)} image(s) (PNG / WebP / GIF, up to 40 MB each; a GIF plays as an animation)`, file, true),
+      field(sticker ? 'Sticker picture(s): PNG, WebP or SVG with a see-through background' : effect ? 'Effect image / sprite sheet (up to 40 MB)' : `${noun[0].toUpperCase() + noun.slice(1)} image(s) (PNG / WebP / GIF, up to 40 MB each; a GIF plays as an animation)`, file, true),
       field('Name', name), field('Category', category), datalist,
-      ...(effect || fixedGroup ? [] : [field('Prop type', group)]), field('Who can use it', access),
+      ...(effect || sticker || fixedGroup ? [] : [field('Prop type', group)]), field('Who can use it', access),
       ...(effect ? [field('Blend mode', blend), field('Opacity (0.05 – 1)', opacity), field('Placement', placement),
         h('label', { class: 'admin-animation-field' }, h('span', {}, 'This is a sprite sheet (frame-based animation)'), sheetOn),
         ...(state.sheet ? [field('Columns', cols), field('Rows', rows), field('Frames per second', fps)] : [])] : []),
@@ -117,8 +119,8 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
     const effect = state.kind === 'effect', list = records(), cats = categories();
     const shown = list.filter((asset) => state.filter === 'all' || (asset.category || '') === state.filter);
     content.replaceChildren(...[
-      h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, effect ? 'Effects' : fixedGroup === 'general' ? 'Objects' : 'Props'),
-        h('p', {}, effect ? 'Upload effects like rain, sparkle, light leak here. Creators see them in the studio\'s Effects tab and apply them to the scene. The effect animates when a sprite sheet is provided.' : 'Upload props here. Creators see them by category in the studio\'s Props tab and place them in the scene.')),
+      h('section', { class: 'admin-assets-intro' }, h('span', { class: 'admin-eyebrow' }, 'SHARED STUDIO LIBRARY'), h('h1', {}, state.kind === 'sticker' ? 'Stickers' : effect ? 'Effects' : fixedGroup === 'general' ? 'Objects' : 'Props'),
+        h('p', {}, state.kind === 'sticker' ? 'Upload scars, blood marks, stitches, patches and similar pictures here. Creators find them in the Character Editor (Create tab → Stickers), put them on any body part, and they move with it.' : effect ? 'Upload effects like rain, sparkle, light leak here. Creators see them in the studio\'s Effects tab and apply them to the scene. The effect animates when a sprite sheet is provided.' : 'Upload props here. Creators see them by category in the studio\'s Props tab and place them in the scene.')),
       form(),
       cats.length ? h('div', { class: 'admin-assets-tabs', style: 'padding-left:0' }, [['all', 'All'], ...cats.map((c) => [c, c])].map(([value, label]) => h('button', { class: `admin-assets-tab ${state.filter === value ? 'active' : ''}`, type: 'button', onclick: () => { state.filter = value; draw(); } }, label))) : null,
       state.loading && !list.length ? h('p', { class: 'admin-assets-empty' }, 'Loading library…')

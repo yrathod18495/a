@@ -1,6 +1,6 @@
 // Who may use a studio library item (props, effects, backgrounds): by default only paid accounts. An admin can mark single items "free for everyone".
 // Everybody still SEES every item (its picture is in the list); a free account just cannot add a paid-only one.
-export const LOCKABLE_TYPES = Object.freeze(['background', 'prop', 'effect']);
+export const LOCKABLE_TYPES = Object.freeze(['background', 'prop', 'effect', 'sticker']);
 export const ACCESS_VALUES = Object.freeze(['paid', 'free']);
 export const PAID_MESSAGE = 'This item is for paid accounts. Buy Coins to unlock it.';
 /** an item with no setting (every item uploaded before this existed) is paid-only */
