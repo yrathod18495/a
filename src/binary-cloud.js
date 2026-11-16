@@ -5,7 +5,7 @@ import { apiCall } from './session.js';
 const hex = (bytes) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
 export const hashBytes = async (bytes) => hex(await crypto.subtle.digest('SHA-256', bytes));
 export const hashBlob = async (blob) => hashBytes(await blob.arrayBuffer());
-const BATCH = 200, PARALLEL = 4, CACHE = '12toons-assets-v1';
+const BATCH = 200, PARALLEL = 8, CACHE = '12toons-assets-v1';
 
 async function pool(jobs, run) {
   let next = 0, failure = null;
@@ -32,8 +32,9 @@ async function put(target, blob) {
 const KNOWN_LIMIT = 4000, knownKey = (uid) => 'toons-uploaded-' + uid;
 const knownSet = (uid) => { try { return new Set(JSON.parse(localStorage.getItem(knownKey(uid)) || '[]')); } catch { return new Set(); } };
 const rememberKnown = (uid, set) => { try { localStorage.setItem(knownKey(uid), JSON.stringify([...set].slice(-KNOWN_LIMIT))); } catch { /* optional */ } };
-export async function uploadAssets(uid, assets, state = null) {
-  const known = knownSet(uid), list = [...assets].filter(([hash]) => !known.has(hash));
+export async function uploadAssets(uid, assets, state = null, { trustLocal = true } = {}) {
+  // `trustLocal: false`: ask the server what it has (this browser's list can be old: files may have been deleted since)
+  const known = trustLocal ? knownSet(uid) : new Set(), list = [...assets].filter(([hash]) => !known.has(hash));
   for (const [hash, blob] of list) if (blob.size > 40 * 1024 * 1024) throw Error('The file is larger than the 40 MB limit.');
   if (!list.length && !state) return { sent: 0, fresh: [] };
   let sent = 0, first = true;
@@ -49,7 +50,7 @@ export async function uploadAssets(uid, assets, state = null) {
     if (signed.state) jobs.push([signed.state, state.blob]);
     await pool(jobs, ([target, blob]) => put(target, blob));
     for (const f of fresh) known.add(f.hash);
-    rememberKnown(uid, known);
+    if (trustLocal) rememberKnown(uid, known);
     sent += jobs.length; first = false;
   }
   return { sent, fresh };

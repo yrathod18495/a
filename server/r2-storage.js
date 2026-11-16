@@ -88,11 +88,10 @@ export async function signUploads(uid, store, { items = [], state = null }) {
 /** after the browser uploaded: check the files really are in R2 (a HEAD is a cheap Class B read), then count them once */
 export async function confirmAssets(uid, store, items) {
   const wanted = cleanItems(items, MAX_PROJECT_ASSETS), known = await registered(uid, store, [...wanted.keys()]), fresh = [];
-  for (const [hash, size] of wanted) {
-    if (known.has(hash)) continue;
-    const h = await head(assetKey(uid, hash));
-    if (!h.exists || h.size !== size) throw new AccessError('incomplete_upload', 'The file upload did not finish. Please try again.', 409);
-    fresh.push([hash, size]);
+  const todo = [...wanted].filter(([hash]) => !known.has(hash));
+  for (let i = 0; i < todo.length; i += 16) {          // the files are checked 16 at a time
+    const heads = await Promise.all(todo.slice(i, i + 16).map(([hash]) => head(assetKey(uid, hash))));
+    todo.slice(i, i + 16).forEach(([hash, size], j) => { if (!heads[j].exists || heads[j].size !== size) throw new AccessError('incomplete_upload', 'The file upload did not finish. Please try again.', 409); fresh.push([hash, size]); });
   }
   if (!fresh.length) return { added: 0 };
   const bytes = fresh.reduce((sum, [, size]) => sum + size, 0);

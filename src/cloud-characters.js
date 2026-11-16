@@ -131,7 +131,7 @@ async function gzipBase64(blob) {
  */
 export async function storeCharacter({ manifest, files, name = null, group = null, store = undefined, gifs = new Map(), gifsDone = null, thumb = null, thumbs = new Map(), withAnimations = true, progress = () => {} }) {
   const refs = new Map(), r2 = new Map(), small = [], previewTypes = new Map();
-  const pool = async (items, work, n = 8) => { let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await work(items[i++]); })); };
+  const pool = async (items, work, n = 16) => { let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await work(items[i++]); })); };
   const add = async (key, blob, path, into = r2) => {
     const sha = await hashBlob(blob);
     if (storageOf(path, blob.size) === 'db') { refs.set(key, { db: sha }); if (!small.some((x) => x.sha === sha)) small.push({ sha, blob }); }
@@ -161,7 +161,7 @@ export async function storeCharacter({ manifest, files, name = null, group = nul
     await pool(todo, async (f) => { await call({ action: 'putFile', sha: f.sha, gz: await gzipBase64(f.blob) }); tick('Saving files'); });
     done += reused;
   })();
-  const putFirstPictures = r2.size ? uploadAssets(owner(), r2).then(() => { done += r2.size; progress(`Pictures uploaded (${r2.size})`, done, total); }) : Promise.resolve();
+  const putFirstPictures = r2.size ? uploadAssets(owner(), r2, null, { trustLocal: false }).then(() => { done += r2.size; progress(`Pictures uploaded (${r2.size})`, done, total); }) : Promise.resolve();
   const phase1 = Promise.all([putSmall, putFirstPictures]);
   phase1.catch(() => {});                                        // reported below, when it is waited for
   // phase 2: the GIFs, as soon as they exist
@@ -172,7 +172,7 @@ export async function storeCharacter({ manifest, files, name = null, group = nul
     for (const v of manifest.views) for (const a of v.animations) gifJobs.push((async () => { const gif = await gifs.get(`${v.id}/${a.name}`); if (gif) { const mp4 = gif.type === 'video/mp4'; previewTypes.set(v.id, mp4 ? 'mp4' : 'gif'); await add(`${v.id}:gif:${a.name}`, gif, mp4 ? 'preview.mp4' : 'preview.gif', late); } })());
     await Promise.all(gifJobs);
   }
-  const phase2 = late.size ? uploadAssets(owner(), late).then(() => { done += late.size; progress(`GIFs uploaded (${late.size})`, done, total); }) : Promise.resolve();
+  const phase2 = late.size ? uploadAssets(owner(), late, null, { trustLocal: false }).then(() => { done += late.size; progress(`GIFs uploaded (${late.size})`, done, total); }) : Promise.resolve();
   await Promise.all([phase1, phase2]);
   progress('Saving the character…', total, total);
   const record = { character: { id: manifest.character.id, name: (name || manifest.character.name).trim(), ...(group ? { group } : {}), ...(store !== undefined ? { store } : {}), thumb: refs.get('thumb') || null, views: {} }, category: { id: manifest.category.id, name: manifest.category.name } };

@@ -197,11 +197,15 @@ export async function characterAction(req, res, b) {
       if (!category && !existingCategory) throw bad('category_missing', `The category "${character.category}" does not exist yet. Upload a ZIP that brings its animations first.`);
       const refs = [...refsOf(character), ...(category ? refsOf(category) : [])];
       // every database file must be stored, every R2 file must really be in R2 (checked and counted once, like a project save)
-      for (const f of refs.filter((x) => x.where === 'db')) if (!(await store.get(`characterFiles/${f.sha}/size`))) throw bad('file_missing', 'A file was not uploaded completely. Please try again.', 409);
+      const dbRefs = refs.filter((x) => x.where === 'db');
+      for (let i = 0; i < dbRefs.length; i += 24) {          // 24 checks at a time (one after the other was slow for a character with 100 files)
+        const sizes = await Promise.all(dbRefs.slice(i, i + 24).map((f) => store.get(`characterFiles/${f.sha}/size`)));
+        if (sizes.some((n) => !n)) throw bad('file_missing', 'A file was not uploaded completely. Please try again.', 409);
+      }
       const r2 = refs.filter((x) => x.where === 'r2');
       if (r2.length && !configured()) throw bad('storage_unavailable', 'Cloud storage is not set up yet.', 503);
       if (r2.length) await confirmAssets(who.uid, store, r2.map((x) => ({ hash: x.sha, size: x.size })));
-      for (const f of r2) if (!(await store.get(`characterHashes/${f.sha}`))) await store.set(`characterHashes/${f.sha}`, who.uid);
+      for (let i = 0; i < r2.length; i += 24) await Promise.all(r2.slice(i, i + 24).map(async (f) => { if (!(await store.get(`characterHashes/${f.sha}`))) await store.set(`characterHashes/${f.sha}`, who.uid); }));
       // the views of the character need animations in its category
       const views = (category || existingCategory).views || {};
       for (const vid of Object.keys(character.views)) if (!views[vid]) throw bad('view_mismatch', `The category "${character.category}" has no animations for the view "${vid}".`);

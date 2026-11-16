@@ -25,6 +25,13 @@ test('files are signed and sent once; what this browser already uploaded is neit
  const other=await uploadAssets('u2',new Map([[ha,a]]));                                           // another account has its own list
  assert.equal(signs.length,2);assert.equal(other.fresh.length,1);
 });
+test('with trustLocal off (characters) the server is always asked, so files deleted from R2 since are sent again',async()=>{
+ const ha=await hashBlob(a),before=signs.length;
+ await uploadAssets('u1',new Map([[ha,a]]));                                                       // known to this browser from the test above
+ assert.equal(signs.length,before);
+ await uploadAssets('u1',new Map([[ha,a]]),null,{trustLocal:false});
+ assert.equal(signs.length,before+1);
+});
 test('a project snapshot is always signed and sent, together with only the new files',async()=>{
  const hc=await hashBlob(new Blob(['third']));
  const out=await uploadAssets('u1',new Map([[hc,new Blob(['third'])]]),{projectId:'p'.repeat(16),opId:'o'.repeat(16),blob:new Blob(['{}'])});
