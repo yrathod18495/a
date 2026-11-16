@@ -1096,3 +1096,23 @@ dialog.admin-store-dialog h2{margin:0 0 10px;font-size:18px}.admin-store-rows{di
 .admin-character-group{width:100%;max-width:100%}
 .ac-act{overflow:hidden;text-overflow:ellipsis}
 .admin-character-store{overflow-wrap:anywhere}
+
+/* ---- smaller again: icon buttons, a tiny group select on the same row, no yellow (a lock + violet marks paid, green marks free) ---- */
+.admin-characters-grid{gap:8px}
+.admin-character-card{padding:6px;gap:6px;border-radius:14px}
+.admin-character-thumb{aspect-ratio:1/.95;border-radius:10px}
+.ac-tag{top:5px;right:5px;padding:2px 7px;font-size:10px;gap:3px}
+.ac-tag svg{width:10px;height:10px}
+.ac-tag.paid{background:#6b5ce7;color:#fff}.ac-tag.free{background:#1f8f55;color:#fff}
+.admin-character-copy{gap:3px}.admin-character-copy b{font-size:13.5px}.admin-character-copy small{font-size:10.5px}
+.ac-poses{gap:3px;margin:1px 0}
+.ac-pose{padding:1px 6px;font-size:9.5px;gap:2px}.ac-pose svg{width:9px;height:9px}
+.ac-pose.paid{color:#8b7bff;background:color-mix(in srgb,#6b5ce7 16%,transparent);border-color:#6b5ce788}
+.admin-character-store,.admin-character-store.paid{color:var(--mute,#9a9ca5)!important;font-weight:600;font-size:9.5px!important;opacity:.85}
+.admin-character-actions{display:flex!important;align-items:center;gap:4px}
+.admin-character-group{flex:1 1 0;min-width:0;width:auto;margin:0;padding:0 6px;min-height:28px;height:28px;font-size:10.5px;border-radius:8px}
+.ac-act{flex:none;width:28px;min-height:28px;height:28px;padding:0!important;border-radius:8px}
+.ac-act svg{width:14px;height:14px}
+.admin-character-group{padding:0 14px 0 6px!important;background-position:right 3px center!important;background-size:9px!important;text-overflow:clip}
+.ac-meta{display:flex;align-items:center;gap:6px;min-width:0}
+.ac-meta .admin-character-group{flex:none;width:auto;height:20px;min-height:20px;padding:0 15px 0 8px!important;border-radius:99px;font-size:10.5px;font-weight:700;background-color:color-mix(in srgb,currentColor 9%,transparent);border:1px solid color-mix(in srgb,currentColor 18%,transparent);background-position:right 4px center!important}
