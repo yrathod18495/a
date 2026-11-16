@@ -881,3 +881,5 @@ body.studio-dark #app .ws .tl2 .tclip.prop.fx,body.studio-dark #app .ws .tl2 .tc
 .voice-sheet .vo-cam>summary::after{content:"▾";opacity:.6}
 .voice-sheet .vo-cam[open]>summary::after{content:"▴"}
 .voice-sheet .vo-cam[open]>summary{margin-bottom:8px}
+/* the camera box leaves the picture visible: it is short and scrolls inside */
+@media(max-width:860px){.voice-sheet.cam-sheet{max-height:42dvh!important}.cam-sheet .joy{width:92px;height:92px}.cam-sheet .joy-knob{width:34px;height:34px;left:calc(50% - 17px);top:calc(50% - 17px)}}

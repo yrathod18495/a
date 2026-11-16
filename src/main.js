@@ -645,7 +645,7 @@ function dockToggle(name) {
 }
 /** true exactly while the camera panel is visibly open (not merely logically open — it may have idle-hidden off-screen); character selection is blocked only then, so it must never go stale. */
 function syncFullView() {
-  const fv = S.tab === 'camera' && S.panelOpen && !S.camPeek && !dockOut('panel');
+  const fv = ((S.tab === 'camera' && S.panelOpen && !dockOut('panel')) || (camSheetEl && !camSheetEl.hidden)) && !S.camPeek;
   if (stage.fullView !== fv) { stage.fullView = fv; S.dirty = true; }
   return stage.fullView;
 }
@@ -1025,7 +1025,7 @@ function phoneNav(button, byKey, upload, more) {
     tab('grade', 'Colour')];
   if (cat === 'props') return [tab('handprops'), tab('props'), act('hand', 'Hold', () => openHoldTool()), tab('shadow')];
   if (cat === 'effects') return [tab('fx'), tab('effects'), tab('grade', 'Colour')];
-  return [tab('chars'), tab('anim'), tab('motion'), tab('camera'), more];
+  return [tab('chars'), tab('anim'), tab('motion'), act('video', 'Camera', () => openCamBox(), !!(camSheetEl && !camSheetEl.hidden)), more];
 }
 function drawTabs() { drawTabsInner(); syncCloudPill(); }
 function drawTabsInner() {
@@ -2615,10 +2615,86 @@ function camPointerMove(e) {
   if (S.tab === 'camera') drawTabsSoft();
   return true;
 }
-const camPointerUp = () => { const was = !!camDrag; camDrag = null; if (was && S.tab === 'camera') drawTabs(); return was; };
+const camPointerUp = () => { const was = !!camDrag; camDrag = null; if (was) { if (S.tab === 'camera') drawTabs(); paintCamBox(); } return was; };
 let softTimer = 0;
 function drawTabsSoft() { clearTimeout(softTimer); softTimer = setTimeout(() => { if (!camDrag) drawTabs(); }, 200); }
 
+/* ---- Camera box: L (where the camera starts) and P (where it ends), with zoom, a pan joystick, follow and a preview ---- */
+let camSheetEl = null, camBoxRaf = 0;
+function closeCamBox() { if (camSheetEl) camSheetEl.hidden = true; cancelAnimationFrame(camBoxRaf); S.camPeek = false; syncFullView(); updateCamBox(); S.dirty = true; }
+function openCamBox() {
+  if (S.panelOpen) { S.panelOpen = false; drawTabs(); }
+  closeVoiceSheet(); closeHoldSheet(); S.editDock?.close?.();
+  S.tab = 'camera';
+  camSheetEl ||= h('section', { class: 'voice-sheet hold-sheet cam-sheet', role: 'dialog', 'aria-label': 'Camera' });
+  if (!camSheetEl.isConnected) document.body.append(camSheetEl);
+  camSheetEl.hidden = false; S.camPeek = false; syncFullView(); paintCamBox(); S.dirty = true; drawTabs();
+}
+function paintCamBox() {
+  if (!camSheetEl || camSheetEl.hidden) return;
+  placeSheet(camSheetEl);
+  const keys = camKeys(), sel = S.camKeys.find((x) => x.id === S.camSel) || null;
+  const nameOf = (k) => { const i = keys.indexOf(k); return keys.length === 1 ? 'L' : i === 0 ? 'L' : i === keys.length - 1 ? 'P' : `M${i}`; };
+  const redraw = () => { syncCam(); drawTimeline(); updateCamBox(); S.dirty = true; };
+  const chip = (label, on, onclick, extra = {}) => h('button', { type: 'button', class: `hd-chip${on ? ' on' : ''}`, 'aria-pressed': String(on), onclick, ...extra }, label);
+  const select = (k) => { S.camSel = k.id; player.seek(Math.min(player.total, k.t)); S.dirty = true; paintCamBox(); updateCamBox(); };
+  const addPoint = () => {
+    const free = (t) => !S.camKeys.some((x) => Math.abs(x.t - t) < 0.06);
+    let t = +player.time.toFixed(2); if (!free(t)) t = +Math.min(player.total, t + 1.5).toFixed(2);
+    if (!free(t)) { toast('There is no room for another camera point here. Move the playhead and try again.'); return; }
+    player.seek(t); const k = editKey({}); S.camSel = k.id; paintCamBox(); updateCamBox();
+  };
+  const patch = (o) => { if (!sel) return; Object.assign(sel, o); redraw(); };
+  const clampPan = (k) => { const vw = stage.W / k.zoom, vh = stage.H / k.zoom; k.cx = Math.min(1 - vw / 2 / stage.W, Math.max(vw / 2 / stage.W, k.cx)); k.cy = Math.min(1 - vh / 2 / stage.H, Math.max(vh / 2 / stage.H, k.cy)); };
+  const setZoom = (z) => { if (!sel) return; sel.zoom = +Math.min(6, Math.max(1, z)).toFixed(2); clampPan(sel); redraw(); };
+  // joystick: the further the knob is pushed, the faster the camera pans (it stops when you let go)
+  const knob = h('i', { class: 'joy-knob' });
+  let vx = 0, vy = 0;
+  const loop = () => { if (sel && (vx || vy)) { sel.cx += vx * 0.006; sel.cy += vy * 0.006; clampPan(sel); redraw(); } camBoxRaf = requestAnimationFrame(loop); };
+  const pad = h('div', { class: 'joy', role: 'application', 'aria-label': 'Move the camera: drag the knob', style: sel ? '' : 'opacity:.45;pointer-events:none' }, h('b', { class: 'joy-h' }), h('b', { class: 'joy-v' }), knob);
+  const drag = (e) => { const r = pad.getBoundingClientRect(), rad = r.width / 2 - 14; let dx = (e.clientX - r.left - r.width / 2) / rad, dy = (e.clientY - r.top - r.height / 2) / rad; const len = Math.hypot(dx, dy); if (len > 1) { dx /= len; dy /= len; } vx = dx; vy = dy; knob.style.transform = `translate(${dx * 50}%, ${dy * 50}%)`; };
+  pad.addEventListener('pointerdown', (e) => { pad.setPointerCapture(e.pointerId); drag(e); pad.addEventListener('pointermove', drag); cancelAnimationFrame(camBoxRaf); camBoxRaf = requestAnimationFrame(loop); });
+  const rest = () => { pad.removeEventListener('pointermove', drag); vx = vy = 0; knob.style.transform = ''; cancelAnimationFrame(camBoxRaf); paintCamBox(); };
+  pad.addEventListener('pointerup', rest); pad.addEventListener('pointercancel', rest);
+  const seg = (items, cur, on) => h('div', { class: 'hd-row two' }, items.map(([key, l]) => chip(l, String(cur()) === String(key), () => { on(key); paintCamBox(); })));
+  // follow: the camera keeps this character in the middle between L and P (keys are added along the way)
+  const chars = S.order.map(sOf).filter((x) => x?.charId);
+  const follow = async (s) => {
+    if (keys.length < 2) { toast('Add the points L and P first, then choose who the camera follows.'); return; }
+    const a = keys[0], b = keys.at(-1), zoom = sel?.zoom || a.zoom || 1.6, back = player.time;
+    const baked = [];
+    for (let t = a.t; t <= b.t + 1e-6; t += 0.4) {
+      player.seek(+Math.min(t, b.t).toFixed(2)); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const l = stage.layers.find((x) => x.key === s.key); if (!l?.box) continue;
+      const bx = l.box, k = { zoom, cx: ((bx.x0 + bx.x1) / 2) / stage.W, cy: (bx.y0 + (bx.y1 - bx.y0) * 0.4) / stage.H };
+      baked.push({ t: +Math.min(t, b.t).toFixed(2), ...k });
+    }
+    if (!baked.length) { toast('That character is not on the screen between L and P.'); player.seek(back); return; }
+    S.camKeys = S.camKeys.filter((x) => x.t < a.t - 1e-6 || x.t > b.t + 1e-6).concat(baked.map((k) => ({ ...k, id: uid(), ease: 'linear' }))); 
+    for (const k of S.camKeys) clampPan(k);
+    S.camSel = null; player.seek(a.t); redraw(); paintCamBox(); toast(`The camera now follows ${s.name}.`);
+  };
+  camSheetEl.replaceChildren(
+    h('div', { class: 'vs-head' }, h('b', {}, 'Camera'), h('span', { class: 'sp' }), h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the camera', title: 'Close', onclick: closeCamBox }, icon('x'))),
+    h('div', { class: 'list hold-panel' },
+      h('div', { class: 'card flat' }, h('h3', {}, 'Points'),
+        h('div', { class: 'hd-row' }, ...keys.map((k) => chip(`${nameOf(k)} · ${k.t.toFixed(1)}s`, sel === k, () => select(k), { 'data-point': nameOf(k) })), chip('+ Point', false, addPoint, { 'data-act': 'add-point' })),
+        h('p', { class: 'sub hd-note' }, keys.length ? 'L is where the camera starts, P is where it ends. Drag the box on the picture or use the controls below.' : 'Move the playhead where the camera should start and tap + Point. Add a second point later in the video: it becomes P.')),
+      sel ? h('div', { class: 'card flat' }, h('h3', {}, `Point ${nameOf(sel)}`),
+        h('div', { class: 'joy-wrap' },
+          holdButton(h('button', { type: 'button', class: 'hd-nudge', 'aria-label': 'Zoom out', title: 'Zoom out' }, icon('zoom-out')), (k) => setZoom(sel.zoom - 0.03 * k)), pad,
+          holdButton(h('button', { type: 'button', class: 'hd-nudge', 'aria-label': 'Zoom in', title: 'Zoom in' }, icon('zoom-in')), (k) => setZoom(sel.zoom + 0.03 * k))),
+        h('label', { class: 'vo-row' }, h('span', {}, 'Zoom'), h('input', { type: 'range', min: 1, max: 6, step: 0.05, value: sel.zoom, 'aria-label': 'Zoom', oninput: (e) => { setZoom(+e.target.value); e.target.nextSibling.textContent = `${sel.zoom.toFixed(2)}×`; } }), h('output', {}, `${sel.zoom.toFixed(2)}×`)),
+        h('label', { class: 'vo-row' }, h('span', {}, 'Time'), h('input', { type: 'number', step: 0.1, min: 0, value: sel.t.toFixed(1), 'aria-label': 'Time', onchange: (e) => { patch({ t: Math.max(0, +(+e.target.value || 0).toFixed(2)) }); paintCamBox(); } }), h('output', {}, 's')),
+        h('h3', { style: 'margin-top:8px' }, 'Move to the next point'), seg([['smooth', 'Smooth'], ['linear', 'Even'], ['hold', 'Cut']], () => sel.ease || 'smooth', (v) => patch({ ease: v })),
+        h('button', { type: 'button', class: 'btn sm danger', style: 'margin-top:8px', onclick: () => { S.camKeys = S.camKeys.filter((x) => x !== sel); S.camSel = null; redraw(); paintCamBox(); } }, 'Delete this point')) : null,
+      h('div', { class: 'card flat' }, h('h3', {}, 'Preview'),
+        h('div', { class: 'hd-row two' },
+          chip('▶ Play the move', false, () => { const a = keys[0]; if (!a) { toast('Add a point first.'); return; } closeCamBox(); player.seek(Math.max(0, a.t - 0.2)); player.play?.(); }, { 'data-act': 'play-move' }),
+          chip(S.camPeek ? 'Edit view' : 'See the final picture', S.camPeek, () => { S.camPeek = !S.camPeek; syncFullView(); updateCamBox(); S.dirty = true; paintCamBox(); }))),
+      chars.length ? h('div', { class: 'card flat' }, h('h3', {}, 'Follow'), h('div', { class: 'hd-row' }, ...chars.map((s) => chip(s.name, false, () => follow(s), { 'data-follow': s.key }))), h('p', { class: 'sub hd-note' }, 'The camera keeps this character in frame from L to P.')) : null,
+      keys.length ? h('button', { type: 'button', class: 'btn sm danger', onclick: () => { if (confirm('Delete the whole camera move and go back to the automatic shots?')) { S.camKeys = []; S.camSel = null; redraw(); paintCamBox(); } } }, 'Remove the camera move') : null));
+}
 /** one-click camera moves (zoom, pan, shake): they add keyframes at the playhead and last `camFx.dur` seconds */
 const camFx = { dur: 2, shakeDur: 0.8, strength: 'medium' };
 function applyCamPreset(kind) {

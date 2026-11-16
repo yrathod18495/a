@@ -1,0 +1,32 @@
+import { test, expect } from '@playwright/test';
+test.use({ viewport: { width: 390, height: 800 } });
+
+test('camera box: points L and P, zoom, preview, and removing the move', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Cam');
+  await page.getByRole('textbox', { name: 'Create a project' }).press('Tab').catch(() => {});
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.locator('.panel.open .sheet-close button').click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.tl-cats .tl-cat', { hasText: 'Characters' }).click();
+  await page.getByRole('button', { name: 'Camera', exact: true }).click();
+  const sheet = page.locator('.cam-sheet');
+  await expect(sheet).toBeVisible();
+  await sheet.locator('[data-act=add-point]').click();
+  await expect(sheet.locator('[data-point=L]')).toHaveCount(1);
+  await page.evaluate(() => window.__toon.player.seek(3));
+  await sheet.locator('[data-act=add-point]').click();
+  await expect(sheet.locator('[data-point=P]')).toHaveCount(1);
+  await sheet.getByLabel('Zoom', { exact: true }).evaluate((e) => { e.value = '2.5'; e.dispatchEvent(new Event('input', { bubbles: true })); });
+  const keys = await page.evaluate(() => window.__toon.S.camKeys.map((k) => ({ t: k.t, z: k.zoom })).sort((a, b) => a.t - b.t));
+  expect(keys.length).toBe(2); expect(keys[1].z).toBe(2.5);
+  await sheet.locator('[data-point=L]').click();
+  expect(await page.evaluate(() => window.__toon.player.time)).toBeCloseTo(keys[0].t, 1);
+  await sheet.getByRole('button', { name: 'Remove the camera move' }).click({ trial: true });
+  await sheet.getByRole('button', { name: 'Close the camera' }).click();
+  await expect(sheet).toBeHidden();
+  expect(errors).toEqual([]);
+});
