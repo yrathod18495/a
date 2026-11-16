@@ -3367,6 +3367,11 @@ function updateSel() {
 }
 /** a small floating toolbox over the selected character, for the tools that act on one character — tap a button to jump straight into that tool */
 const SEL_TOOLS = [['anim', 'Animations', 'film'], ['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask'], ['motion', 'Move', 'move'], ['handprops', 'Props', 'sword']];
+function openFaceList(key, s) {
+  const def = charOf(s), has = def && categoriesFor(def.rig).some((c) => c.layer === 'face');
+  if (!has) { toast('This character has no face expressions yet. Please upload the updated character in Admin.'); return; }
+  S.animFocus = { layer: 'face', at: Date.now() }; openCharTool(key, 'anim');
+}
 function openCharTool(key, tab) {
   const s = sOf(key); if (!s) return;
   S.sel = key; S.animFor = key; if (tab === 'tears') S.tearFor = key; if (tab === 'motion') S.motionFor = key;
@@ -3425,11 +3430,11 @@ function drawCharBar(l) {
   }
   charBar.dataset.key = l.key; queueMicrotask(() => { markCharBar(l); for (const inp of charBar.querySelectorAll('.cb-size')) inp.disabled = charLockedNow(l.key); });
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
-  const items = [['face', 'Face', 'smile'], ['handprops', 'Props', 'sword'], ['motion', 'Path', 'route']];
+  const items = [['anim', 'Animations', 'film'], ['face', 'Face', 'smile'], ['handprops', 'Props', 'sword'], ['motion', 'Path', 'route']];
   const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']];
   charBar.replaceChildren(
     h('div', { class: 'cb-list' },
-      ...items.map(([tab, text, ic]) => btn(ic, text, () => (tab === 'motion' ? startPathShadow(s) : tab === 'face' ? (S.animFocus = { layer: 'face', at: Date.now() }, openCharTool(l.key, 'anim')) : openCharTool(l.key, tab)), { 'data-tab': tab })),
+      ...items.map(([tab, text, ic]) => btn(ic, text, () => (tab === 'motion' ? startPathShadow(s) : tab === 'face' ? openFaceList(l.key, s) : openCharTool(l.key, tab)), { 'data-tab': tab })),
       btn('flip', 'Flip', () => mirrorChar(l, s), { title: 'Flip the character left / right' })),
     // everything else is one tap away in a list (no sideways scrolling to find it)
     h('details', { class: 'char-more' },
