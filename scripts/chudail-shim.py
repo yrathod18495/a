@@ -4,7 +4,9 @@ Turns what scripts/wardrobe-extract.cjs read from a running wardrobe page (the r
 draw order) into a small page in the OLDER format that scripts/character-html-to-spine.mjs reads (POSES / IMG / ANIMS_BY).
 Pictures are packed into free space on a 4096 page so nothing lies on top of anything else.
 
-  python3 -I scripts/chudail-shim.py <character>-runtime.json <wardrobe.html> <out.html>
+  python3 -I scripts/chudail-shim.py <character>-runtime.json <wardrobe.html> <out.html> [extra-animation.json ...]
+
+Extra animations (e.g. from scripts/retarget-walk.py) are put first in the list; one with the same name replaces the page's.
 """
 import sys, re, json, io, base64
 from PIL import Image
@@ -12,7 +14,7 @@ from PIL import Image
 def main():
     if len(sys.argv) < 4: print(__doc__); sys.exit(1)
     runtime, html, out = sys.argv[1:4]
-    d = json.load(open(runtime)); P = d['P']
+    d = json.load(open(runtime)); P = d['P']; extra = [json.load(open(f)) for f in sys.argv[4:]]
     text = open(html, encoding='utf8').read(); body = text[text.index('<script>') + 8:]
     m = re.search(r'(?:^|\n)const ANIMS_BY\s*=\s*', body); anims = json.JSONDecoder().raw_decode(body[m.end():])[0]
     W = H = 4096; page = Image.new('RGBA', (W, H), (0, 0, 0, 0)); occ = []; reg = {}
@@ -40,6 +42,6 @@ def main():
         if i not in seen: slots.append([sl[0], sl[1], None] + sl[3:])
     buf = io.BytesIO(); page.save(buf, 'WEBP', quality=92, method=4)
     pose = {'id': 'f34', 'v': 'f34', 'ch': 'maya', 'label': P['label'], 'bones': P['bones'], 'slots': slots, 'att': P['att'], 'reg': reg}
-    open(out, 'w', encoding='utf8').write('<script>\nconst POSES=' + json.dumps([pose]) + ';\nconst IMG=' + json.dumps({'f34': base64.b64encode(buf.getvalue()).decode()}) + ';\nconst ANIMS_BY=' + json.dumps({'f34': anims['f34']}) + ';\n</script>\n')
+    open(out, 'w', encoding='utf8').write('<script>\nconst POSES=' + json.dumps([pose]) + ';\nconst IMG=' + json.dumps({'f34': base64.b64encode(buf.getvalue()).decode()}) + ';\nconst ANIMS_BY=' + json.dumps({'f34': extra + [a for a in anims['f34'] if a['n'] not in {e['n'] for e in extra}]}) + ';\n</script>\n')
     print(f'{len(reg)} pictures, {len(order)} slots drawn, {len(slots)-len(order)} not drawn, {len(buf.getvalue())/1048576:.1f} MB', file=sys.stderr)
 main()

@@ -126,3 +126,11 @@ node scripts/check-character-zip.mjs dayan.zip
 ```
 
 `--source maya` is the id that the page uses internally; the ZIP builder replaces it in all part names with the new character's id.
+
+To give a character the walk of another page (same rig shape, other bone names):
+
+```bash
+node scripts/wardrobe-finish-walk.mjs older-page.html /tmp/walk.json                          # the walk as that page shows it (its own animation style)
+python3 -I scripts/retarget-walk.py /tmp/walk.json /tmp/dayan-runtime.json /tmp/walk-dayan.json    # bone names mapped, rotations shifted by the rest-pose difference
+python3 -I scripts/chudail-shim.py /tmp/dayan-runtime.json page.html /tmp/dayan.html /tmp/walk-dayan.json   # the new "Walk" goes first in the list
+```
