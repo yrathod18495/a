@@ -63,6 +63,8 @@ try {
     views.push({ id: v.view, label: v.label, skeleton: `${base}/skeleton.json`, textures, animations: list });
     console.log(`${v.view}: ${ske.armature[0].bone.length} bones, ${textures.length} texture page(s), ${list.length} animations`);
   }
+  // the artist's original name must not stay in the part names ("hair_william_short_hair"): the part names carry the new character's id instead
+  if (source !== character) { const re = new RegExp(source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); const swap = (t) => t.replace(re, (m) => (m === m.toUpperCase() ? character.toUpperCase() : m[0] === m[0].toUpperCase() ? character[0].toUpperCase() + character.slice(1) : character)); for (const [path, entry] of Object.entries(zip.files)) { if (entry.dir || !/\.json$/i.test(path)) continue; zip.file(path, swap(await entry.async('string'))); } }
   const manifest = { format: '12toons-character', version: 1, character: { id: slug(character), name }, category: { id: slug(category), name: categoryName }, frameRate: fps, views, createdAt: new Date().toISOString(), source: htmlPath.split('/').pop() };
   zip.file('manifest.json', JSON.stringify(manifest, null, 1));
   const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } });
