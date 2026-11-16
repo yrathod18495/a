@@ -48,7 +48,7 @@ test('admin uploads the Maya ZIP: preview with Prev / Next and views, Done makes
   await expect(page.getByRole('heading', { name: 'Maya', level: 2 })).toBeVisible({ timeout: 30000 });
   await expect(page.locator('.admin-characters-head')).toContainText('Category: Female · 4 views · 88 animations');
   const info = page.locator('.admin-characters-anim');
-  await expect(info).toContainText('stand'); await expect(info).toContainText('1 / 29'); await expect(info).toContainText('stand_female.gif');
+  await expect(info).toContainText('stand'); await expect(info).toContainText('1 / 29');
   // the character is really drawn on the preview
   // the character is really drawn on the preview (read from a screenshot: a WebGL canvas cannot be read between frames)
   const drawn = async () => { const shot = (await page.locator('.admin-characters-stage canvas').screenshot()).toString('base64');

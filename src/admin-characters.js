@@ -172,7 +172,7 @@ export async function charactersView({ back, home, toast }) {
   function drawInfo() {
     const { v, a } = current();
     playBtn.textContent = st.playing ? '❚❚ Pause' : '▶ Play';
-    info.replaceChildren(a ? h('b', {}, a.label || a.name) : h('b', {}, 'No animations'), h('small', {}, a ? `${a.group} · ${a.layer === 'hand' ? 'arms only (plays on top of a body animation)' : 'whole body'} · ${a.length.toFixed(1)} s · ${st.index + 1} / ${v.animations.length} · preview file ${gifName(a.name, st.pkg.manifest.category.id)}` : ''));
+    info.replaceChildren(a ? h('b', {}, a.label || a.name) : h('b', {}, 'No animations'), h('small', {}, a ? `${a.group} · ${a.layer === 'hand' ? 'arms only' : 'whole body'} · ${a.length.toFixed(1)} s · ${st.index + 1} / ${v.animations.length}` : ''));
   }
 
   async function done() {
