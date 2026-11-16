@@ -1,0 +1,50 @@
+import { test, expect } from '@playwright/test';
+import { readFileSync, existsSync } from 'node:fs';
+import { deflateSync } from 'node:zlib';
+const ZIP = process.env.CHARACTER_ZIP || '/home/user/a/deliver/dayan.zip';
+const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+const crc = (b) => { let c = 0xffffffff; for (const x of b) c = crcTable[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+const chunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t), d]), c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+const PNG = (() => { const w = 64, h = 64, raw = Buffer.alloc((w * 4 + 1) * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = y * (w * 4 + 1) + 1 + x * 4; raw[o] = 255; raw[o + 1] = 0; raw[o + 2] = 0; raw[o + 3] = 255; } const ih = Buffer.alloc(13); ih.writeUInt32BE(w, 0); ih.writeUInt32BE(h, 4); ih[8] = 8; ih[9] = 6; return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ih), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]); })();
+// A real character: choosing a layer hides all the others, the handles sit exactly on the drawn sticker, and a drag moves it.
+test('real character: the picture editor on a big layer (shadow, brush, magic select)', async ({ page }) => {
+  test.skip(!existsSync(ZIP), 'needs a character ZIP (CHARACTER_ZIP)');
+  test.setTimeout(180000);
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
+  await page.route('**/api/studio-assets', (r) => r.fulfill({ json: { assets: [] } }));
+  await page.route('**/12toons/*.json', (r) => r.fulfill({ json: r.request().url().endsWith('/groups.json') ? [] : { characters: [] } }));
+  await page.setViewportSize({ width: 1366, height: 800 });
+  await page.goto('/?debug#/toons');
+  const zip = readFileSync(ZIP);
+  const id = await page.evaluate(async (bytes) => {
+    const s = await import('/src/store.js'), m = await import('/src/admin-characters.js'), { faceDefaults } = await import('/src/rigedit.js');
+    const p = await s.createProject('debug', 'character', 'Real'); s.selectProject('debug', p.id);
+    const pkg = await m.readCharacterZip(new File([new Uint8Array(bytes)], 'd.zip')), def = await m.viewDef(pkg, pkg.manifest.views[0]);
+    await s.put('draft', { id: 'current', def, state: { hide: [], locked: [], xf: {}, attach: {}, face: faceDefaults(), skins: null, name: 'Draft', tab: 'create', zoom: 'wide' }, edits: [] });
+    return p.id;
+  }, Array.from(zip));
+  await page.goto('/?debug#/characters/' + id); await page.reload();
+  await expect(page.locator('.cs-panel')).toBeVisible({ timeout: 30000 });
+  await page.locator('.cs-tabs button', { hasText: 'Create' }).click();
+  const row = page.locator('.cs-crow', { hasText: /body|torso|chest/i }).first();
+  await row.scrollIntoViewIfNeeded(); await row.locator('.cs-edit').click();
+  await expect(page.locator('.pe')).toBeVisible(); await page.waitForTimeout(800);
+  const api = (fn, arg) => page.evaluate(([src, a]) => (0, eval)(`(${src})`)(document.querySelector('.pe')._pe, a), [fn.toString(), arg]);
+  const info = await api((p) => ({ w: p.D.width, h: p.D.height })); expect(info.w).toBeGreaterThan(200);
+  const cb = await page.locator('.pe-canvas').boundingBox(), st = await api((p) => ({ s: p.state.scale, ox: p.state.ox, oy: p.state.oy }));
+  const at = (fx, fy) => ({ x: cb.x + st.ox + st.s * info.w * fx, y: cb.y + st.oy + st.s * info.h * fy });
+  // magic select the skin (belly), shade with a soft shadow brush, then an edge shadow
+  await page.locator('.pe-tool[data-tool="wand"]').click(); const p = at(0.5, 0.85); await page.mouse.click(p.x, p.y);
+  expect(await api((p) => { let n = 0; for (const v of p.state.sel || []) if (v > 127) n++; return n; })).toBeGreaterThan(1000);
+  await page.locator('.pe-tool[data-tool="brush"]').click(); await page.locator('.pe-brush[data-style="shadow"]').click(); await api((p) => { p.state.fg = [90, 60, 30]; p.state.size = 120; });
+  const t0 = Date.now(); const a = at(0.2, 0.78), b = at(0.8, 0.84); await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(b.x, b.y, { steps: 25 }); await page.mouse.up(); expect(Date.now() - t0).toBeLessThan(20000);
+  await page.locator('.pe-ptabs button', { hasText: 'Adjust' }).click(); const t1 = Date.now(); await page.getByRole('button', { name: 'Add edge shadow' }).click(); expect(Date.now() - t1).toBeLessThan(10000);
+  await page.screenshot({ path: '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/pe-real.png' });
+  await page.locator('.pe-ptabs button', { hasText: 'Brushes' }).click(); await page.screenshot({ path: '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/pe-real2.png' });
+  await page.getByRole('button', { name: 'Apply', exact: true }).click(); await expect(page.locator('.pe')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => [...window.__charstudio.st.edit.values()].some((e) => e.img))).toBe(true);
+  await page.waitForTimeout(1500); await page.locator('.cs-stage').screenshot({ path: '/tmp/claude-0/-home-user-a/3967a7cb-7154-561f-8d0c-7184bb9946ac/scratchpad/pe-real3.png' });
+  expect(errors).toEqual([]);
+});

@@ -14,6 +14,7 @@ import { readPsdLayers, planPsd, kindOf } from './psd.js';
 import { listStudioAssets, downloadStudioAsset } from './studio-assets.js';
 import { lockedFor, PAID_MESSAGE } from '../shared/asset-access.js';
 import { currentPlan, refreshPlan } from './export-plan.js';
+import { openPhotoEditor } from './photo-editor.js';
 import { patchRig, faceEdits, faceDefaults, bakeSke, stickerAtlasJson, STICKER_PAGE } from './rigedit.js';
 import { LIMITS, mb } from './limits.js';
 import { saveCharacter, deleteCharacter, loadCharacters, get as getDraft, put as putDraft } from './store.js';
@@ -621,6 +622,15 @@ export async function view({ user, home, toast, localPreview = false }) {
     ];
   }
 
+  /** the layer's picture opens in the picture editor (brushes, fill, magic select, shadows ...); the result replaces the layer's picture */
+  function paintLayer(l) {
+    if (st.locked.has(l.region)) { toast('This layer is locked.'); return; }
+    const src = cropOf(l.region, 2400); if (!src) { toast('This layer has no picture to edit yet.'); return; }
+    openPhotoEditor({ canvas: src, title: labelOf(l), onApply: (cv) => {
+      const e = editOf(l.region); e.img = cv; e.trim = null; e.removed = false; e.fill = false; e.hue = 0; e.sat = 1; e.light = 0;          // the colour changes are already inside the picture now
+      queue([l.region]); autoSoon(); draw(); toast('Picture updated.');
+    } });
+  }
   async function putImage(l, file) {
     if (st.locked.has(l.region)) { toast('This layer is locked.'); return; }
     try {
@@ -812,7 +822,7 @@ export async function view({ user, home, toast, localPreview = false }) {
     const row = (l) => {
       const reg = st.regions.get(l.region), e = st.edit.get(l.region), file = h('input', { type: 'file', accept: 'image/*,.svg', style: 'display:none', onchange: (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f) putImage(l, f).then(draw); } });
       return h('div', { class: `cs-lrow cs-crow ${e?.img ? 'done' : ''} ${st.guideFocus === l.region ? 'rig-guide-selected' : ''}`, 'data-rig-region': l.region, title: 'Tap to choose this part (for stickers and the guide)', onclick: (ev) => { if (ev.target.closest('button,input,label,a')) return; st.guideFocus = st.guideFocus === l.region ? null : l.region; draw(); if (st.stkSolo) applySolo(); } }, thumb(l.region), h('div', { class: 'cs-lname' }, h('b', {}, labelOf(l)), h('small', {}, `${reg.w}×${reg.h}px${isUtility(l) ? ' · Transparent utility slot' : e?.img ? ` · PNG ${e.img.width}×${e.img.height}px` : ''}`)),
-        h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, icon('download')), h('button', { class: `btn sm cs-up ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, icon(e?.img ? 'refresh' : 'upload'), h('span', {}, e?.img ? 'Replace' : 'Upload')), file);
+        h('button', { class: 'ib cs-edit', title: 'Edit this picture: brushes, fill, magic select, shadows', 'aria-label': `Edit ${labelOf(l)}`, onclick: (ev) => { ev.stopPropagation(); paintLayer(l); } }, icon('pencil')), h('button', { class: 'ib', title: 'Download this box (PNG) to draw in', onclick: (ev) => { ev.stopPropagation(); downloadLayer(l); } }, icon('download')), h('button', { class: `btn sm cs-up ${e?.img ? '' : 'pri'}`, onclick: (ev) => { ev.stopPropagation(); file.click(); } }, icon(e?.img ? 'refresh' : 'upload'), h('span', {}, e?.img ? 'Replace' : 'Upload')), file);
     };
     return [
       h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Draw these parts in your own style (same angle as the template, transparent background), upload them one by one, or all together with the template sheet / a PSD. The skeleton, animations, lip-sync and physics come with the base body, so every animation works on your character.'),
