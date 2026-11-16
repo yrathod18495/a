@@ -1424,7 +1424,7 @@ function drawTimeline() {
 /* ---------- the user's own animation clips on the timeline ---------- */
 const findManual = (id) => { for (const [k, list] of Object.entries(S.manual)) { const m = list.find((x) => x.id === id); if (m) return { s: sOf(k), m, list }; } return null; };
 /** an empty scene is 8 s; otherwise the end of the last clip (animation, background clip, effect with an end) decides. Trimming clips shortens the scene. With audio the voice decides the length. */
-const sceneLen = () => contentLength({ solo: S.solo, speakers: S.speakers, manual: S.manual, bgClips: S.bgClips, props: S.props, camKeys: S.camKeys, charKeys: S.charKeys, gradeKeys: S.gradeKeys });
+const sceneLen = () => contentLength({ solo: S.solo, speakers: S.speakers, manual: S.manual, bgClips: S.bgClips, props: S.props, fx: S.fx, camKeys: S.camKeys, charKeys: S.charKeys, gradeKeys: S.gradeKeys });
 /** background clips as the stage wants them: the picture is looked up in the user's own backgrounds */
 const bgClipJobs = () => S.bgClips.map((c) => ({ fx: c.fx || null, start: c.start, dur: c.dur, xf: c.xf || null, preset: c.preset ?? 0, blob: c.bgId ? S.myBgs.find((r) => r.id === c.bgId)?.blob ?? null : null }));
 const bgBlankOutside = () => S.bgClips.some((c) => c.base);

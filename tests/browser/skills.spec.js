@@ -36,8 +36,8 @@ test('a skill on a character is drawn on the stage at the chosen place, follows 
     stage.setLayers([{ key: 'c1', charId: def.id, skins: null, swap: null, anims: {}, clips: [], present: null, flip: false, xf: null, mask: null, maskKeys: [], maskFollow: '', slot: 0, visible: true, keys: [] }]);
     const count = (t) => { stage.render(t, 0, [], []); const c = document.createElement('canvas'); c.width = stage.out.width; c.height = stage.out.height; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(stage.out, 0, 0); const d = g.getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] > 90 && d[i + 1] < 190 && d[i + 2] < 60) n++; return n; };
     const none = count(1);
-    stage.fx = [newSkill('fire', { id: 'sk1', target: 'char:c1', start: 0, end: 5, ramp: 0.5 })];
-    const fire = count(2.5), faded = count(0.05), outside = count(6);
+    stage.fx = [newSkill('fire', { id: 'sk1', target: 'char:c1', start: 1, end: 6, ramp: 0.5 })];
+    const fire = count(2.5), faded = count(1.05), outside = count(7);
     stage.fx = [{ ...stage.fx[0], visible: false }]; const hidden = count(2.5);
     return { none, fire, faded, outside, hidden };
   }, Array.from(zip));
