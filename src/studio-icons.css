@@ -916,7 +916,6 @@ body.studio-dark .stagewrap>.hd{width:11px;height:11px;border-radius:50%;backgro
 body.studio-dark .stagewrap>.hd::before{content:"";position:absolute;inset:-14px;border-radius:50%}
 .stagewrap>.hd.h-rot{cursor:grab;background:#fff;border-color:#7c6cf5}
 .stagewrap>.hd.h-rot::after{content:"";position:absolute;left:50%;top:100%;width:1.5px;height:var(--stick,26px);margin-left:-.75px;background:#7c6cf5;border-radius:2px;pointer-events:none}
-@media(pointer:coarse){.stagewrap>.hd.h-rot{--stick:30px}}
 body.studio-dark .selbox{border-width:1.5px}
 
 /* the player bar: every button the same round size and height, icons only, nothing crooked */
@@ -931,3 +930,10 @@ body.studio-dark .selbox{border-width:1.5px}
 @media(max-width:860px){
   #app .ws .studio:has(.char-bar:not([hidden]),.clip-nav:not([hidden])) .tabs.big{visibility:hidden}
 }
+
+/* the bottom tools slide in softly instead of popping in */
+@keyframes bar-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(max-width:860px){
+  #app .ws .char-bar:not([hidden]),#app .ws .clip-nav:not([hidden]){animation:bar-in .2s ease-out}
+}
+@media(prefers-reduced-motion:reduce){#app .ws .char-bar,#app .ws .clip-nav{animation:none!important}}

@@ -3353,7 +3353,7 @@ function updateSel() {
     el.classList.toggle('pinned', Math.abs(px - x * k) > 1 || Math.abs(py - y * k) > 1);
     l.hpos[c] = [px / k, py / k];
   }
-  { const el = handleEls.rot, tx = ((b.x0 + b.x1) / 2) * k, ty = Math.max(m, b.y0 * k - 44); el.hidden = charLockedNow(l.key); el.style.left = `${Math.min(cw - m, Math.max(m, tx))}px`; el.style.top = `${Math.min(ch - m, ty)}px`; }          // the tilt handle on a stick above the box
+  { const el = handleEls.rot, tx = ((b.x0 + b.x1) / 2) * k, ty = Math.max(m, b.y0 * k - 44); el.hidden = charLockedNow(l.key); el.style.setProperty('--stick', `${Math.max(0, Math.round(b.y0 * k - Math.min(ch - m, ty) - 6))}px`); el.style.left = `${Math.min(cw - m, Math.max(m, tx))}px`; el.style.top = `${Math.min(ch - m, ty)}px`; }          // the tilt handle on a stick above the box
   if (selToolsEl) updateSelTools(l, b, k, cw, ch);
 }
 /** a small floating toolbox over the selected character, for the tools that act on one character — tap a button to jump straight into that tool */
