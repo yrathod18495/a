@@ -24,3 +24,7 @@ A page load that waits for several serverless calls feels broken on a phone ("Ge
 ## One thing to check outside the code
 
 Vercel runs the API functions in one region (default: Washington). If the Firestore database is somewhere else (for example Mumbai), every server call crosses the world. Put them in the same region: Firebase console → Firestore → Data (the location is shown in the Rules / Settings area), then `"regions": ["bom1"]` (Mumbai) or the nearest in `vercel.json`.
+
+## Studio tool switches
+
+The admin can switch each studio tool off (Overview → Studio tools). The flags are `tool_<key>` features (`shared/studio-tools.js`) stored with the other features and carried by `maintenanceStatus` and the boot cache. A normal user stops seeing an off tool without a reload (the studio asks `maintenanceStatus` every 30 s); an admin still sees it, lighter (`.tool-off`). This is UI-level only. Never make the first screen wait for these flags.

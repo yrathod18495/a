@@ -19,7 +19,8 @@ export async function setMaintenance(db, enabled, by) {
 }
 
 // Which tool cards the hub shows (Animator Studio, Character Editor, Background Generator). The admin can hide or show each one at any time; both are on until the admin hides one.
-export const FEATURES = ['animator', 'character', 'background'];
+import { TOOL_FEATURES } from '../shared/studio-tools.js';
+export const FEATURES = ['animator', 'character', 'background', ...TOOL_FEATURES];          // the three tool cards of the hub, then each tool of the studio's tool bar
 const featureSeen = new WeakMap();
 export async function getFeatures(db = services().db) {
   const hit = featureSeen.get(db);

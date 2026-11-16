@@ -2,6 +2,7 @@ import { h, logo } from './dom.js';
 import { apiCall } from './session.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
 import { icon as ic } from './icons.js';
+import { STUDIO_TOOLS, toolFeature } from '../shared/studio-tools.js';
 
 const number = (value) => Number(value || 0).toLocaleString('en-IN');
 const money = (paise) => `₹${(Number(paise || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -120,9 +121,15 @@ export function dashboardView({ user, home, toast, openStudio }) {
       for (const [feature, title, iconName] of [['animator', 'Animator Studio', 'film'], ['character', 'Character Editor', 'user'], ['background', 'Background Generator', 'image']])
         row(feature, title, 'Visible to users', 'Hidden from users',
           async (on) => (await apiCall('/api/security', { action: 'setFeature', feature, enabled: on }, user.uid)).features[feature] !== false, undefined, iconName);
+      const toolStart = rows.length;
+      for (const [tool, title] of STUDIO_TOOLS)
+        row(toolFeature(tool), title, 'On for everyone', 'Off for users · you still see it, lighter',
+          async (on) => (await apiCall('/api/security', { action: 'setFeature', feature: toolFeature(tool), enabled: on }, user.uid)).features[toolFeature(tool)] !== false, undefined, 'settings');
       apiCall('/api/security', { action: 'getMaintenance' }, user.uid).then((r) => { for (const x of rows) x.paint(x.key === 'maintenance' ? r.maintenance === true : r.features?.[x.key] !== false); })
         .catch((e) => { for (const x of rows) x.note.textContent = `Could not read the setting: ${friendlyError(e)}`; });
-      return h('section', { class: 'admin-panel-card admin-maint' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, h('h2', {}, 'Site controls'))), h('div', { class: 'admin-maint-grid' }, ...rows.map((x) => x.node)));
+      return h('section', { class: 'admin-panel-card admin-maint' }, h('div', { class: 'admin-panel-heading' }, h('div', {}, h('h2', {}, 'Site controls'))), h('div', { class: 'admin-maint-grid' }, ...rows.slice(0, toolStart).map((x) => x.node)),
+        h('div', { class: 'admin-panel-heading', style: 'margin-top:14px' }, h('div', {}, h('h2', {}, 'Studio tools'), h('small', {}, 'Switch a tool of the studio\'s tool bar off for normal users. It disappears for them within about half a minute, without a reload. You still see it, a little lighter.'))),
+        h('div', { class: 'admin-maint-grid', id: 'admin-tool-switches' }, ...rows.slice(toolStart).map((x) => x.node)));
     }
     /** creators who opened the developer tools or tried to view the source (reported by src/shield.js) */
     function alertsSection() {

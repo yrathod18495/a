@@ -25,6 +25,7 @@ import { apiCall } from './session.js';
 import { createShield } from './shield.js';
 import { icon as svgIcon } from './icons.js';
 import { startingState, saveBoot, bootChanged, fromServer } from './boot-cache.js';
+import { setToolFlags, toolFlagsAsFeatures } from './tool-flags.js';
 
 const DEBUG = import.meta.env.DEV && location.search.includes('debug');
 const favicon = document.querySelector('link[rel~="icon"]');
@@ -39,7 +40,7 @@ window.addEventListener('project-id-changed', e => {
 });
 const $shell = document.getElementById('shell'), $app = document.getElementById('app');
 let features = { animator: true, character: true, background: true };
-const applyFeatures = (r) => { if (r?.features) features = { animator: r.features.animator !== false, character: r.features.character !== false, background: r.features.background !== false }; };
+const applyFeatures = (r) => { if (r?.features) setToolFlags(r.features, role === 'admin'); if (r?.features) features = { animator: r.features.animator !== false, character: r.features.character !== false, background: r.features.background !== false }; };
 const featureOn = (hash) => role === 'admin' || (hash === '#/toons' ? features.animator : hash === '#/characters' ? features.character : hash === '#/background-generator' ? features.background : true);
 let adminUnknown = false, user = null, ready = false, studio = null, current = '', role = 'user', maintenance = false; 
 let loadedAnimationProject=null;
@@ -516,7 +517,7 @@ async function start() {
      the session check is the same request) and its answer is applied when it arrives. Only a definite "no" (ended session, blocked account) signs the user out. */
   trace('waiting for the sign-in state of this device');
   const redirectP = finishRedirect();          // answers at once when no Google redirect is pending
-  const features$ = () => ({ animator: features.animator, character: features.character, background: features.background });
+  const features$ = () => ({ animator: features.animator, character: features.character, background: features.background, ...toolFlagsAsFeatures() });
   const stateNow = () => ({ role, maintenance, features: features$() });
   function applyAnswer(u, answer) {
     if (!answer || user?.uid !== u.uid) return false;

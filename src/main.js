@@ -15,6 +15,7 @@ import { brandWordmark, swipeAway } from './dom.js';
 import { creditsBadge } from './credits-badge.js';
 import { lockedFor, PAID_MESSAGE } from '../shared/asset-access.js';
 import { SKILLS, SKILL_ANCHORS, newSkill, cleanSkill, drawSkill } from '../shared/skills.js';
+import { toolShown, toolOffForUsers, onToolsChange, setToolFlags } from './tool-flags.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
 import { Stage, ASPECTS, BACKGROUNDS, aspectOf } from './db/stage.js';
@@ -23,7 +24,7 @@ import { characterPicker } from './charpick.js';
 import { gpuEncodeConfig } from './gpu-encode.js';
 import { exportOffline, exportParallel, exportDistributed, workerCount, exportRealtime, canExportOffline, pickType, bitrateFor } from './exporter.js';
 import { loadCharacters, saveCharacter, deleteCharacter, all as dbAll, put as dbPut, del as dbDel, get as dbGet, resetAll, context as projectContext, listBgLibrary } from './store.js';
-import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud } from './cloud.js';
+import { startAutoSync, cloudReady, listCharactersCloud, loadCharacterCloud, deleteCharacterCloud, maintenanceStatus } from './cloud.js';
 import { describeMotion, buildBrief, extractJson } from './brief.js';
 import { loadAi, saveAi, listModels, transcribe, direct } from './ai.js';
 import { loadCatalog, hydrateCharacter, categoriesFor, fetchAnimation, url as assetUrl, libraryCharacters, libraryStatus, isLockedCharacter, fetchLibraryCharacter, cdn, modePools, idleRef, modeEntries, MODE_REFS, cloudRef } from './catalog.js';
@@ -1031,21 +1032,21 @@ function pickFiles(accept, multiple, handler) {
 }
 /** the phone bottom bar follows the timeline group: Audio shows the audio tools, Background the background tools ... (a few big buttons, no sideways search) */
 function phoneNav(button, byKey, upload, more) {
-  const act = (ic, text, onclick, on = false) => h('button', { type: 'button', class: on ? 'on' : '', title: text, 'aria-label': text, onclick }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'sr' }, text));
+  const act = (ic, text, onclick, on = false, tool = null) => (tool && !toolShown(tool) ? null : h('button', { type: 'button', class: `${on ? 'on' : ''}${tool && toolOffForUsers(tool) ? ' tool-off' : ''}`, title: tool && toolOffForUsers(tool) ? `${text} (off for users)` : text, 'aria-label': text, onclick }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'sr' }, text)));
   const tab = (key, text, ic) => { const t = byKey[key]; return button([key, text || t[1], ic || t[2]]); };
   const cat = S.tlCat;
   if (cat === 'audio') return [
-    act('mic', 'Voices', () => pickFiles('audio/*,.zip', true, onFiles)),
-    act('music', 'Music', () => pickFiles('audio/*', false, (f) => addMusic(f[0]))),
-    act('settings', 'Edit voice', () => { const id = S.lineSel || S.lines[0]?.id; if (id) openVoiceEdit(id); else toast('Add a voice first, then tap its layer to edit it.'); }),
+    act('mic', 'Voices', () => pickFiles('audio/*,.zip', true, onFiles), false, 'audio'),
+    act('music', 'Music', () => pickFiles('audio/*', false, (f) => addMusic(f[0])), false, 'audio'),
+    act('settings', 'Edit voice', () => { const id = S.lineSel || S.lines[0]?.id; if (id) openVoiceEdit(id); else toast('Add a voice first, then tap its layer to edit it.'); }, false, 'audio'),
     upload];
   if (cat === 'background') return [
     tab('canvas', 'Pick'),
-    act('upload', 'Upload', () => pickFiles('image/*,video/*', true, addBackgroundFiles)),
-    act('crop', 'Edit', () => { const c = S.bgClips?.find((x) => x.id === S.bgSel) || S.bgClips?.[0]; if (c) openBgCrop(c); else toast('Add a background first, then tap Edit.'); }),
-    act('wand', 'Filter', () => { S.fxPick = 'bg'; S.tab = 'fx'; S.panelOpen = true; drawTabs(); dockShow('panel'); }, S.tab === 'fx' && S.fxPick === 'bg' && S.panelOpen),
+    act('upload', 'Upload', () => pickFiles('image/*,video/*', true, addBackgroundFiles), false, 'canvas'),
+    act('crop', 'Edit', () => { const c = S.bgClips?.find((x) => x.id === S.bgSel) || S.bgClips?.[0]; if (c) openBgCrop(c); else toast('Add a background first, then tap Edit.'); }, false, 'canvas'),
+    act('wand', 'Filter', () => { S.fxPick = 'bg'; S.tab = 'fx'; S.panelOpen = true; drawTabs(); dockShow('panel'); }, S.tab === 'fx' && S.fxPick === 'bg' && S.panelOpen, 'fx'),
     tab('grade', 'Colour')];
-  if (cat === 'props') return [tab('handprops'), tab('props'), act('hand', 'Hold', () => openHoldTool()), tab('shadow')];
+  if (cat === 'props') return [tab('handprops'), tab('props'), act('hand', 'Hold', () => openHoldTool(), false, 'handprops'), tab('shadow')];
   if (cat === 'effects') return [tab('fx'), tab('effects'), tab('grade', 'Colour')];
   return [tab('chars'), tab('anim'), tab('motion'), more];
 }
@@ -1055,7 +1056,7 @@ function drawTabsInner() {
   { const want = TAB_CAT[S.tab]; if (S.panelOpen && want && S.tlTabSeen !== S.tab) { S.tlTabSeen = S.tab; if (S.tlCat !== want) { S.tlCat = want; drawTimeline(); } } }          // the group first: the phone bar below follows it
   tabsEl.className = `tabs big${S.panelOpen ? '' : ' shut'}`;
   const advanced = new Set(['motion', 'camera', 'mask', 'ai', 'tears', 'effects', 'grade', 'uploads', 'skills']);
-  const button = ([key, label, ic], openOnly = false) => h('button', { type: 'button', class: S.tab === key && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === key && S.panelOpen), title: label, onclick: () => {
+  const button = ([key, label, ic], openOnly = false) => !toolShown(key) ? null : h('button', { type: 'button', class: `${S.tab === key && S.panelOpen ? 'on' : ''}${toolOffForUsers(key) ? ' tool-off' : ''}`, 'aria-pressed': String(S.tab === key && S.panelOpen), title: toolOffForUsers(key) ? `${label} (off for users)` : label, onclick: () => {
     if (S.tab === key && !openOnly && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = key; S.panelOpen = true; }
     drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
   } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'sr' }, label));
@@ -1072,14 +1073,14 @@ function drawTabsInner() {
     h('summary', { title: 'More tools' }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('settings')), h('span', { class: 'sr' }, 'More')),
     h('div', { class: 'advanced-tools-list' }, ...adv('Bring in', ['uploads']), ...adv('Look', ['skills', 'tears', 'effects', 'grade']), ...adv('Direct', ['motion', 'camera', 'mask']), ...adv('Smart', ['ai']), ...adv('Finish', ['export'])));
   // phone bar: Upload (the voices), Characters, Animations, Props, Background and Advanced (which ends with Export; Export is also in the header)
-  const upload = h('button', { type: 'button', class: S.tab === 'audio' && S.panelOpen ? 'on' : '', 'aria-pressed': String(S.tab === 'audio' && S.panelOpen), title: 'Upload', 'aria-label': 'Upload', onclick: () => {
+  const upload = h('button', { type: 'button', hidden: !toolShown('audio'), class: `${S.tab === 'audio' && S.panelOpen ? 'on' : ''}${toolOffForUsers('audio') ? ' tool-off' : ''}`, 'aria-pressed': String(S.tab === 'audio' && S.panelOpen), title: 'Upload', 'aria-label': 'Upload', onclick: () => {
     if (S.tab === 'audio' && !wideStudio()) S.panelOpen = !S.panelOpen; else { S.tab = 'audio'; S.panelOpen = true; }
     more.open = false; drawTabs(); S.dirty = true; if (S.panelOpen) dockShow('panel');
   } }, h('span', { class: 'ti', 'aria-hidden': 'true' }, icon('upload')), h('span', { class: 'sr' }, 'Upload'));
   if (wideStudio()) {
     // On a big screen the tools are a plain labelled list, in the order a person works: voices, characters, animations, then the rest.
     const done = { audio: S.lines.length > 0, chars: S.speakers.some((x) => x.charId), anim: Object.values(S.manual || {}).some((list) => list?.length) };
-    const railBtn = (key, step) => { const [, text, ic] = byKey[key], active = S.tab === key; return h('button', { type: 'button', class: `rail-btn${active ? ' on' : ''}${step && done[key] ? ' done' : ''}`, 'aria-pressed': String(active), onclick: () => { S.tab = key; S.panelOpen = true; drawTabs(); S.dirty = true; dockShow('panel'); } },
+    const railBtn = (key, step) => { if (!toolShown(key)) return null; const [, text, ic] = byKey[key], active = S.tab === key; return h('button', { type: 'button', title: toolOffForUsers(key) ? `${text} (off for users)` : undefined, class: `rail-btn${active ? ' on' : ''}${step && done[key] ? ' done' : ''}${toolOffForUsers(key) ? ' tool-off' : ''}`, 'aria-pressed': String(active), onclick: () => { S.tab = key; S.panelOpen = true; drawTabs(); S.dirty = true; dockShow('panel'); } },
       h('span', { class: 'rb-ico', 'aria-hidden': 'true' }, icon(ic)), h('span', { class: 'rb-label' }, text), step ? h('span', { class: 'rb-step', 'aria-hidden': 'true' }, done[key] ? '✓' : String(step)) : null); };
     tabsEl.replaceChildren(h('div', { class: 'rail-title' }, 'Start here'), railBtn('audio', 1), railBtn('chars', 2), railBtn('anim', 3),
       h('div', { class: 'rail-title' }, 'Scene'), ...['canvas', 'handprops', 'props', 'shadow', 'fx'].map((key) => railBtn(key)),
@@ -2764,6 +2765,7 @@ function drawTabsSoft() { clearTimeout(softTimer); softTimer = setTimeout(() => 
 let camSheetEl = null, camBoxRaf = 0;
 function closeCamBox() { if (camSheetEl) camSheetEl.hidden = true; cancelAnimationFrame(camBoxRaf); S.camPeek = false; syncFullView(); updateCamBox(); S.dirty = true; }
 function openCamBox() {
+  if (!toolShown('camera')) { toast('This tool is not available right now.'); return; }
   if (S.panelOpen) { S.panelOpen = false; drawTabs(); }
   closeVoiceSheet(); closeHoldSheet(); S.editDock?.close?.();
   S.tab = 'camera';
@@ -2984,6 +2986,7 @@ function voiceWave(c) {
 let holdSheetEl = null, holdPropId = null;
 function closeHoldSheet() { if (holdSheetEl) holdSheetEl.hidden = true; holdPropId = null; }
 function openHoldTool(pr = null) {
+  if (!toolShown('handprops')) { toast('This tool is not available right now.'); return; }
   const props = S.props.filter((p) => !isEffect(p));
   pr ||= props.find((p) => p.id === (S.propSel || S.selectedPropId)) || props.at(-1) || null;
   if (!pr) { toast('Add a prop first (Props or Objects tab), then use Hold to put it in a hand.'); return; }
@@ -3564,8 +3567,8 @@ function drawCharBar(l) {
   }
   charBar.dataset.key = l.key; queueMicrotask(() => { markCharBar(l); for (const inp of charBar.querySelectorAll('.cb-size')) inp.disabled = charLockedNow(l.key); });
   const btn = (ic, text, onclick, extra = {}) => h('button', { type: 'button', class: 'cb-btn', title: text, 'aria-label': `${text}`, onclick, ...extra }, icon(ic), h('span', {}, text));
-  const items = [['anim', 'Animations', 'film'], ['face', 'Face', 'smile'], ['handprops', 'Props', 'sword'], ['motion', 'Path', 'route']];
-  const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']];
+  const items = [['anim', 'Animations', 'film'], ['face', 'Face', 'smile'], ['handprops', 'Props', 'sword'], ['motion', 'Path', 'route']].filter(([tab]) => toolShown(tab === 'face' ? 'anim' : tab));
+  const rest = [['tears', 'Tears', 'droplet'], ['mask', 'Mask', 'mask']].filter(([tab]) => toolShown(tab));
   charBar.replaceChildren(
     h('div', { class: 'cb-list' },
       ...items.map(([tab, text, ic]) => btn(ic, text, () => (tab === 'motion' ? startPathShadow(s) : tab === 'face' ? openFaceList(l.key, s) : openCharTool(l.key, tab)), { 'data-tab': tab })),
@@ -3637,7 +3640,7 @@ function addCharacterTo(s) {
   });
 }
 /* ---- start of a scene: audio is optional, so the workbench is open from the first second ---- */
-const openTab = (k) => { S.tab = k; S.panelOpen = true; drawTabs(); dockShow('panel'); };
+const openTab = (k) => { if (!toolShown(k)) { toast('This tool is not available right now.'); return; } S.tab = k; S.panelOpen = true; drawTabs(); dockShow('panel'); };
 /** the "Start your scene" card can be closed; a small "Quick start" button then brings it back (the choice is remembered on this device) */
 let startHidden = false;
 try { startHidden = localStorage.getItem('12toons-start-hidden') === '1'; } catch { /* the card simply stays open */ }
@@ -4548,6 +4551,7 @@ function exportLength() {
 let exportChecking = false;
 /** the Download button in the header: a small box to pick the quality and smoothness, see the estimated size, then Render (always MP4, so it opens everywhere) */
 function openExportPopup() {
+  if (!toolShown('export')) { toast('Export is not available right now.'); return; }
   if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
   S.format = 'mp4'; if (S.quality < 480) S.quality = 480; fixFps();          // nothing renders below 40 fps (an old project may have left 12 / 15 / 24 / 30)
   const scenes = S.exportScope === 'all' ? docOf().scenes : [{ doc: sceneDoc() }];
@@ -5088,7 +5092,7 @@ function headerTools() {
   saveDetails = h('details', { class: 'save-status' }, savedEl, saveBody);
   updateSaveStatus();
   queueMicrotask(updateHistoryButtons);
-  exportBtn = h('button', { class: 'btn ok icon-btn export-btn', 'aria-label': 'Export', title: 'Export video', onclick: () => openExportPopup() }, icon('download'));
+  exportBtn = h('button', { class: `btn ok icon-btn export-btn${toolOffForUsers('export') ? ' tool-off' : ''}`, hidden: !toolShown('export'), 'aria-label': 'Export', title: 'Export video', onclick: () => openExportPopup() }, icon('download'));
   // the ✕ asks first, in a small drop right under it (a project can be left by a stray tap otherwise)
   const closePop = h('div', { class: 'close-pop', role: 'dialog', 'aria-label': 'Close the studio?', hidden: true }, h('span', {}, 'Close the studio?'),
     h('button', { type: 'button', class: 'btn sm', onclick: () => { closePop.hidden = true; } }, 'Stay'), h('button', { type: 'button', class: 'btn sm pri close-yes', onclick: () => { closePop.hidden = true; goHome(); } }, 'Close'));
@@ -5105,6 +5109,15 @@ window.addEventListener('keydown', (e) => {
   if (k === 'c' && S.step === 3 && !window.getSelection?.().toString() && (S.mclip || S.bgSel || S.propSel || multi.size)) { e.preventDefault(); copySelected(); } else if (k === 'v' && S.step === 3 && S.clipboard) { e.preventDefault(); pasteClip(); }
   else if (k === 'z' && !e.shiftKey) { e.preventDefault(); stepHistory(-1); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); stepHistory(1); }
 });
+/** the admin switches studio tools on and off: the tool bar follows within about half a minute (and at once on this device when the answer changes) */
+function applyToolSwitches() {
+  if (!tabsEl) return;
+  if (!toolShown(S.tab)) { S.tab = 'chars'; S.panelOpen = false; }
+  if (exportBtn) { exportBtn.hidden = !toolShown('export'); exportBtn.classList.toggle('tool-off', toolOffForUsers('export')); }
+  drawTabs();
+}
+onToolsChange(() => { if (!$app.hidden) applyToolSwitches(); });
+setInterval(() => { if (document.hidden || $app.hidden || !navigator.onLine) return; maintenanceStatus().then((st) => { if (st && !st.unavailable) setToolFlags(st.features); }).catch(() => {}); }, 30000);
 document.addEventListener('visibilitychange', () => { if (document.hidden) { tick(); releaseMemory(); thumbPlay.release(); } else { last = performance.now(); S.dirty = true; } });          // in the background: what can be read again from the disk leaves RAM
 
 /* ---------------- main loop ---------------- */

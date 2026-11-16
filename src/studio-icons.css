@@ -964,3 +964,7 @@ body.studio-dark .selbox{border-width:1.5px}
 .ov-canvas{display:block;width:100%;height:8px;border-radius:4px}
 .ov-head{position:absolute;top:1px;bottom:1px;width:2px;margin-left:-1px;border-radius:1px;background:#fff;box-shadow:0 0 0 1px #0007;pointer-events:none}
 .stagewrap.drop-over{outline:3px dashed var(--acc,#7c6cf5);outline-offset:-3px}
+
+/* a tool the admin switched off for normal users: the admin still sees it, a little lighter */
+#app .ws .tool-off,#app .ws .tabs-scroll>button.tool-off,#app .ws .rail-btn.tool-off,.tool-off.export-btn{opacity:.45;filter:saturate(.6)}
+#app .ws .tool-off:is(:hover,:active,.on){opacity:.7}

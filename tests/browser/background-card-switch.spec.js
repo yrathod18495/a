@@ -47,7 +47,7 @@ test('admin: the Overview page has a Background Generator card switch that saves
   await page.locator('.admin-console-tab', { hasText: 'Overview' }).click();            // the "Access and visibility" switches are on the Overview page
   // the rows have room on both sides: text and switches do not touch the edge of the card (they looked cut off before)
   const gaps = await page.evaluate(() => { const c = document.querySelector('.admin-maint').getBoundingClientRect(); return [...document.querySelectorAll('.admin-maint-row')].map((row) => ({ left: row.querySelector('h2').getBoundingClientRect().left - c.left, right: c.right - row.querySelector('.admin-switch').getBoundingClientRect().right })); });
-  expect(gaps.length).toBe(4);
+  expect(gaps.length).toBeGreaterThanOrEqual(4);
   for (const gap of gaps) { expect(gap.left).toBeGreaterThanOrEqual(12); expect(gap.right).toBeGreaterThanOrEqual(12); }
   const toggle = page.getByRole('switch', { name: 'Background Generator' });
   await expect(toggle).toBeVisible();
@@ -61,4 +61,9 @@ test('admin: the Overview page has a Background Generator card switch that saves
   failSave = true; await toggle.click();
   await expect.poll(() => page.evaluate(() => window.__toasts.at(-1))).toMatch(/Could not change “Background Generator”/);
   await expect(toggle).toHaveAttribute('aria-checked', 'false');          // still as it was
+  // every studio tool has its own switch under "Studio tools"
+  const tears = page.getByRole('switch', { name: /Tears/ });
+  await expect(page.locator('#admin-tool-switches [role=switch]')).toHaveCount(18);
+  calls.length = 0; failSave = false; await tears.click();
+  expect(calls.filter((c) => c.action === 'setFeature')).toEqual([{ action: 'setFeature', feature: 'tool_tears', enabled: false }]);
 });
