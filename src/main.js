@@ -1094,6 +1094,7 @@ function selectLine(id, seek = true, explicit = false) {          // explicit: t
   const L = lineById(id);
   if (seek && L) { player.seek(L.start + 0.01); }
   drawTimeline(); drawLineBox(); drawClipBar(); S.dirty = true;
+  if (voiceSheetEl && !voiceSheetEl.hidden) paintVoiceSheet();          // the open voice popup follows the layer that was tapped
   if (S.tab === 'anim' && S.panelOpen) drawTabs();
 }
 /** which animation each character layer plays right now (at the playhead), shown under the layer name */
@@ -2079,7 +2080,7 @@ function drawClipNav() {
     h('div', { class: 'cb-list' },
       btn('x', 'Close', clearClipSelection, { title: 'Close: back to the Upload / Characters / Animations tabs', 'aria-label': 'Close the clip tools and go back to the tabs' }),
       ...(kind === 'fx' ? [btn('pencil', 'Edit', () => openFxDock(it.fx), { title: 'Opacity, blur, contrast, saturation, tint and more' })] : []),
-      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many }), btn('copy', 'Copy', copySelected)]),
+      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many })]),
       ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
@@ -2092,7 +2093,7 @@ function drawClipNav() {
       h('summary', { title: 'More', 'aria-label': 'More clip tools' }, icon('more'), h('span', {}, 'More')),
       h('div', { class: 'cb-more-list' },
         ...(canNudge ? [nudge('Move', 'start'), nudge('Length', 'dur')] : []),
-        ...(kind === 'shadow' || kind === 'fx' ? [] : [btn('paste', 'Paste', pasteClip, { disabled: !S.clipboard })]),          // Prev / Next are already in the row above the timeline
+          // Prev / Next are already in the row above the timeline
         ...(kind === 'bg' || kind === 'clip' || kind === 'prop' ? [btn('layers', 'Duplicate', duplicateSelected)] : []),
         ...(['clip', 'bg', 'prop', 'shadow', 'fx'].includes(kind) ? [btn(itemLockedNow ? 'lock' : 'unlock', itemLockedNow ? 'Unlock' : 'Lock', toggleItemLock, { title: 'Lock this one item: it cannot be moved, resized, cropped or deleted until it is unlocked' })] : []),
         ...(kind === 'clip' && s && S.order.length > 1 ? [btn('chevron-up', 'Bring forward', () => moveCharacterLayer(s.key, -1), { title: 'Move this character one step in front of the others' }), btn('chevron-down', 'Send back', () => moveCharacterLayer(s.key, 1), { title: 'Move this character one step behind the others' }), btn('arrow-up', 'To front', () => moveCharacterLayer(s.key, 'front')), btn('arrow-down', 'To back', () => moveCharacterLayer(s.key, 'back'))] : []),
@@ -2259,7 +2260,6 @@ function editTools() {
   return h('div', { class: 'edittools', role: 'toolbar', 'aria-label': 'Edit the selected clip' },
     b('prev', 'Prev', 'skip-back', () => jumpEdge(-1), 'Jump to the previous clip edge'), b('next', 'Next', 'skip-forward', () => jumpEdge(1), 'Jump to the next clip edge'),
     b('split', 'Split', 'scissors', splitSelected, 'Cut the selected clip at the playhead', 'needs-sel'),
-    b('copy', 'Copy', 'copy', copySelected, 'Copy the selected clip (Ctrl+C)', 'needs-sel'), b('paste', 'Paste', 'paste', pasteClip, 'Paste at the playhead (Ctrl+V)'),
     b('dup', 'Duplicate', 'layers', duplicateSelected, 'Add the same clip again, right after this one', 'needs-sel'),
     b('del', 'Delete', 'trash', deleteSelected, 'Delete the selected clip', 'needs-sel del'));
 }
@@ -2267,7 +2267,6 @@ function updateEditTools() {
   const many = multi.size >= 2, has = !!selectedItem() || many;
   for (const el of Object.values(editBtns)) if (el?.classList.contains('needs-sel')) { el.disabled = !has; }
   if (editBtns.split) editBtns.split.disabled = many || !has;
-  if (editBtns.paste) editBtns.paste.disabled = !S.clipboard;
   drawClipNav();
 }
 
@@ -4775,7 +4774,7 @@ matchMedia('(min-width: 1000px)').addEventListener?.('change', () => { if (!$app
 window.addEventListener('keydown', (e) => {
   if ($app.hidden || !(e.ctrlKey || e.metaKey) || e.target.closest('input,select,textarea,[contenteditable=true],dialog[open],.modal')) return;
   const k = e.key.toLowerCase();
-  if (k === 'c' && S.step === 3 && !window.getSelection?.().toString() && (S.mclip || S.bgSel || S.propSel)) { e.preventDefault(); copySelected(); } else if (k === 'v' && S.step === 3 && S.clipboard) { e.preventDefault(); pasteClip(); }
+  if (k === 'c' && S.step === 3 && !window.getSelection?.().toString() && (S.mclip || S.bgSel || S.propSel || multi.size)) { e.preventDefault(); copySelected(); } else if (k === 'v' && S.step === 3 && S.clipboard) { e.preventDefault(); pasteClip(); }
   else if (k === 'z' && !e.shiftKey) { e.preventDefault(); stepHistory(-1); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); stepHistory(1); }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) tick(); else { last = performance.now(); S.dirty = true; } });

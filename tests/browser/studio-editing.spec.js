@@ -12,7 +12,7 @@ async function studio(page) {
 }
 // two background clips: A is 1 s to 3 s, B is 5 s to 7 s
 async function twoClips(page) {
-  await page.evaluate(() => { const { S, drawTimeline } = window.__toon; S.bgClips.push({ id: 'a', preset: 1, start: 1, dur: 2 }, { id: 'b', preset: 2, start: 5, dur: 2 }); drawTimeline(); });
+  await page.evaluate(() => { const { S, drawTimeline } = window.__toon; S.bgClips.push({ id: 'a', preset: 1, start: 1, dur: 2 }, { id: 'b', preset: 2, start: 5, dur: 2 }); S.tlCat = 'background'; drawTimeline(); });
   await expect(page.locator('.tclip.bg.mine')).toHaveCount(2);
 }
 // drag a clip so its start moves by `seconds` (the zoom can change between drags, so it is read each time)
@@ -47,7 +47,7 @@ async function threeThings(page) {
     const T = window.__toon, c = document.createElement('canvas'); c.width = c.height = 8; c.getContext('2d').fillRect(0, 0, 8, 8);
     T.S.bgClips.push({ id: 'a', preset: 1, start: 1, dur: 2 }, { id: 'b', preset: 2, start: 5, dur: 2 });
     T.S.props.push({ id: 'p', name: 'Lamp', visible: true, blob: await new Promise((r) => c.toBlob(r)), start: 9, end: 11, x: .5, y: .5, w: .1, h: .1 });
-    T.commitClips();
+    T.S.tlCat = 'background'; T.commitClips();
   });
   await expect(page.locator('.tclip.bg.mine')).toHaveCount(2);
   await page.getByRole('button', { name: 'Fit whole timeline' }).click(); await page.waitForTimeout(200);
@@ -58,35 +58,31 @@ test('multi-select: Shift+click picks clips, dragging one moves them all by the 
   await studio(page); await threeThings(page);
   await page.locator('.tclip.bg.mine').first().click();
   await page.locator('.tclip.bg.mine').nth(1).click({ modifiers: ['Shift'] });
-  await page.locator('.tclip.prop').first().click({ modifiers: ['Shift'] });
-  await expect(page.locator('.tclip.msel')).toHaveCount(3);
+  await expect(page.locator('.tclip.msel')).toHaveCount(2);
   await page.locator('.snap-toggle').click();                                                // snapping would pull the group to other edges: keep this test about the move
   await dragBy(page, page.locator('.tclip.bg.mine').nth(1), -0.95);                          // drag B left by about 1 s
   let s = await starts(page);
-  expect(s.a).toBeCloseTo(0.05, 2); expect(s.b).toBeCloseTo(4.05, 2); expect(s.p).toBeCloseTo(8.05, 2);          // all three moved by the same amount
+  expect(s.a).toBeCloseTo(0.05, 2); expect(s.b).toBeCloseTo(4.05, 2); expect(s.p).toBeCloseTo(9, 2);          // both moved by the same amount (the prop is in another group and stays)
   await dragBy(page, page.locator('.tclip.bg.mine').nth(1), -3);                              // far too much: the group stops when the first clip reaches 0
   s = await starts(page);
-  expect(s.a).toBe(0); expect(s.b).toBeCloseTo(4, 2); expect(s.p).toBeCloseTo(8, 2);
-  await expect(page.locator('.tclip.msel')).toHaveCount(3);                                  // still selected
+  expect(s.a).toBe(0); expect(s.b).toBeCloseTo(4, 2); expect(s.p).toBeCloseTo(9, 2);
+  await expect(page.locator('.tclip.msel')).toHaveCount(2);                                  // still selected
   await page.keyboard.press('Escape');
   await expect(page.locator('.tclip.msel')).toHaveCount(0);
 });
 
-test('multi-select: a box picks the clips it touches; copy + paste, duplicate and delete work on all of them', async ({ page }) => {
+test('multi-select: Shift+click picks two; Ctrl+C / Ctrl+V, delete work on all of them', async ({ page }) => {
   await studio(page); await threeThings(page);
-  const lane = await page.locator('.lane2.bg').boundingBox(), prop = await page.locator('.lane2.prop').boundingBox();
-  const a = await page.locator('.tclip.bg.mine').first().boundingBox(), p = await page.locator('.tclip.prop').boundingBox();
-  await page.mouse.move(a.x - 6, lane.y + 2); await page.mouse.down(); await page.mouse.move(p.x + p.width + 4, prop.y + prop.height - 2, { steps: 10 }); await page.mouse.up();
-  await expect(page.locator('.tclip.msel')).toHaveCount(3);
-  await page.locator('.edit-copy').click();
+  await page.locator('.tclip.bg.mine').first().click();
+  await page.locator('.tclip.bg.mine').nth(1).click({ modifiers: ['Shift'] });
+  await expect(page.locator('.tclip.msel')).toHaveCount(2);
+  await page.keyboard.press('Control+c');
   await page.evaluate(() => window.__toon.player.seek(0));
-  await page.locator('.edit-paste').click();
+  await page.keyboard.press('Control+v');
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(4);
-  expect(await page.evaluate(() => window.__toon.S.props.length)).toBe(2);
-  await expect(page.locator('.tclip.msel')).toHaveCount(3);                                  // the pasted ones are the new selection
+  await expect(page.locator('.tclip.msel')).toHaveCount(2);                                  // the pasted ones are the new selection
   await page.locator('.edit-del').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(2);
-  await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
   expect((await starts(page)).a).toBe(1);                                                    // the originals are untouched
 });
 
