@@ -3,6 +3,7 @@
    Works with mouse, pen and touch (one finger paints, two fingers zoom and move the picture).
    openPhotoEditor({ canvas, title, onApply }) opens it over the page; onApply(canvas) gets the finished picture. The pure pixel maths is in photo-tools.js. */
 import './photo-editor.css';
+import { createRasterBrushes } from './raster-brushes.js';
 import { h, brandWordmark } from './dom.js';
 import { creditsBadge } from './credits-badge.js';
 import { icon } from './icons.js';
@@ -153,56 +154,17 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
 
   /* ---------- brush engine ---------- */
   const style = () => STYLES.find((s) => s.id === state.style) || STYLES[0];
-  const grain = (() => { const c = mk(96, 96), g = c.getContext('2d'), im = g.createImageData(96, 96); for (let i = 0; i < im.data.length; i += 4) { const v = Math.random(); im.data[i] = im.data[i + 1] = im.data[i + 2] = 255; im.data[i + 3] = v > 0.42 ? 255 : v > 0.3 ? 120 : 0; } g.putImageData(im, 0, 0); return c; })();
+  const rasterBrushes = createRasterBrushes();
   const colourOf = () => (state.tool === 'brush' && style().force ? style().force : state.fg);
-  // Cache raster alpha brush tips. Hard round must not fade at the edge.
-  const rasterTips = new Map();
-  function rasterTip(col, hardness) {
-    const h = Math.round(clamp(hardness, 0, 1) * 100);
-    const key = col.join(',') + ':' + h;
-    if (rasterTips.has(key)) return rasterTips.get(key);
-    const c = mk(128, 128), g = c.getContext('2d'), r = 64;
-    if (h >= 99) {
-      g.fillStyle = rgba(col, 1); g.beginPath(); g.arc(r, r, r - .5, 0, Math.PI * 2); g.fill();
-    } else {
-      const gr = g.createRadialGradient(r, r, r * h / 100, r, r, r);
-      gr.addColorStop(0, rgba(col, 1)); gr.addColorStop(1, rgba(col, 0));
-      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
-    }
-    if (rasterTips.size >= 96) rasterTips.clear();
-    rasterTips.set(key, c);
-    return c;
-  }
-  /** one stamp of the brush at (x, y); size in picture pixels, p = pressure 0..1, speed 0..1 */
+  let stampSerial = 0;
+  /** Paint image-backed raster tips, not SVG or procedural vector paths. */
   function dab(g, x, y, size, p, speed) {
-    const st = style(), col = colourOf(), flow = st.flow * (st.id === 'ink' ? 1 : 1), r = Math.max(0.5, size / 2);
-    g.save();
-    if (st.round || state.tool === 'eraser') {
-      const hard = clamp(state.hard / 100, 0, 1), eff = state.tool === 'eraser' ? hard : (st.id === 'air' ? Math.min(hard, 0.15) : st.id === 'hard' ? 1 : st.id === 'soft' ? hard : Math.min(0.5, hard));
-      g.globalAlpha = state.tool === 'eraser' ? 1 : flow;
-      g.drawImage(rasterTip(col, eff), x - r, y - r, r * 2, r * 2);
-    } else if (st.id === 'pencil') {
-      g.fillStyle = rgba(col, 0.55 + Math.random() * 0.4); g.beginPath(); g.arc(x + (Math.random() - 0.5) * 0.7, y + (Math.random() - 0.5) * 0.7, Math.max(0.6, r * 0.45), 0, Math.PI * 2); g.fill();
-    } else if (st.id === 'ink') {
-      const k = clamp(0.3 + 0.7 * (1 - speed) * (0.4 + 0.6 * p), 0.18, 1); g.fillStyle = rgba(col, 1); g.beginPath(); g.arc(x, y, Math.max(0.5, r * k), 0, Math.PI * 2); g.fill();
-    } else if (st.id === 'marker') {
-      g.translate(x, y); g.rotate(-Math.PI / 4); g.fillStyle = rgba(col, 1); g.fillRect(-r, -r * 0.3, r * 2, r * 0.6);
-    } else if (st.id === 'water') {
-      const rr = r * (0.85 + Math.random() * 0.3), gr = g.createRadialGradient(x, y, rr * 0.35, x, y, rr);
-      gr.addColorStop(0, rgba(col, flow)); gr.addColorStop(0.85, rgba(col, flow * 0.85)); gr.addColorStop(1, rgba(col, 0)); g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill();
-    } else if (st.id === 'chalk') {
-      const t = mk(Math.ceil(r * 2), Math.ceil(r * 2)), tg = t.getContext('2d'), ox = Math.floor(Math.random() * 40), oy = Math.floor(Math.random() * 40);
-      tg.fillStyle = rgba(col, 1); tg.fillRect(0, 0, t.width, t.height); tg.globalCompositeOperation = 'destination-in'; tg.drawImage(grain, ox, oy, 56, 56, 0, 0, t.width, t.height);
-      tg.globalCompositeOperation = 'destination-in'; const gr = tg.createRadialGradient(r, r, r * 0.6, r, r, r); gr.addColorStop(0, '#fff'); gr.addColorStop(1, 'rgba(255,255,255,0)'); tg.fillStyle = gr; tg.fillRect(0, 0, t.width, t.height);
-      g.drawImage(t, x - r, y - r);
-    } else if (st.id === 'spray') {
-      g.fillStyle = rgba(col, 1); const n = Math.max(6, Math.round(r * 0.9));
-      for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * r, s = Math.max(0.6, Math.random() * Math.max(1, r * 0.09)); g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, s, 0, Math.PI * 2); g.fill(); }
-    } else if (st.id === 'hatch') {
-      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.clip(); g.strokeStyle = rgba(col, 0.9); g.lineWidth = Math.max(1, r * 0.06); g.lineCap = 'round';
-      const gap = Math.max(3, r * 0.22); g.beginPath(); for (let k = -r * 2; k < r * 2; k += gap) { g.moveTo(x + k - r, y + r); g.lineTo(x + k + r, y - r); } g.stroke();
-    }
-    g.restore();
+    const st = style(), col = colourOf();
+    rasterBrushes.draw(g, {
+      kind: st.id, tool: state.tool, colour: col, x, y, size,
+      pressure: p, speed, hardness: clamp(state.hard / 100, 0, 1),
+      flow: st.flow, sequence: stampSerial++,
+    });
   }
   /** join the finished stroke (stroke canvas S) to the picture, through the selection, with the opacity and the "keep transparent" rule */
   const scratch = mk(W, H), scratchG = scratch.getContext('2d'), previewCv = mk(W, H), previewG = previewCv.getContext('2d');          // reused for every move of a stroke
@@ -366,6 +328,11 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     if (!stroke) return;
     const s = stroke;
     if (s.kind === 'paint' && state.smooth > 0 && (state.tool === 'brush' || state.tool === 'eraser')) { const t = toDoc(e); for (let i = 0; i < 8; i++) { s.sm = { x: s.sm.x + (t.x - s.sm.x) * 0.5, y: s.sm.y + (t.y - s.sm.y) * 0.5 }; lineTo(s.sm, 1); } }          // the stroke catches up with the pointer when you lift
+    // A short final movement must not disappear when it is smaller than stamp spacing.
+    if (s.kind === 'paint' && dist2(s.last, toDoc(e)) > Math.max(.5, state.size * .03)) {
+      const finalPos = toDoc(e);
+      stamp(finalPos, e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 1, 0);
+    }
     stroke = null;
     if (s.kind === 'pennew' || s.kind === 'penhandle' || s.kind === 'penmove') { draw(); return; }
     if (s.kind === 'ref') { draw(); return; }
