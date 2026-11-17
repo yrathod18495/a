@@ -35,3 +35,11 @@ test('a saved character is a small index row plus a manifest file in R2; it list
  assert.equal([...objects.keys()].some(k=>k.includes('/p/'+pid+'/')),false);
  assert.equal((await call({action:'list'})).body.projects[0].deleted,true);
 });
+
+// the account list shows saved characters only: a Character Editor project (a plain numeric id) is not one, so it can never appear under "My characters" with a Delete that does nothing
+const isSavedCharacterId=pid=>typeof pid==='string'&&pid.startsWith('char_');
+test('character projects of the account are not listed as saved characters',()=>{
+ assert.equal(isSavedCharacterId(cloudId('c4xk9ab2f1k')),true);
+ assert.equal(isSavedCharacterId('889221707'),false);
+ assert.equal(isSavedCharacterId(undefined),false);
+});

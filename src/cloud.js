@@ -47,6 +47,8 @@ export async function cloudReady() { return !!uidOf() && (await r2Configured());
  * keeps a tiny index row (name, revision) through /api/projects, the same path animation projects use. The skeleton comes from the template again on open.
  */
 const cloudId = (id) => ('char_' + id).padEnd(16, '_');
+/** a saved character has a `char_…` project id; the other character entries of the account are Character Editor projects (they have their own page and Delete there) and are not saved characters */
+export const isSavedCharacterId = (pid) => typeof pid === 'string' && pid.startsWith('char_');
 const charIdOf = (pid) => pid.replace(/^char_/, '').replace(/_+$/, '');
 const revisionOf = async (uid, pid) => (await apiCall('/api/projects', { action: 'list' }, uid)).projects.find((p) => p.id === pid)?.revision ?? 0;
 export async function saveCharacterCloud(def) {
@@ -85,7 +87,7 @@ export async function listCharactersCloud() {
   if (!uid) return [];
   try {
     const { projects } = await apiCall('/api/projects', { action: 'list' }, uid);
-    return projects.filter((p) => p.kind === 'character' && !p.deleted && p.stateUrl).map((p) => ({ id: charIdOf(p.id), name: p.name, stateUrl: p.stateUrl, updatedAt: p.updatedAt, format: 'char3' }));
+    return projects.filter((p) => p.kind === 'character' && !p.deleted && p.stateUrl && isSavedCharacterId(p.id)).map((p) => ({ id: charIdOf(p.id), name: p.name, stateUrl: p.stateUrl, updatedAt: p.updatedAt, format: 'char3' }));
   } catch { return []; }
 }
 export async function loadCharacterCloud(meta) {
