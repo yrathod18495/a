@@ -69,7 +69,11 @@ export class GLTex {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !!premultiply); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
     const uploadError = gl.getError();
-    if (uploadError !== gl.NO_ERROR) { gl.deleteTexture(this.tex); throw new Error('Graphics memory is not available. Try lowering the preview quality.'); }
+    if (uploadError !== gl.NO_ERROR) {
+      const lost = gl.isContextLost?.() || uploadError === 0x9242;          // the phone took the graphics back (page in the background): not a memory problem, the pictures just have to be sent again once the graphics are back
+      try { gl.deleteTexture(this.tex); } catch { /* context lost */ }
+      throw Object.assign(new Error(lost ? 'The graphics are not ready yet.' : uploadError === gl.OUT_OF_MEMORY ? 'Graphics memory is not available. Try lowering the preview quality.' : `The picture could not be sent to the graphics (code ${uploadError}).`), { code: lost ? 'context-lost' : 'upload' });
+    }
     const pot = (n) => (n & (n - 1)) === 0, ok = mips && (r.gl2 || (pot(this.w) && pot(this.h)));
     if (ok) gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, ok ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);

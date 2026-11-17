@@ -109,7 +109,7 @@ export class Stage {
     // Keep the context alive (preventDefault) and, when it comes back, load every picture to the graphics card again.
     this.watchContext(this.out);
     // some phones never send "restored" (or leave a sad-face canvas): back in the foreground, a dead context gets a brand new canvas
-    if (typeof document !== 'undefined') this.onShow = () => { if (document.visibilityState !== 'visible') return; clearTimeout(this.showTimer); this.showTimer = setTimeout(() => { if (this.lost || this.gl.isContextLost()) this.freshCanvas().catch((err) => this.onRecovered?.(err)); }, 1200); };
+    if (typeof document !== 'undefined') this.onShow = () => { if (document.visibilityState !== 'visible') return; clearTimeout(this.showTimer); this.showTimer = setTimeout(() => { if (this.lost || this.gl.isContextLost()) this.freshCanvas().catch((err) => this.onRecovered?.(err)); }, 3500); };          // give the browser time to bring the graphics back by itself before a new canvas is made
     if (this.onShow) { document.addEventListener('visibilitychange', this.onShow); window.addEventListener('pageshow', this.onShow); }
     this.setSize('16:9', 720);
   }
@@ -129,8 +129,16 @@ export class Stage {
   dispose() { if (this.onShow) document.removeEventListener('visibilitychange', this.onShow); this.onShow && window.removeEventListener('pageshow', this.onShow); clearTimeout(this.showTimer); clearTimeout(this.lostTimer); }
 
   /** after the graphics context came back: a new renderer, and every texture built again from the original pictures */
+  /** wait (a few seconds at most) until the canvas has a working graphics context again */
+  async contextReady() {
+    const lost = () => { const g = this.out.getContext('webgl2') || this.out.getContext('webgl'); return !g || g.isContextLost(); };
+    if (!lost()) return;
+    await new Promise((resolve) => { const done = () => { clearTimeout(t); this.out.removeEventListener('webglcontextrestored', done); resolve(); }, t = setTimeout(done, 6000); this.out.addEventListener('webglcontextrestored', done); });
+    if (lost()) throw Object.assign(new Error('The graphics are not ready yet.'), { code: 'context-lost' });
+  }
   async recover() {
     const mips = this.r.mips;
+    await this.contextReady();
     this.r = new GLRenderer(this.out); this.r.mips = mips; this.gl = this.r.gl;
     const pages = new Map(), props = new Map();
     for (const [id, asset] of this.assets) {

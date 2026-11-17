@@ -114,16 +114,23 @@ async function boot() {
   stage = new Stage({ maxTex: PREVIEW_MODES[S.previewMode].maxTex });
   let lostTimer = 0;
   stage.onLost = () => { clearTimeout(lostTimer); lostTimer = setTimeout(() => { if (stage.lost) toast('The preview lost its graphics memory. Please reopen the project if the picture does not come back.', 'warn'); }, 6000); };
+  let recovering = false;
   stage.onRecovered = async (err) => {
     clearTimeout(lostTimer);
-    const why = (e) => (e?.message && e.message !== 'null' ? e.message : 'the phone has no free graphics memory right now');
-    if (err) {          // the pictures could not be put back: try again once with smaller pictures before telling anyone
-      try { await new Promise((r) => setTimeout(r, 700)); await stage.setTextureLimit(1024); await applyLayers(); S.dirty = true; requestStudioFrame?.(); return; }
-      catch (e) { toast(`The preview could not be restored (${why(err)}). Please close other apps and reload the page.`); return; }
+    if (err) {          // the pictures could not be put back (often the graphics are not ready yet after the page was in the background): wait and try again, with smaller pictures if needed
+      if (recovering) return; recovering = true;
+      try {
+        for (const [delay, limit] of [[800, 0], [2500, 1024], [6000, 768]]) {
+          await new Promise((r) => setTimeout(r, delay));
+          try { if (limit) stage.maxTex = Math.min(stage.maxTex, limit); await stage.recover(); return; } catch (e) { console.warn('preview restore failed, trying again', e?.message); }
+        }
+        toast('The preview could not be restored yet. Please wait a moment. If the picture stays empty, reload the page.');
+      } finally { recovering = false; }
+      return;
     }
     try { await applyLayers(); } catch (e) {
       try { await new Promise((r) => setTimeout(r, 700)); await stage.setTextureLimit(1024); await applyLayers(); }
-      catch (e2) { toast(`The preview could not be restored (${why(e2)}). Please close other apps and reload the page.`); }
+      catch (e2) { toast('The preview could not be restored yet. Please wait a moment. If the picture stays empty, reload the page.'); }
     }
     S.dirty = true; requestStudioFrame?.();
   };

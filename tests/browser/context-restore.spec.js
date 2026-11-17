@@ -32,6 +32,30 @@ test('after the graphics context is lost and restored, the background and the pr
   expect(errors).toEqual([]);
 });
 
+test('a picture sent while the graphics are away is a "not ready" problem, not "no memory"; recovery waits for the graphics and then works', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Ctx2');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(async () => {
+    const { stage } = window.__toon, c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'); g.fillStyle = '#2040c0'; g.fillRect(0, 0, 16, 16);
+    await stage.setBackgroundClips([{ start: 0, dur: 5, preset: 0, blob: await new Promise((r) => c.toBlob(r, 'image/png')) }], true);
+    window.__ext = stage.gl.getExtension('WEBGL_lose_context'); window.__ext.loseContext();
+  });
+  await page.waitForFunction(() => window.__toon.stage.lost === true);
+  // while the graphics are away, putting a picture on the card says so (and does not blame the memory)
+  const msg = await page.evaluate(() => { try { const c = document.createElement('canvas'); c.width = c.height = 8; window.__toon.stage.r.texture(c); return 'no error'; } catch (e) { return `${e.code}|${e.message}`; } });
+  expect(msg).toContain('context-lost'); expect(msg).not.toContain('memory');
+  // recovery started now waits for the graphics to come back (they do after 600 ms) instead of failing
+  const done = page.evaluate(() => window.__toon.stage.recover().then(() => 'recovered', (e) => `failed: ${e.message}`));
+  await page.waitForTimeout(600); await page.evaluate(() => window.__ext.restoreContext());
+  expect(await done).toBe('recovered');
+  expect(await page.evaluate(() => window.__toon.stage.gl.isContextLost())).toBe(false);
+  expect(errors).toEqual([]);
+});
 test('a context that is never restored gets a new canvas when the page is back in the foreground', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
