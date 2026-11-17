@@ -77,7 +77,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   dg.drawImage(canvas, 0, 0);
   const original = dg.getImageData(0, 0, W, H);
   const S = mk(W, H), sg = S.getContext('2d');                      // the stroke being drawn (flat colour with its own softness; the opacity is put on when the stroke ends)
-  const state = { tool: 'brush', style: 'soft', size: 28, opacity: 100, hard: 15, fg: [217, 179, 140], bg: [255, 255, 255], tol: 24, contiguous: true, lock: true, mode: 'replace', feather: 0, smoothWand: true,
+  const state = { tool: 'brush', style: 'soft', size: 28, opacity: 100, hard: 15, fg: [217, 179, 140], bg: [255, 255, 255], tol: 24, contiguous: true, lock: false, mode: 'replace', feather: 0, smoothWand: true,
     smooth: 0, picOpacity: 100, gradKind: 'linear', gradEnd: 'fade', bucketLock: true, space: false, scale: 1, ox: 0, oy: 0, sel: null, selViz: null, undo: [], redo: [], recent: [], cloneSrc: null, cloneOff: null, armClone: false, panel: 'brush' };
   let ref = null, pen = { pts: [], closed: false, sel: -1 }, poly = { pts: [], mouse: null };
   let rafId = 0, stroke = null, pinch = null, preview = null, ghostSel = null, closed = false;
@@ -155,15 +155,32 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
   const style = () => STYLES.find((s) => s.id === state.style) || STYLES[0];
   const grain = (() => { const c = mk(96, 96), g = c.getContext('2d'), im = g.createImageData(96, 96); for (let i = 0; i < im.data.length; i += 4) { const v = Math.random(); im.data[i] = im.data[i + 1] = im.data[i + 2] = 255; im.data[i + 3] = v > 0.42 ? 255 : v > 0.3 ? 120 : 0; } g.putImageData(im, 0, 0); return c; })();
   const colourOf = () => (state.tool === 'brush' && style().force ? style().force : state.fg);
+  // Cache raster alpha brush tips. Hard round must not fade at the edge.
+  const rasterTips = new Map();
+  function rasterTip(col, hardness) {
+    const h = Math.round(clamp(hardness, 0, 1) * 100);
+    const key = col.join(',') + ':' + h;
+    if (rasterTips.has(key)) return rasterTips.get(key);
+    const c = mk(128, 128), g = c.getContext('2d'), r = 64;
+    if (h >= 99) {
+      g.fillStyle = rgba(col, 1); g.beginPath(); g.arc(r, r, r - .5, 0, Math.PI * 2); g.fill();
+    } else {
+      const gr = g.createRadialGradient(r, r, r * h / 100, r, r, r);
+      gr.addColorStop(0, rgba(col, 1)); gr.addColorStop(1, rgba(col, 0));
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    }
+    if (rasterTips.size >= 96) rasterTips.clear();
+    rasterTips.set(key, c);
+    return c;
+  }
   /** one stamp of the brush at (x, y); size in picture pixels, p = pressure 0..1, speed 0..1 */
   function dab(g, x, y, size, p, speed) {
     const st = style(), col = colourOf(), flow = st.flow * (st.id === 'ink' ? 1 : 1), r = Math.max(0.5, size / 2);
     g.save();
     if (st.round || state.tool === 'eraser') {
       const hard = clamp(state.hard / 100, 0, 1), eff = state.tool === 'eraser' ? hard : (st.id === 'air' ? Math.min(hard, 0.15) : st.id === 'hard' ? 1 : st.id === 'soft' ? hard : Math.min(0.5, hard));
-      const gr = g.createRadialGradient(x, y, r * eff * 0.98, x, y, r);
-      const a = (state.tool === 'eraser' ? 1 : flow) * (st.id === 'air' || st.hard === 0 ? 1 : 1);
-      gr.addColorStop(0, rgba(col, a)); gr.addColorStop(1, rgba(col, 0)); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = state.tool === 'eraser' ? 1 : flow;
+      g.drawImage(rasterTip(col, eff), x - r, y - r, r * 2, r * 2);
     } else if (st.id === 'pencil') {
       g.fillStyle = rgba(col, 0.55 + Math.random() * 0.4); g.beginPath(); g.arc(x + (Math.random() - 0.5) * 0.7, y + (Math.random() - 0.5) * 0.7, Math.max(0.6, r * 0.45), 0, Math.PI * 2); g.fill();
     } else if (st.id === 'ink') {
@@ -214,7 +231,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     const pv = previewCv, pg = previewG, box = stroke.box || { x: 0, y: 0, w: W, h: H };
     if (!stroke.pvInit) { pg.globalCompositeOperation = 'source-over'; pg.clearRect(0, 0, W, H); pg.drawImage(D, 0, 0); stroke.pvInit = true; }
     pg.globalCompositeOperation = 'source-over'; pg.clearRect(box.x, box.y, box.w, box.h); pg.drawImage(D, box.x, box.y, box.w, box.h, box.x, box.y, box.w, box.h);
-    compose(pv, S, state.tool === 'eraser' ? 1 : state.opacity / 100, state.tool === 'gradient' ? 'gradient' : state.tool, box);
+    compose(pv, S, state.opacity / 100, state.tool === 'gradient' ? 'gradient' : state.tool, box);
     preview = pv; draw();
   }
   const dist2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -352,7 +369,7 @@ export function openPhotoEditor({ canvas, title = 'Edit picture', onApply, onCan
     stroke = null;
     if (s.kind === 'pennew' || s.kind === 'penhandle' || s.kind === 'penmove') { draw(); return; }
     if (s.kind === 'ref') { draw(); return; }
-    if (s.kind === 'paint') { if (!s.direct) { compose(D, S, state.tool === 'eraser' ? 1 : state.opacity / 100, state.tool, s.box); if (state.tool === 'brush') addRecent(); } preview = null; if (s.box) sg.clearRect(s.box.x, s.box.y, s.box.w, s.box.h); else sg.clearRect(0, 0, W, H); draw(); }
+    if (s.kind === 'paint') { if (!s.direct) { compose(D, S, state.opacity / 100, state.tool, s.box); if (state.tool === 'brush') addRecent(); } preview = null; if (s.box) sg.clearRect(s.box.x, s.box.y, s.box.w, s.box.h); else sg.clearRect(0, 0, W, H); draw(); }
     else if (s.kind === 'gradient') { compose(D, S, state.opacity / 100, 'gradient'); preview = null; sg.clearRect(0, 0, W, H); addRecent(); draw(); }
     else if (s.kind === 'select') finishSelect(s);
     else if (s.kind === 'move') finishMove(s);
