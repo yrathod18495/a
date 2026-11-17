@@ -126,10 +126,11 @@ async function gzipBase64(blob) {
 /**
  * Stores a checked package and saves the character. `files`: Map path -> Blob (from the ZIP); `gifs`: Map `${view}/${animation}` -> Blob or a promise of one; `gifsDone`: a promise that
  * is settled once every GIF has been put in `gifs` (the files that do not need the GIFs go up while the GIFs are still being made);
+ * `existing` (adding animations): { category: the saved animations { <view>: { animations } }, character: the saved character record }. The manifest then holds only the NEW animations; the saved ones stay exactly as they are and the new ones are added after them.
  * `thumb`: Blob (the character's picture); `thumbs`: Map view id -> Blob (one picture per view); `withAnimations`: false = use the existing category's animations.
  * `progress(text, done, total)` is called as it goes. Everything that can run side by side does: hashing, the database files, the R2 files.
  */
-export async function storeCharacter({ manifest, files, name = null, group = null, store = undefined, gifs = new Map(), gifsDone = null, thumb = null, thumbs = new Map(), withAnimations = true, progress = () => {} }) {
+export async function storeCharacter({ manifest, files, name = null, group = null, store = undefined, gifs = new Map(), gifsDone = null, thumb = null, thumbs = new Map(), withAnimations = true, existing = null, progress = () => {} }) {
   const refs = new Map(), r2 = new Map(), small = [], previewTypes = new Map();
   const pool = async (items, work, n = 16) => { let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await work(items[i++]); })); };
   const add = async (key, blob, path, into = r2) => {
@@ -177,9 +178,19 @@ export async function storeCharacter({ manifest, files, name = null, group = nul
   progress('Saving the character…', total, total);
   const record = { character: { id: manifest.character.id, name: (name || manifest.character.name).trim(), ...(group ? { group } : {}), ...(store !== undefined ? { store } : {}), thumb: refs.get('thumb') || null, views: {} }, category: { id: manifest.category.id, name: manifest.category.name } };
   for (const v of manifest.views) record.character.views[v.id] = { label: v.label, ...(refs.get(`${v.id}:thumb`) ? { thumb: refs.get(`${v.id}:thumb`) } : {}), gifs: Object.fromEntries(v.animations.filter((a) => refs.get(`${v.id}:gif:${a.name}`)).map((a) => [a.name, refs.get(`${v.id}:gif:${a.name}`)])), previewType: previewTypes.get(v.id) || 'gif', skeleton: refs.get(`${v.id}:skeleton`), textures: v.textures.map((_, i) => ({ json: refs.get(`${v.id}:tex${i}`), page: refs.get(`${v.id}:page${i}`) })) };
+  if (existing) {          // adding: the saved previews and the views the ZIP does not bring stay
+    for (const [vid, old] of Object.entries(existing.character?.views || {})) {
+      if (!record.character.views[vid]) record.character.views[vid] = old;
+      else { const nv = record.character.views[vid]; nv.gifs = { ...(old.gifs || {}), ...(nv.gifs || {}) }; if (old.previewType && !previewTypes.get(vid)) nv.previewType = old.previewType; if (!nv.thumb && old.thumb) nv.thumb = old.thumb; }
+    }
+    if (!record.character.thumb && existing.character?.thumb) record.character.thumb = existing.character.thumb;
+  }
   if (withAnimations) {
-    record.category.views = {};
-    for (const v of manifest.views) record.category.views[v.id] = { animations: v.animations.map((a) => ({ name: a.name, label: a.label, group: a.group, layer: a.layer, length: a.length, file: refs.get(`${v.id}:anim:${a.name}`), gif: null, gifName: a.gifName })) };
+    record.category.views = existing ? JSON.parse(JSON.stringify(existing.category || {})) : {};
+    for (const v of manifest.views) {
+      const list = record.category.views[v.id]?.animations || [];
+      record.category.views[v.id] = { animations: [...list, ...v.animations.map((a) => ({ name: a.name, label: a.label, group: a.group, layer: a.layer, length: a.length, file: refs.get(`${v.id}:anim:${a.name}`), gif: null, gifName: a.gifName }))] };
+    }
   }
   return call({ action: 'commit', ...record });
 }

@@ -78,3 +78,14 @@ test('character groups: Male / Female / Boy / Girl, chosen by the admin, guessed
   assert.equal(cleanRecord(base('robot')).character.group, undefined);                     // not one of the four: dropped
   assert.equal(cleanRecord(base(null)).character.group, undefined);
 });
+
+import { splitNewAnimations, animKey } from '../shared/character-package.js';
+test('adding animations: only new names are added; same names with other capitals, dashes or spaces are skipped; a name repeated inside the ZIP counts once', () => {
+  const saved = { f34: { animations: [{ name: 'Walk' }, { name: 'Happy_Face' }] } };
+  const zip = [{ id: 'f34', animations: [{ name: 'walk' }, { name: 'happy-face' }, { name: 'Run' }, { name: 'run' }, { name: 'Sit Down' }] }, { id: 'fr', animations: [{ name: 'Walk' }] }];
+  const r = splitNewAnimations(saved, zip);
+  assert.deepEqual(r.fresh.f34.map((a) => a.name), ['Run', 'Sit Down']); assert.deepEqual(r.skipped.f34, ['walk', 'happy-face', 'run']);
+  assert.deepEqual(r.fresh.fr.map((a) => a.name), ['Walk']);                    // a view the category does not have yet: everything is new
+  assert.equal(r.freshCount, 3); assert.equal(r.skippedCount, 3);
+  assert.equal(animKey(' Sit-Down '), 'sit_down'); assert.equal(splitNewAnimations(null, zip).freshCount, 5);
+});

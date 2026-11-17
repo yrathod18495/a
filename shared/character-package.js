@@ -123,3 +123,22 @@ export function refsOf(record) {
   add(record?.thumb);
   return out;
 }
+
+/* ---- adding animations to a category that already has some ---- */
+/** two animation names are the same animation when they differ only in capital letters, spaces, dashes or underscores */
+export const animKey = (name) => String(name ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+/**
+ * Which animations of a ZIP are new. `categoryViews` = the saved animations { <view>: { animations: [...] } }, `zipViews` = manifest.views.
+ * Returns { fresh: { <view>: [animation of the ZIP] }, skipped: { <view>: [name] }, freshCount, skippedCount }; a name that is already saved (or repeated inside the ZIP) is skipped.
+ */
+export function splitNewAnimations(categoryViews, zipViews) {
+  const fresh = {}, skipped = {}; let freshCount = 0, skippedCount = 0;
+  for (const v of zipViews || []) {
+    const have = new Set((categoryViews?.[v.id]?.animations || []).map((a) => animKey(a.name))); fresh[v.id] = []; skipped[v.id] = [];
+    for (const a of v.animations || []) {
+      const k = animKey(a.name);
+      if (have.has(k)) { skipped[v.id].push(a.name); skippedCount++; } else { have.add(k); fresh[v.id].push(a); freshCount++; }
+    }
+  }
+  return { fresh, skipped, freshCount, skippedCount };
+}

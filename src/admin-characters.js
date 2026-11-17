@@ -9,6 +9,7 @@ import { icon } from './icons.js';
 import { Stage } from './db/stage.js';
 import { rigInfo } from './db/info.js';
 import { checkManifest, gifName, CHARACTER_GROUPS, groupOf } from '../shared/character-package.js';
+import { splitNewAnimations } from '../shared/character-package.js';
 import { listCloudCharacters, storeCharacter, deleteCloudCharacter, updateCloudCharacter, pictureUrl, characterSales, grantCharacter } from './cloud-characters.js';
 import { cleanStore, cleanViewStore, isPaid, hasStore, viewStoreOf, timeLeft, leftText, MAX_PRICE, STORE_DAYS } from '../shared/character-store.js';
 import { friendlyError } from '../shared/hinglish-errors.js';
@@ -107,7 +108,7 @@ export async function animationGif(stage, def, name, anim, length, opts = GIF) {
 export async function charactersView({ back, home, toast }) {
   const root = h('div', { class: 'sh admin-characters' });
   const content = h('main', { class: 'admin-characters-main' });
-  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, time: 0, gifQuality: '320', name: '', group: 'male', sell: false, price: 500, sales: null };
+  const st = { list: [], pkg: null, view: 0, index: 0, playing: true, busy: false, defs: new Map(), anims: new Map(), withAnimations: true, animMode: 'replace', time: 0, gifQuality: '320', name: '', group: 'male', sell: false, price: 500, sales: null };
   const stage = new Stage({ maxTex: 2048 }); stage.setSize('1:1', PREVIEW); stage.fullView = false;          // the preview is small: 2048 px pages use a quarter of the GPU memory of 4096 px pages
   let raf = 0, last = 0, loadJob = 0, lastDraw = 0, dirty = true, drawError = '';
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
@@ -128,8 +129,10 @@ export async function charactersView({ back, home, toast }) {
       const pkg = await readCharacterZip(file); pkg.stamp = Date.now(); pkg.fileName = file.name;
       Object.assign(st, { pkg, view: 0, index: 0, playing: true, defs: new Map(), anims: new Map(), time: 0 });
       const existing = st.list.find((c) => c.category === pkg.manifest?.category?.id);
-      st.withAnimations = !existing;               // a category that is already saved keeps its animations unless the admin chooses to replace them
       const known = st.list.find((c) => c.id === pkg.manifest?.character?.id);
+      // a category that already has animations: a character that is already saved gets the NEW animations of the ZIP added to the saved ones (nothing is removed, nothing is doubled);
+      // another character of the category uses the saved animations; the admin can choose to replace them
+      st.animMode = !existing ? 'replace' : known ? 'add' : 'keep'; st.withAnimations = st.animMode !== 'keep';
       st.name = known?.name || pkg.manifest?.character?.name || '';           // the admin can change the name and the group before Done
       st.group = groupOf(known || { category: pkg.manifest?.category?.id, name: pkg.manifest?.character?.name }, pkg.manifest?.category?.name);
       st.sell = !!known?.store; st.price = known?.store?.price || 500;          // a character that is already for sale keeps its price unless it is changed here
@@ -181,7 +184,11 @@ export async function charactersView({ back, home, toast }) {
     const pkg = st.pkg; if (!pkg || pkg.errors.length || st.busy) return;
     let priced = null;
     if (st.sell) { try { priced = cleanStore({ price: st.price, enabled: st.list.find((c) => c.id === pkg.manifest.character.id)?.store?.enabled !== false }); } catch (e) { status.textContent = e.message; return; } }
-    const replacing = st.list.some((c) => c.id === pkg.manifest.character.id);
+    const oldCharacter = st.list.find((c) => c.id === pkg.manifest.character.id), oldCategory = st.list.find((c) => c.category === pkg.manifest.category.id);
+    const adding = st.animMode === 'add' && !!oldCharacter && !!oldCategory, diff = adding ? splitNewAnimations(oldCategory.animations, views()) : null;
+    if (adding && !diff.freshCount) { say2(`Nothing to add: all ${diff.skippedCount} animations of this ZIP are already saved for ${oldCharacter.name}.`, 'err'); return; }
+    const mViews = adding ? views().map((v) => ({ ...v, animations: diff.fresh[v.id] || [] })) : views();
+    const replacing = !adding && st.list.some((c) => c.id === pkg.manifest.character.id);
     if (replacing && !(await confirmBox({ title: 'Replace this character?', text: `A character called "${pkg.manifest.character.id}" already exists. Done will replace it with this ZIP; its old files are removed.`, confirm: 'Replace' }))) return;
     st.busy = true; stop(); draw();
     const say = (text, value) => { status.textContent = text; bar.hidden = false; if (value != null) bar.value = value; };
@@ -189,7 +196,7 @@ export async function charactersView({ back, home, toast }) {
       const gifs = new Map(), thumbs = new Map();
       let thumb = null;
       const q = GIF_QUALITY[st.gifQuality] || GIF_QUALITY[320], small = new Stage({ maxTex: 2048 }); small.setSize('1:1', q.size); small.fullView = false; let gifBytes = 0;
-      const total = views().reduce((n, v) => n + v.animations.length, 0); let made = 0, uploading = '';   // every character gets its own previews, also when it uses a category's saved animations
+      const total = mViews.reduce((n, v) => n + v.animations.length, 0); let made = 0, uploading = '';   // every character gets its own previews, also when it uses a category's saved animations
       const report = () => say(total ? `Making the animation previews ${made} / ${total}${uploading ? ` · ${uploading}` : ''}` : (uploading || 'Saving…'), total ? (made / total) * 0.8 : 0.5);
       // 1) a picture of every view (quick)
       for (const v of views()) {
@@ -201,12 +208,12 @@ export async function charactersView({ back, home, toast }) {
       // 2) saving starts now: the rig, the animations and the pictures go up while the GIFs are still being made
       let finishGifs, failGifs;
       const gifsDone = new Promise((resolve, reject) => { finishGifs = resolve; failGifs = reject; });
-      const stored = storeCharacter({ manifest: pkg.manifest, files: pkg.files, name: st.name.trim() || pkg.manifest.character.name, group: st.group, store: priced, gifs, gifsDone, thumb, thumbs, withAnimations: st.withAnimations, progress: (text, d, t) => { uploading = text; report(); if (!total) bar.value = t ? d / t : 1; } });
+      const stored = storeCharacter({ manifest: adding ? { ...pkg.manifest, views: mViews } : pkg.manifest, existing: adding ? { category: oldCategory.animations, character: oldCharacter } : null, files: pkg.files, name: st.name.trim() || pkg.manifest.character.name, group: st.group, store: priced, gifs, gifsDone, thumb, thumbs, withAnimations: st.animMode !== 'keep', progress: (text, d, t) => { uploading = text; report(); if (!total) bar.value = t ? d / t : 1; } });
       stored.catch(() => {});                                  // a failure is shown below
       // 3) the GIFs: drawn here one after another, encoded by workers side by side
       try {
         const flight = [];
-        for (const v of views()) {
+        for (const v of mViews) {
           const def = await viewDef(pkg, v); await small.loadCharacter(def); small.setSize('1:1', q.size);
           for (const a of v.animations) {
             made++; report();
@@ -223,7 +230,8 @@ export async function charactersView({ back, home, toast }) {
       } catch (error) { failGifs(error); throw error; }
       say(`Previews ready (${(gifBytes / 1048576).toFixed(1)} MB in all). Finishing the upload…`, 0.85);
       const result = await stored;
-      toast(`${pkg.manifest.character.name} is saved${result.categoryCreated ? ` with a new category "${pkg.manifest.category.name}"` : ''}. Creators can use the character now.`);
+      if (adding) toast(`${diff.freshCount} new animation${diff.freshCount === 1 ? '' : 's'} added to ${oldCharacter.name}${diff.skippedCount ? ` · ${diff.skippedCount} already saved, left as they are` : ''}.`);
+      else toast(`${pkg.manifest.character.name} is saved${result.categoryCreated ? ` with a new category "${pkg.manifest.category.name}"` : ''}. Creators can use the character now.`);
       st.pkg = null; bar.hidden = true; st.savedId = pkg.manifest.character.id;
       await refresh();
       say2(`✓ ${st.name.trim() || pkg.manifest.character.name} is saved. Creators can use it now.`, 'ok');
@@ -374,7 +382,7 @@ export async function charactersView({ back, home, toast }) {
     const m = pkg.manifest || {}, totalAnims = views().reduce((n, v) => n + v.animations.length, 0);
     if (pkg.errors.length) return h('section', { class: 'admin-panel-card admin-characters-preview' }, h('h2', {}, 'This ZIP cannot be used'), h('ul', { class: 'admin-characters-errors' }, ...pkg.errors.map((e) => h('li', {}, e))), h('button', { class: 'btn', type: 'button', onclick: () => { st.pkg = null; draw(); } }, 'Choose another ZIP'));
     const catExists = st.list.some((c) => c.category === m.category.id), charExists = st.list.some((c) => c.id === m.character.id);
-    const choice = (value, label, note) => h('label', { class: 'admin-characters-choice' }, h('input', { type: 'radio', name: 'anims', checked: st.withAnimations === value, disabled: st.busy, onchange: () => { st.withAnimations = value; } }), h('span', {}, h('b', {}, label), h('small', {}, note)));
+    const choice = (value, label, note) => h('label', { class: 'admin-characters-choice' }, h('input', { type: 'radio', name: 'anims', checked: st.animMode === value, disabled: st.busy, onchange: () => { st.animMode = value; st.withAnimations = value !== 'keep'; draw(); } }), h('span', {}, h('b', {}, label), h('small', {}, note)));
     return h('section', { class: 'admin-panel-card admin-characters-preview' },
       h('div', { class: 'admin-characters-head' }, h('div', {}, h('h2', {}, m.character.name), h('small', {}, `Category: ${m.category.name} · ${views().length} views · ${totalAnims} animations · ${mb(pkg.bytes)}`))),
       h('div', { class: 'admin-characters-meta' },
@@ -385,7 +393,10 @@ export async function charactersView({ back, home, toast }) {
           h('span', {}, h('b', {}, 'Sell in the Character Store'), h('small', {}, `Creators pay Coins and get the character for ${STORE_DAYS} days (counted on the server). Leave this off to make it free for everyone.`))),
         st.sell ? h('label', { class: 'admin-characters-price' }, h('span', {}, 'Price (Coins)'), h('input', { type: 'number', min: 1, max: MAX_PRICE, step: 1, value: st.price, disabled: st.busy, 'aria-label': 'Price in Coins', oninput: (e) => { st.price = e.target.value; } })) : null),
       charExists ? h('p', { class: 'admin-characters-note' }, `A character with the id "${m.character.id}" already exists. Done will replace it (its old files are removed).`) : null,
-      catExists ? h('div', { class: 'admin-characters-choices' }, choice(false, `Use the saved "${m.category.name}" animations`, 'This character uses the same animation files as the others in this category (they are not uploaded again). It still gets its own preview GIFs, made from this character.'), choice(true, 'Replace them with the animations in this ZIP', 'Every character of this category gets the new animations.')) : null,
+      catExists ? h('div', { class: 'admin-characters-choices' },
+        ...(charExists ? [choice('add', 'Add only the NEW animations of this ZIP', (() => { const d = splitNewAnimations(st.list.find((c) => c.category === m.category.id)?.animations, views()); return `${d.freshCount} new will be added after the saved ones; ${d.skippedCount} already saved (same name) are left exactly as they are. Nothing is removed and nothing appears twice.`; })())] : []),
+        choice('keep', `Use the saved "${m.category.name}" animations`, 'This character uses the same animation files as the others in this category (they are not uploaded again). It still gets its own preview GIFs, made from this character.'),
+        choice('replace', 'Replace them with the animations in this ZIP', 'Every character of this category gets exactly the animations in this ZIP. Saved animations that are not in the ZIP are removed.')) : null,
       h('div', { class: 'admin-characters-views', role: 'group', 'aria-label': 'View' }, ...views().map((v, i) => h('button', { class: `btn sm ${i === st.view ? 'pri' : ''}`, type: 'button', 'aria-pressed': String(i === st.view), disabled: st.busy, onclick: () => { st.view = i; st.index = 0; draw(); show(); } }, v.label || v.id))),
       h('div', { class: 'admin-characters-stage' }, stage.out),
       info,
