@@ -1,3 +1,4 @@
+import { MORE, rgb, mix, css, seeded } from './skills-more.js';
 // Skills: flat vector effects that belong to a character (fire in a hand, lightning around the body, an energy ball, a magic circle on the ground).
 // They are plain drawing code (no pictures): any size, any colour, tiny to store, and the same function draws them in the studio, in the tab previews and in the video export.
 // A skill is an entry of the effects list (`skill` field): { id, tpl: 'skill:fire', name, target: 'char:<key>', start, end, ramp, params: {}, visible, skill: { kind, anchor, size, power, speed, color } }.
@@ -33,19 +34,44 @@ export function skillAnchorPoint(l, anchor) {
   if (p) return p;
   return fall(anchor === 'head' ? 0.12 : anchor === 'belly' ? 0.5 : 0.38);
 }
+// group: the heading in the Skills tab; level: what the Level slider is called; scale: size next to the character (a fraction of its height); angle: the way it points to start with (-90 = to the left)
 export const SKILLS = [
-  { id: 'fire', name: 'Fire', color: '#ff7a1a', anchor: 'handR', hint: 'Flames that rise and flicker' },
-  { id: 'lightning', name: 'Lightning', color: '#7ad1ff', anchor: 'chest', hint: 'Jagged bolts around the body' },
-  { id: 'energy', name: 'Energy ball', color: '#9a7bff', anchor: 'handR', hint: 'A glowing ball with rings' },
-  { id: 'circle', name: 'Magic circle', color: '#ffd84a', anchor: 'feet', hint: 'A turning rune circle on the ground' },
+  { id: 'fire', name: 'Fire', color: '#ff7a1a', anchor: 'handR', hint: 'Flames that rise and flicker', group: 'Fire and heat', level: 'Flame level', scale: 0.17 },
+  { id: 'burnaura', name: 'Burning aura', color: '#ff6a10', anchor: 'chest', hint: 'Flames all round the body', group: 'Fire and heat', level: 'Flame level', scale: 0.32 },
+  { id: 'embers', name: 'Embers', color: '#ff9a2a', anchor: 'belly', hint: 'Sparks that float up and fade', group: 'Fire and heat', level: 'Amount', scale: 0.3 },
+  { id: 'haze', name: 'Heat haze', color: '#ffb066', anchor: 'belly', hint: 'Wavy hot air rising', group: 'Fire and heat', level: 'Strength', scale: 0.32 },
+  { id: 'smoke', name: 'Smoke', color: '#9aa0aa', anchor: 'belly', hint: 'Grey smoke that rises', group: 'Fire and heat', level: 'Amount', scale: 0.32 },
+  { id: 'lightning', name: 'Lightning', color: '#7ad1ff', anchor: 'chest', hint: 'Jagged bolts around the body', group: 'Lightning and power', level: 'Bolt power', scale: 0.2 },
+  { id: 'arc', name: 'Lightning arc', color: '#8fdcff', anchor: 'handR', hint: 'One long bolt that jumps across (turn it to aim)', group: 'Lightning and power', level: 'Bolt power', scale: 0.3, angle: -90 },
+  { id: 'voltaura', name: 'Lightning aura', color: '#7ad1ff', anchor: 'chest', hint: 'Short bolts crawling over the body', group: 'Lightning and power', level: 'Bolt power', scale: 0.4 },
+  { id: 'energy', name: 'Energy ball', color: '#9a7bff', anchor: 'handR', hint: 'A glowing ball with rings', group: 'Lightning and power', level: 'Energy level', scale: 0.2 },
+  { id: 'beam', name: 'Energy beam', color: '#ff4d6d', anchor: 'handR', hint: 'A straight ray from the hand (turn it to aim)', group: 'Lightning and power', level: 'Beam power', scale: 0.4, angle: -90 },
+  { id: 'shockwave', name: 'Shockwave', color: '#ffd84a', anchor: 'feet', hint: 'Rings that spread over the ground', group: 'Lightning and power', level: 'Strength', scale: 0.3 },
+  { id: 'circle', name: 'Magic circle', color: '#ffd84a', anchor: 'feet', hint: 'A turning rune circle on the ground', group: 'Magic', level: 'Glow level', scale: 0.2 },
+  { id: 'runes', name: 'Glowing runes', color: '#ffd84a', anchor: 'chest', hint: 'Marks that glow and float round', group: 'Magic', level: 'Amount', scale: 0.4 },
+  { id: 'eyes', name: 'Glowing eyes', color: '#7affc8', anchor: 'head', hint: 'Two eyes with a flare (nudge them onto the face)', group: 'Magic', level: 'Glow level', scale: 0.12 },
+  { id: 'trail', name: 'Magic trail', color: '#ff7adf', anchor: 'handR', hint: 'Sparkles that follow a flying hand or ball', group: 'Magic', level: 'Amount', scale: 0.25 },
+  { id: 'sparkles', name: 'Sparkles', color: '#ffe680', anchor: 'chest', hint: 'Twinkling stars', group: 'Magic', level: 'Amount', scale: 0.35 },
+  { id: 'frost', name: 'Ice mist', color: '#9ad8ff', anchor: 'legs', hint: 'Cold mist and snow', group: 'Ice, water and wind', level: 'Amount', scale: 0.32 },
+  { id: 'crystal', name: 'Ice crystal', color: '#7ccbff', anchor: 'feet', hint: 'Crystals that grow up from the ground', group: 'Ice, water and wind', level: 'Crystal count', scale: 0.3 },
+  { id: 'water', name: 'Water ball', color: '#3fa7ff', anchor: 'handR', hint: 'A ball of water with drops', group: 'Ice, water and wind', level: 'Size of ball', scale: 0.2 },
+  { id: 'wind', name: 'Wind swirl', color: '#bfe9ff', anchor: 'belly', hint: 'A turning column of wind', group: 'Ice, water and wind', level: 'Strength', scale: 0.4 },
+  { id: 'shadow', name: 'Dark smoke', color: '#6a3fa0', anchor: 'belly', hint: 'Black smoke rising off the body', group: 'Dark and fear', level: 'Amount', scale: 0.38 },
+  { id: 'redeye', name: 'Red eye glow', color: '#ff2a3a', anchor: 'head', hint: 'A red haze and glowing eyes (nudge onto the face)', group: 'Dark and fear', level: 'Glow level', scale: 0.2 },
+  { id: 'ghost', name: 'Ghost veil', color: '#d8e8ff', anchor: 'chest', hint: 'A pale veil that waves round the body', group: 'Dark and fear', level: 'Strength', scale: 0.34 },
+  { id: 'shield', name: 'Shield', color: '#5ad0ff', anchor: 'handL', hint: 'A round shield of light', group: 'Special', level: 'Strength', scale: 0.25 },
+  { id: 'portal', name: 'Portal', color: '#b46bff', anchor: 'belly', hint: 'A standing doorway of swirling light', group: 'Special', level: 'Glow level', scale: 0.45 },
+  { id: 'speed', name: 'Speed lines', color: '#ffffff', anchor: 'chest', hint: 'Streaks that rush past (turn it to the way you run)', group: 'Special', level: 'Amount', scale: 0.4, angle: -90 },
 ];
 /** how big a skill is next to the character (a fraction of its height) before the Size slider */
-export const SKILL_SCALE = { fire: 0.17, lightning: 0.2, energy: 0.2, circle: 0.2 };
+export const SKILL_SCALE = Object.fromEntries(SKILLS.map((t) => [t.id, t.scale]));
+/** what the Level slider is called for each skill */
+export const SKILL_LEVEL_LABEL = Object.fromEntries(SKILLS.map((t) => [t.id, t.level]));
 export const skillTemplate = (id) => SKILLS.find((s) => s.id === id) || null;
 /** a new skill on the timeline */
 export function newSkill(kind, { id, target, start = 0, end = 5, ramp = 0.3 } = {}) {
   const t = skillTemplate(kind) || SKILLS[0];
-  return { id, tpl: `skill:${t.id}`, name: t.name, target, start, end, ramp, params: {}, visible: true, skill: cleanSkill({ kind: t.id, anchor: t.anchor, color: t.color }) };
+  return { id, tpl: `skill:${t.id}`, name: t.name, target, start, end, ramp, params: {}, visible: true, skill: cleanSkill({ kind: t.id, anchor: t.anchor, color: t.color, angle: t.angle ?? 0 }) };
 }
 export const isSkill = (fx) => !!fx?.skill;
 /** a skill's settings, always valid. move: null (stays on the character) or { mode: 'point' | 'char', to: { x, y } (fractions of the picture), char (key), arc (-1..1), travel (share of its time spent flying), trail, aim } */
@@ -67,16 +93,12 @@ export function skillPlace(skill, f, t, p0, p1) {
   return { x: p0.x + dx * e + nx * bend, y: p0.y + dy * e + ny * bend, e, dir: Math.atan2(dy, dx) };
 }
 
-const rgb = (hex) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-const mix = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
-const css = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-const seeded = (seed) => () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
 /** the middle of the picture is the anchor point; R is the base radius. t = seconds since the skill started, k = how strong it is now (the fade in / out, 0..1) */
 export function drawSkill(ctx, kind, S, t, skill, k = 1, turn = 0) {
   const c = rgb(skill.color || '#ff7a1a'), p = skill.power ?? 0.7, sp = skill.speed ?? 1, R = S * 0.3125, T = t * sp, wd = skill.width ?? 1;
   ctx.clearRect(0, 0, S, S); ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, k * (skill.opacity ?? 1))); ctx.translate(S / 2, S / 2); ctx.rotate(((skill.angle || 0) * Math.PI) / 180 + turn); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ({ fire, lightning, energy, circle }[kind] || fire)(ctx, R, T, c, p, wd);
+  ({ fire, lightning, energy, circle, ...MORE }[kind] || fire)(ctx, R, T, c, p, wd);
   ctx.restore();
 }
 function fire(ctx, R, T, c, p, wd = 1) {

@@ -1008,3 +1008,5 @@ h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:600;letter-spacing
 .cs-stk-h{position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;z-index:6;touch-action:none;cursor:nwse-resize;background:transparent}
 .cs-stk-h.rot{cursor:grab}
 .cs-stage canvas.cs-stk-over{max-width:none;max-height:none;border-radius:0}
+
+.sk-groups{display:flex;flex-direction:column;gap:12px}.sk-tilegroup>.sk-grouphead{display:block;margin:2px 0 6px;font-weight:600;opacity:.75}

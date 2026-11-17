@@ -14,7 +14,7 @@ import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark, swipeAway } from './dom.js';
 import { creditsBadge } from './credits-badge.js';
 import { lockedFor, PAID_MESSAGE } from '../shared/asset-access.js';
-import { SKILLS, SKILL_ANCHORS, newSkill, cleanSkill, drawSkill } from '../shared/skills.js';
+import { SKILLS, SKILL_ANCHORS, SKILL_LEVEL_LABEL, newSkill, cleanSkill, drawSkill } from '../shared/skills.js';
 import { toolShown, toolOffForUsers, onToolsChange, setToolFlags } from './tool-flags.js';
 import { ingest, isNarrator } from './ingest.js';
 import { analyse } from './lipsync.js';
@@ -2039,8 +2039,7 @@ function wireSkillHandle() {
   const up = () => { if (drag) { drag = null; commitClips(false); } };
   skillHandleEl.addEventListener('pointerup', up); skillHandleEl.addEventListener('pointercancel', up);
 }
-/* ---------------- Skills: powers on a character (fire, lightning, energy ball, magic circle) ---------------- */
-const SKILL_LEVEL_LABEL = { fire: 'Flame level', lightning: 'Bolt power', energy: 'Energy level', circle: 'Glow level' };
+/* ---------------- Skills: powers on a character (see shared/skills.js for the list) ---------------- */
 const skillsInScene = () => S.fx.filter((f) => f.skill);
 const selectedSkill = () => skillsInScene().find((f) => f.id === S.fxSel) || null;
 function addSkill(kind, key) {
@@ -2059,8 +2058,9 @@ function tabSkills() {
   const moveSlider = (fx, label, prop, lo, hi, step) => { const out = h('b', {}, pct(fx.skill.move[prop])); return h('label', { class: 'sk-s' }, h('span', {}, label), h('input', { type: 'range', min: lo, max: hi, step, value: fx.skill.move[prop], 'aria-label': label, oninput: (e) => { set(fx, { move: { ...fx.skill.move, [prop]: +e.target.value } }); out.textContent = pct(fx.skill.move[prop]); } }), out); };
   const rampSlider = (fx) => { const out = h('b', {}, sec(fx.ramp ?? 0.3)); return h('label', { class: 'sk-s' }, h('span', {}, 'Fade in / out'), h('input', { type: 'range', min: 0, max: 3, step: 0.1, value: fx.ramp ?? 0.3, 'aria-label': 'Fade in / out', oninput: (e) => { fx.ramp = +e.target.value; syncFx(); out.textContent = sec(fx.ramp); } }), out); };
   const chip = (text, on, onclick, extra = {}) => h('button', { type: 'button', class: `ed-chip${on ? ' on' : ''}`, 'aria-pressed': String(on), onclick, ...extra }, text);
-  const tiles = h('div', { class: 'tile-grid fx-grid' }, SKILLS.map((t) => { const c = document.createElement('canvas'); c.width = c.height = 96; c.className = 'skill-pic'; drawSkill(c.getContext('2d'), t.id, 96, 1.1, { color: t.color, power: 0.8, speed: 1 }, 1);
-    return h('button', { type: 'button', class: 'tile skill-tile', 'data-skill': t.id, title: `${t.name}: ${t.hint}`, disabled: !chars.length, onclick: () => addSkill(t.id, key) }, h('span', { class: 'tile-pic' }, c), h('span', { class: 'tile-name' }, h('b', {}, t.name))); }));
+  const tile = (t) => { const c = document.createElement('canvas'); c.width = c.height = 96; c.className = 'skill-pic'; drawSkill(c.getContext('2d'), t.id, 96, 1.1, { color: t.color, power: 0.8, speed: 1, angle: t.angle || 0 }, 1);
+    return h('button', { type: 'button', class: 'tile skill-tile', 'data-skill': t.id, title: `${t.name}: ${t.hint}`, disabled: !chars.length, onclick: () => addSkill(t.id, key) }, h('span', { class: 'tile-pic' }, c), h('span', { class: 'tile-name' }, h('b', {}, t.name))); };
+  const tiles = h('div', { class: 'sk-groups' }, [...new Set(SKILLS.map((t) => t.group))].map((g) => h('div', { class: 'sk-tilegroup' }, h('small', { class: 'sk-grouphead' }, g), h('div', { class: 'tile-grid fx-grid' }, SKILLS.filter((t) => t.group === g).map(tile)))));
   const list = skillsInScene();
   const rows = list.length ? h('div', { class: 'card flat fx-list' }, h('h2', {}, 'In the scene'), ...list.map((f) => h('div', { class: `fx-row${f.id === S.fxSel ? ' on' : ''}`, 'data-id': f.id },
     h('button', { type: 'button', class: 'fx-row-main', onclick: () => { selectOnly('fx', f.id); drawTimeline(); redrawPanel(); } }, h('b', {}, f.name), h('small', {}, `${fxTargetName(f.target)} · ${SKILL_ANCHORS.find(([k]) => k === f.skill.anchor)?.[1] || ''} · ${f.start.toFixed(1)}–${f.end.toFixed(1)}s${f.skill.move ? ' · flies' : ''}`)),
@@ -2090,7 +2090,7 @@ function tabSkills() {
       h('div', { class: 'row', style: 'gap:6px;margin-top:8px' }, h('button', { type: 'button', class: 'btn sm', onclick: () => { duplicateFx(); redrawPanel(); } }, icon('layers'), h('span', {}, 'Duplicate')), h('button', { type: 'button', class: 'btn sm danger', onclick: () => deleteSelected() }, icon('trash'), h('span', {}, 'Delete'))));
   };
   return h('div', { class: 'list' },
-    h('div', { class: 'card flat' }, h('h2', {}, 'Skills'), h('p', { class: 'sub studio-help' }, chars.length ? `Powers for your characters: fire, lightning, an energy ball, a magic circle. Choose the character, tap a skill, then set where it sits, how it looks and whether it flies.` : 'Add a character first. A skill belongs to a character.'),
+    h('div', { class: 'card flat' }, h('h2', {}, 'Skills'), h('p', { class: 'sub studio-help' }, chars.length ? `Powers for your characters: fire, lightning, beams, magic, ice, water, wind, dark powers, a shield, a portal and more. Choose the character, tap a skill, then set where it sits, how it looks and whether it flies.` : 'Add a character first. A skill belongs to a character.'),
       chars.length > 1 ? h('div', { class: 'fx-targets', role: 'group', 'aria-label': 'Put the skill on' }, chars.map((x) => chip(x.name, x.key === key, () => { S.skillChar = x.key; redrawPanel(); }, { 'data-char': x.key }))) : null, tiles),
     rows, editor());
 }
