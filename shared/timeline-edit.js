@@ -35,11 +35,14 @@ export function resizeClip({ mode, start, dur, off = 0, delta, min = MIN_CLIP, r
 }
 
 /**
- * How long a scene without audio is. The scene ends where its CONTENT ends: the longest of the voice / animation clips, the backgrounds and the objects (so the player stops there,
- * and a background clip you stretch or move makes the scene longer or shorter). Effects, skills, camera moves, colour changes and movement keys only work on top of that content,
- * so they never stretch the scene: when one of them runs past the end it is simply cut there. A scene with no content at all is an empty 8 s scene (and then those can stretch it).
+ * How long a scene without audio is. The BACKGROUND is the root: when the scene has background clips it ends where the last background clip ends, and the player stops there
+ * (stretch or move a background clip and the scene gets longer or shorter; anything else that runs past it is cut). Without background clips the scene ends where its other content ends:
+ * the longest of the voice / animation clips and the objects. Effects, skills, camera moves, colour changes and movement keys never stretch a scene that has content;
+ * a scene with nothing at all is an empty 8 s scene (and then those can stretch it).
  */
 export function contentLength(doc) {
+  const bg = (doc.bgClips || []).map((clip) => clip.start + clip.dur);
+  if (bg.length) return Math.ceil(Math.max(MIN_SCENE, Math.max(...bg)) * 100) / 100;
   const ends = [];
   for (const [key, value] of Object.entries(doc.solo || {})) if (value?.bodyLen > 0 && (doc.speakers || []).some((speaker) => speaker.key === key && speaker.charId)) ends.push(Math.max(MIN_SCENE, value.bodyLen));
   for (const clips of Object.values(doc.manual || {})) for (const clip of clips) ends.push(clip.start + clip.dur);
