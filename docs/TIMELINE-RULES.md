@@ -21,3 +21,7 @@ On a phone the bottom bar shows tools for the open timeline group (`phoneNav()` 
 ## Layer overview lives on the five layer buttons
 
 There is no separate overview line above the timeline any more. Each of the five layer buttons (Audio, Characters, Background, Props, Effects) carries a tiny map of its own group (`.tl-mini`: where its layers start and end over the whole scene, in the group's colour) and a tick for the playhead, so groups are compared right where they are chosen, next to the timeline. Code: `drawOverview` / `moveMiniHeads` in `src/main.js`. Test: `tests/browser/layer-minimap.spec.js`.
+
+## Split
+
+Every timeline clip can be cut at the playhead: animation clips, backgrounds, objects, audio lines and now effects / skills (`splitSelected` in `src/main.js`; both pieces keep the same look). The clip bar has a Split button, and a red scissors button sits on the selected clip right at the playhead (`placeScissors`, only while the playhead is inside the clip, hidden while playing or when the clip is locked). Shadows cannot be cut (they follow their character or object). Test: `tests/browser/split-effect.spec.js`.

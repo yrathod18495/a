@@ -1419,6 +1419,7 @@ function drawTimeline() {
   tlInner.replaceChildren(...lanes, headEl);
   drawClipBar();
   headEl.style.left = `${player.time * pps}px`;
+  placeScissors();
 }
 
 /* ---------- the user's own animation clips on the timeline ---------- */
@@ -2219,7 +2220,7 @@ function drawClipNav() {
   clipNav.replaceChildren(
     h('div', { class: 'cb-list' },
       ...(kind === 'fx' ? [btn('pencil', 'Edit', () => openFxDock(it.fx), { title: 'Opacity, blur, contrast, saturation, tint and more' })] : []),
-      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : kind === 'fx' ? [] : [btn('scissors', 'Split', splitSelected, { disabled: many })]),
+      ...(kind === 'shadow' ? [btn('shadow', 'Edit', () => openShadowDock(it.sh.kind, it.sh.o), { title: 'Direction, length, softness, darkness' })] : [btn('scissors', 'Split', splitSelected, { disabled: many, title: 'Cut the selected clip at the playhead' })]),
       ...(kind === 'bg' ? [btn('log', 'Objects', () => openTab('props'), { title: 'Objects (stone, tree ...): pick one to put on the scene' }), btn('arrow-lr', 'Adjust', () => openBgAdjust(it.bc), { title: 'Move and resize the background with a joystick and a slider' }), btn('crop', 'Crop', () => openBgCrop(it.bc)), btn('swap', 'Replace', () => replaceBg(it.bc))] : []),
       ...(kind === 'clip' && m?.kind === 'body' && s ? [btn('route', 'Path', () => startPathShadow(s), inPath ? { class: 'cb-btn on', 'aria-pressed': 'true' } : {})] : []),
       ...(kind === 'clip' && s ? [btn('swap', 'Replace', () => replaceClip(s, m))] : []),
@@ -2343,12 +2344,37 @@ async function splitSelected() {
     const at = snapTo(t), c = { ...clone(bc), id: uid(), start: at, dur: +(bc.start + bc.dur - at).toFixed(2) };
     bc.dur = +(at - bc.start).toFixed(2); S.bgClips.push(c); selectOnly('bg', c.id); await syncBgClips(); commitClips(); return;
   }
+  if (it.kind === 'shadow') { toast('A shadow follows its character or object, so it cannot be cut. Cut the character or object instead.'); return; }
+  if (it.kind === 'fx') {          // an effect or skill is cut in two: the first piece ends at the playhead, the second starts there and keeps the same look
+    const fx = it.fx; if (!inside(fx.start, fx.end)) { toast('Move the playhead inside the clip first.'); return; }
+    const at = snapTo(t), c = { ...clone(fx), id: uid(), start: at, end: +fx.end.toFixed(2) }; delete c.locked;
+    fx.end = +at.toFixed(2); S.fx.push(c); selectOnly('fx', c.id); syncFx(); commitClips(); redrawFxPanel?.(); return;
+  }
   const pr = it.pr, start = pr.start || 0, end = pr.end ?? player.total; if (!inside(start, end)) { toast('Move the playhead inside the clip first.'); return; }
   const at = snapTo(t), c = { ...pr, id: uid(), start: at, end: +end.toFixed(2) };
   if (pr.attach) c.attach = { ...pr.attach };
   c.lane = pr.lane = pr.lane || pr.id;                       // the new piece stays on the same row
   pr.start = start; pr.end = +at.toFixed(2); S.props.push(c); selectOnly('prop', c.id);
   await dbPut('props', pr); await dbPut('props', c); await stage.setProps(S.props); S.dirty = true; commitClips();
+}
+/** a scissors button sits on the selected clip right at the playhead: tap it to cut the clip there (it only shows while the playhead is inside the clip) */
+let scissorsEl = null;
+function selectedRange(it) {
+  if (!it) return null;
+  if (it.kind === 'clip') return [it.f.m.start, it.f.m.start + it.f.m.dur];
+  if (it.kind === 'bg') return [it.bc.start, it.bc.start + it.bc.dur];
+  if (it.kind === 'prop') return [it.pr.start || 0, it.pr.end ?? player.total];
+  if (it.kind === 'fx') return [it.fx.start, it.fx.end];
+  return null;
+}
+function placeScissors() {
+  if (!tlInner) return;
+  scissorsEl ||= h('button', { type: 'button', class: 'tl-scissors', title: 'Cut the selected clip here', 'aria-label': 'Split the selected clip at the playhead', hidden: true, onpointerdown: (e) => e.stopPropagation(), onclick: (e) => { e.stopPropagation(); splitSelected(); } }, icon('scissors'));
+  const it = multi.size >= 2 ? null : selectedItem(), r = selectedRange(it), t = player.time, clip = r && tlInner.querySelector('.tclip.sel');
+  if (!r || !clip || player.playing || selectedLocked() || !(t > r[0] + 0.1 && t < r[1] - 0.1)) { scissorsEl.hidden = true; return; }
+  if (scissorsEl.parentNode !== tlInner) tlInner.append(scissorsEl);
+  const a = tlInner.getBoundingClientRect(), c = clip.getBoundingClientRect();
+  scissorsEl.hidden = false; scissorsEl.style.left = `${t * S.pps}px`; scissorsEl.style.top = `${c.top - a.top + c.height / 2}px`;
 }
 /** which character is in front: the top row of the timeline is the front-most character (S.order[0]); `to` is 'front', 'back', or a step (-1 = one step towards the front) */
 async function moveCharacterLayer(key, to) {
@@ -5155,7 +5181,7 @@ function loop(now) {
   if (S.tab === 'grade' && S.gradeKeys.length && Math.abs(player.time - gradeSeen) > 0.02) { gradeSeen = player.time; refreshGradeFields(); }
   if (headEl) {
     const x = t * S.pps;
-    headEl.style.left = `${x}px`;
+    headEl.style.left = `${x}px`; placeScissors();
     if (player.playing && tlScroll && (x < tlScroll.scrollLeft + 10 || x > tlScroll.scrollLeft + tlScroll.clientWidth - 40)) tlScroll.scrollLeft = Math.max(0, x - 40);
   }
   if (timeEl) timeEl.textContent = `${fmt(t)} / ${fmt(player.total)}`;
