@@ -142,3 +142,13 @@ Make a ZIP of the same character (same `character.id` and `category.id`) that ho
 ## Checking and fixing animations that look wrong on a standing rig
 
 Converted animations (autodraft pack → Dayan / William) must be looked at, not only counted: render a contact sheet of every animation (two frames each) and look for floating legs, a lying body with standing legs, poses that need a chair or a wall. `scripts/fix-bad-animations.py in.zip out.zip --rig dayan|william` applies the decisions made so far: `Action_Driving` keeps its arms but the legs stand; `Sleep_Back_2` / `Sleep_Nightmare_2` (Dayan) lie down like the rig's own swim / sleep; `Action_Swim` (the rig's own `Swimming` / `swim` exists) and `Pose_Lean_on_a_wall` (no wall) are removed. Add a name to `PLAN` in the script to fix or drop another one.
+
+## Hand-made animations: the bite
+
+`scripts/add-bite-animation.py in.zip out.zip --rig dayan|william` adds a hand-made **Action Bite** body animation (group "Action", 1.33 s) to every
+view of the ZIP where a bite makes sense (Dayan 3/4 front; William 3/4 front and side). It is DragonBones data only: rotation tracks on the torso,
+head and arms, a small head scale-up on William's frontal view, and a `lips` slot track (mouth opens with teeth, snaps shut, clenches, relaxes).
+The legs are not touched so the feet stay planted, and the first and last pose are the rest pose so it loops and joins other clips. Positive arm
+turns go forward/up and negative torso/head turns lean forward in these rigs; `--json out.json --view f34|sd` writes just the animation. Check the
+result with `node scripts/check-character-zip.mjs out.zip` and look at it frame by frame before uploading. Lip-sync of a spoken line still
+overrides the mouth, as for every other animation.
