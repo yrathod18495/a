@@ -25,3 +25,7 @@ There is no separate overview line above the timeline any more. Each of the five
 ## Split
 
 Every timeline clip can be cut at the playhead: animation clips, backgrounds, objects, audio lines and now effects / skills (`splitSelected` in `src/main.js`; both pieces keep the same look). The Split button is in the bottom navigation (clip bar); there is no extra scissors on the timeline. Shadows cannot be cut (they follow their character or object).
+
+## Where the scene (and the player) ends
+
+The scene ends where its content ends (`contentLength` in `shared/timeline-edit.js`): the longest of the voice / animation clips, the background clips and the objects. Stretch or move a background clip and the scene gets longer or shorter. Effects, skills, camera moves, colour changes, movement keys and overlays only work on top of the content and never stretch the scene (anything past the end is cut). Only a scene with no content at all (8 s, empty) lets them stretch it. The player stops at the end (`time >= total`). Tests: `tests/timeline-edit.test.js`, `tests/browser/timeline-grows.spec.js`.

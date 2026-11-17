@@ -28,7 +28,9 @@ test('a scene is as long as its clips; an empty scene is 8 s; keys only stretch'
   assert.equal(contentLength(doc({ manual: { hero: [{ start: 0, dur: 5 }] }, bgClips: [{ start: 3, dur: 6 }] })), 9);
   assert.equal(contentLength(doc({ props: [{ end: 4 }, { start: 1 }, {}] })), 4);                                   // props without an end do not set the length
   assert.equal(contentLength(doc({ props: [{ end: 4 }], camKeys: [{ t: 2 }] })), 4);
-  assert.equal(contentLength(doc({ manual: { hero: [{ start: 0, dur: 3 }] }, camKeys: [{ t: 6 }] })), 6.5);
+  assert.equal(contentLength(doc({ manual: { hero: [{ start: 0, dur: 3 }] }, camKeys: [{ t: 6 }] })), 3);          // a camera move past the content does not keep the player running
+  assert.equal(contentLength(doc({ bgClips: [{ start: 0, dur: 40 }], fx: [{ start: 30, end: 81.7 }], camKeys: [{ t: 80 }], gradeKeys: [{ t: 70 }], charKeys: { hero: [{ t: 75 }] }, props: [{ kind: 'effect', end: 90 }] })), 40);          // the background decides where the player stops
+  assert.equal(contentLength(doc({ bgClips: [{ start: 0, dur: 40 }], manual: { hero: [{ start: 38, dur: 6 }] } })), 44);          // a character clip is content too
   assert.equal(contentLength(emptyScene()) , 8); assert.equal(contentLength({ ...emptyScene(), camKeys: [{ t: 2 }] }), 8);
   assert.equal(contentLength(doc({ solo: { hero: { bodyLen: 2.67 }, ghost: { bodyLen: 90 } } })), 2.67);
 });

@@ -40,3 +40,19 @@ test('dragging the end of an effect clip to the right keeps making the scene lon
     expect(now).toBeGreaterThan(last); last = now;
   }
 });
+test('with a background the scene stops where the background ends: effects, skills and the camera never keep the player running', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false, features: {} } }));
+  await page.goto('/?debug&workers=0#/toons');
+  await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Create a project' }).fill('Root');
+  await page.getByRole('button', { name: 'Create project', exact: true }).click();
+  await page.waitForFunction(() => window.__toon?.S.ready);
+  await page.evaluate(() => { const T = window.__toon; T.S.bgClips.push({ id: 'b1', start: 0, dur: 20, preset: 0 }); T.commitClips(); });
+  expect(await page.evaluate(() => window.__toon.player.total)).toBeCloseTo(20, 1);
+  await page.evaluate(() => { const T = window.__toon; T.addFx('night', 'scene'); T.S.fx[0].start = 10; T.S.fx[0].end = 81.7; T.S.camKeys.push({ id: 'k1', t: 70, cx: 0.5, cy: 0.5, zoom: 1, ease: 'smooth' }); T.commitClips(); });
+  expect(await page.evaluate(() => window.__toon.player.total)).toBeCloseTo(20, 1);            // not 1:21
+  // stretching the background is what makes the scene longer
+  await page.evaluate(() => { const T = window.__toon; T.S.bgClips[0].dur = 45; T.commitClips(); });
+  expect(await page.evaluate(() => window.__toon.player.total)).toBeCloseTo(45, 1);
+});

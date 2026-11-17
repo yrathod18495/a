@@ -35,17 +35,19 @@ export function resizeClip({ mode, start, dur, off = 0, delta, min = MIN_CLIP, r
 }
 
 /**
- * How long a scene without audio is. Clips that have a length (an animation picked for a character, animation clips, background clips,
- * a prop / effect with an end time) decide it; with none of those it is an empty 8 s scene. Movement and camera keys can only stretch it.
+ * How long a scene without audio is. The scene ends where its CONTENT ends: the longest of the voice / animation clips, the backgrounds and the objects (so the player stops there,
+ * and a background clip you stretch or move makes the scene longer or shorter). Effects, skills, camera moves, colour changes and movement keys only work on top of that content,
+ * so they never stretch the scene: when one of them runs past the end it is simply cut there. A scene with no content at all is an empty 8 s scene (and then those can stretch it).
  */
 export function contentLength(doc) {
   const ends = [];
   for (const [key, value] of Object.entries(doc.solo || {})) if (value?.bodyLen > 0 && (doc.speakers || []).some((speaker) => speaker.key === key && speaker.charId)) ends.push(Math.max(MIN_SCENE, value.bodyLen));
   for (const clips of Object.values(doc.manual || {})) for (const clip of clips) ends.push(clip.start + clip.dur);
   for (const clip of doc.bgClips || []) ends.push(clip.start + clip.dur);
-  for (const prop of doc.props || []) if (prop.end != null) ends.push(prop.end);
-  for (const fx of doc.fx || []) if (fx.start > 0.001 && fx.end != null) ends.push(fx.end);       // an effect or skill placed later grows the scene; one that starts with the scene just follows it
-  let end = ends.length ? Math.max(...ends) : EMPTY_SCENE;
+  for (const prop of doc.props || []) if (prop.end != null && prop.kind !== 'effect') ends.push(prop.end);
+  if (ends.length) return Math.ceil(Math.max(MIN_SCENE, Math.max(...ends)) * 100) / 100;
+  let end = EMPTY_SCENE;
+  for (const fx of doc.fx || []) if (fx.start > 0.001 && fx.end != null) end = Math.max(end, fx.end);
   for (const key of [...(doc.camKeys || []), ...(doc.gradeKeys || []), ...Object.values(doc.charKeys || {}).flat()]) end = Math.max(end, key.t + 0.5);
   return Math.ceil(Math.max(MIN_SCENE, end) * 100) / 100;
 }
