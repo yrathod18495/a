@@ -68,10 +68,16 @@ const GROUP_ICON = { Top: 'shirt', Bottom: 'layers', Shoes: 'walk', Eyes: 'eye',
 
 export async function view({ user, home, toast, localPreview = false }) {
   localPreview = import.meta.env.DEV && localPreview;
-  const [rawMine] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), loadCatalog(), refreshLayerRules()]);
-  const mine = await hydrateAll(rawMine);            // saved characters are small (template + settings + own pictures): put them together again
-  let groupsData = [];
-  try { groupsData = await fetch(assetUrl('12toons/groups.json')).then((r) => r.json()); } catch { /* optional */ }
+  // The page opens from what this device knows. The shared library (network) gets a few seconds at most; if the connection is slow or dead it keeps loading in the
+  // background and the character list fills in when it arrives. Nothing here may wait on the network for long.
+  const within = (promise, ms) => Promise.race([promise, new Promise((resolve) => setTimeout(resolve, ms))]);
+  let pageReady = false, redrawLibrary = () => {}, savedRaw = [];
+  const catalogLoading = loadCatalog().catch((e) => console.warn('Character library unavailable:', e?.message));
+  catalogLoading.then(() => { if (pageReady) redrawLibrary(); });
+  const groupsLoading = (async () => { const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 2500); try { return await fetch(assetUrl('12toons/groups.json'), { signal: ctl.signal }).then((r) => r.json()); } catch { return []; } finally { clearTimeout(timer); } })();          // optional: part groups
+  const [rawList, groupsData] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), groupsLoading, within(catalogLoading, 3000), refreshLayerRules()]);
+  savedRaw = rawList;
+  const mine = await hydrateAll(rawList);            // saved characters are small (template + settings + own pictures): put them together again (the ones built on a library template need the library: they come when it has loaded)
   const groupOf = new Map();
   for (const g of groupsData) for (const a of g.attachments) groupOf.set(a, g.name);
 
@@ -951,6 +957,8 @@ export async function view({ user, home, toast, localPreview = false }) {
     root.querySelector('header .btn.ok').textContent = 'Local artwork preview';
   }
   raf = requestAnimationFrame(loop);
+  redrawLibrary = async () => { if (!root.isConnected) return; try { const again = await hydrateAll(savedRaw); for (const c of again) if (!mine.some((x) => x.id === c.id)) mine.push(c); } catch { /* keep what is shown */ } if (st.tab === 'start') draw(); };          // the shared library arrived late: show it
+  pageReady = true;
   return root;
 }
 

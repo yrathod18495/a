@@ -107,7 +107,9 @@ function modal(title, body, onClose) {
 
 async function boot() {
   [S.characters, S.myBgs, S.props] = await Promise.all([loadCharacters().then((l) => l.filter((c) => c.ske || c.base)), dbAll('backgrounds'), dbAll('props')]);
-  await loadCatalog();
+  const catalogLoading = loadCatalog().catch((e) => console.warn('Character library unavailable:', e?.message));          // the shared library needs the network: a slow or dead connection must not keep the studio from opening
+  await Promise.race([catalogLoading, new Promise((resolve) => setTimeout(resolve, 3000))]);
+  catalogLoading.then(() => { if (!$app.hidden) { try { drawTabs(); } catch { /* the studio is still starting */ } } });
   S.sharedAssets = await Promise.race([listStudioAssets(), new Promise((resolve) => setTimeout(() => resolve([]), 6000))]).catch((e) => { console.warn('Shared studio library unavailable:', e.message); return []; });          // a slow library must not keep the project from opening
   S.props.forEach((p) => p.blob && bid(p.blob));
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
