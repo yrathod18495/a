@@ -193,3 +193,16 @@ test('Path tool: its own bottom bar on a phone (Cancel, Bring back, Remove path,
   await expect(page.locator('.pathshadow-layer')).toHaveCount(0);
   expect(await page.evaluate(() => document.body.classList.contains('path-mode'))).toBe(false);
 });
+
+test('Path: the starting point is where the character stands when its clip starts, not where the playhead was left (it must not start off the screen)', async ({ page }) => {
+  await studio(page);
+  const r = await page.evaluate(() => {
+    const { S, stage, player, startPathShadow } = window.__toon, l = stage.layers.find((x) => x.key === 'fake1');
+    // the character has its own place (keyframe) at the start of its clip, but the stage still shows it far off the picture, where the playhead was earlier
+    S.charKeys.fake1 = [{ id: 'u1', t: 0, x: 0.35, y: 0.2, mul: 1, ease: 'smooth' }];
+    l.axf = 1.7; l.ayf = 0.2; player.seek(0.2);
+    startPathShadow(S.speakers.find((x) => x.key === 'fake1')); S.pathDraw.finish();
+    return S.paths.fake1.pts[0];
+  });
+  expect(r.x).toBeCloseTo(0.35, 2); expect(r.y).toBeCloseTo(0.2, 2);
+});

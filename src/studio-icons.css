@@ -976,6 +976,3 @@ body.studio-dark .selbox{border-width:1.5px}
 #app .tl-mini-head{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:1px;background:#fff;box-shadow:0 0 0 1px #0009;font-style:normal}
 #app .tl-cat:not(.on) .tl-mini-head{background:#ffd23f;box-shadow:0 0 0 1px #000a}
 
-/* the scissors on the selected clip at the playhead */
-.tl-inner .tl-scissors{position:absolute;z-index:8;width:34px;height:34px;transform:translate(-50%,-50%);display:grid;place-items:center;padding:0;border:2px solid #fff;border-radius:10px;background:#e5343a;color:#fff;box-shadow:0 3px 10px #0008;cursor:pointer;touch-action:manipulation}
-.tl-inner .tl-scissors[hidden]{display:none}.tl-inner .tl-scissors svg{width:18px;height:18px}

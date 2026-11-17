@@ -24,4 +24,4 @@ There is no separate overview line above the timeline any more. Each of the five
 
 ## Split
 
-Every timeline clip can be cut at the playhead: animation clips, backgrounds, objects, audio lines and now effects / skills (`splitSelected` in `src/main.js`; both pieces keep the same look). The clip bar has a Split button, and a red scissors button sits on the selected clip right at the playhead (`placeScissors`, only while the playhead is inside the clip, hidden while playing or when the clip is locked). Shadows cannot be cut (they follow their character or object). Test: `tests/browser/split-effect.spec.js`.
+Every timeline clip can be cut at the playhead: animation clips, backgrounds, objects, audio lines and now effects / skills (`splitSelected` in `src/main.js`; both pieces keep the same look). The Split button is in the bottom navigation (clip bar); there is no extra scissors on the timeline. Shadows cannot be cut (they follow their character or object).
