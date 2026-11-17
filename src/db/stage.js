@@ -484,8 +484,20 @@ export class Stage {
     if (z <= 1.001) return wide;
     const lay = this.layers.find((l) => l.key === (line.focus && line.focus !== 'auto' ? line.focus : line.speaker)) || this.layers[0];
     if (!lay?.box) return wide;
+    if (!this.isUpright(lay)) return wide;          // lying, swimming, crawling ...: the head is not at the top, so an upper-body or face crop would cut the character: show all of it
     const b = lay.box, h = b.y1 - b.y0;
     return { zoom: z, cx: (b.x0 + b.x1) / 2, cy: b.y0 + h * (line.type === 'close' ? 0.17 : 0.32) };
+  }
+  /** is the character standing up right now (the head clearly above the hips)? Judged from the live bones; with no head or hip bone to go by it counts as standing. */
+  isUpright(l) {
+    try {
+      const bones = l.arm?.getBones?.() || []; if (!bones.length) return true;
+      const head = bones.find((x) => /^(head|bone_head|head_bone)$/i.test(x.name)) || bones.find((x) => /head/i.test(x.name) && !/band|hair|top|ear|hat/i.test(x.name));
+      const hip = bones.find((x) => /^(pelvis|hip|hips|bone_hip|body)$/i.test(x.name)) || bones.find((x) => /pelvis|hip/i.test(x.name));
+      if (!head || !hip) return true;
+      const dx = head.globalTransformMatrix.tx - hip.globalTransformMatrix.tx, dy = hip.globalTransformMatrix.ty - head.globalTransformMatrix.ty;          // armature space: y grows downwards, so a head above the hips gives dy > 0
+      return dy > Math.abs(dx) * 0.6;
+    } catch { return true; }
   }
   /** camera between the user's keyframes (zoom is blended in log space so zooming feels even) */
   keyCam(t) {
