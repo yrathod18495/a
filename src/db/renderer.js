@@ -65,12 +65,17 @@ const STRIDE = 8, MAXV = 32768;      // floats per vertex: x y u v r g b a
 export class GLTex {
   constructor(r, source, mips, premultiply = false) {          // the renderer works with premultiplied pictures: a canvas (straight alpha) is made premultiplied here
     const gl = r.gl; this.gl = gl; this.w = source.width; this.h = source.height; this.tex = gl.createTexture();
+    let lostBefore = !!gl.isContextLost?.();
+    for (let n = 0, e; n < 16 && (e = gl.getError()) !== gl.NO_ERROR; n++) if (e === 0x9242) lostBefore = true;          // an older mistake in the queue (e.g. a picture drawn after it was thrown away) must not be blamed on this upload
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !!premultiply); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    const uploadError = gl.getError();
-    if (uploadError !== gl.NO_ERROR) {
-      const lost = gl.isContextLost?.() || uploadError === 0x9242;          // the phone took the graphics back (page in the background): not a memory problem, the pictures just have to be sent again once the graphics are back
+    let uploadError = gl.getError();
+    if (uploadError === gl.INVALID_OPERATION && !lostBefore && typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap) {          // some graphics drivers refuse a bitmap picture: send it through a canvas instead (the bitmap is already premultiplied, so it stays so)
+      try { const c = document.createElement('canvas'); c.width = source.width; c.height = source.height; c.getContext('2d').drawImage(source, 0, 0); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c); uploadError = gl.getError(); } catch { /* the original error is reported below */ }
+    }
+    if (uploadError !== gl.NO_ERROR || lostBefore) {
+      const lost = lostBefore || gl.isContextLost?.() || uploadError === 0x9242;          // the phone took the graphics back (page in the background): not a memory problem, the pictures just have to be sent again once the graphics are back
       try { gl.deleteTexture(this.tex); } catch { /* context lost */ }
       throw Object.assign(new Error(lost ? 'The graphics are not ready yet.' : uploadError === gl.OUT_OF_MEMORY ? 'Graphics memory is not available. Try lowering the preview quality.' : `The picture could not be sent to the graphics (code ${uploadError}).`), { code: lost ? 'context-lost' : 'upload' });
     }
@@ -80,7 +85,7 @@ export class GLTex {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   }
-  dispose() { try { this.gl.deleteTexture(this.tex); } catch { /* context lost */ } }
+  dispose() { this.dead = true; try { this.gl.deleteTexture(this.tex); } catch { /* context lost */ } }
 }
 
 export class GLRenderer {
@@ -225,6 +230,7 @@ export class GLRenderer {
   }
   flush() {
     if (!this.ni) return;
+    if (this.cur?.dead) { this.nv = 0; this.ni = 0; return; }          // the picture was thrown away (a character being replaced): skip it, drawing with it would only raise a graphics error
     const gl = this.gl; gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.cur.tex);
     gl.bufferData(gl.ARRAY_BUFFER, this.v.subarray(0, this.nv * STRIDE), gl.STREAM_DRAW); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.i.subarray(0, this.ni), gl.STREAM_DRAW);
     gl.drawElements(gl.TRIANGLES, this.ni, gl.UNSIGNED_SHORT, 0); this.nv = 0; this.ni = 0;

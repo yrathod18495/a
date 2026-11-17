@@ -20,7 +20,10 @@ function cloudError(e, what) {
 }
 async function put(target, blob) {
   let r;
-  try { r = await fetch(target.url, { method: 'PUT', headers: target.headers, body: blob }); } catch (e) { throw cloudError(e, 'upload'); }
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 120000);          // a stalled connection must end with a clear message, never a bar that never moves
+  try { r = await fetch(target.url, { method: 'PUT', headers: target.headers, body: blob, signal: ctl.signal }); }
+  catch (e) { if (e?.name === 'AbortError') { const err = Error('The upload took too long and was stopped. Please check your internet and try again.'); err.code = 'r2_timeout'; throw err; } throw cloudError(e, 'upload'); }
+  finally { clearTimeout(timer); }
   if (!r.ok) { const err = Error(r.status === 403 ? 'The upload link expired or was not valid. Please try again.' : `Cloud storage did not accept the upload (${r.status}). Please try again.`); err.code = 'r2_put_failed'; throw err; }
 }
 

@@ -555,7 +555,7 @@ export async function view({ user, home, toast, localPreview = false }) {
       await stage.loadCharacter(d);
       for (const pg of st.pages) await pageCanvas(pg);
 
-    } catch (e) { toast(`Could not load: ${e.message}`); return; }
+    } catch (e) { st.def = null; st.regions = new Map(); st.pages = []; st.tab = 'start'; thumbs.clear(); draw(); toast(`Could not load: ${friendlyError(e)}`); return; }          // never leave a half-loaded character on the screen
     try { await setAnimation(defaultAnim()); } catch { /* static pose */ }
     try { await restoreStickers(saved ? pr : null, d.pages); } catch (e) { console.warn('stickers not restored', e); st.stickers = []; }
     rebuild(); t0 = performance.now(); st.tab = 'create'; draw(); drawAnimBar();

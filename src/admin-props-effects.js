@@ -11,6 +11,16 @@ import { friendlyError } from '../shared/hinglish-errors.js';
 const KINDS = [['prop', 'Props'], ['effect', 'Effects'], ['sticker', 'Stickers']];
 const ACCESS_LABEL = { paid: 'Paid accounts only', free: 'Free for everyone' };
 const GROUP_LABEL = { general: 'Object (Objects tab)', hand: 'Prop (character toolbox)' };
+/** the box that shows a batch upload: a moving bar, "7 of 48", what is being sent now, a Stop button and, at the end, the pictures that did not go through */
+function progressBox() {
+  const text = h('span', { class: 'pb-text' }, ''), bar = h('i', { class: 'pb-fill' }), stop = h('button', { class: 'btn sm', type: 'button', onclick: () => { api.cancelled = true; stop.disabled = true; text.textContent = 'Stopping after the pictures being sent…'; } }, 'Stop');
+  const el = h('div', { class: 'upload-progress', role: 'status', 'aria-live': 'polite', style: 'grid-column:1/-1;padding:12px 14px;border-radius:12px;background:rgba(80,110,255,.1);display:grid;gap:8px' }, h('div', { style: 'display:flex;gap:10px;align-items:center;justify-content:space-between' }, text, stop), h('div', { class: 'pb-track', style: 'height:8px;border-radius:6px;background:rgba(80,110,255,.2);overflow:hidden' }, bar));
+  bar.style.cssText = 'display:block;height:100%;width:0;background:#4f6bff;border-radius:6px;transition:width .25s';
+  const api = { el, cancelled: false,
+    set(done, total, msg) { bar.style.width = `${total ? Math.round((done / total) * 100) : 0}%`; text.textContent = `${msg}${done < total ? '' : ''}`; },
+    fail(list) { stop.remove(); el.append(h('b', {}, `${list.length} could not be published:`), h('ul', { style: 'margin:0;padding-left:18px;max-height:160px;overflow:auto' }, list.map((f) => h('li', {}, `${f.name} — ${f.why}`))), h('small', {}, 'Choose just these files again to try once more.')); } };
+  return api;
+}
 const BLEND_LABEL = { normal: 'Normal', add: 'Glow (add)', screen: 'Screen' };
 
 /** `only` ('prop' | 'effect'): the same screen for one kind, without its own header, tabs or back button (used inside Admin → Add Assets). Returns the content element then. */
@@ -71,7 +81,7 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
     const sheetOn = h('input', { type: 'checkbox', checked: state.sheet, onchange: (e) => { state.sheet = e.target.checked; draw(); } });
     const cols = h('input', { type: 'number', min: 1, max: 16, value: 4, 'aria-label': 'Sprite sheet columns' }), rows = h('input', { type: 'number', min: 1, max: 16, value: 4, 'aria-label': 'Sprite sheet rows' }), fps = h('input', { type: 'number', min: 1, max: 60, value: 12, 'aria-label': 'Sprite sheet fps' });
     const submit = h('button', { class: 'btn pri', type: 'submit', disabled: state.loading }, `Publish ${noun}`);
-    return h('form', { class: 'admin-animation-form', onsubmit: async (event) => {
+    const form = h('form', { class: 'admin-animation-form', onsubmit: async (event) => {
       event.preventDefault();
       const files = [...(file.files || [])];
       if (!files.length) { toast('Please choose an image file first.'); return; }
@@ -80,16 +90,35 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
       if (effect) Object.assign(meta, { blend: blend.value, opacity: Number(opacity.value), placement: placement.value, ...(state.sheet ? { sheet: { cols: Number(cols.value), rows: Number(rows.value), fps: Number(fps.value) } } : {}) });
       try { cleanAssetMeta(state.kind, meta); } catch (error) { toast(error.message); return; }
       submit.disabled = true; state.loading = true;
-      try {
-        for (const picture of files) {
-          // an animated GIF / WebP / APNG is turned into a sprite sheet here, so it plays in the studio and in the video; a still picture is saved as it is
-          if (sticker) { await saveStudioAsset('sticker', name.value.trim() || picture.name.replace(/\.[^.]+$/, ''), await stickerPng(picture), meta); continue; }          // a sticker is saved as a see-through PNG (an SVG is drawn first)
-          const anim = state.sheet ? null : await animatedToSheet(picture);
-          await saveStudioAsset(state.kind, name.value.trim() || picture.name.replace(/\.[^.]+$/, ''), anim ? anim.file : picture, anim ? { ...meta, sheet: anim.sheet } : meta);
+      const prog = progressBox(); form.prepend(prog.el); prog.set(0, files.length, 'Starting…');
+      const publishOne = async (picture) => {
+        // an animated GIF / WebP / APNG is turned into a sprite sheet here, so it plays in the studio and in the video; a still picture is saved as it is
+        const label = name.value.trim() || picture.name.replace(/\.[^.]+$/, '');
+        if (sticker) return saveStudioAsset('sticker', label, await stickerPng(picture), meta);          // a sticker is saved as a see-through PNG (an SVG is drawn first)
+        const anim = state.sheet ? null : await animatedToSheet(picture);
+        return saveStudioAsset(state.kind, label, anim ? anim.file : picture, anim ? { ...meta, sheet: anim.sheet } : meta);
+      };
+      const withTimeout = (p, ms) => new Promise((resolve, reject) => { const t = setTimeout(() => reject(Error('This picture took too long to publish.')), ms); p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); }); });
+      let done = 0; const failed = []; let next = 0;
+      const worker = async () => {
+        while (next < files.length && !prog.cancelled) {
+          const picture = files[next++];
+          prog.set(done, files.length, `Publishing ${picture.name}…`);
+          try { try { await withTimeout(publishOne(picture), 150000); } catch (first) { if (prog.cancelled) throw first; await withTimeout(publishOne(picture), 150000); } }          // one automatic second try
+          catch (e) { failed.push({ name: picture.name, why: friendlyError(e) }); }
+          done++; prog.set(done, files.length, `${done} of ${files.length} finished${failed.length ? ` · ${failed.length} failed` : ''}`);
         }
-        toast(`${files.length > 1 ? `${files.length} ${noun}s` : noun[0].toUpperCase() + noun.slice(1)} published. Creators will see it in the studio.`);
-        await refresh();
-      } catch (e) { toast(`Could not publish: ${friendlyError(e)}`); }
+      };
+      try {
+        await Promise.all(Array.from({ length: Math.min(3, files.length) }, worker));          // three at a time: 48 pictures no longer wait one behind the other
+        const ok = done - failed.length;
+        if (prog.cancelled) toast(`Stopped. ${ok} ${noun}${ok === 1 ? '' : 's'} published before you stopped it.`);
+        else if (!failed.length) toast(`${files.length > 1 ? `${files.length} ${noun}s` : noun[0].toUpperCase() + noun.slice(1)} published. Creators will see ${files.length > 1 ? 'them' : 'it'} in the studio.`);
+        else toast(`${ok} published, ${failed.length} did not upload. The list is shown above the button.`);
+        file.value = '';
+        await refresh();          // redraws the page, so the box is put into the new form again
+        if (failed.length) { prog.fail(failed); content.querySelector('form')?.prepend(prog.el); } else prog.el.remove();
+      } catch (e) { toast(`Could not publish: ${friendlyError(e)}`); prog.el.remove(); }
       finally { state.loading = false; submit.disabled = false; }
     } },
       field(sticker ? 'Sticker picture(s): PNG, WebP or SVG with a see-through background' : effect ? 'Effect image / sprite sheet (up to 40 MB)' : `${noun[0].toUpperCase() + noun.slice(1)} image(s) (PNG / WebP / GIF, up to 40 MB each; a GIF plays as an animation)`, file, true),
@@ -99,6 +128,7 @@ export async function propsEffectsView({ back, home, toast, only = null, group: 
         h('label', { class: 'admin-animation-field' }, h('span', {}, 'This is a sprite sheet (frame-based animation)'), sheetOn),
         ...(state.sheet ? [field('Columns', cols), field('Rows', rows), field('Frames per second', fps)] : [])] : []),
       submit);
+    return form;
   }
 
   function card(asset) {
