@@ -155,3 +155,9 @@ input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
 :root[data-theme] body .projects-search-row>:first-child{flex:1 1 auto;width:auto}
 
 .studio-veil{position:fixed;inset:0;z-index:3000;background:var(--bg)}
+
+/* Smoothness: taps act at once (no 300 ms double-tap wait) and a new page eases in instead of snapping. */
+a,button,[role=button],summary,input,select,label,.btn{touch-action:manipulation}
+@keyframes page-in{from{opacity:0}to{opacity:1}}
+#shell>*:not(.studio-veil){animation:page-in .18s ease-out}
+@media(prefers-reduced-motion:reduce){#shell>*{animation:none}}

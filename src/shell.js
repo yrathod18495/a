@@ -562,7 +562,8 @@ async function start() {
       role = 'user'; maintenance = false;
     }
     ready = true;
-    if (user) setTimeout(() => { if ((location.hash || '#/') === '#/hub') import('./main.js').catch(() => {}); }, 2500);   // warm the studio in the background so opening a project feels instant
+    if (user) setTimeout(() => { if ((location.hash || '#/') === '#/hub') import('./main.js').catch(() => {}); }, 2500);
+    if (user) setTimeout(() => { if ((location.hash || '#/') === '#/hub' && !navigator.connection?.saveData) import('./charstudio.js').catch(() => {}); }, 6000);   // and the Character Editor a little later, so neither waits for a download when tapped   // warm the studio in the background so opening a project feels instant
     if (user) {
       // a partner's referral code is attributed in the background; the page never waits for it
       const referralCode = localStorage.getItem('12toons-affiliate-referral');
