@@ -859,7 +859,6 @@ function viewStudio() {
       h('div', { class: 'prev' }, h('div', { class: 'stagehost' }, h('div', { class: 'stagebox', id: 'stagebox' }), emptyEl = emptyCard(), startPill = h('button', { class: 'start-pill', type: 'button', hidden: true, title: 'Show the quick start guide', 'aria-label': 'Show the quick start guide', onclick: () => setStartHidden(false) }, '☰ Quick start')),
         h('div', { class: 'controls' }, playBtn, h('button', { class: 'btn icon-btn', title: 'Back to start', 'aria-label': 'Back to start', onclick: () => { player.seek(0); selectLine(player.clips[0]?.id, false); S.dirty = true; } }, icon('skip-back')), timeEl, h('span', { class: 'sp' }),
           h('div', { class: 'editor-zoom' }, h('button', { class: 'btn sm icon-btn', title: 'Zoom out in editor', 'aria-label': 'Zoom out in editor', onclick: () => setEditorZoom(S.editorZoom / 1.25) }, icon('zoom-out')), h('button', { class: 'btn sm icon-btn', title: 'Fit scene in editor', 'aria-label': 'Fit scene in editor', onclick: () => setEditorZoom(1) }, icon('maximize')), zoomLabel = h('output', { 'aria-label': 'Editor zoom' }, '100%'), h('button', { class: 'btn sm icon-btn', title: 'Zoom in editor', 'aria-label': 'Zoom in editor', onclick: () => setEditorZoom(S.editorZoom * 1.25) }, icon('zoom-in'))), overflowBtn(), layoutTools()),
-        ovEl = h('div', { class: 'ov-bar', role: 'slider', 'aria-label': 'Overview of the layers: tap or drag to jump', onpointerdown: (e) => { ovEl.setPointerCapture(e.pointerId); overviewSeek(e); ovEl.onpointermove = overviewSeek; }, onpointerup: () => { ovEl.onpointermove = null; }, onpointercancel: () => { ovEl.onpointermove = null; } }, ovCanvas = h('canvas', { class: 'ov-canvas' }), ovHead = h('i', { class: 'ov-head', 'aria-hidden': 'true' })),
         selBar = h('div', { class: 'selbar', hidden: true })),
       h('div', { class: 'tlwrap' }, h('div', { class: 'scene-row' }, sceneTabs(), grip), tools, tlCatsEl = h('div', { class: 'tl-cats', role: 'group', 'aria-label': 'Timeline layers' }), tlBox),
       h('div', { class: 'side' }, tabsEl, panelEl), charBar = h('div', { class: 'char-bar', hidden: true, role: 'toolbar', 'aria-label': 'Selected character' }), clipNav = h('div', { class: 'clip-nav', hidden: true, role: 'toolbar', 'aria-label': 'Selected clip' }), editDockEl = h('div', { class: 'edit-dock', hidden: true, role: 'region', 'aria-label': 'Editor' }), dockEdge('left'), dockEdge('right'), dockPill('rail'), dockPill('panel'), panelHandle(), timelineHandle()));
@@ -1169,7 +1168,7 @@ let tlCatsEl = null;
 function drawTlCats(counts = {}) {
   if (!tlCatsEl) return;
   if (!tlCatsEl.children.length) {          // built once: the buttons are only updated afterwards, so a tap is never lost to a redraw of the timeline
-    tlCatsEl.replaceChildren(...TL_CATS.map(([key, text]) => h('button', { type: 'button', class: 'tl-cat', 'data-cat': key, title: `Show the ${text.toLowerCase()} layers`, onclick: () => { S.tlCat = key; drawTimeline(); if (!wideStudio()) drawTabs(); } }, text, h('i', { hidden: true }))));
+    tlCatsEl.replaceChildren(...TL_CATS.map(([key, text]) => h('button', { type: 'button', class: 'tl-cat', 'data-cat': key, title: `Show the ${text.toLowerCase()} layers`, onclick: () => { S.tlCat = key; drawTimeline(); if (!wideStudio()) drawTabs(); } }, text, h('i', { hidden: true }), h('span', { class: 'tl-mini', 'aria-hidden': 'true' }, h('em', { class: 'tl-mini-head' })))));
   }
   for (const b of tlCatsEl.children) {
     const key = b.dataset.cat, on = S.tlCat === key, n = counts[key] || 0, badge = b.querySelector('i');
@@ -1177,7 +1176,8 @@ function drawTlCats(counts = {}) {
     badge.hidden = !n; if (badge.textContent !== String(n)) badge.textContent = String(n);
   }
 }
-/** a thin overview under the time: for every group of layers a slice in its own colour, from where it starts to where it ends; where layers overlap the slices share the height */
+/** every layer group on the timeline shows a tiny map of itself right on its own button: where its layers start and end over the whole scene, in the group's colour,
+    and a white tick for where the playhead is. So you compare the groups where you also pick them, next to the timeline. */
 const OV_GROUPS = [['audio', '--cat-audio', '#34c77b'], ['chars', '--cat-chars', '#8f86ff'], ['background', '--cat-background', '#4f8ef7'], ['props', '--cat-props', '#f39a3d'], ['effects', '--cat-effects', '#e064c0']];
 function overviewRanges() {
   const total = player.total || 1, r = Object.fromEntries(OV_GROUPS.map(([k]) => [k, []]));
@@ -1190,23 +1190,23 @@ function overviewRanges() {
   for (const f of S.fx || []) r.effects.push([f.start, f.end]);
   return r;
 }
+let miniKey = '';
 function drawOverview() {
-  if (!ovCanvas || !ovEl.isConnected) return;
-  const total = player.total || 1, w = ovEl.clientWidth || 300, hgt = 8, dpr = Math.min(2, window.devicePixelRatio || 1);
-  if (ovCanvas.width !== Math.round(w * dpr)) { ovCanvas.width = Math.round(w * dpr); ovCanvas.height = Math.round(hgt * dpr); }
-  const g = ovCanvas.getContext('2d'), ranges = overviewRanges(), cs = getComputedStyle(document.documentElement);
-  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, hgt);
-  const cuts = new Set([0, total]); for (const list of Object.values(ranges)) for (const [a, b] of list) { cuts.add(Math.max(0, Math.min(total, a))); cuts.add(Math.max(0, Math.min(total, b))); }
-  const points = [...cuts].sort((a, b) => a - b);
-  for (let i = 0; i < points.length - 1; i++) {
-    const a = points[i], b = points[i + 1]; if (b - a < 1e-3) continue;
-    const mid = (a + b) / 2, active = OV_GROUPS.filter(([k]) => ranges[k].some(([s, e]) => s <= mid && e >= mid));
-    if (!active.length) continue;
-    const x = (a / total) * w, wid = Math.max(1.5, ((b - a) / total) * w), slice = hgt / active.length;
-    active.forEach(([, v, fallback], j) => { g.fillStyle = cs.getPropertyValue(v).trim() || fallback; g.fillRect(x, j * slice, wid, Math.max(1.5, slice - (active.length > 1 ? 0.5 : 0))); });
+  if (!tlCatsEl?.children.length) return;
+  const total = player.total || 1, ranges = overviewRanges(), key = `${total.toFixed(2)}|${JSON.stringify(ranges, (k, v) => (typeof v === 'number' ? Math.round(v * 100) / 100 : v))}`;
+  if (key !== miniKey) {
+    miniKey = key;
+    for (const b of tlCatsEl.children) {
+      const mini = b.querySelector('.tl-mini'); if (!mini) continue;
+      const list = (ranges[b.dataset.cat] || []).map(([a, c]) => [Math.max(0, a), Math.min(total, c)]).filter(([a, c]) => c - a > 1e-3).sort((x, y) => x[0] - y[0]), merged = [];
+      for (const r of list) { const last = merged[merged.length - 1]; if (last && r[0] <= last[1] + 1e-3) last[1] = Math.max(last[1], r[1]); else merged.push([...r]); }
+      mini.replaceChildren(...merged.map(([a, c]) => h('span', { class: 'tl-mini-seg', style: `left:${(a / total) * 100}%;width:${Math.max(1.5, ((c - a) / total) * 100)}%` })), mini.querySelector('.tl-mini-head') || h('em', { class: 'tl-mini-head' }));
+      b.dataset.has = merged.length ? '1' : '';
+    }
   }
+  moveMiniHeads(player.time || 0);
 }
-function overviewSeek(e) { const r = ovEl.getBoundingClientRect(), t = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (player.total || 0); player.seek(t); S.dirty = true; }
+function moveMiniHeads(t) { if (!tlCatsEl) return; const left = `${Math.min(100, Math.max(0, (t / (player.total || 1)) * 100))}%`; for (const el of tlCatsEl.querySelectorAll('.tl-mini-head')) el.style.left = left; }
 function drawTimeline() {
   drawOverview();
   if (!tlInner) return;
@@ -5159,7 +5159,7 @@ function loop(now) {
     if (player.playing && tlScroll && (x < tlScroll.scrollLeft + 10 || x > tlScroll.scrollLeft + tlScroll.clientWidth - 40)) tlScroll.scrollLeft = Math.max(0, x - 40);
   }
   if (timeEl) timeEl.textContent = `${fmt(t)} / ${fmt(player.total)}`;
-  if (ovHead) ovHead.style.left = `${Math.min(100, (t / (player.total || 1)) * 100)}%`;
+  moveMiniHeads(t);
   refreshLayerAnim(false);
   if (playBtn && playBtn.dataset.state !== String(player.playing)) { playBtn.dataset.state = String(player.playing); playBtn.replaceChildren(icon(player.playing ? 'pause' : 'play')); playBtn.setAttribute('aria-label', player.playing ? 'Pause' : 'Play'); playBtn.dataset.tip = player.playing ? 'Pause (Space)' : 'Play (Space)'; }
 }

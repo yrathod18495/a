@@ -17,3 +17,7 @@ These rules were asked for repeatedly by the owner. Do not break them in any cha
 
 ## Phone bottom bar follows the timeline group
 On a phone the bottom bar shows tools for the open timeline group (`phoneNav()` in `src/main.js`): Audio (Voices, Music, Edit voice, Upload), Characters (Characters, Animations, Move, Camera, More), Background (Pick, Upload, Edit, Filter, Colour), Props (Hand props, Objects, Hold, Shadow), Effects (Effects, Overlays, Colour). Wide screens keep the rail. The Hold tool (`openHoldTool`) sets a prop's character, hand, place (joystick), size, turn and front/behind layer; the renderer only supports in front of / behind the whole character. Test: `tests/browser/phone-nav-hold.spec.js`.
+
+## Layer overview lives on the five layer buttons
+
+There is no separate overview line above the timeline any more. Each of the five layer buttons (Audio, Characters, Background, Props, Effects) carries a tiny map of its own group (`.tl-mini`: where its layers start and end over the whole scene, in the group's colour) and a tick for the playhead, so groups are compared right where they are chosen, next to the timeline. Code: `drawOverview` / `moveMiniHeads` in `src/main.js`. Test: `tests/browser/layer-minimap.spec.js`.
