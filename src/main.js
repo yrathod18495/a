@@ -2786,7 +2786,7 @@ function paintCamBox() {
   if (!camSheetEl || camSheetEl.hidden) return;
   placeSheet(camSheetEl);
   const keys = camKeys(), sel = S.camKeys.find((x) => x.id === S.camSel) || null;
-  const nameOf = (k) => { const i = keys.indexOf(k); return keys.length === 1 ? 'L' : i === 0 ? 'L' : i === keys.length - 1 ? 'P' : `M${i}`; };
+  const nameOf = (k) => { const i = keys.indexOf(k); return keys.length === 1 ? 'A' : i === 0 ? 'A' : i === keys.length - 1 ? 'B' : `M${i}`; };
   const redraw = () => { syncCam(); drawTimeline(); updateCamBox(); S.dirty = true; };
   const chip = (label, on, onclick, extra = {}) => h('button', { type: 'button', class: `hd-chip${on ? ' on' : ''}`, 'aria-pressed': String(on), onclick, ...extra }, label);
   const select = (k) => { S.camSel = k.id; player.seek(Math.min(player.total, k.t)); S.dirty = true; paintCamBox(); updateCamBox(); };
@@ -2812,7 +2812,7 @@ function paintCamBox() {
   // follow: the camera keeps this character in the middle between L and P (keys are added along the way)
   const chars = S.order.map(sOf).filter((x) => x?.charId);
   const follow = async (s) => {
-    if (keys.length < 2) { toast('Add the points L and P first, then choose who the camera follows.'); return; }
+    if (keys.length < 2) { toast('Make the camera move (A and B) first, then choose who the camera follows.'); return; }
     const a = keys[0], b = keys.at(-1), zoom = sel?.zoom || a.zoom || 1.6, back = player.time;
     const baked = [];
     for (let t = a.t; t <= b.t + 1e-6; t += 0.4) {
@@ -2821,17 +2821,44 @@ function paintCamBox() {
       const bx = l.box, k = { zoom, cx: ((bx.x0 + bx.x1) / 2) / stage.W, cy: (bx.y0 + (bx.y1 - bx.y0) * 0.4) / stage.H };
       baked.push({ t: +Math.min(t, b.t).toFixed(2), ...k });
     }
-    if (!baked.length) { toast('That character is not on the screen between L and P.'); player.seek(back); return; }
+    if (!baked.length) { toast('That character is not on the screen between A and B.'); player.seek(back); return; }
     S.camKeys = S.camKeys.filter((x) => x.t < a.t - 1e-6 || x.t > b.t + 1e-6).concat(baked.map((k) => ({ ...k, id: uid(), ease: 'linear' }))); 
     for (const k of S.camKeys) clampPan(k);
     S.camSel = null; player.seek(a.t); redraw(); paintCamBox(); toast(`The camera now follows ${s.name}.`);
   };
+  /* the easy way: the camera goes from A to B. Choose A or B, then drag the box on the picture, zoom, and say how long the move takes. (Everything else is under "More options".) */
+  const A = keys[0] || null, Bk = keys.length > 1 ? keys.at(-1) : null;
+  const addKeyAt = (t, patch) => { const k = { id: uid(), t: +Math.max(0, t).toFixed(2), ease: 'smooth', ...camNow(), ...patch }; clampPan(k); S.camKeys.push(k); syncCam(); return k; };
+  const startMove = () => {
+    const t = +Math.max(0, Math.min(player.time, Math.max(0, player.total - 1))).toFixed(2);
+    addKeyAt(t, { zoom: 1, cx: 0.5, cy: 0.5 }); const b = addKeyAt(t + 3, { zoom: 1.7, cx: 0.5, cy: 0.5 });
+    drawTimeline(); select(b); toast('A is the start, B is the end. Drag the box on the picture.');
+  };
+  const addEnd = () => { const b = addKeyAt((A?.t ?? 0) + 3, { zoom: Math.min(6, (A?.zoom || 1) * 1.5), cx: A?.cx ?? 0.5, cy: A?.cy ?? 0.5 }); drawTimeline(); select(b); };
+  const step = (dx, dy) => (k) => { if (!sel) return; sel.cx += dx * 0.012 * k; sel.cy += dy * 0.012 * k; clampPan(sel); redraw(); };
+  const arrow = (ic, label, dx, dy) => holdButton(h('button', { type: 'button', class: 'hd-nudge', 'aria-label': label, title: label }, icon(ic)), step(dx, dy));
+  const setTimes = (start, dur) => { if (!A || !Bk) return; const a = Math.max(0, +start.toFixed(2)); A.t = a; Bk.t = +(a + Math.max(0.3, dur)).toFixed(2); redraw(); paintCamBox(); };
+  const timeRow = (label, get, set) => h('div', { class: 'cam-time' }, h('span', {}, label), h('button', { type: 'button', class: 'hd-nudge', 'aria-label': `${label}: less`, onclick: () => set(Math.max(0, +(get() - 0.5).toFixed(2))) }, icon('minus')), h('output', {}, `${get().toFixed(1)} s`), h('button', { type: 'button', class: 'hd-nudge', 'aria-label': `${label}: more`, onclick: () => set(+(get() + 0.5).toFixed(2)) }, icon('plus')));
+  const simpleCards = () => !A ? [
+    h('div', { class: 'card flat cam-easy' }, h('h3', {}, 'Move the camera'), h('p', { class: 'sub hd-note' }, 'The camera starts at A and ends at B. For example it can slowly come closer to your character.'),
+      h('button', { type: 'button', class: 'btn pri cam-start', 'data-act': 'start-move', onclick: startMove }, 'Start a camera move'))
+  ] : [
+    h('div', { class: 'card flat cam-easy' }, h('h3', {}, 'Camera move'),
+      h('div', { class: 'cam-ab' }, chip('A · Start', sel === A, () => select(A), { 'data-point': 'A' }), Bk ? chip('B · End', sel === Bk, () => select(Bk), { 'data-point': 'B' }) : h('button', { type: 'button', class: 'hd-chip', 'data-act': 'add-end', onclick: addEnd }, '+ Add the end (B)')),
+      h('p', { class: 'sub hd-note' }, sel ? `Editing ${nameOf(sel)} · zoom ${sel.zoom.toFixed(1)}×. Drag the box on the picture, or use the arrows and zoom.` : 'Choose A or B to change it.'),
+      sel ? h('div', { class: 'cam-pad' }, arrow('chevron-left', 'Move left', -1, 0), arrow('chevron-up', 'Move up', 0, -1), arrow('chevron-down', 'Move down', 0, 1), arrow('chevron-right', 'Move right', 1, 0), h('i', { class: 'cam-sep' }),
+        holdButton(h('button', { type: 'button', class: 'hd-nudge', 'aria-label': 'Zoom out', title: 'Zoom out' }, icon('zoom-out')), (k) => setZoom(sel.zoom - 0.03 * k)), holdButton(h('button', { type: 'button', class: 'hd-nudge', 'aria-label': 'Zoom in', title: 'Zoom in' }, icon('zoom-in')), (k) => setZoom(sel.zoom + 0.03 * k))) : null,
+      A && Bk ? h('div', { class: 'cam-times' }, timeRow('Starts at', () => A.t, (v) => setTimes(v, Bk.t - A.t)), timeRow('Takes', () => Bk.t - A.t, (v) => setTimes(A.t, Math.max(0.5, v)))) : null,
+      A && Bk ? h('div', { class: 'hd-row three' }, [['smooth', 'Smooth'], ['linear', 'Even'], ['hold', 'Jump']].map(([key, l]) => chip(l, (A.ease || 'smooth') === key, () => { A.ease = key; redraw(); paintCamBox(); }))) : null,
+      h('div', { class: 'hd-row two' }, chip('▶ Play', false, () => { closeCamBox(); player.seek(Math.max(0, A.t - 0.2)); player.play?.(); }, { 'data-act': 'play-move' }), chip('Remove', false, () => { if (confirm('Remove the camera move and go back to the automatic shots?')) { S.camKeys = []; S.camSel = null; redraw(); closeCamBox(); } })))
+  ];
   camSheetEl.replaceChildren(
     h('div', { class: 'vs-head' }, h('b', {}, 'Camera'), h('span', { class: 'sp' }), keys.length ? h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Remove the camera move', title: 'Remove the whole camera move', onclick: () => { if (confirm('Delete the whole camera move and go back to the automatic shots?')) { S.camKeys = []; S.camSel = null; redraw(); closeCamBox(); } } }, icon('trash')) : null, h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the camera', title: 'Close', onclick: closeCamBox }, icon('x'))),
-    h('div', { class: 'list hold-panel' },
+    h('div', { class: 'list hold-panel' }, ...simpleCards(),
+      h('details', { class: 'cam-more' }, h('summary', {}, 'More options (extra points, joystick, follow a character)'),
       h('div', { class: 'card flat' }, h('h3', {}, 'Points'),
-        h('div', { class: 'hd-row' }, ...keys.map((k) => chip(`${nameOf(k)} · ${k.t.toFixed(1)}s`, sel === k, () => select(k), { 'data-point': nameOf(k) })), chip('+ Point', false, addPoint, { 'data-act': 'add-point' })),
-        h('p', { class: 'sub hd-note' }, keys.length ? 'L is where the camera starts, P is where it ends. Drag the box on the picture or use the controls below.' : 'Move the playhead where the camera should start and tap + Point. Add a second point later in the video: it becomes P.')),
+        h('div', { class: 'hd-row' }, ...keys.map((k) => chip(`${nameOf(k)} · ${k.t.toFixed(1)}s`, sel === k, () => select(k), { 'data-more-point': nameOf(k) })), chip('+ Point', false, addPoint, { 'data-act': 'add-point' })),
+        h('p', { class: 'sub hd-note' }, keys.length ? 'A is where the camera starts, B is where it ends. Drag the box on the picture or use the controls below.' : 'Move the playhead where the camera should start and tap + Point. Add a second point later in the video: it becomes B.')),
       sel ? h('div', { class: 'card flat' }, h('h3', {}, `Point ${nameOf(sel)}`),
         h('div', { class: 'joy-wrap' },
           holdButton(h('button', { type: 'button', class: 'hd-nudge', 'aria-label': 'Zoom out', title: 'Zoom out' }, icon('zoom-out')), (k) => setZoom(sel.zoom - 0.03 * k)), pad,
@@ -2844,8 +2871,8 @@ function paintCamBox() {
         h('div', { class: 'hd-row two' },
           chip('▶ Play the move', false, () => { const a = keys[0]; if (!a) { toast('Add a point first.'); return; } closeCamBox(); player.seek(Math.max(0, a.t - 0.2)); player.play?.(); }, { 'data-act': 'play-move' }),
           chip(S.camPeek ? 'Edit view' : 'See the final picture', S.camPeek, () => { S.camPeek = !S.camPeek; syncFullView(); updateCamBox(); S.dirty = true; paintCamBox(); }))),
-      chars.length ? h('div', { class: 'card flat' }, h('h3', {}, 'Follow'), h('div', { class: 'hd-row' }, ...chars.map((s) => chip(s.name, false, () => follow(s), { 'data-follow': s.key }))), h('p', { class: 'sub hd-note' }, 'The camera keeps this character in frame from L to P.')) : null,
-      keys.length ? h('button', { type: 'button', class: 'btn sm danger', onclick: () => { if (confirm('Delete the whole camera move and go back to the automatic shots?')) { S.camKeys = []; S.camSel = null; redraw(); paintCamBox(); } } }, 'Remove the camera move') : null));
+      chars.length ? h('div', { class: 'card flat' }, h('h3', {}, 'Follow'), h('div', { class: 'hd-row' }, ...chars.map((s) => chip(s.name, false, () => follow(s), { 'data-follow': s.key }))), h('p', { class: 'sub hd-note' }, 'The camera keeps this character in frame from A to B.')) : null,
+      keys.length ? h('button', { type: 'button', class: 'btn sm danger', onclick: () => { if (confirm('Delete the whole camera move and go back to the automatic shots?')) { S.camKeys = []; S.camSel = null; redraw(); paintCamBox(); } } }, 'Remove the camera move') : null)));
 }
 /* ---- Adjust the background: a joystick to move it, a slider for the size (for when the fingers cannot reach the picture) ---- */
 let bgAdjustEl = null, bgAdjustRaf = 0;

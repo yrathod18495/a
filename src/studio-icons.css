@@ -976,3 +976,14 @@ body.studio-dark .selbox{border-width:1.5px}
 #app .tl-mini-head{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:1px;background:#fff;box-shadow:0 0 0 1px #0009;font-style:normal}
 #app .tl-cat:not(.on) .tl-mini-head{background:#ffd23f;box-shadow:0 0 0 1px #000a}
 
+
+/* the easy camera sheet */
+.cam-sheet .cam-start{width:100%;min-height:48px;font-size:15px;margin-top:6px}
+.cam-sheet .cam-ab{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cam-sheet .cam-ab .hd-chip{min-height:44px;font-size:15px;font-weight:700}
+.cam-sheet .cam-pad{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:8px 0}.cam-sheet .cam-pad .hd-nudge{flex:1;min-width:0}
+.cam-sheet .cam-sep{width:1px;align-self:stretch;background:var(--line,#ffffff22);margin:2px 2px}
+.cam-sheet .cam-times{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0}
+.cam-sheet .cam-time{display:grid;grid-template-columns:38px 1fr 38px;grid-template-areas:'l l l' 'm o p';align-items:center;gap:4px}.cam-sheet .cam-time>span{grid-area:l;font-size:12px;opacity:.7}
+.cam-sheet .cam-time>button:first-of-type{grid-area:m}.cam-sheet .cam-time>output{grid-area:o;text-align:center;font-variant-numeric:tabular-nums;font-weight:600}.cam-sheet .cam-time>button:last-of-type{grid-area:p}
+.cam-sheet .hd-row.three{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.cam-sheet .cam-more{margin-top:8px}.cam-sheet .cam-more>summary{cursor:pointer;padding:10px 4px;font-size:13px;opacity:.75}
