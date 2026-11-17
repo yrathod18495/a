@@ -152,3 +152,12 @@ The legs are not touched so the feet stay planted, and the first and last pose a
 turns go forward/up and negative torso/head turns lean forward in these rigs; `--json out.json --view f34|sd` writes just the animation. Check the
 result with `node scripts/check-character-zip.mjs out.zip` and look at it frame by frame before uploading. Lip-sync of a spoken line still
 overrides the mouth, as for every other animation.
+
+## Hand-made Dayan animations (hands by inverse kinematics)
+
+`scripts/make-dayan-animations.py in.zip out.zip` adds/replaces 14 hand-made Dayan 3/4 animations and drops Leaning_on_Wall: Praying and Clapping (hand layer, fixed
+so both palms really meet and the far palm is drawn in front of the saree), and Digging Shovel, Wake Someone Up, Lift Sleeping Person, Help Up Person, Pull Rope, Draw Water
+From Well, Push Heavy Object, Handshake, Beckon Come Here, Shush Be Quiet, Stir Pot and Chopping Wood (body layer). No props are drawn: the hands hold or touch things that are
+not there. `scripts/dayan_rig.py` is the arm maths (two-bone IK on the skeleton in the ZIP) and `scripts/dayan_anim.py` the keyframe maker: a key says where each hand's picture
+must be (in the chest's frame or in space), the maker solves every frame, writes DragonBones rotate tracks, hand-picture slot tracks and the draw order. The run prints the frames in
+which a hand cannot reach its target (the arm stays stretched toward it). `--json NAME out.json` writes a single animation to look at.
