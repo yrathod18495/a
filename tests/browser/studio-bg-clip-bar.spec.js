@@ -9,8 +9,10 @@ test('phone: a background clip has Objects, Crop and Replace in the bottom bar (
   await page.waitForFunction(() => window.__toon?.S.ready);
   await page.evaluate(() => { const { S, drawClipBar } = window.__toon; S.bgClips.push({ id: 'bg1', bgId: null, preset: 1, start: 0, dur: 5 }); S.bgSel = 'bg1'; drawClipBar(); });
   const nav = page.locator('.clip-nav'); await expect(nav).toBeVisible();
-  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Objects', 'Crop', 'Replace', 'Delete']);
+  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Objects', 'Adjust', 'Crop', 'Replace', 'Delete']);          // Adjust (joystick + size) was added after this test was written
   const row = await nav.locator('.cb-list').evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth })); expect(row.scroll).toBeLessThanOrEqual(row.client + 1);
+  // Adjust opens the background sheet (joystick + size slider) and closing it leaves the bar as it was
+  await nav.getByRole('button', { name: 'Adjust' }).click(); await expect(page.locator('.bg-adjust-sheet')).toBeVisible(); await page.getByRole('button', { name: 'Close the background tools' }).click(); await expect(page.locator('.bg-adjust-sheet')).toBeHidden();
   // Objects opens the props (stone, tree ...)
   await nav.getByRole('button', { name: 'Objects' }).click();
   expect(await page.evaluate(() => window.__toon.S.tab)).toBe('props');

@@ -2814,7 +2814,7 @@ let softTimer = 0;
 function drawTabsSoft() { clearTimeout(softTimer); softTimer = setTimeout(() => { if (!camDrag) drawTabs(); }, 200); }
 
 /* ---- Camera box: L (where the camera starts) and P (where it ends), with zoom, a pan joystick, follow and a preview ---- */
-let camSheetEl = null, camBoxRaf = 0;
+let camSheetEl = null, camBoxRaf = 0, camMoreOpen = false;          // "More options" stays open while the sheet is redrawn (after the joystick, a point ...)
 function closeCamBox() { if (camSheetEl) camSheetEl.hidden = true; cancelAnimationFrame(camBoxRaf); S.camPeek = false; syncFullView(); updateCamBox(); S.dirty = true; }
 function openCamBox() {
   if (!toolShown('camera')) { toast('This tool is not available right now.'); return; }
@@ -2889,6 +2889,8 @@ function paintCamBox() {
       if (durChanged) len = Math.max(0.3, +(total - a).toFixed(2)); else a = Math.max(0, +(total - len).toFixed(2));
       toast('The camera move cannot go past the end of the scene.');
     }
+    const a0 = A.t, span0 = Math.max(1e-6, Bk.t - A.t);
+    for (const k of S.camKeys) if (k !== A && k !== Bk && k.t > a0 && k.t < Bk.t) k.t = +(a + ((k.t - a0) / span0) * len).toFixed(2);          // points between A and B keep their place in the move
     A.t = a; Bk.t = +(a + len).toFixed(2); redraw(); paintCamBox();
   };
   const timeRow = (label, get, set) => h('div', { class: 'cam-time' }, h('span', {}, label), h('button', { type: 'button', class: 'hd-nudge', 'aria-label': `${label}: less`, onclick: () => set(Math.max(0, +(get() - 0.5).toFixed(2))) }, icon('minus')), h('output', {}, `${get().toFixed(1)} s`), h('button', { type: 'button', class: 'hd-nudge', 'aria-label': `${label}: more`, onclick: () => set(+(get() + 0.5).toFixed(2)) }, icon('plus')));
@@ -2908,7 +2910,7 @@ function paintCamBox() {
   camSheetEl.replaceChildren(
     h('div', { class: 'vs-head' }, h('b', {}, 'Camera'), h('span', { class: 'sp' }), keys.length ? h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Remove the camera move', title: 'Remove the whole camera move', onclick: () => { if (confirm('Delete the whole camera move and go back to the automatic shots?')) { S.camKeys = []; S.camSel = null; redraw(); closeCamBox(); } } }, icon('trash')) : null, h('button', { type: 'button', class: 'ed-icon', 'aria-label': 'Close the camera', title: 'Close', onclick: closeCamBox }, icon('x'))),
     h('div', { class: 'list hold-panel' }, ...simpleCards(),
-      h('details', { class: 'cam-more' }, h('summary', {}, 'More options (extra points, joystick, follow a character)'),
+      h('details', { class: 'cam-more', open: camMoreOpen, ontoggle: (e) => { camMoreOpen = e.currentTarget.open; } }, h('summary', {}, 'More options (extra points, joystick, follow a character)'),
       h('div', { class: 'card flat' }, h('h3', {}, 'Points'),
         h('div', { class: 'hd-row' }, ...keys.map((k) => chip(`${nameOf(k)} · ${k.t.toFixed(1)}s`, sel === k, () => select(k), { 'data-more-point': nameOf(k) })), chip('+ Point', false, addPoint, { 'data-act': 'add-point' })),
         h('p', { class: 'sub hd-note' }, keys.length ? 'A is where the camera starts, B is where it ends. Drag the box on the picture or use the controls below.' : 'Move the playhead where the camera should start and tap + Point. Add a second point later in the video: it becomes B.')),
