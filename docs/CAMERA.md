@@ -1,0 +1,10 @@
+# Camera
+
+The camera is a list of points (`S.camKeys`: `{ id, t, cx, cy, zoom, ease }`, cx / cy = the centre of the view as 0..1 of the picture). With no points the automatic shots (one per audio line) are used; with points the whole scene follows them. The stage shows the camera with `Stage.frameAt` / `cameraAt` / `keyCam`, the export uses the same points (`stage.camKeys` in the export job).
+
+- **Directions (a rule):** Pan right = the camera goes right (`cx` grows, you see what is on the right, the picture slides left); Pan left = the camera goes left; Pan up / down the same. The arrows, the joystick and dragging the box on the picture all use the same meaning. `tests/browser/camera-audit.spec.js` checks it on the pixels of a red | grey | blue picture, and `camera-export.spec.js` in an exported video.
+- **Presets** (`shared/camera-presets.js`): zoom in / out, pans, shake. A pan starts from what the camera shows now (no jump at the playhead); if that is not yet the start of the pan it first glides there for up to half a second.
+- **Points stay inside the picture:** `clampKeyPan` keeps the stored centre reachable at the point's zoom, so blending between points is even.
+- **While the camera is being set up** (the Camera panel or sheet is open, `syncFullView()`): the whole picture is shown with the camera box. A click, a double click or a tap changes nothing; dragging the box or a corner makes / edits the point at the playhead only after 5 px of movement (a shaky finger never makes a point); the mouse wheel and a two-finger pinch zoom the camera (never the background behind it).
+- **A / B sheet (phone):** both points stay inside the scene (`startMove`, `addEnd`, `setTimes`); at zoom 1 the sheet says there is nothing to move yet; Follow zooms to at least 1.4× so the camera really follows.
+- **Tests:** `camera-audit.spec.js` (directions, clicks, wheel, pinch, with / without a character or background, undo and save, near the end of the scene, Follow, sliders), `camera-export.spec.js`, `camera-box.spec.js`, `tests/camera-presets.test.js`.

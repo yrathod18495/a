@@ -12,8 +12,11 @@ export function presetKeys(kind, { t, dur, from, to = from, strength = 'medium',
   if (kind.startsWith('pan-')) {
     const z = Math.max(from.zoom, 1.4), half = 0.5 / z, lo = half, hi = 1 - half, side = kind.slice(4);          // at this zoom the camera can travel from `lo` to `hi` without leaving the picture
     const horizontal = side === 'left' || side === 'right', forward = side === 'right' || side === 'down';
-    const a = forward ? lo : hi, b = forward ? hi : lo;
-    return horizontal ? [key(t, { zoom: z, cx: a, cy: from.cy }), key(t1, { zoom: z, cx: b, cy: from.cy })] : [key(t, { zoom: z, cx: from.cx, cy: a }), key(t1, { zoom: z, cx: from.cx, cy: b })];
+    const a = forward ? lo : hi, b = forward ? hi : lo, across = clamp(horizontal ? from.cy : from.cx, lo, hi);
+    const first = horizontal ? { zoom: z, cx: a, cy: across } : { zoom: z, cx: across, cy: a }, last = horizontal ? { zoom: z, cx: b, cy: across } : { zoom: z, cx: across, cy: b };
+    // the camera starts the move from what it shows now (so nothing jumps at the playhead); when that is not yet the start of the pan, it first glides there for a moment
+    const here = Math.abs(from.zoom - z) < 0.02 && Math.abs(from.cx - first.cx) < 0.01 && Math.abs(from.cy - first.cy) < 0.01, lead = +Math.min(0.5, dur / 4).toFixed(2);
+    return here ? [key(t, first), key(t1, last)] : [key(t, from), key(t + lead, first), key(t1, last)];
   }
   if (kind === 'shake') {
     const s = SHAKE[strength] || SHAKE.medium, n = Math.max(2, Math.round(dur * 14)), r = rand(seed), keys = [key(t, from)];
