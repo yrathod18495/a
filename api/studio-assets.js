@@ -13,9 +13,14 @@ import { converse, bedrockConfigured, MAX_PROMPT_CHARS } from '../server/bedrock
 
 const aiLast = new Map();                              // uid -> time of the last AI request (best effort, per server instance)
 
-// The bundled character library (public/12toons) was removed, so no built-in rig is a valid animation target any more.
-// Importing that deleted file crashed this whole function (props, backgrounds, effects and the library list all failed).
+// The bundled character library (public/12toons) was removed, so no built-in rig is a valid animation target any more (importing that deleted file crashed this whole function).
+// An animation is published to a character pose the admin uploaded: its target is `ch-<character id>-<view id>` (the id the studio's library gives that pose), checked against the stored characters.
 const manifest = { characters: [] };
+async function poseExists(store, target) {
+  if (typeof target !== 'string' || !target.startsWith('ch-')) return false;
+  const characters = Object.values((await store.get('characters')) || {});
+  return characters.some((c) => c && Object.keys(c.views || {}).some((view) => target === `ch-${c.id}-${view}`));
+}
 const idOK = (value) => typeof value === 'string' && /^[a-zA-Z0-9_-]{12,80}$/.test(value);
 const LIBRARY_CACHE_MS = 30_000;
 let libraryCache = null;
@@ -56,8 +61,9 @@ export default async function handler(req, res) {
       const animation = b.type === 'animation';
       if (!idOK(b.id) || !['background', 'prop', 'effect', 'sticker', 'animation'].includes(b.type) || typeof b.name !== 'string' || !b.name.trim() || b.name.length > 100 ||
           typeof b.key !== 'string' || !/^assets\/[a-f0-9]{64}$/.test(b.key) || !Number.isSafeInteger(b.size) || b.size < 1 || b.size > (animation ? MAX_ANIMATION_BYTES : 40 * 1024 * 1024) ||
-          typeof b.mime !== 'string' || (animation ? b.mime !== 'application/json' || !animationTarget(b.target, manifest) || !ANIMATION_LAYERS.includes(b.layer) || !Number.isFinite(b.frameRate) || b.frameRate < 1 || b.frameRate > 120 : !b.mime.startsWith('image/')))
+          typeof b.mime !== 'string' || (animation ? b.mime !== 'application/json' || !ANIMATION_LAYERS.includes(b.layer) || !Number.isFinite(b.frameRate) || b.frameRate < 1 || b.frameRate > 120 : !b.mime.startsWith('image/')))
         throw new AccessError('invalid_asset', 'Please choose a valid asset and character pose.', 400);
+      if (animation && !(animationTarget(b.target, manifest) || await poseExists(store, b.target))) throw new AccessError('invalid_asset', 'Please choose a valid asset and character pose.', 400);
       if (!configured()) throw new AccessError('storage_unavailable', 'Cloud storage is not set up yet.', 503);
       await confirmAssets(who.uid, store, [{ hash: b.key.slice(7), size: b.size }]);   // the file must really be in R2 with this size
       let animationMeta = {};

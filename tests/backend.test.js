@@ -67,11 +67,16 @@ test('logout revokes backend session immediately',async()=>{
  assert.equal((await call('session',{action:'logout'})).statusCode,200);
  await assert.rejects(access(request('session',{})),e=>e.code==='session_invalid');
 });
-test('maintenance blocks non-admin sessions and acquisition while verified admins retain API access',async()=>{
+test('during maintenance everyone can still sign in and the app is told (it gates non-admins after login); verified admins keep API access and can switch it off',async()=>{
  await setMaintenance(db,true);
- loginToken('maintenance-user',other);
- const denied=await call('maintenance-user',{action:'acquire',deviceId:'device_maintenance_123',secret:'secret_maintenance_123'});
- assert.equal(denied.statusCode,503);assert.equal(denied.body.code,'maintenance');
+ const visitor='user_55555555555555555555';
+ loginToken('maintenance-user',visitor);
+ const login=await call('maintenance-user',{action:'acquire',deviceId:'device_maintenance_123',secret:'secret_maintenance_123'});
+ assert.equal(login.statusCode,200);                                                         // sign-in is never blocked by maintenance (see api/security.js)
+ const sid=JSON.parse(login.body.token).sid;tokens.set('maintenance-session',{uid:visitor,email_verified:true,sid,firebase:{sign_in_provider:'custom'}});
+ const boot=await call('maintenance-session',{action:'boot'});
+ assert.equal(boot.statusCode,200);assert.equal(boot.body.maintenance,true);assert.equal(boot.body.admin,false);          // the signed-in non-admin is told, and the page shows the maintenance screen
+ assert.equal((await call('maintenance-session',{action:'overview'})).statusCode,403);          // and still has no admin access
  const status=await call('public',{action:'maintenanceStatus'});
  assert.equal(status.statusCode,200);assert.equal(status.body.maintenance,true);
  db.data.set('securityAdmins/'+uid,{enabled:true});

@@ -13,7 +13,9 @@ async function call(body){const res=response();await handler({method:'POST',head
 const key='assets/'+'a'.repeat(64),id='published_animation_123';
 const clip={duration:48,bone:[{name:'root',translateFrame:[{duration:48,x:1,y:0}]}]};
 objects.set(key,Buffer.from(JSON.stringify(clip)));
-const payload={action:'save',id,type:'animation',name:'Admin walk',target:'ad-neha-front-side',layer:'body',frameRate:24,key,size:objects.get(key).length,mime:'application/json'};
+const charId='character_walker_1234';          // a character the admin uploaded: its poses are the animation targets (ch-<character>-<view>)
+await rtdb.ref('characters/'+charId).set({id:charId,name:'Walker',views:{f34:{label:'3/4 Front'}}});
+const payload={action:'save',id,type:'animation',name:'Admin walk',target:'ch-'+charId+'-f34',layer:'body',frameRate:24,key,size:objects.get(key).length,mime:'application/json'};
 test('ordinary signed-in users cannot publish animation metadata',async()=>{
  const result=await call(payload);assert.equal(result.statusCode,403);assert.equal(db.data.has('studioAssets/'+id),false);
 });
