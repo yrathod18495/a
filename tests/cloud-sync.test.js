@@ -43,7 +43,7 @@ test('offline work remains dirty; reconnect saves cloud and restores exact bytes
  assert.equal(sync.syncStatus.text,'Saved to Cloud');
  assert.equal((await store.projectMeta(user.uid,p.id)).dirty,false);
  await new Promise((resolve,reject)=>{
-  const r=indexedDB.open('12toons-projects-v1',2);
+  const r=indexedDB.open('12toons-projects-v1');r.onerror=()=>reject(r.error);
   r.onsuccess=()=>{const tx=r.result.transaction(['records','projects'],'readwrite');tx.objectStore('projects').delete([user.uid,p.id]);tx.objectStore('records').delete([user.uid,p.id,'audio','voice']);tx.oncomplete=()=>{r.result.close();resolve();};tx.onerror=()=>reject(tx.error);};
  });
  await sync.refreshProjects(user.uid);
