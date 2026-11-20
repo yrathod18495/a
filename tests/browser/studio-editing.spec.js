@@ -247,7 +247,7 @@ test('camera moves: zoom, pan and shake add keyframes at the playhead and really
   expect((await camAt(2)).zoom).toBeGreaterThan(1.05); expect((await camAt(2)).zoom).toBeLessThan(1.3);         // and part way in between
   await page.evaluate(() => window.__toon.player.seek(4));
   await page.locator('[data-preset=pan-right]').click();
-  k = await keys(); const pan = k.filter((x) => x.t >= 4); expect(pan.length).toBe(2); expect(pan[1].cx).toBeGreaterThan(pan[0].cx + 0.1);
+  k = await keys(); const pan = k.filter((x) => x.t >= 4); expect(pan.length).toBe(3); expect(pan[0].t).toBe(4); expect(pan[2].cx).toBeGreaterThan(pan[1].cx + 0.1);          // the first point is what the camera showed (no jump), then it glides to the start of the pan and pans right
   expect((await camAt(6)).cx).toBeGreaterThan((await camAt(4)).cx + 0.1);                       // the camera moves to the right
   await page.evaluate(() => window.__toon.player.seek(6.5));
   await page.locator('.cam-presets').getByRole('button', { name: 'Strong' }).click();
