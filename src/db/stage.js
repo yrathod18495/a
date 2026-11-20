@@ -235,7 +235,8 @@ export class Stage {
   setLayers(speakers) {
     const failed = [];
     for (const l of this.layers) this.dispose(l);
-    this.layers = speakers.filter((s) => s.charId && this.assets.has(s.charId)).map((s) => {
+    this.layers = [];          // the old ones are gone: if building a new one fails, the stage must not keep drawing disposed layers (it raised an error on every frame)
+    const built = speakers.filter((s) => s.charId && this.assets.has(s.charId)).map((s) => { try {
       const a = this.assets.get(s.charId), prep = this.prepOf(s.charId, s.skins || null), f = new GLFactory(), dbName = `L${++this.uid}`;
       f.parseDragonBonesData(assemble(prep, s.anims || {}), dbName);
       for (const t of a.def.tex) f.parseTextureAtlasData(t.json, null, dbName);
@@ -257,9 +258,10 @@ export class Stage {
       this.lockedBounds ||= new Map();
       layer.bounds = (lk && this.lockedBounds.get(lk)) || this.measure(layer, bodyNames);
       if (lk) this.lockedBounds.set(lk, layer.bounds);
-      layer.tearBind = s.tearFacingBack ? {} : bindTearEyes(layer, this.collect(layer));
+      layer.tearFacingBack = !!s.tearFacingBack; layer.tearBind = s.tearFacingBack ? {} : bindTearEyes(layer, this.collect(layer));
       return layer;
-    });
+    } catch (e) { console.warn(`Character "${s.key}" could not be built:`, e?.message || e); failed.push(s.key); return null; } });
+    this.layers = built.filter(Boolean);
     this.layout();
     return failed;
   }
@@ -605,6 +607,7 @@ export class Stage {
       const lf = this.fxItems.get(`char:${l.key}`); if (lf) r.itemBegin(W, H);
       r.setMask(l.mask, W, H);
       list.length = 0; this.collect(l, list);
+      if (!l.tearFacingBack && l.tearBind && !Object.keys(l.tearBind).length) { const b = bindTearEyes(l, list); if (Object.keys(b).length) l.tearBind = b; }          // some rigs show their eyes only once an animation has set the pose (the setup pose has none): look again until they are there
       for (const it of list) r.add(it, l.tex.get(it.atlas.imagePath) || this.assets.get(l.charId).pages.get(it.atlas.imagePath), l.mat);
       drawTears(r, this.tearTex, l, list, t);
       if (lf) { r.setMask(null, W, H); r.itemEnd(lf, Math.floor(t * 30)); }

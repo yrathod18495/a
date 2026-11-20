@@ -19,6 +19,22 @@ export function bindTearEyes(layer, items) {
     const x=(Math.min(...xs)+Math.max(...xs))/2-m.tx,y=Math.max(...ys)-height*.12-m.ty;
     eyes[side]={slot:item.slot,boost:/iris/i.test(item.slot)?TEAR_BOOST_IRIS:TEAR_BOOST_EYE,bone:bone.name,x:(m.d*x-m.c*y)/det,y:(-m.b*x+m.a*y)/det,ux:m.d*width/det,uy:-m.b*width/det,vx:-m.c*width/det,vy:m.a*width/det};
   }
+  // a rig whose eyes are not separate pieces (the eye picture is part of the eyelid / face piece): use that piece, one eye at about a third and one at two thirds of its width (the placement controls fine-tune it)
+  if(!eyes.left && !eyes.right){
+    const lid=items.find(item=>/(?:^|[_\-/])(?:eye_?)?lid(?:$|[_\-/])/i.test(item.slot) && !/lash|brow/i.test(item.slot));
+    const slot=lid&&layer.arm.getSlot(lid.slot),bone=slot&&(slot.parent?.parent||layer.bones.head||slot.parent);
+    if(lid && bone){
+      const m=bone.globalTransformMatrix,det=m.a*m.d-m.b*m.c;
+      if(Math.abs(det)>=1e-8){
+        const xs=[],ys=[];for(let i=0;i<lid.verts.length;i+=2){xs.push(lid.verts[i]);ys.push(lid.verts[i+1]);}
+        const lo=Math.min(...xs),w=Math.max(...xs)-lo,h=Math.max(...ys)-Math.min(...ys),eyeW=w*.32;
+        if(w>=.01)for(const [side,frac] of [['left',.3],['right',.7]]){
+          const x=lo+w*frac-m.tx,y=Math.max(...ys)-h*.3-m.ty;
+          eyes[side]={slot:lid.slot,boost:TEAR_BOOST_EYE,bone:bone.name,x:(m.d*x-m.c*y)/det,y:(-m.b*x+m.a*y)/det,ux:m.d*eyeW/det,uy:-m.b*eyeW/det,vx:-m.c*eyeW/det,vy:m.a*eyeW/det};
+        }
+      }
+    }
+  }
   return eyes;
 }
 export function tearEyeFrame(layer, side) {
