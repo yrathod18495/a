@@ -255,7 +255,7 @@ test('tears work on an uploaded character: both eyes are found (iris slots), the
     }
     l.tears = on; return { out, mul: l.mul, H: stage.H };
   });
-  expect(px.mul).toBe(1); expect(px.H).toBe(480);
+  expect(px.mul).toBe(1); expect(px.H).toBe(720);          // the default preview (Medium) is 720 p
   for (const n of px.out) expect(n).toBeGreaterThan(5);      // drawn (the tears were made smaller in f611062, so the count is lower than before)
   expect(r.p0.x).toBeGreaterThan(0); expect(r.p0.y).toBeGreaterThan(0);
 });

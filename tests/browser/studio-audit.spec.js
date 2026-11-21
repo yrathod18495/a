@@ -251,3 +251,25 @@ test('export: the scene is rendered to a video that plays, shows the character, 
   expect(r.dur).toBeGreaterThan(4); expect(r.green).toBeGreaterThan(30);
   expect(errors).toEqual([]);
 });
+
+test('voice trim: both edges of a voice line can be dragged, the scene gets shorter, double-click restores it', async ({ page }) => {
+  test.setTimeout(150000);
+  const errors = await openStudio(page, { chr: false });
+  await page.locator('#app .tabs.big').getByRole('button', { name: 'Audio', exact: true }).click(); await page.waitForTimeout(500);
+  await page.locator('#app input[type=file]').first().setInputFiles({ name: 'voice1.wav', mimeType: 'audio/wav', buffer: wav(4) }); await page.waitForTimeout(3000);
+  const total0 = await T(page, () => window.__toon.player.total);
+  const clip = () => page.locator('#app .lane2.audio .tclip.voice').first();
+  await expect(clip()).toBeVisible();
+  const drag = async (edge, dx) => { const box = await clip().boundingBox(), y = box.y + box.height / 2, x = edge === 'right' ? box.x + box.width - 4 : box.x + 4; await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx / 2, y, { steps: 4 }); await page.mouse.move(x + dx, y, { steps: 4 }); await page.mouse.up(); await page.waitForTimeout(400); };
+  await drag('right', -120);
+  const afterRight = await T(page, () => ({ trimEnd: window.__toon.S.lines[0].trimEnd, total: window.__toon.player.total }));
+  console.log('TRIM right', JSON.stringify(afterRight), 'total0', total0);
+  expect(afterRight.trimEnd).toBeGreaterThan(0.3); expect(afterRight.total).toBeLessThan(total0 - 0.3);
+  await drag('left', 60);
+  const afterLeft = await T(page, () => ({ trimStart: window.__toon.S.lines[0].trimStart, trimEnd: window.__toon.S.lines[0].trimEnd, total: window.__toon.player.total }));
+  console.log('TRIM left', JSON.stringify(afterLeft));
+  expect(afterLeft.trimStart).toBeGreaterThan(0.1);
+  await clip().dblclick({ position: { x: 20, y: 10 } }); await page.waitForTimeout(400);
+  expect(await T(page, () => [window.__toon.S.lines[0].trimStart, window.__toon.S.lines[0].trimEnd])).toEqual([0, 0]);
+  expect(errors).toEqual([]);
+});
