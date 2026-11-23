@@ -66,7 +66,7 @@ test('a prop has an Edit button: size, turn, opacity, glow and behind the charac
   await open(page);
   await page.evaluate(() => { const T = window.__toon; T.S.bgSel = null; T.S.propSel = 'p1'; T.drawClipBar(); });
   const nav = page.locator('.clip-nav');
-  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Edit', 'Delete']);
+  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Edit', 'Delete']);          // (Copy / Paste are Ctrl+C / Ctrl+V)
   await nav.getByRole('button', { name: 'Edit' }).click();
   const dock = page.locator('.edit-dock'); await expect(dock).toBeVisible();
   const w0 = await page.evaluate(() => window.__toon.S.props[0].w);
@@ -89,8 +89,9 @@ test('a message in the studio shows in the scene row and can be swiped away; it 
   await page.evaluate(() => { window.__toon.S.locks = { bg: true }; window.__toon.S.bgSel = 'bg1'; window.__toon.drawClipBar(); });
   await page.locator('.clip-nav').getByRole('button', { name: 'Crop' }).click();
   const t = page.locator('.toast.in-row'); await expect(t).toBeVisible();
-  const row = await page.locator('#app .scene-row').boundingBox(), tb = await t.boundingBox(), nav = await page.locator('.clip-nav').boundingBox();
-  expect(Math.abs(tb.y - row.y)).toBeLessThan(3); expect(tb.y + tb.height).toBeLessThan(nav.y);          // in the scene row, well above the bottom bar
+  const row = await page.locator('#app .scene-row').boundingBox(), nav = await page.locator('.clip-nav').boundingBox();
+  await expect.poll(async () => Math.abs((await t.boundingBox()).y - row.y)).toBeLessThan(3);          // after its short slide-in it sits on the scene row
+  const tb = await t.boundingBox(); expect(tb.y + tb.height).toBeLessThan(nav.y);          // in the scene row, well above the bottom bar
   await t.evaluate((el) => { el.dispatchEvent(new PointerEvent('pointerdown', { clientX: 100, clientY: 10, pointerId: 1, bubbles: true })); el.dispatchEvent(new PointerEvent('pointermove', { clientX: 330, clientY: 10, pointerId: 1, bubbles: true })); el.dispatchEvent(new PointerEvent('pointerup', { clientX: 330, clientY: 10, pointerId: 1, bubbles: true })); });
   await expect(t).toHaveCount(0, { timeout: 3000 });
 });

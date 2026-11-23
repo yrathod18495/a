@@ -20,7 +20,7 @@ test('the Upload tab has only the file tiles; tapping an audio layer opens the V
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await withVoices(page);
   await page.evaluate(() => window.__toon.openTab('audio'));
-  await expect(page.locator('#app .up-tile')).toHaveCount(8);
+  await expect(page.locator('#app .up-tile')).toHaveCount(2);                     // Voices and Music (pictures, videos and characters are in the Uploads tab)
   for (const t of ['Selected audio line', 'Fade in', 'Fade out', 'Solo', 'Clear all', 'Voices are optional']) await expect(page.locator('#app .panel').getByText(t, { exact: false })).toHaveCount(0);
   await expect(page.locator('#app .panel .music-card')).toHaveCount(0);
   await page.locator('.tclip.voice').nth(1).dispatchEvent('click');

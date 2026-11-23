@@ -21,6 +21,8 @@ test('phone: pop-up menus close when you tap elsewhere or pick something', async
   await open(page, 390);
   await page.locator('.scene-menu summary').first().click(); await expect(page.locator('.scene-menu').first()).toHaveJSProperty('open', true);
   await page.locator('.stagebox').click({ position: { x: 20, y: 20 } }); await expect(page.locator('.scene-menu').first()).toHaveJSProperty('open', false);
+  await page.locator('#app .tl-cat[data-cat="chars"]').click();                                                  // the Characters group's bar ends with More
+  await expect(page.locator('.tabs-scroll.cube-out')).toHaveCount(0);
   await page.locator('.advanced-tools summary').click(); await expect(page.locator('.advanced-tools')).toHaveJSProperty('open', true);
   await page.locator('.stagebox').click({ position: { x: 20, y: 20 } }); await expect(page.locator('.advanced-tools')).toHaveJSProperty('open', false);
   await page.locator('.advanced-tools summary').click(); await page.locator('.advanced-tools-list button').first().click();

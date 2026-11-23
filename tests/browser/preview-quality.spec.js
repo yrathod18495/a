@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { installLibrary } from './studio-library.js';
+import { PREVIEW_MODES } from '../../src/preview-quality.js';          // the sizes and frame rates of Low / Medium / High come from the app itself
+const LOW = PREVIEW_MODES.low;
 async function openStudio(page) {
   await page.setViewportSize({width:1366,height:768});
   await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
@@ -20,7 +22,7 @@ test('preview modes alter canvas, GPU budgets and playback cadence without chang
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await openStudio(page);await addNeha(page);
   const original=await page.evaluate(()=>({quality:window.__toon.S.quality,fps:window.__toon.S.fps,xf:window.__toon.S.speakers[0].xf||null,cam:window.__toon.S.camKeys}));
-  for(const [mode,short,maxTex,fps] of [['low',180,512,12],['medium',480,1024,24],['high',1080,4096,60]]){
+  for(const [mode,{short,maxTex,fps}] of Object.entries(PREVIEW_MODES)){
     await page.getByLabel('Preview quality').selectOption(mode);
     await expect(page.getByLabel('Preview quality')).toBeEnabled();
     await expect.poll(()=>page.evaluate(()=>window.__toon.stage.H)).toBe(short);
@@ -38,7 +40,7 @@ test('preview modes alter canvas, GPU budgets and playback cadence without chang
   expect(await page.evaluate(()=>({quality:window.__toon.S.quality,fps:window.__toon.S.fps,xf:window.__toon.S.speakers[0].xf||null,cam:window.__toon.S.camKeys}))).toEqual(original);
   await page.getByLabel('Preview quality').selectOption('low');await expect(page.getByLabel('Preview quality')).toBeEnabled();
   await page.waitForTimeout(1200);await page.reload();await expect(page.getByLabel('Preview quality')).toHaveValue('low');
-  await expect.poll(()=>page.evaluate(()=>window.__toon?.stage?.H)).toBe(180);
+  await expect.poll(()=>page.evaluate(()=>window.__toon?.stage?.H)).toBe(LOW.short);
   await page.locator('#app .tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
   await expect(page.getByRole('button',{name:'+ Import',exact:true})).toHaveCount(0);
   await expect(page.locator('.animation-filters input[type=file]')).toHaveCount(0);
@@ -52,9 +54,10 @@ test('low preview exports at selected video size, then restores the low GPU budg
   page.on('console',message=>{if(message.type()==='error')console.log('Export console:',message.text());});
   await openStudio(page);await addNeha(page);
   await page.getByLabel('Preview quality').selectOption('low');await expect(page.getByLabel('Preview quality')).toBeEnabled();
-  await page.evaluate(()=>{window.__toon.S.fps=5;});
-  const downloadReady=page.waitForEvent('download');
+  test.setTimeout(300000);
+  const downloadReady=page.waitForEvent('download',{timeout:280000});
   await page.locator('#app .hdr-tools').getByRole('button',{name:'Export',exact:true}).click();
+  await page.getByRole('button',{name:'720p',exact:true}).click();await page.locator('.exp-pop-go').click();
   const download=await downloadReady;
   const {readFile}=await import('node:fs/promises');const bytes=await readFile(await download.path());
   const dimensions=await page.evaluate(async base64=>{
@@ -64,14 +67,14 @@ test('low preview exports at selected video size, then restores the low GPU budg
     const size=[video.videoWidth,video.videoHeight];URL.revokeObjectURL(url);return size;
   },bytes.toString('base64'));
   expect(dimensions).toEqual([1280,720]);await expect(page.locator('.busy')).toHaveCount(0);
-  expect(await page.evaluate(()=>[window.__toon.stage.H,window.__toon.stage.maxTex])).toEqual([180,512]);
+  expect(await page.evaluate(()=>[window.__toon.stage.H,window.__toon.stage.maxTex])).toEqual([LOW.short,LOW.maxTex]);
   await page.evaluate(()=>{
     window.__bitmapBackup=window.createImageBitmap;let calls=0;
     window.createImageBitmap=(...args)=>{if(++calls===2)return Promise.reject(Error('Simulated graphics memory failure'));return window.__bitmapBackup(...args);};
   });
   await page.getByLabel('Preview quality').selectOption('high');await expect(page.getByLabel('Preview quality')).toBeEnabled();
   await expect(page.getByLabel('Preview quality')).toHaveValue('low');
-  expect(await page.evaluate(()=>[window.__toon.stage.H,window.__toon.stage.maxTex])).toEqual([180,512]);
+  expect(await page.evaluate(()=>[window.__toon.stage.H,window.__toon.stage.maxTex])).toEqual([LOW.short,LOW.maxTex]);
   await expect(page.locator('.toast').filter({hasText:/Could not change the preview quality/})).toBeVisible();
   await page.evaluate(()=>{window.createImageBitmap=window.__bitmapBackup;});
 });

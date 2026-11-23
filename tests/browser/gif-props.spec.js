@@ -91,7 +91,8 @@ test('a prop in a hand can be selected on the canvas, shows in the Props tab (In
   await page.mouse.move(at.x, at.y); await page.mouse.down(); await page.mouse.move(at.x + 40, at.y - 20, { steps: 5 }); await page.mouse.up();
   const moved = await page.evaluate(() => ({ ...window.__toon.S.props[0].holdOff }));
   expect(moved.x).toBeGreaterThan(before.x); expect(moved.y).toBeGreaterThan(before.y);
-  await page.mouse.click(at.x, at.y);
+  const now = await page.evaluate(() => { const { stage, S } = window.__toon, pl = stage.propPlacement(S.props[0], 0), o = stage.out.getBoundingClientRect(); return { x: o.left + pl.cx / stage.W * o.width, y: o.top + pl.cy / stage.H * o.height }; });
+  await page.mouse.click(now.x, now.y);                                     // a tap on the prop where it is now selects it
   expect(await page.evaluate(() => [window.__toon.S.propSel, window.__toon.S.selectedPropId])).toEqual([await page.evaluate(() => window.__toon.S.props[0].id), await page.evaluate(() => window.__toon.S.props[0].id)]);
   await expect(page.locator('.prop-sel')).toBeVisible();
 });

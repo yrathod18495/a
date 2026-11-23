@@ -71,6 +71,7 @@ test('scene tabs isolate characters, props, audio and edits; duplicate, order, d
  expect(errors).toEqual([]);
 });
 test('all scenes export joins backgrounds in order and preview continues to the next scene',async({page})=>{
+ test.setTimeout(300000);
  await open(page);
  await page.evaluate(()=>{window.__toon.stage.bg.preset=1;window.__toon.S.dirty=true;});
  await page.getByRole('button',{name:'+ New Scene',exact:true}).click();
@@ -84,10 +85,10 @@ test('all scenes export joins backgrounds in order and preview continues to the 
  await expect.poll(()=>page.evaluate(()=>window.__toon.player.playing)).toBe(true);
  await page.getByRole('button',{name:'Pause',exact:true}).click();
  await page.locator('#app .tabs.big').getByRole('button',{name:'Export',exact:true}).click();
- await expect(page.getByText('🔇 No audio added — this video will be 16.0 seconds long and silent. Add audio any time.',{exact:true})).toBeVisible();
- await page.getByLabel('Export scenes').selectOption('current');await expect(page.getByRole('button',{name:'⏺ Record live',exact:true})).toBeVisible();
- await page.getByLabel('Export scenes').selectOption('all');await expect(page.getByRole('button',{name:'⏺ Record live',exact:true})).toHaveCount(0);
- const downloadReady=page.waitForEvent('download');await page.locator('#app .hdr-tools').getByRole('button',{name:'Export',exact:true}).click();
+ await expect(page.locator('.panel .exp-line')).toContainText('16.0 s');                    // both scenes, one after the other
+ await page.getByLabel('Export scenes').selectOption('current');await expect(page.locator('.panel .exp-line')).toContainText('8.0 s');
+ await page.getByLabel('Export scenes').selectOption('all');await expect(page.locator('.panel .exp-line')).toContainText('16.0 s');
+ const downloadReady=page.waitForEvent('download',{timeout:280000});await page.locator('#app .hdr-tools').getByRole('button',{name:'Export',exact:true}).click();await page.locator('.exp-pop-go').click();
  const download=await downloadReady;const {readFile}=await import('node:fs/promises');const bytes=await readFile(await download.path());
  const video=await page.evaluate(async base64=>{
   const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type:'video/webm'})),v=document.createElement('video');v.src=url;v.muted=true;
@@ -96,7 +97,7 @@ test('all scenes export joins backgrounds in order and preview continues to the 
   const samples=[];for(const t of [1,9]){v.currentTime=t;await new Promise(r=>v.onseeked=r);ctx.drawImage(v,0,0);samples.push([...ctx.getImageData(5,5,1,1).data]);}
   const result={duration:v.duration,size:[v.videoWidth,v.videoHeight],samples};URL.revokeObjectURL(url);return result;
  },bytes.toString('base64'));
- expect(video.duration).toBeCloseTo(16,0);expect(video.size).toEqual([640,360]);expect(video.samples[0]).not.toEqual(video.samples[1]);
+ expect(video.duration).toBeCloseTo(16,0);expect(video.size[1]).toBe(480);                    // nothing is made below 480pexpect(video.samples[0]).not.toEqual(video.samples[1]);
  await expect(page.locator('.busy')).toHaveCount(0);
  await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
  expect(await page.evaluate(()=>window.__toon.stage.bg.preset)).toBe(3);

@@ -10,6 +10,7 @@ test('stretching a clip: light + dotted while dragging, original extent framed, 
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   await page.evaluate(async () => { const { S, stage } = window.__toon; S.bgClips.push({ id: 'b1', bgId: null, preset: 0, start: 1, dur: 2 }); await stage.setBackgroundClips(S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset, blob: null }))); window.__toon.drawTimeline(); });
+  await page.locator('#app .tl-cat[data-cat="background"]').click();          // the timeline shows one group of layers at a time
   const clip = page.locator('#app .lane2.bg .tclip.mine').first(); await expect(clip).toBeVisible();
   const box = await clip.boundingBox(), y = box.y + box.height / 2, x = box.x + box.width - 4;
   await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 40, y, { steps: 5 }); await page.mouse.move(x + 90, y, { steps: 5 });

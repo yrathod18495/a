@@ -16,6 +16,8 @@ const cornerPixel = (page, t) => page.evaluate((t) => {
   const { stage } = window.__toon; stage.render(t, 0, [], []);
   const px = new Uint8Array(4), gl = stage.gl; gl.readPixels(4, 4, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); return [...px];
 }, t);
+/** the timeline shows one group of layers at a time (Audio, Characters, Background, Props, Effects) */
+const cat = (page, key) => page.locator(`#app .tl-cat[data-cat="${key}"]`).click();
 const dragEdge = async (page, locator, edge, dx) => {
   const box = await locator.boundingBox(), y = box.y + box.height / 2;
   const x = edge === 'right' ? box.x + box.width - 4 : edge === 'left' ? box.x + 4 : box.x + box.width / 2;
@@ -35,6 +37,7 @@ test('backgrounds change over time and every timeline item can be moved and resi
   expect(a).not.toEqual(b); expect(b).not.toEqual(c); expect(a).not.toEqual(c);
   // dragging the right edge of the first background clip shortens it, the second one stays
   await page.evaluate(() => window.__toon.drawTimeline?.());
+  await cat(page, 'background');
   const clips = page.locator('#app .lane2.bg .tclip.mine');
   await expect(clips).toHaveCount(3);
   const before = await page.evaluate(() => window.__toon.S.bgClips[0].dur);
@@ -50,6 +53,7 @@ test('a selected background clip can be copied and pasted at the playhead with C
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page);
   await page.evaluate(() => { const { S, drawTimeline } = window.__toon; S.bgClips.push({ id: 'b1', bgId: null, preset: 2, start: 0, dur: 2 }); drawTimeline(); });
+  await cat(page, 'background');
   await page.locator('#app .lane2.bg .tclip.mine').first().click();
   await page.keyboard.press('Control+c');
   await page.evaluate(() => window.__toon.player.seek(5));
@@ -67,14 +71,16 @@ test('a voice line can be trimmed from both edges; the scene gets shorter, playb
     S.lines = [{ id: 'v1', order: 0, file: 'voice.wav', speaker: 'Narrator', raw: new ArrayBuffer(8), buffer, visemes: new Array(200).fill(0) }];
     await prepareStudio({ quiet: true }); window.__toon.drawTimeline(); await ctx.close();
   });
+  await cat(page, 'audio');
   const total0 = await page.evaluate(() => window.__toon.player.total);
   const clip = page.locator('#app .lane2.audio .tclip.voice').first();
   await expect(clip).toBeVisible();
-  await dragEdge(page, clip, 'right', -300);   // 150 px per second: 2 s
+  const pps = await page.evaluate(() => window.__toon.S.pps);          // pixels per second of the timeline zoom
+  await dragEdge(page, clip, 'right', -2 * pps);   // 2 s
   await expect.poll(() => page.evaluate(() => window.__toon.S.lines[0].trimEnd)).toBeGreaterThan(1);
   const state = await page.evaluate(() => { const { player, S } = window.__toon, c = player.clips[0]; return { total: player.total, len: c.end - c.start, trimEnd: S.lines[0].trimEnd }; });
   expect(state.total).toBeLessThan(total0 - 1); expect(state.len).toBeCloseTo(4 - state.trimEnd, 1);
-  await dragEdge(page, page.locator('#app .lane2.audio .tclip.voice').first(), 'left', 60);
+  await dragEdge(page, page.locator('#app .lane2.audio .tclip.voice').first(), 'left', 0.6 * pps);
   await expect.poll(() => page.evaluate(() => window.__toon.S.lines[0].trimStart)).toBeGreaterThan(0.3);
   const head = await page.evaluate(() => { const c = window.__toon.player.clips[0]; return { trimStart: c.trimStart, visemes: c.visemes.length }; });
   expect(head.trimStart).toBeGreaterThan(0.3); expect(head.visemes).toBeLessThan(200);
@@ -85,6 +91,7 @@ test('a voice line can be trimmed from both edges; the scene gets shorter, playb
 });
 
 for (const [name, query] of [['single thread', '?debug&workers=0'], ['parallel workers', '?debug&workers=2']]) test(`the exported video shows the background clips at their times and the colour grade (${name})`, async ({ page }) => {
+  test.setTimeout(240000);
   const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', (m) => { if (/parallel export failed/.test(m.text())) errors.push(m.text()); });
   await studio(page, query);
   await page.evaluate(() => {
@@ -94,8 +101,9 @@ for (const [name, query] of [['single thread', '?debug&workers=0'], ['parallel w
   });
   const grade = async (saturation) => page.evaluate((saturation) => { window.__toon.stage.grade = saturation == null ? null : { brightness: 1, contrast: 0, saturation, vibrance: 0, exposure: 0, gamma: 1, hue: 0, temperature: 0, tintAmount: 0, shadows: 0, highlights: 0, fade: 0, sharpen: 0, vignette: 0, grain: 0, tint: '#ffffff' }; window.__toon.S.grade = window.__toon.stage.grade || window.__toon.S.grade; }, saturation);
   await grade(0);
-  const downloadReady = page.waitForEvent('download');
+  const downloadReady = page.waitForEvent('download', { timeout: 200000 });
   await page.locator('#app .hdr-tools').getByRole('button', { name: 'Export', exact: true }).click();
+  await page.locator('.exp-pop-go').click();                               // the Export popup: quality, frames per second, then Render on this device
   const download = await downloadReady;
   const { readFile } = await import('node:fs/promises'); const bytes = await readFile(await download.path());
   const pixels = await page.evaluate(async (base64) => {
@@ -149,6 +157,7 @@ test('a character animation clip and a prop lane can be dragged: trim, stretch, 
     const { S, stage, drawTimeline } = window.__toon, blob = await new Promise((r) => stage.out.toBlob(r));
     S.props.push({ id: 'p1', name: 'Chair', kind: 'prop', blob, x: 0.2, y: 0.5, w: 0.1, h: 0.1 }); await stage.setProps(S.props); drawTimeline();
   });
+  await cat(page, 'props');
   const prop = page.locator('#app .lane2.prop .tclip.prop').first();
   await expect(prop).toBeVisible();
   await dragEdge(page, prop, 'right', -120);

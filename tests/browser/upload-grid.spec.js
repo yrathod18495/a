@@ -13,11 +13,19 @@ async function studio(page, size = { width: 1000, height: 860 }) {
   await page.evaluate(() => window.__toon.openTab('audio'));
 }
 const tile = (page, kind) => page.locator(`#app .up-cell:has(.up-tile[data-kind="${kind}"]) input[type=file]`);
+/** voices and music are in the Audio tab, every other kind of file in the Uploads tab (More tools) */
+async function up(page, kind, files) {
+  await page.evaluate((t) => window.__toon.openTab(t), ['voices', 'music'].includes(kind) ? 'audio' : 'uploads');
+  await tile(page, kind).setInputFiles(files);
+}
 
-test('the Upload tab has a tile for voices, music, backgrounds, objects, props, a logo, a video and your own characters', async ({ page }) => {
+test('the Audio tab has tiles for voices and music, the Uploads tab for backgrounds, objects, props, a logo, a video and your own characters', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await studio(page);
-  await expect(page.locator('#app .up-tile')).toHaveText([/Voices/, /Music/, /Background/, /Objects/, /Props/, /Logo/, /Video/, /Characters/]);
+  await expect(page.locator('#app .up-tile')).toHaveText([/Voices/, /Music/]);
+  await expect(page.locator('#app .up-tile').first()).toBeVisible();
+  await page.evaluate(() => window.__toon.openTab('uploads'));
+  await expect(page.locator('#app .up-tile')).toHaveText([/Background/, /Objects/, /Props/, /Logo/, /Video/, /Characters/]);
   await expect(page.locator('#app .up-tile').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -26,11 +34,11 @@ test('each tile puts its file into the scene: a background clip, an object, a lo
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await studio(page);
   const file = (name) => ({ name, mimeType: 'image/png', buffer: PNG });
-  await tile(page, 'background').setInputFiles(file('sky.png'));
+  await up(page, 'background', file('sky.png'));
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.length)).toBe(1);
-  await tile(page, 'objects').setInputFiles(file('barrel.png'));
+  await up(page, 'objects', file('barrel.png'));
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.map((p) => p.name))).toContain('barrel');
-  await tile(page, 'logo').setInputFiles(file('mylogo.png'));
+  await up(page, 'logo', file('mylogo.png'));
   const logo = await expect.poll(() => page.evaluate(() => window.__toon.S.props.find((p) => p.name === 'Logo') || null)).not.toBeNull().then(() => page.evaluate(() => { const p = window.__toon.S.props.find((x) => x.name === 'Logo'); return { x: p.x, y: p.y, w: p.w }; }));
   expect(logo.x).toBeGreaterThan(0.8); expect(logo.y).toBeLessThan(0.25); expect(logo.w).toBeLessThan(0.3);
   await page.evaluate(() => window.__toon.openTab('audio'));
@@ -39,9 +47,9 @@ test('each tile puts its file into the scene: a background clip, an object, a lo
 
 test('a wrong kind of file is refused in plain English', async ({ page }) => {
   await studio(page);
-  await tile(page, 'logo').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+  await up(page, 'logo', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
   await expect(page.locator('.toast, [role=status], .toasts').filter({ hasText: /image file for the logo/ }).first()).toBeVisible();
-  await tile(page, 'video').setInputFiles({ name: 'pic.png', mimeType: 'image/png', buffer: PNG });
+  await up(page, 'video', { name: 'pic.png', mimeType: 'image/png', buffer: PNG });
   await expect(page.locator('.toast, [role=status], .toasts').filter({ hasText: /video file/ }).first()).toBeVisible();
 });
 
@@ -57,7 +65,7 @@ test('a short video becomes a looping, silent animated object', async ({ page })
     rec.stop(); await done;
     const buf = new Uint8Array(await new Blob(chunks, { type: 'video/webm' }).arrayBuffer()); let s = ''; for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000)); return btoa(s);
   });
-  await tile(page, 'video').setInputFiles({ name: 'clip.webm', mimeType: 'video/webm', buffer: Buffer.from(b64, 'base64') });
+  await up(page, 'video', { name: 'clip.webm', mimeType: 'video/webm', buffer: Buffer.from(b64, 'base64') });
   await expect(page.locator('.vid-option')).toHaveText([/Behind the characters/, /In front, full screen/, /Small, in a corner/]);
   await page.locator('.vid-option[data-mode="backdrop"]').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.find((p) => p.name === 'clip')?.sheet || null), { timeout: 30000 }).not.toBeNull();
@@ -80,11 +88,11 @@ test('a video can also cover the whole scene in front (intro) or sit small in a 
     rec.stop(); await done;
     const buf = new Uint8Array(await new Blob(chunks, { type: 'video/webm' }).arrayBuffer()); let s = ''; for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000)); return btoa(s);
   });
-  await tile(page, 'video').setInputFiles({ name: 'intro.webm', mimeType: 'video/webm', buffer: Buffer.from(await make(), 'base64') });
+  await up(page, 'video', { name: 'intro.webm', mimeType: 'video/webm', buffer: Buffer.from(await make(), 'base64') });
   await page.locator('.vid-option[data-mode="cover"]').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.find((p) => p.name === 'intro')?.w ?? null), { timeout: 30000 }).toBe(1);
   expect(await page.evaluate(() => window.__toon.S.props.find((p) => p.name === 'intro').behind)).toBeFalsy();
-  await tile(page, 'video').setInputFiles({ name: 'logo.webm', mimeType: 'video/webm', buffer: Buffer.from(await make(), 'base64') });
+  await up(page, 'video', { name: 'logo.webm', mimeType: 'video/webm', buffer: Buffer.from(await make(), 'base64') });
   await page.locator('.vid-option[data-mode="corner"]').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.find((p) => p.name === 'logo')?.x ?? null), { timeout: 30000 }).toBeGreaterThan(0.8);
   expect(await page.evaluate(() => window.__toon.S.props.find((p) => p.name === 'logo').w)).toBeLessThan(0.4);
@@ -100,7 +108,7 @@ test('no "Start your scene" card, no music card before a song exists, and no "pu
   // a song added with the Music tile brings its controls
   const wav = (() => { const n = 8000, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(8000, 24); b.writeUInt32LE(16000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; })();
   await page.evaluate(() => window.__toon.openTab('audio'));
-  await tile(page, 'music').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: wav });
+  await up(page, 'music', { name: 'song.wav', mimeType: 'audio/wav', buffer: wav });
   await page.locator('.tclip.music').dispatchEvent('click');               // the settings are on the music layer, not in the Upload tab
   await expect(page.locator('.modal .music-card')).toContainText('song');
 });

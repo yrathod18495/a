@@ -41,30 +41,37 @@ test('the "..." menu opens inside the screen', async ({ page }) => {
   expect(panel.x).toBeGreaterThanOrEqual(0); expect(panel.x + panel.width).toBeLessThanOrEqual(360); await expect(page.getByRole('button', { name: /Reset this project/ })).toBeVisible();
 });
 
-test('the bottom bar: Upload, Characters, Animations, Props, Objects, Shadow, Effects, Background, More (the whole bar scrolls sideways, nothing is pinned); Export is the last item of Advanced', async ({ page }) => {
+test('the bottom bar follows the timeline group (Characters, Audio, Background, Props, Effects): a few big buttons each; More ends with Export', async ({ page }) => {
   await phone(page, 390);
   const bar = page.locator('#app .tabs.big');
-  const items = await bar.evaluate((el) => [...el.querySelectorAll(':scope > button, :scope > details, :scope > .tabs-scroll > button, :scope > .tabs-scroll > details')].map((c) => ({ label: c.tagName === 'DETAILS' ? c.querySelector('summary').textContent.trim() : c.textContent.trim() })));
-  expect(items.map((i) => i.label)).toEqual(['Upload', 'Characters', 'Animations', 'Props', 'Objects', 'Shadow', 'Effects', 'Background', 'More']);
-  const barBox = await bar.boundingBox(), sc = await bar.locator('.tabs-scroll').evaluate((e) => ({ scrolls: e.scrollWidth > e.clientWidth, x: getComputedStyle(e).overflowX }));
-  expect(sc.x).toBe('auto');                                                                    // the middle slides sideways
-  const first = await bar.locator('.tabs-scroll > :first-child').evaluate((e) => e.textContent.trim()), last = await bar.locator('.tabs-scroll > :last-child > summary').evaluate((e) => e.textContent.trim());
-  expect([first, last]).toEqual(['Upload', 'More']);          // Upload is the first item of the sliding bar and More the last; neither is pinned
-  await expect(bar.getByRole('button', { name: 'Export', exact: true })).toHaveCount(0);                                                                     // no Export button in the bar itself
+  const labels = () => bar.evaluate((el) => [...el.querySelectorAll(':scope > .tabs-scroll:not(.cube-out) > button, :scope > .tabs-scroll:not(.cube-out) > details')].filter((c) => !c.hidden).map((c) => (c.tagName === 'DETAILS' ? c.querySelector('summary') : c).textContent.trim()));
+  const group = async (key) => { if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click(); await page.locator(`#app .tl-cat[data-cat="${key}"]`).click(); await expect(bar.locator('.tabs-scroll.cube-out')).toHaveCount(0); };
   const tab = () => page.evaluate(() => window.__toon.S.tab);
-  await bar.getByRole('button', { name: 'Upload' }).click(); expect(await tab()).toBe('audio');
+  await group('chars'); expect(await labels()).toEqual(['Characters', 'Animations', 'Move', 'More']);
+  await group('audio'); expect(await labels()).toEqual(['Voices', 'Music', 'Edit voice', 'Upload']);
+  await group('background'); expect(await labels()).toEqual(['Pick', 'Upload', 'Edit', 'Filter', 'Colour']);
+  await group('props'); expect(await labels()).toEqual(['Props', 'Objects', 'Hold', 'Shadow']);
+  await group('effects'); expect(await labels()).toEqual(['Effects', 'Overlays', 'Colour']);
+  const sc = await bar.locator('.tabs-scroll').evaluate((e) => getComputedStyle(e).overflowX);
+  expect(sc).toBe('auto');                                                                      // the bar slides sideways when a group has more buttons than fit
+  await expect(bar.getByRole('button', { name: 'Export', exact: true })).toHaveCount(0);       // no Export button in the bar itself (it is in the header and under More)
+  // each button opens its own tool
+  await group('props');
   await bar.getByRole('button', { name: 'Props', exact: true }).click(); expect(await tab()).toBe('handprops'); await expect(page.locator('.panel')).toContainText('Props');
-  await bar.getByRole('button', { name: 'Objects' }).click(); expect(await tab()).toBe('props'); await expect(page.locator('.panel')).toContainText('Objects');
-  await bar.getByRole('button', { name: 'Background' }).click(); expect(await tab()).toBe('canvas');
-  await bar.getByRole('button', { name: 'Characters' }).click(); expect(await tab()).toBe('chars');
-  await bar.getByRole('button', { name: 'Animations' }).click(); expect(await tab()).toBe('anim');
-  // Advanced ends with Export
+  await bar.getByRole('button', { name: 'Objects', exact: true }).click(); expect(await tab()).toBe('props'); await expect(page.locator('.panel')).toContainText('Objects');
+  await group('background'); await bar.getByRole('button', { name: 'Pick', exact: true }).click(); expect(await tab()).toBe('canvas');
+  await group('audio'); await bar.getByRole('button', { name: 'Upload', exact: true }).click(); expect(await tab()).toBe('audio');
+  await group('chars');
+  await bar.getByRole('button', { name: 'Characters', exact: true }).click(); expect(await tab()).toBe('chars');
+  await bar.getByRole('button', { name: 'Animations', exact: true }).click(); expect(await tab()).toBe('anim');
+  // More ends with Export
   await bar.locator('summary[title="More tools"]').click();
   const names = await bar.locator('.advanced-tools-list button').evaluateAll((b) => b.map((x) => x.title));
-  expect(names.at(-1)).toBe('Export'); expect(names).toEqual(['Tears', 'Overlays', 'Colour', 'Move', 'Camera', 'Mask', 'AI', 'Export']);
+  expect(names).toEqual(['Uploads', 'Skills', 'Tears', 'Overlays', 'Colour', 'Move', 'Camera', 'Mask', 'AI', 'Export']);
   await bar.locator('.advanced-tools-list button[title="Export"]').click();
   expect(await tab()).toBe('export'); await expect(page.locator('.panel')).toContainText(/Export/);
-  await expect(bar.locator('.advanced-tools')).toHaveClass(/has-active/);                                    // Advanced shows it is the open one
+  await group('chars');
+  await expect(bar.locator('.advanced-tools')).toHaveClass(/has-active/);                                    // More shows it holds the open tool
 });
 
 test('on a wide screen the left menu is unchanged: Export is still listed under Finish', async ({ page }) => {

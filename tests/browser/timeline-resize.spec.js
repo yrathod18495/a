@@ -29,8 +29,10 @@ test('the timeline has a visible bar that can be dragged, and a button to make i
   expect(Math.abs((await height(page)) - normal)).toBeLessThan(3);
 });
 
-test('the edit buttons sit in the same row as the zoom buttons', async ({ page }) => {
+test('the edit buttons sit in the same row as the zoom buttons (with the side panel closed; a narrow timeline wraps them to a second line)', async ({ page }) => {
   await studio(page);
+  await page.locator('.sheet-close').getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.locator('#app .panel.open')).toHaveCount(0);
   const zoom = await page.getByRole('button', { name: 'Zoom in timeline' }).boundingBox(), split = await page.locator('.edit-split').boundingBox();
   expect(Math.abs(zoom.y - split.y)).toBeLessThan(8);
   await expect(page.locator('.edit-split')).toBeVisible();

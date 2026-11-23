@@ -59,6 +59,7 @@ test('the shadow editor is a short dock at the bottom: the stage stays fully vis
   expect(await page.evaluate(() => window.__toon.S.props[0].shadow.length)).toBe(2);
   await dock.getByRole('button', { name: 'Done' }).click(); await expect(dock).toBeHidden();
   // the shadow is a layer of its own on the timeline, with the shadow icon and its own lock; selecting it gives Edit / Delete
+  await page.locator('#app .tl-cat[data-cat="props"]').click();                              // shadows are in the Props group of the timeline
   const row = page.locator('.lane2.shadow .tclip.shadow'); await expect(row).toHaveCount(1);
   await expect(page.locator('.rl:has(.lock-layer) svg').first()).toBeVisible();
   await row.click();

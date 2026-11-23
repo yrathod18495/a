@@ -18,6 +18,9 @@ These rules were asked for repeatedly by the owner. Do not break them in any cha
 ## Phone bottom bar follows the timeline group
 On a phone the bottom bar shows tools for the open timeline group (`phoneNav()` in `src/main.js`): Audio (Voices, Music, Edit voice, Upload), Characters (Characters, Animations, Move, Camera, More), Background (Pick, Upload, Edit, Filter, Colour), Props (Hand props, Objects, Hold, Shadow), Effects (Effects, Overlays, Colour). Wide screens keep the rail. The Hold tool (`openHoldTool`) sets a prop's character, hand, place (joystick), size, turn and front/behind layer; the renderer only supports in front of / behind the whole character. Test: `tests/browser/phone-nav-hold.spec.js`.
 
+## Phone held sideways (landscape)
+A short, wide phone screen (height up to 500 px, width 601-860 px) has its own grid at the end of `src/studio-icons.css`: the tool bar is a thin column on the left (the selected clip's tools replace it, one under the other), the picture with the timeline under it in the middle, and the open tool on the right (not a sheet over the picture). The portrait phone grid has four rows and left the timeline 0 px high in landscape; keep the landscape block after the portrait rules. Test: `tests/browser/studio.spec.js` ("optimized studio stays within viewport … 844").
+
 ## Layer overview lives on the five layer buttons
 
 There is no separate overview line above the timeline any more. Each of the five layer buttons (Audio, Characters, Background, Props, Effects) carries a tiny map of its own group (`.tl-mini`: where its layers start and end over the whole scene, in the group's colour) and a tick for the playhead, so groups are compared right where they are chosen, next to the timeline. Code: `drawOverview` / `moveMiniHeads` in `src/main.js`. Test: `tests/browser/layer-minimap.spec.js`.

@@ -303,7 +303,7 @@ test('background export: the editor stays free while the video is made from a sn
   await page.locator('#app .up-cell:has(.up-tile[data-kind="music"]) input[type=file]').setInputFiles({ name: 'song.wav', mimeType: 'audio/wav', buffer: tone(1, 440, 20000) });         // 1 s of music for a 5 s video: it has to repeat
   await expect(page.locator('.tclip.music')).toHaveCount(1, { timeout: 15000 });
   await page.evaluate(() => { const T = window.__toon; T.S.fps = 40; T.S.quality = 360; Object.assign(T.S.music, { volume: 0.2, fadeIn: 0, fadeOut: 0 }); Object.assign(T.S.lines[0], { volume: 0.5 }); Object.assign(T.player.clips[0], { volume: 0.5 }); T.player.music.volume = 0.2; T.player.music.fadeOut = 0; T.player.music.fadeIn = 0; });
-  const downloadReady = page.waitForEvent('download', { timeout: 120000 });
+  const downloadReady = page.waitForEvent('download', { timeout: 300000 });
   await page.locator('#app .hdr-tools').getByRole('button', { name: 'Export', exact: true }).click();
   await page.locator('.exp-pop-go').click();
   await expect(page.locator('.export-pill')).toBeVisible({ timeout: 20000 });                 // the progress box, not a locked screen
@@ -332,7 +332,7 @@ test('background export: the editor stays free while the video is made from a sn
 });
 
 test('background export: closing the studio while it renders does not stop it; the file still arrives', async ({ page }) => {
-  test.setTimeout(150000);
+  test.setTimeout(330000);          // 12 s of video at 40 fps on a software-GL test machine
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
@@ -345,7 +345,7 @@ test('background export: closing the studio while it renders does not stop it; t
   await page.locator('.drop input[type=file]').setInputFiles({ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: wav(12) });
   await expect(page.locator('.tclip.voice')).toHaveCount(1, { timeout: 20000 });
   await page.evaluate(() => { window.__toon.S.fps = 40; window.__toon.S.quality = 360; });
-  const downloadReady = page.waitForEvent('download', { timeout: 120000 });
+  const downloadReady = page.waitForEvent('download', { timeout: 300000 });
   await page.locator('#app .hdr-tools').getByRole('button', { name: 'Export', exact: true }).click();
   await page.locator('.exp-pop-go').click();
   await expect(page.locator('.export-pill')).toBeVisible({ timeout: 20000 });

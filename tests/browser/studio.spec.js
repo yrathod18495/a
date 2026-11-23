@@ -1,17 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { installLibrary } from './studio-library.js';
 
-async function studio(page, { width = 1366, height = 768, mode = 'day' } = {}) {
+async function studio(page, { width = 1366, height = 768, mode = 'day', count = 24 } = {}) {
   await page.setViewportSize({ width, height });
   await page.addInitScript(mode => localStorage.setItem('12toons-theme', mode), mode);
   await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
-  await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
+  await installLibrary(page, { count });          // "Neha" comes from the admin's character library (no character is bundled)
   await page.goto('/?debug#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Optimized studio');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
+}
+/** a tool from "More tools": the list of the big-screen rail (it stays open), or the phone bar's More menu (it closes after a pick) */
+async function moreTool(page, name) {
+  if (await page.locator('#app .rail-more').count()) {
+    const more = page.locator('#app .rail-more');
+    if (await more.getAttribute('open') === null) await more.locator('summary').click();
+    await more.getByRole('button', { name, exact: true }).click();
+    await expect(more.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    return;
+  }
+  const menu = page.locator('#app .tabs-scroll:not(.cube-out) .advanced-tools');
+  await expect(menu.locator('.advanced-tools-list')).toBeHidden();
+  await menu.locator('summary').click();
+  await menu.locator('.advanced-tools-list').getByRole('button', { name, exact: true }).click();
+  await expect(menu.locator('.advanced-tools-list')).toBeHidden();
 }
 async function addCharacter(page) {
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
@@ -30,18 +45,16 @@ for (const mode of ['day', 'night']) for (const viewport of [{ width: 1366, heig
     expect(bounds.y).toBeGreaterThanOrEqual(0); expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(viewport.height + 1);
-    await expect(page.locator('.advanced-tools-list:not(.upload-tools-list)')).toBeHidden();
-    await page.locator('.advanced-tools summary').click();
-    await page.locator('.advanced-tools-list:not(.upload-tools-list)').getByRole('button', { name: 'Camera', exact: true }).click();
+    await moreTool(page, 'Camera');
     await expect(page.locator('.panel')).toContainText('Canvas size');
-    await expect(page.locator('.advanced-tools-list:not(.upload-tools-list)')).toBeHidden();
     await page.screenshot({ path: testInfo.outputPath(`optimized-${mode}-${viewport.width}.png`) });
     expect(errors).toEqual([]);
   });
 }
 test('animation rows are virtualized; selection, playback, editor zoom and reset preserve scene data', async ({ page }, testInfo) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await studio(page); await addCharacter(page);
+  test.setTimeout(120000);
+  await studio(page, { count: 90 }); await addCharacter(page);          // enough animations for a category longer than the list window
   await expect(page.getByTitle(/swap.*image/i)).toHaveCount(0);
   await page.getByLabel('Selected character name').fill('Rani'); await page.getByLabel('Selected character name').press('Tab');
   await expect.poll(() => page.evaluate(() => window.__toon.S.speakers[0].name)).toBe('Rani');
@@ -147,8 +160,7 @@ test('sync errors explain the cause, retain local work and offer retry only when
 
 test('aspect changes and reopening the workspace keep fitting the editor without background rendering', async ({ page }) => {
   await studio(page); const projectUrl = page.url();
-  await page.locator('.advanced-tools summary').click();
-  await page.locator('.advanced-tools-list:not(.upload-tools-list)').getByRole('button', { name: 'Camera', exact: true }).click();
+  await moreTool(page, 'Camera');
   await page.locator('.panel').getByRole('button', { name: '9:16', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.W / window.__toon.stage.H)).toBeCloseTo(9 / 16, 2);
   const ratio = await page.locator('.stagewrap').evaluate(e => e.clientWidth / e.clientHeight);

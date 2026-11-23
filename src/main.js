@@ -1251,7 +1251,13 @@ function drawTimeline() {
     const el = h('div', { class: `tclip voice ${c.id === S.lineSel && S.lineExplicit && !(S.mclip || S.bgSel || S.propSel) ? 'sel' : ''} ${trimmed ? 'trimmed' : ''} ${c.muted ? 'muted' : ''} ${c.solo ? 'solo' : ''} ${isLocked('audio') ? 'locked' : ''}`, title: 'Drag the middle to move the audio · drag an edge to trim it · double-click to remove the trim', style: `left:${c.start * pps}px;width:${Math.max(8, (c.end - c.start) * pps)}px;background:${sp?.color || '#888'}`, onclick: (ev) => { if (S.exporting || voiceMoved) return; selectLine(c.id, false, true); seekToClientX(ev.clientX); openVoiceEdit(c.id); } },
       lz, voiceWave(c), h('span', { class: 'tn' }, `${i + 1} · ${sp?.name || ''}${fileLabel(c.id) ? ` · ${fileLabel(c.id)}` : ''}`), signs([c.muted && ['volume-x', 'mute', 'Muted'], c.solo && ['headphones', 'solo', 'Solo'], !c.muted && Number.isFinite(c.volume) && Math.abs(c.volume - 1) > 0.01 && ['volume', 'vol', `Volume ${Math.round(c.volume * 100)}%`, `${Math.round(c.volume * 100)}%`], (c.fadeIn > 0 || c.fadeOut > 0) && ['fade', 'fade', 'Fade in / out']]), rz);
     el.addEventListener('pointerdown', (e) => { if (e.button) return; dragVoice(e, c, e.target === rz ? 'right' : e.target === lz ? 'left' : 'move', el); });
-    el.addEventListener('dblclick', async () => { const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return; line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline(); });
+    el.addEventListener('dblclick', async () => {
+      const line = S.lines.find((l) => l.id === c.id); if (!line || S.exporting || !(line.trimStart || line.trimEnd)) return;
+      // the pauses the trim left (before this line for a cut head, before the next line for a cut tail) go back too, so the line plays exactly where it did before
+      const next = S.lines[S.lines.indexOf(line) + 1], back = (l, t) => { if (t > 0 && l && Number.isFinite(l.gapBefore)) l.gapBefore = +Math.max(0, l.gapBefore - t).toFixed(2); };
+      back(line, line.trimStart || 0); back(next, line.trimEnd || 0);
+      line.trimStart = 0; line.trimEnd = 0; await retimeAudio(); drawTimeline();
+    });
     lane.append(el);
   });
   // a gap between two voice lines (left behind by trimming or moving one) gets a button right in the empty space: it closes the gap and every later line follows
@@ -3604,7 +3610,7 @@ function updateSel() {
     el.style.left = `${px}px`; el.style.top = `${py}px`; el.classList.remove('pinned');
     l.hpos[c] = [x, y];
   }
-  { const el = handleEls.rot, pv = l.pivot, th = (l.rot || 0) * Math.PI / 180, d = pv.half + 40 / k, hx = (pv.x + Math.sin(th) * d) * k, hy = (pv.y - Math.cos(th) * d) * k;          // on a stick above the head, turning with the character (it does not jump while tilting)
+  { const el = handleEls.rot, pv = l.pivot || { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, half: (b.y1 - b.y0) / 2 }, th = (l.rot || 0) * Math.PI / 180, d = pv.half + 40 / k, hx = (pv.x + Math.sin(th) * d) * k, hy = (pv.y - Math.cos(th) * d) * k;          // on a stick above the head, turning with the character (it does not jump while tilting)
     el.hidden = charLockedNow(l.key) || hx < 0 || hx > cw || hy < 0 || hy > ch; el.style.left = `${hx}px`; el.style.top = `${hy}px`; el.style.setProperty('--stick', `${Math.round(40 - 6)}px`); el.style.setProperty('--ang', `${l.rot || 0}deg`); }
   if (selToolsEl) updateSelTools(l, b, k, cw, ch);
 }
@@ -4798,7 +4804,7 @@ async function runBackgroundExport(grant) {
 async function doExport({ foreground = false } = {}) {
   if (bgExport) { toast('An export is already running. You can follow it in the box at the bottom left.'); return; }
   if (S.exporting || exportChecking || previewChanging || sceneChanging) return;
-  fixFps();
+  fixFps(); updateTotal();          // the length is worked out again first: the background (parallel) export reads player.total straight away and once made an 8 s video of a 4 s scene
   // the server decides how long a video this account may export (free 2 min, paid 10 min) before any rendering starts
   let prepStop = false; const prep = exportPill(() => { prepStop = true; }); setExportBusy(true);          // feedback from the very first tap: the button moves and a "Preparing" box appears
   const abort = () => { prep.done(); setExportBusy(false); };

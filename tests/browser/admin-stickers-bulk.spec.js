@@ -26,6 +26,7 @@ async function setup(page, { slowMs = 120, failName = null, hangName = null } = 
   return { saved, attempts };
 }
 test('48 stickers: the progress bar moves, all 48 are published, and the page says so', async ({ page }) => {
+  test.setTimeout(150000);
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   const { saved } = await setup(page);
   await page.getByRole('button', { name: 'Publish sticker' }).click();

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { installLibrary } from './studio-library.js';
+import { installLibrary, tool } from './studio-library.js';
 
 async function studio(page) {
   await page.setViewportSize({ width: 1366, height: 800 });
@@ -21,8 +21,7 @@ async function studio(page) {
 test('a line drawn with the pen tool becomes the path the character walks along, and it is saved and removable', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page);
-  await page.locator('.advanced-tools').evaluate((el) => { el.open = true; });
-  await page.locator('.advanced-tools .advanced-tools-list').getByRole('button', { name: 'Move', exact: true }).click();
+  await tool(page, 'Move');
   await page.getByRole('button', { name: /Draw a path with the pen/ }).click();
   const box = await page.locator('#app .stagewrap canvas').boundingBox();
   const pt = (fx, fy) => [box.x + box.width * fx, box.y + box.height * fy];
@@ -54,8 +53,7 @@ test('a path can be drawn while the camera is zoomed in; it lands where the pen 
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page);
   await page.evaluate(() => { const { S } = window.__toon; S.camKeys = [{ id: 'c1', t: 0, zoom: 2, cx: 0.25, cy: 0.5, ease: 'smooth' }]; window.__toon.syncCam?.(); });
-  await page.locator('.advanced-tools').evaluate((el) => { el.open = true; });
-  await page.locator('.advanced-tools .advanced-tools-list').getByRole('button', { name: 'Move', exact: true }).click();
+  await tool(page, 'Move');
   await page.getByRole('button', { name: /Draw a path with the pen/ }).click();
   const box = await page.locator('#app .stagewrap canvas').boundingBox();
   await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5); await page.mouse.down();

@@ -55,7 +55,7 @@ test('Background tab: "+" and the backgrounds, then the plain colours; a picture
   expect((await page.evaluate(() => window.__toon.S.bgClips[1])).dur).toBe(5);
 });
 
-test('props: one picture is added once (tapping it again selects it); a background tile shows the whole 16:9 picture; custom colour makes a background', async ({ page }) => {
+test('props: one picture is added once (tapping it again selects it); phone tiles are small squares, 5 in a row; custom colour makes a background', async ({ page }) => {
   await open(page, 390);
   // a shared prop that is already in the scene
   await page.evaluate(async () => {
@@ -72,7 +72,8 @@ test('props: one picture is added once (tapping it again selects it); a backgrou
   expect(await page.evaluate(() => ({ n: window.__toon.S.props.length, sel: window.__toon.S.selectedPropId }))).toEqual({ n: 1, sel: 'p1' });      // nothing was added twice
   // no editor in the panel
   await expect(page.locator('.studio-prop-editor, .prop-hold, .lib-onstage')).toHaveCount(0);
-  const pic = await tile.locator('.tile-pic').boundingBox(); expect(Math.abs(pic.width / pic.height - 16 / 9)).toBeLessThan(0.05);      // 16:9
+  const pic = await tile.locator('.tile-pic').boundingBox(); expect(Math.abs(pic.width / pic.height - 1)).toBeLessThan(0.05);      // phone: small square cards, 5 in a row
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('#app .tile-grid')).gridTemplateColumns.split(' ').length)).toBe(5);
   // eye hides it, X takes it out
   await tile.locator('.eye').click(); expect(await page.evaluate(() => window.__toon.S.props[0].visible)).toBe(false);
   await page.locator('.tile', { hasText: 'Lamp' }).locator('.x').click(); await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(0);

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-// Phone: what you can do with the selected clip (Split, Copy, Objects, Crop, Replace, Path, Delete, More) is in the bottom bar; the rows at the top are gone.
+// Phone: what you can do with the selected clip (Split, Objects, Adjust, Crop, Replace, Delete, More) is in the bottom bar; the rows at the top are gone.
 async function open(page) {
   await page.setViewportSize({ width: 390, height: 860 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
@@ -11,6 +11,7 @@ async function open(page) {
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
   if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();
   await page.evaluate(async () => { const { S, stage } = window.__toon; S.bgClips.push({ id: 'b1', bgId: null, preset: 3, start: 0, dur: 2 }); await stage.setBackgroundClips(S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset, blob: null }))); window.__toon.drawTimeline(); });
+  await page.locator('#app .tl-cat[data-cat="background"]').click();          // the timeline shows one group of layers at a time
 }
 test('phone: the selected clip\'s tools are in the bottom bar, nothing is left at the top, and Delete removes the clip', async ({ page }) => {
   await open(page);
@@ -19,7 +20,7 @@ test('phone: the selected clip\'s tools are in the bottom bar, nothing is left a
   const selStyle = await page.locator('#app .lane2.bg .tclip.mine').first().evaluate((e) => ({ edge: getComputedStyle(e).borderTopColor, bar: getComputedStyle(e.querySelector('.lz')).width, bar2: getComputedStyle(e.querySelector('.rz')).width }));
   expect(selStyle).toEqual({ edge: 'rgb(255, 255, 255)', bar: '9px', bar2: '9px' });      // the tapped clip looks selected: a thin white edge and a white bar on each side
   const nav = page.locator('.clip-nav'); await expect(nav).toBeVisible();
-  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Copy', 'Objects', 'Crop', 'Replace', 'Delete']);
+  await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Objects', 'Adjust', 'Crop', 'Replace', 'Delete']);          // Adjust: joystick + size slider for the background
   await expect(page.locator('.tltools .clipbar')).toBeHidden(); await expect(page.locator('.selbar')).toBeHidden();
   const edits = await page.locator('.tltools .edit-btn:visible').evaluateAll((els) => els.map((e) => e.className.match(/edit-(?!btn)(\w+)/)[1]));
   expect(edits).toEqual(['prev', 'next', 'paste', 'del']);                                              // only the ones that need no selection stay at the top

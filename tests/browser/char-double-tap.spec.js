@@ -50,6 +50,7 @@ test('double tap on a character brings it back to 100% inside the frame, and Und
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Tears');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
+  await page.locator('#app .tl-cat[data-cat="chars"]').click();          // phone: the timeline group picks the bottom bar; its first button opens the characters
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Maya$/ }).click(); await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 30000 }).toBe(1);

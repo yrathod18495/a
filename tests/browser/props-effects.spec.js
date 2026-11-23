@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { installLibrary } from './studio-library.js';
+import { installLibrary, tool } from './studio-library.js';
 
 async function studio(page) {
   await page.setViewportSize({ width: 1366, height: 800 });
@@ -35,13 +35,12 @@ test('props and effects come from the shared library, show in front, honour opac
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page); await publish(page);
   const rail = page.locator('#app .tabs.big');
-  await rail.locator('.upload-tools>summary').click();
   await rail.getByRole('button', { name: 'Objects', exact: true }).click();
   await expect(page.locator('.lib-card')).toHaveCount(1);
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.map((p) => p.kind))).toEqual(['prop']);
   const beneath = await centerPixel(page);
-await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await rail.getByRole('button', { name: 'Effects', exact: true }).click();
+  await tool(page, 'Overlays');                                            // the sticker-style effects (fire, sparkles ...) are the Overlays tool
   await expect(page.locator('.lib-card')).toHaveCount(2);
   await page.locator('.lib-card').filter({ hasText: 'Sparkle' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.filter((p) => p.kind === 'effect').length)).toBe(1);
@@ -78,7 +77,6 @@ await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-t
 test('effects can be removed and props can be sent behind characters', async ({ page }) => {
   await studio(page); await publish(page);
   const rail = page.locator('#app .tabs.big');
-  await rail.locator('.upload-tools>summary').click();
   await rail.getByRole('button', { name: 'Objects', exact: true }).click();
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
@@ -86,7 +84,7 @@ test('effects can be removed and props can be sent behind characters', async ({ 
   expect(await page.evaluate(() => window.__toon.S.props[0].behind)).toBe(true);
   await page.getByRole('button', { name: 'Remove prop' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(0);
-await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await rail.getByRole('button', { name: 'Effects', exact: true }).click();
+  await tool(page, 'Overlays');                                            // the sticker-style effects (fire, sparkles ...) are the Overlays tool
   await page.locator('.lib-card').filter({ hasText: 'Sparkle' }).click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
   await page.getByRole('button', { name: 'Remove effect' }).click();
@@ -101,7 +99,6 @@ test('a prop can be held in the left or right hand of a character and follows th
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
-  await rail.locator('.upload-tools>summary').click();
   await rail.getByRole('button', { name: 'Objects', exact: true }).click();
   await page.locator('.lib-card').click();
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);

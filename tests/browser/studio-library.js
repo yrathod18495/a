@@ -31,30 +31,36 @@ export function fakeServer(page) {
   });
   return s;
 }
-/** a small ZIP: one 3/4 view, the first `count` body animations + the hand / face ones needed to try layers */
-async function smallZip(count) {
-  const src = await JSZip.loadAsync(readFileSync(ZIP)), manifest = JSON.parse(await src.file('manifest.json').async('string')), view = manifest.views.find((v) => v.id === 'f34') || manifest.views[0];
+/** a small ZIP: the 3/4 view (or the views asked for), the first `count` body animations of each + the hand / face ones needed to try layers */
+async function smallZip(count, zip = ZIP, views = null) {
+  const src = await JSZip.loadAsync(readFileSync(zip)), manifest = JSON.parse(await src.file('manifest.json').async('string'));
+  const picked = views ? manifest.views.filter((v) => views.includes(v.id)) : [manifest.views.find((v) => v.id === 'f34') || manifest.views[0]];
   const want = (n) => /^(Idle|stand|walk|Talk|Pointing|Happy_Face|Sad_Face)/i.test(n);
-  const body = view.animations.filter((a) => a.layer === 'body'), pick = [...body.filter((a) => want(a.name)), ...body.filter((a) => !want(a.name))].slice(0, count);
-  const hands = view.animations.filter((a) => a.layer === 'hand').slice(0, 3), faces = view.animations.filter((a) => a.layer === 'face').slice(0, 3);
-  const animations = [...pick, ...hands, ...faces], m = { ...manifest, views: [{ ...view, animations }] };
-  const z = new JSZip(); z.file('manifest.json', JSON.stringify(m));
-  for (const [path, f] of Object.entries(src.files)) if (!f.dir && path.startsWith(`views/${view.id}/`) && !path.includes('/animations/')) z.file(path, await f.async('nodebuffer'));
-  for (const a of animations) z.file(a.file, await src.file(a.file).async('nodebuffer'));
+  const z = new JSZip(), out = [];
+  for (const view of picked) {
+    const body = view.animations.filter((a) => a.layer === 'body'), pick = [...body.filter((a) => want(a.name)), ...body.filter((a) => !want(a.name))].slice(0, count);
+    const hands = view.animations.filter((a) => a.layer === 'hand').slice(0, 3), faces = view.animations.filter((a) => a.layer === 'face').slice(0, 3);
+    const animations = [...pick, ...hands, ...faces]; out.push({ ...view, animations });
+    for (const [path, f] of Object.entries(src.files)) if (!f.dir && path.startsWith(`views/${view.id}/`) && !path.includes('/animations/')) z.file(path, await f.async('nodebuffer'));
+    for (const a of animations) z.file(a.file, await src.file(a.file).async('nodebuffer'));
+  }
+  z.file('manifest.json', JSON.stringify({ ...manifest, views: out }));
   return z.generateAsync({ type: 'nodebuffer' });
 }
-/** call before the test opens the studio: the library then holds one character (default name "Neha") */
-export async function installLibrary(page, { name = 'Neha', count = 24 } = {}) {
-  const server = fakeServer(page), bytes = await smallZip(count);
+/** call before the test opens the studio: the library then holds one character (default name "Neha"), plus the `more` ones ({ zip, name, views, count }) */
+export async function installLibrary(page, { name = 'Neha', count = 24, more = [] } = {}) {
+  const server = fakeServer(page), packs = [{ bytes: await smallZip(count), name }];
+  for (const m of more) packs.push({ bytes: await smallZip(m.count ?? 6, m.zip, m.views), name: m.name });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   await page.goto('/?debug#/hub');
-  await page.evaluate(async ([arr, nm]) => {
+  for (const { bytes, name: nm } of packs) await page.evaluate(async ([arr, nm]) => {
     const m = await import('/src/admin-characters.js'), c = await import('/src/cloud-characters.js');
     const pkg = await m.readCharacterZip(new File([new Uint8Array(arr)], 'c.zip'));
     await c.storeCharacter({ manifest: pkg.manifest, files: pkg.files, name: nm });
-  }, [Array.from(bytes), name]);
+  }, [Array.from(bytes), nm]);
   return server;
 }
+export const WILLIAM = '/home/user/a/deliver/william-plus.zip';
 
 /** a new project open in the studio (library installed first when asked); `chr` adds the character the way a creator does */
 export async function openStudio(page, { viewport = { width: 1366, height: 768 }, library = true, chr = false, workers = 0, name = 'Audit' } = {}) {

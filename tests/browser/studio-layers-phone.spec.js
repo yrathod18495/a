@@ -50,9 +50,12 @@ for (const width of [360, 390, 430]) test(`${width}px: label column is narrow, i
   for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) { const a = parts[i], c = parts[j]; expect(a[3] <= c[1] + 0.5 || c[3] <= a[1] + 0.5 || a[4] <= c[2] + 0.5 || c[4] <= a[2] + 0.5, `${a[0]} overlaps ${c[0]}`).toBe(true); }
   // the label column never covers the clips
   const scroll = await page.locator('.tl-scroll').boundingBox(); expect(scroll.x).toBeGreaterThanOrEqual(col.x + col.width - 0.5);
-  // scrolled 200px: the clip's left part is hidden, the name has slid to the visible edge
+  // a real long clip (a 60 s background), scrolled 200px: the clip's left part is hidden, the name has slid to the visible edge
+  await page.evaluate(() => { const { S, drawTimeline } = window.__toon; S.bgClips.push({ id: 'long-bg', bgId: null, preset: 2, start: 0.5, dur: 60 }); drawTimeline(); });
+  await page.locator('#app .tl-cat[data-cat="background"]').click();
   await page.evaluate(() => { document.querySelector('.tl-scroll').scrollLeft = 200; });
-  const tn = await page.evaluate(() => { const t = document.querySelector('#fake-clip .tn').getBoundingClientRect(), s = document.querySelector('.tl-scroll').getBoundingClientRect(); return { left: t.left, scrollLeft: s.left, right: t.right, scrollRight: s.right }; });
+  expect(await page.evaluate(() => document.querySelector('.tl-scroll').scrollLeft)).toBe(200);
+  const tn = await page.evaluate(() => { const t = document.querySelector('.lane2.bg .tclip.mine .tn').getBoundingClientRect(), s = document.querySelector('.tl-scroll').getBoundingClientRect(); return { left: t.left, scrollLeft: s.left, right: t.right, scrollRight: s.right }; });
   expect(tn.left).toBeGreaterThanOrEqual(tn.scrollLeft - 0.5);
   expect(tn.right).toBeLessThanOrEqual(tn.scrollRight + 0.5);
 });

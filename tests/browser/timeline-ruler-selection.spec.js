@@ -20,6 +20,8 @@ async function studioWithAudio(page, seconds = 30) {
   await page.locator('.drop input[type=file]').setInputFiles({ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: wav(seconds) });
   await expect(page.locator('.tclip.voice')).toHaveCount(1, { timeout: 20000 });
 }
+/** the timeline shows one group of layers at a time (Audio, Characters, Background, Props, Effects) */
+const cat = (page, key) => page.locator(`#app .tl-cat[data-cat="${key}"]`).click();
 
 test('the ruler has a tick every second and a label every few seconds', async ({ page }) => {
   await studioWithAudio(page);
@@ -48,16 +50,21 @@ test('selecting a prop un-selects the audio, and the lanes do not move when the 
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await studioWithAudio(page);
   await page.evaluate(() => { const T = window.__toon; T.S.props.push({ id: 'p1', name: 'Test prop', visible: true, blob: new Blob(['x']) }); T.drawTimeline(); });
-  const lanes = async () => ({ audio: Math.round((await page.locator('.tclip.voice').first().boundingBox()).y), prop: Math.round((await page.locator('.tclip.prop').first().boundingBox()).y) });
-  const before = await lanes();
-  await page.locator('.tclip.prop').first().click();
-  await expect(page.locator('.clipbar')).toBeVisible();
-  expect(await lanes()).toEqual(before);                                   // a second click lands on the same clip
-  await page.locator('.tclip.prop').first().click();
-  await expect(page.locator('.tclip.prop.sel')).toHaveCount(1);
-  await expect(page.locator('.tclip.voice.sel')).toHaveCount(0);
   await page.locator('.tclip.voice').first().click();
   await expect(page.locator('.tclip.voice.sel')).toHaveCount(1);
+  await cat(page, 'props');
+  const lane = async () => Math.round((await page.locator('.tclip.prop').first().boundingBox()).y);
+  const before = await lane();
+  await page.locator('.tclip.prop').first().click();
+  await expect(page.locator('.clipbar')).toBeVisible();
+  expect(await lane()).toEqual(before);                                    // a second click lands on the same clip
+  await page.locator('.tclip.prop').first().click();
+  await expect(page.locator('.tclip.prop.sel')).toHaveCount(1);
+  await cat(page, 'audio');
+  await expect(page.locator('.tclip.voice.sel')).toHaveCount(0);           // picking the prop un-selected the audio
+  await page.locator('.tclip.voice').first().click();
+  await expect(page.locator('.tclip.voice.sel')).toHaveCount(1);
+  await cat(page, 'props');
   await expect(page.locator('.tclip.prop.sel')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -82,6 +89,7 @@ test('splitting audio leaves no gap at the cut, and a split prop stays on its ow
   const edges = await page.evaluate(() => window.__toon.player.clips.map((c) => [c.start, c.end]));
   expect(Math.abs(edges[1][0] - edges[0][1])).toBeLessThan(0.001);               // the second part starts exactly where the first ends
   await page.evaluate(async () => { const { S, drawTimeline } = window.__toon, c = document.createElement('canvas'); c.width = c.height = 8; c.getContext('2d').fillRect(0, 0, 8, 8); const blob = await new Promise((r) => c.toBlob(r)); S.props.push({ id: 'p-test', name: 'Lamp', blob, start: 0, end: 20, x: .5, y: .5, w: .1, h: .1 }); S.propSel = 'p-test'; S.lineSel = null; drawTimeline(); });
+  await cat(page, 'props');
   await expect(page.locator('.lane2.prop')).toHaveCount(1);
   await page.mouse.click(box.x + 10 * pps, box.y + 14);
   await page.evaluate(() => { window.__toon.S.propSel = 'p-test'; window.__toon.S.lineSel = null; });
@@ -93,6 +101,7 @@ test('splitting audio leaves no gap at the cut, and a split prop stays on its ow
 test('the whole-scene background can be selected and split, and both pieces stay on the Background row', async ({ page }) => {
   await studioWithAudio(page);
   await page.evaluate(() => { const { stage, drawTimeline } = window.__toon; stage.bg.preset = 1; drawTimeline(); });
+  await cat(page, 'background');
   await expect(page.locator('.lane2.bg .tclip.bg.base')).toHaveCount(1);
   await page.locator('.lane2.bg .tclip.bg.base').click({ position: { x: 100, y: 10 } });
   await expect(page.locator('.lane2.bg .tclip.bg.mine.sel')).toHaveCount(1);       // it is now an ordinary clip on the same row
@@ -107,6 +116,7 @@ test('the whole-scene background can be selected and split, and both pieces stay
 test('outside the pieces of a split background the canvas is plain black, not the old background', async ({ page }) => {
   await studioWithAudio(page);
   await page.evaluate(() => { const { stage, drawTimeline } = window.__toon; stage.bg.preset = 1; drawTimeline(); });
+  await cat(page, 'background');
   await page.locator('.lane2.bg .tclip.bg.base').click({ position: { x: 100, y: 10 } });
   await page.evaluate(async () => { const { S, stage } = window.__toon, c = S.bgClips[0]; c.start = 5; c.dur = 5; await stage.setBackgroundClips(S.bgClips.map((x) => ({ start: x.start, dur: x.dur, preset: x.preset ?? 0, blob: null })), true); });
   const keys = await page.evaluate(() => { const { stage } = window.__toon; stage.ensureBackground(2); const early = stage.bgTex; stage.ensureBackground(7); const inside = stage.bgTex; return { early: [...stage.bgCache].find(([, v]) => v === early)?.[0], inside: [...stage.bgCache].find(([, v]) => v === inside)?.[0] }; });
@@ -129,6 +139,7 @@ test('an audio line can be grabbed in the middle and moved along the timeline', 
 test('a selected background can be moved and resized on the canvas (mouse drag, corner, wheel)', async ({ page }) => {
   await studioWithAudio(page);
   await page.evaluate(() => { const { stage, drawTimeline } = window.__toon; stage.bg.preset = 1; drawTimeline(); });
+  await cat(page, 'background');
   await page.locator('.lane2.bg .tclip.bg.base').click({ position: { x: 100, y: 10 } });
   await expect(page.locator('.bg-sel')).toBeVisible();
   const xf = () => page.evaluate(() => ({ ...window.__toon.S.bgClips[0].xf }));
@@ -152,8 +163,10 @@ test('deleting a background picture from the Background tab also removes its cli
     S.myBgs.push({ id: 'bg-test', name: 'Picture', blob: await new Promise((r) => c.toBlob(r)) });
     S.bgClips.push({ id: 'bc1', bgId: 'bg-test', preset: 0, start: 1, dur: 3 }); drawTimeline();
   });
+  await cat(page, 'background');
   await expect(page.locator('.lane2.bg .tclip.bg.mine')).toHaveCount(1);
-  await page.getByRole('button', { name: /^Background/ }).first().click();
-  await page.locator('.bgc .x').first().click();
+  await page.locator('#app .tabs.big').getByRole('button', { name: 'Background', exact: true }).click();
+  await page.locator('.panel .tile[title^="Picture"]').click({ button: 'right' });          // hold (or right-click) a picture: Effects and Delete
+  await page.locator('.modal .bg-delete').click();
   await expect(page.locator('.lane2.bg .tclip.bg.mine')).toHaveCount(0);
 });

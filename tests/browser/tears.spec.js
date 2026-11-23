@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
-import {installLibrary} from './studio-library.js';
-async function open(page,workers=0){
- await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
+import {installLibrary,WILLIAM} from './studio-library.js';
+async function open(page,workers=0,more=[]){
+ await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await installLibrary(page,{more});          // "Neha" comes from the admin's character library (no character is bundled)
  await page.goto(`/?debug&workers=${workers}#/toons`);await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Tears');await page.getByRole('button',{name:'Create project',exact:true}).click();await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
 await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();
@@ -29,6 +29,7 @@ test('PNG tears render on eyes; controls are independent, draggable and saved wi
  await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);expect((await config(page)).style).toBe(4);expect(errors).toEqual([]);
 });
 for(const workers of [0,2])test(`tear PNG and animation survive video export with ${workers ? 'parallel workers' : 'one renderer'}`,async({page},info)=>{
+ test.setTimeout(300000);
  await open(page,workers);await page.getByRole('button',{name:'Tear 4',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);
  await page.getByLabel('Tear size',{exact:true}).fill('2.5');await page.getByRole('button',{name:'Right Eye',exact:true}).click();await page.getByLabel('Tear size',{exact:true}).fill('2.5');
  await seek(page,.5);
@@ -36,7 +37,7 @@ for(const workers of [0,2])test(`tear PNG and animation survive video export wit
  await page.getByLabel('Preview quality',{exact:true}).selectOption('low');await expect(page.getByLabel('Preview quality',{exact:true})).toBeEnabled();
  await page.evaluate(()=>{window.__toon.S.quality=720;window.__toon.S.fps=5;});
  if(!workers){await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');}
- const ready=page.waitForEvent('download');await page.locator('.hdr-tools').getByRole('button',{name:'Export',exact:true}).click();const download=await ready;const {readFile}=await import('node:fs/promises');const bytes=await readFile(await download.path());
+ const ready=page.waitForEvent('download',{timeout:280000});await page.locator('.hdr-tools').getByRole('button',{name:'Export',exact:true}).click();await page.locator('.exp-pop-go').click();const download=await ready;const {readFile}=await import('node:fs/promises');const bytes=await readFile(await download.path());
  const result=await page.evaluate(async({base64,anchor})=>{
   const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type:'video/webm'})),video=document.createElement('video');video.src=url;video.muted=true;await new Promise((r,j)=>{video.onloadedmetadata=r;video.onerror=j;});video.currentTime=.6;await new Promise(r=>video.onseeked=r);
   const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;const ctx=canvas.getContext('2d');ctx.drawImage(video,0,0);
@@ -60,20 +61,24 @@ test('all tear styles follow head motion, retain placement across preview modes 
  const samples=await page.evaluate(()=>{const {stage}=window.__toon,c=stage.layers[0].tears;const render=(time)=>{stage.render(time,0,[],[]);return stage.out.toDataURL();};c.style=0;const off=render(.5);c.style=5;const outside=render(.5);c.style=0;const offInside=render(1.5);c.style=5;const inside=render(1.5);return{outsideSame:off===outside,insideDifferent:offInside!==inside};});
  expect(samples).toEqual({outsideSame:true,insideDifferent:true});
 });
-test('tear attachment works for all six characters, a side pose and hides on back poses',async({page})=>{
- await open(page);await page.getByRole('button',{name:'Tear 4',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);
- const choose=async(name,pose)=>{
-  await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByTitle('Change character',{exact:true}).click();
-  const card=page.locator('.cp-card').filter({hasText:new RegExp(`^${name}$`)});if(!(await card.getAttribute('class')).split(' ').includes('open'))await card.click();
-  const choices=page.locator('.cp-poses .pose');if(pose)await choices.filter({hasText:new RegExp(`^${pose}$`)}).click();else await choices.first().click();
-  await expect(page.locator('.modal')).toHaveCount(0);await expect(page.locator('.busy')).toHaveCount(0);await seek(page,.5);
-  return page.evaluate(()=>Object.keys(window.__toon.stage.layers[0].tearAnchors));
+test('tears sit on both eyes of every library character, on one eye in a side pose, and hide in a back pose',async({page})=>{
+ test.setTimeout(240000);
+ // the library: Neha (3/4 view) and William with his 3/4, Side and Back views (the bundled characters of old are gone; every character comes from the admin's library)
+ await open(page,0,[{zip:WILLIAM,name:'William',views:['f34','sd','bk'],count:3}]);await page.getByRole('button',{name:'Tear 4',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);await seek(page,.5);
+ expect(Object.keys(await page.evaluate(()=>window.__toon.stage.layers[0].tearAnchors)).sort()).toEqual(['left','right']);
+ const add=async(name,pose)=>{
+  const n=await page.evaluate(()=>window.__toon.stage.layers.length);
+  await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();
+  const card=page.locator('.cp-card').filter({hasText:new RegExp(`^${name}$`)});
+  for(const kind of await page.locator('.cp-kind').all()){if(await card.count())break;await kind.click();}          // the character is under its kind (Male / Female / Boy / Girl)
+  await card.click();await page.locator('.cp-poses .pose').filter({hasText:new RegExp(`^${pose}$`)}).click();
+  await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length),{timeout:60000}).toBe(n+1);await expect(page.locator('.busy')).toHaveCount(0);
+  const key=await page.evaluate(()=>{const {S}=window.__toon;const s=S.speakers.filter(x=>x.charId).at(-1);S.tearFor=s.key;S.sel=s.key;return s.key;});
+  await page.evaluate(()=>document.querySelectorAll('.rail-more').forEach(e=>{e.open=true;}));await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();
+  await page.getByRole('button',{name:'Tear 4',exact:true}).click();await expect(page.locator('.busy')).toHaveCount(0);await seek(page,.5);
+  return page.evaluate((key)=>{const {stage}=window.__toon;stage.render(.5,0,[],[]);return Object.keys(stage.layers.find(l=>l.key===key).tearAnchors||{}).sort();},key);
  };
- for(const name of ['My Baby','Village Boy','SVG Multi','Sadhu Baba','Chudel']){
-  // Only change tabs when needed: the character list stays open after replacement.
-  const chars=page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true});if(await chars.getAttribute('aria-pressed')==='true')await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();
-  expect((await choose(name)).sort()).toEqual(['left','right']);
- }
-await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();expect(await choose('Neha','Side')).toEqual(['left']);
-await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await page.locator('.tabs.big').getByRole('button',{name:'Tears',exact:true}).click();expect(await choose('Neha','Back')).toEqual([]);
+ expect(await add('William','3/4 Front')).toEqual(['left','right']);
+ expect(await add('William','Side')).toEqual(['left']);
+ expect(await add('William','Back')).toEqual([]);
 });

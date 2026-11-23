@@ -40,10 +40,12 @@ test('a background built on the canvas is saved to the database and shows up in 
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Uses generated bg');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await page.getByRole('button', { name: /Background/ }).first().click();
-  await expect(page.locator('.bggrid .bgc small', { hasText: 'Test sky' })).toBeVisible();
-  await page.locator('.bggrid .bgc', { hasText: 'Test sky' }).click();
-  await expect.poll(() => page.evaluate(() => window.__toon.S.bgId)).toMatch(/^gen-/);
+  await page.locator('#app .tabs.big').getByRole('button', { name: 'Background', exact: true }).click();
+  const tile = page.locator('.panel .tile', { hasText: 'Test sky' });
+  await expect(tile).toBeVisible();
+  await tile.click();
+  await expect.poll(() => page.evaluate(() => window.__toon.S.myBgs.some((r) => r.id.startsWith('gen-')))).toBe(true);          // it is one of the scene's backgrounds now
+  await expect.poll(() => page.evaluate(() => window.__toon.S.bgClips.some((c) => String(c.bgId).startsWith('gen-')) || String(window.__toon.S.bgId).startsWith('gen-'))).toBe(true);
 });
 
 test('a brush paints a road on its own layer, undo takes it back, and the painting is saved and reopened', async ({ page }) => {

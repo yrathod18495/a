@@ -15,7 +15,8 @@ async function studio(page) {
 }
 // the page is busy drawing ten characters on a software GL, so buttons are pressed from inside the page (no waiting for animation frames)
 const press = (loc) => loc.evaluate(e => e.click());
-const tab = async (page, name) => { await press(page.locator(`#app .tabs.big button[title="${name}"]`)); await page.waitForTimeout(800); };
+// a rail button by its label (the "More tools" list is opened first, so its tools can be pressed too)
+const tab = async (page, name) => { await page.evaluate((name) => { document.querySelectorAll('#app .rail-more').forEach((e) => { e.open = true; }); [...document.querySelectorAll('#app .tabs.big .rail-btn')].find((b) => b.querySelector('.rb-label')?.textContent === name).click(); }, name); await page.waitForTimeout(800); };
 const wavs = (page) => page.evaluate((N) => Array.from({ length: N }, (_, i) => {
   const sr = 8000, n = sr, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, s) => [...s].forEach((c, j) => v.setUint8(o + j, c.charCodeAt(0)));
   w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
@@ -33,11 +34,11 @@ test(`${N} voices + ${N} characters + 5 backgrounds + 3 effects: every character
   await page.locator('#app .panel input[type=file]').first().setInputFiles(await wavs(page));
   await expect.poll(() => page.evaluate(() => window.__toon.S.lines.length), { timeout: 120000 }).toBe(N);
   await tab(page, 'Characters');
-  for (let i = 0; i < N; i++) {
-    if (!(await page.getByRole('button', { name: /Pick character/ }).first().isVisible().catch(() => false))) await tab(page, 'Characters');
-    await press(page.getByRole('button', { name: /Pick character/ }).first());
-    await expect(page.locator('.cp-card').nth(2)).toBeVisible();
-    await press(page.locator('.cp-card').nth(i % 3));
+  for (let i = 0; i < N; i++) {          // every pick in the Characters tab adds one more character
+    if (!(await page.locator('.cp-poses .pose').first().isVisible().catch(() => false))) {
+      if (!(await page.locator('.cp-card').first().isVisible().catch(() => false))) await tab(page, 'Characters');
+      await press(page.locator('.cp-card').filter({ hasText: /^Neha$/ }).first());
+    }
     await expect(page.locator('.cp-poses .pose').first()).toBeVisible();
     await press(page.locator('.cp-poses .pose').first());
     await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 60000 }).toBe(i + 1);
@@ -45,7 +46,7 @@ test(`${N} voices + ${N} characters + 5 backgrounds + 3 effects: every character
   await tab(page, 'Background');
   for (const c of ['#c0392b', '#27ae60', '#2980b9', '#8e44ad', '#f39c12']) {
     const n = await page.evaluate(() => window.__toon.S.myBgs.length);
-    await page.locator('#app .panel input[type=file]').first().setInputFiles({ name: `bg${c.slice(1)}.png`, mimeType: 'image/png', buffer: await png(page, c) });
+    await page.locator('#app .panel input[type=file][accept="image/*"]').first().setInputFiles({ name: `bg${c.slice(1)}.png`, mimeType: 'image/png', buffer: await png(page, c) });
     await expect.poll(() => page.evaluate(() => window.__toon.S.myBgs.length)).toBe(n + 1);
   }
   await page.evaluate(async () => {
@@ -56,7 +57,7 @@ test(`${N} voices + ${N} characters + 5 backgrounds + 3 effects: every character
       S.sharedAssets.push({ id, type: 'effect', name, category: 'Magic', access: 'free', blend, opacity: 0.4, placement: 'full', updatedAt: '1' });
     }
   });
-await page.evaluate(()=>document.querySelectorAll('.advanced-tools:not(.upload-tools),.rail-more').forEach(e=>{e.open=true;})); await tab(page, 'Effects');
+await tab(page, 'Overlays');                                            // the sticker-style effects are the Overlays tool
   for (let i = 0; i < 3; i++) await press(page.locator('.lib-card').nth(i));
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.filter(p => p.kind === 'effect').length)).toBe(3);
   // 1. a click on each character selects exactly that character and shows its frame with four handles
@@ -94,8 +95,7 @@ test('a character that is not in frame at the playhead can still be selected: th
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await studio(page);
   await tab(page, 'Characters');
-  await press(page.getByRole('button', { name: 'Add character', exact: true }));
-  await press(page.locator('.cp-card').first());
+  await press(page.locator('.cp-card').filter({ hasText: /^Neha$/ }).first());
   await press(page.locator('.cp-poses .pose').first());
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length), { timeout: 60000 }).toBe(1);
   await page.evaluate(() => { const { stage, S } = window.__toon, l = stage.layers[0]; l.present = [{ start: 2, end: 4 }]; l.shown = false; S.sel = null; });

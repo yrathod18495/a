@@ -10,7 +10,8 @@ async function studio(page) {
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Prop size');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await page.locator('#app').getByRole('button', { name: /Props/ }).first().click();
+  await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
+  await page.evaluate(() => window.__toon.openTab('uploads'));          // More tools -> Uploads: the Objects tile brings your own pictures in as objects
 }
 const picture = async (page, w, h) => Buffer.from(await page.evaluate(([w, h]) => {
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = '#c98a00'; g.fillRect(w * 0.35, 0, w * 0.3, h);
@@ -21,17 +22,24 @@ const prop = (page, i = 0) => page.evaluate((i) => { const q = window.__toon.S.p
 test('an imported prop keeps the size and shape of its picture; Size and Original size adjust it', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await studio(page);
-  const input = page.locator('input[type=file][accept="image/*"]').first();
+  const input = page.locator('#app .up-cell:has(.up-tile[data-kind="objects"]) input[type=file]');
   await input.setInputFiles({ name: 'lamp.png', mimeType: 'image/png', buffer: await picture(page, 700, 2000) });
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(1);
   const lamp = await prop(page);
   expect(lamp).toMatchObject({ w: 0.1823, h: 0.9259, natW: 700, natH: 2000 });             // 700 x 2000 on a 4K reference canvas
   expect(lamp.y + lamp.h / 2).toBeLessThanOrEqual(1);                                     // not cut off at the bottom
-  await page.getByLabel(/Size of the prop/).fill('0.5');
+  // the Objects tab lists it under "In the scene": a tap opens its editor; Size is in % of the size it came in with
+  await page.evaluate(() => window.__toon.openTab('props'));
+  await page.locator('.panel .tile[title^="lamp"]').click();
+  const size = page.locator('.edit-dock input[aria-label="Size"]');
+  const setSize = (v) => size.evaluate((el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, v);
+  await setSize(50);
   const half = await prop(page);
   expect(half.w).toBeCloseTo(lamp.w / 2, 3); expect(half.h).toBeCloseTo(lamp.h / 2, 3);   // both sides together: the shape stays
-  await page.getByRole('button', { name: /Original size/ }).click();
+  await setSize(100);                                                                       // 100 % is the picture's own size again
   expect(await prop(page)).toMatchObject({ w: lamp.w, h: lamp.h });
+  await page.locator('.edit-dock').getByRole('button', { name: 'Done' }).click();
+  await page.evaluate(() => window.__toon.openTab('uploads'));
   await input.setInputFiles({ name: 'badge.png', mimeType: 'image/png', buffer: await picture(page, 384, 216) });
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.length)).toBe(2);
   expect(await prop(page, 1)).toMatchObject({ w: 0.1, h: 0.1, y: 0.66 });                 // a small picture stays small and where it was put
