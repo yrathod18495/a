@@ -44,12 +44,26 @@ test('animations: apply, the character really moves, split, duplicate, drag, del
   const errors = await openStudio(page, { chr: true });
   const clips = () => T(page, () => Object.values(window.__toon.S.manual).flat().map((m) => ({ s: +m.start.toFixed(2), d: +m.dur.toFixed(2), n: m.name })));
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Animations', exact: true }).click(); await page.waitForTimeout(800);
-  await page.locator('select:visible').filter({ hasText: 'Walk / run / dance' }).first().selectOption({ label: 'Walk / run / dance (14)' }); await page.waitForTimeout(500);
+  const walk = page.locator('.anim-cats .anim-cat:visible', { hasText: 'Walk / run / dance' }).first();          // the categories are chips with their count
+  await expect(walk.locator('small')).toHaveText('14'); await walk.click(); await expect(walk).toHaveAttribute('aria-pressed', 'true'); await page.waitForTimeout(500);
+  await expect(page.getByRole('group', { name: 'Tap a card to' }).getByRole('button', { name: 'Use for scene' })).toHaveAttribute('aria-pressed', 'true');
   await page.locator('.animation-apply:visible').first().click(); await page.waitForTimeout(800);          // "Apply" sets the automatic animation of the scene ...
   expect(await T(page, () => document.querySelector('.tclip.auto')?.innerText)).toMatch(/Walk/);
   await page.getByTitle('Add an animation for Neha at the playhead').click(); await page.waitForTimeout(500);          // ... the + button puts one on the timeline at the playhead
-  await page.locator('.modal select').first().selectOption({ label: 'Walk / run / dance (14)' }).catch(() => {}); await page.locator('.modal .animation-apply').nth(1).click(); await page.waitForTimeout(1500);
+  await page.locator('.modal .anim-cat', { hasText: 'Walk / run / dance' }).click(); await page.locator('.modal .animation-apply').nth(1).click(); await page.waitForTimeout(1500);
   let c = await clips(); expect(c.length).toBe(1); expect(c[0].d).toBeGreaterThan(0.5);
+  // "+ Add at playhead": a tap on a card adds one more clip instead of replacing; undo takes it away again
+  await page.getByRole('group', { name: 'Tap a card to' }).getByRole('button', { name: '+ Add at playhead' }).click();
+  await page.locator('.animation-apply:visible').nth(2).click(); await page.waitForTimeout(1200);
+  expect((await clips()).length).toBe(2);
+  await page.getByRole('button', { name: 'Undo', exact: true }).first().click(); await page.waitForTimeout(900);
+  expect((await clips()).length).toBe(1);
+  await page.getByRole('group', { name: 'Tap a card to' }).getByRole('button', { name: 'Use for scene' }).click();
+  // search looks through every category
+  await page.getByRole('searchbox', { name: 'Search animations' }).fill('walk'); await page.waitForTimeout(400);
+  await expect(page.locator('.animation-count')).toHaveText(/found/); expect(await page.locator('.anim-cat.on').count()).toBe(0);
+  await page.getByRole('searchbox', { name: 'Search animations' }).fill(''); await page.waitForTimeout(400);
+  c = await clips();
   // the animation really plays: the picture changes with time
   const frame = async (t) => { await T(page, (tt) => { window.__toon.player.seek(tt); window.__toon.S.dirty = true; }, t); await page.waitForTimeout(250); return T(page, () => { const T = window.__toon; T.stage.render(T.player.time, 0, [], []); const c = document.createElement('canvas'); c.width = T.stage.out.width; c.height = T.stage.out.height; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(T.stage.out, 0, 0); return Array.from(g.getImageData(0, 0, c.width, c.height).data.filter((_, i) => i % 97 === 0)); }); };
   const a = await frame(c[0].s + 0.2), b = await frame(c[0].s + 0.6); let diff = 0; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 20) diff++; expect(diff).toBeGreaterThan(5);

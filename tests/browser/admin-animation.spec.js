@@ -16,7 +16,7 @@ test('published admin clips appear for their pose; users have no animation impor
   await page.goto('/?debug#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Admin clips');await page.getByRole('button',{name:'Create project',exact:true}).click();
   await page.locator('#app .tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
   await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
-  await page.locator('#app .tabs.big').getByRole('button',{name:'Animations',exact:true}).click();await page.getByLabel('Animation category').selectOption('managed:body');
+  await page.locator('#app .tabs.big').getByRole('button',{name:'Animations',exact:true}).click();await page.locator('.anim-cat[data-cat="managed:body"]').click();
   await page.getByTitle('Apply Admin test walk',{exact:true}).click();await expect(page.locator('.animation-apply[aria-pressed=true]')).toHaveCount(1);
   await expect(page.getByRole('button',{name:'+ Import',exact:true})).toHaveCount(0);
   await page.goto('/?debug#/hub');

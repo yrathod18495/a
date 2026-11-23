@@ -26,7 +26,7 @@ test('animation duration from latest main stays consistent through undo and merg
  await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
  await expect(page.locator('.lane2.audio')).toHaveCount(0);await expect(page.locator('.line-details')).toBeHidden();
  await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
- const category=page.getByLabel('Animation category');const talking=await category.locator('option').evaluateAll(options=>options.find(option=>/talking/i.test(option.textContent))?.value);expect(talking).toBeTruthy();await category.selectOption(talking);await page.locator('.animation-apply').first().click();await expect(page.locator('.busy')).toHaveCount(0);
+ await page.locator('.anim-cats .anim-cat',{hasText:/talking/i}).first().click();await page.locator('.animation-apply').first().click();await expect(page.locator('.busy')).toHaveCount(0);
  const length=await page.evaluate(()=>Object.values(window.__toon.S.solo)[0].bodyLen);expect(length).toBeGreaterThan(0);expect(length).not.toBe(8);expect(await page.evaluate(()=>window.__toon.player.total)).toBeCloseTo(Math.max(1,length),2);
  await page.getByRole('button',{name:'Undo',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__toon.player.total)).toBe(8);
  await page.getByRole('button',{name:'Redo',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.__toon.player.total)).toBeCloseTo(Math.max(1,length),2);
@@ -81,7 +81,7 @@ test('preview quality sits in the header, and projects saved before animation-le
  await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
  await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
  await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
- const category=page.getByLabel('Animation category');const arms=await category.locator('option').evaluateAll(o=>o.find(x=>/Hands & arms/i.test(x.textContent))?.value);expect(arms).toBeTruthy();await category.selectOption(arms);
+ await page.locator('.anim-cats .anim-cat',{hasText:/Hands & arms/i}).first().click();
  await page.locator('.animation-apply').first().click();
  const length=await page.evaluate(()=>Object.values(window.__toon.S.solo)[0].bodyLen);expect(length).toBeGreaterThan(0);expect(length).toBeLessThan(8);
  const restored=await page.evaluate(()=>{const {S,fillSoloLengths}=window.__toon;const solo=Object.values(S.solo)[0];delete solo.bodyLen;fillSoloLengths({solo:S.solo,speakers:S.speakers});return solo.bodyLen;});

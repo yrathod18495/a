@@ -1,8 +1,8 @@
 import {test,expect} from '@playwright/test';
+import {installLibrary} from './studio-library.js';
 async function open(page){
  await page.setViewportSize({width:1366,height:768});
- await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
- await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await installLibrary(page);          // the admin's character library holds "Neha" (no character is bundled with the app)
  await page.goto('/?debug&workers=0#/toons');
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();
  await page.getByRole('textbox',{name:'Create a project'}).fill('History test');

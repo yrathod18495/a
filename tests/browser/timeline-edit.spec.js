@@ -122,9 +122,7 @@ test('a character animation clip and a prop lane can be dragged: trim, stretch, 
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
   await expect(page.locator('.busy')).toHaveCount(0);
   await page.locator('.tabs.big').getByRole('button', { name: 'Animations', exact: true }).click();
-  const category = page.getByLabel('Animation category');
-  const talking = await category.locator('option').evaluateAll((options) => options.find((o) => /talking/i.test(o.textContent))?.value);
-  await category.selectOption(talking);
+  await page.getByRole('group', { name: 'Animation category' }).locator('.anim-cat', { hasText: /talking/i }).first().click();
   await page.locator('.animation-apply').first().click();
   await expect(page.locator('.busy')).toHaveCount(0);
   const length = await page.evaluate(() => Object.values(window.__toon.S.solo)[0].bodyLen);

@@ -15,6 +15,7 @@ An **Effect** is a look (Night, Ghost, Blurry, Neon glow ...) that sits on the t
 - `src/db/stage.js` - `stage.fx` (list), merging with the Colour tab grade, per-item passes, `boundsOf` (crop of the previews).
 - `src/main.js` - section "Effects": `tabFx` (tab with previews made from the real picture of the target), `openFxDock` (every number, edited on the stage), `addFx`, timeline rows, selection kind `fx` (`S.fxSel`), lock key `fx:<id>`, save/load (`sceneDoc().fx`), export job (`exportJob().fx`).
 - Old projects: a Night / Evening / Dawn / Gloomy on a background clip (`bgClip.fx`) is turned into a scene effect on load (`migrateBgEffects`). The background tile no longer has effect chips.
+- The Effects tab layout: a sticky top card ("Put it on" target chips that wrap, never cut off, and Mood / Colour / Style / Fun jump buttons), then the look tiles per group, then "In the scene". The Colour tab's **Looks** (`GRADE_PRESETS`) are picture tiles too, drawn with the same `fxThumb` on the scene without its grade.
 - The old sticker-style effects (admin published fire, rain ...) are now called **Overlays** (tab key `effects`, More tools -> Look).
 
 ## Rules

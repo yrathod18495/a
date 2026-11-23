@@ -411,7 +411,7 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
           try { scrollTop = viewport.scrollTop; await onPick(s, a.ref, !!a.cat.overlay, a.length); if (root.isConnected) draw(); else { observer?.disconnect(); browserObservers.delete(observer); } }
           catch (error) { toast(`Could not apply the animation: ${error.message}`); apply.disabled = false; }
         } }, h('span', { class: 'animation-thumb', 'aria-hidden': 'true' }, hasGif ? posterImg(a.poster, a.posterType) : '▶'),
-        h('span', { class: 'animation-copy', title: a.cat.layer || a.cat.name }, h('b', {}, a.name), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : '+')));
+        h('span', { class: 'animation-copy', title: a.cat.layer || a.cat.name }, h('b', {}, a.name), h('span', { class: 'animation-check', 'aria-hidden': 'true' }, chosen ? '✓' : !chips || S.addMode ? '+' : '')));          // ✓ the one in use, + when a tap adds a clip
         const row = h('div', { class: `animation-row${chosen ? ' on' : ''}`, style: `top:${Math.floor(index / cols) * ROW}px;left:calc(${col} * (100% + ${GAP}px) / ${cols});width:calc((100% - ${(cols - 1) * GAP}px) / ${cols});height:${CARD}px` }, apply);
         if (!a.cat.overlay && a.ref.source !== 'mode' && !hasGif) {          // a card that has its own looping picture keeps it; the others play live when the pointer rests on them
           const thumb = () => row.querySelector('.animation-thumb');
@@ -436,9 +436,11 @@ function animBrowser({ getSpeaker, chips, onPick, selectedRef }) {
     viewport.addEventListener('scroll', () => { scrollTop = viewport.scrollTop; paint(); }, { passive: true });
     root.replaceChildren(h('div', { class: 'animation-filters' },
       ...(chips ? [chips(draw)] : []),
-      h('div', { class: 'row' }, h('select', { 'aria-label': 'Animation category', onchange: e => { S.animFocus = null; cat = e.target.value; q = ''; scrollTop = 0; draw(); } }, cats.map(c => h('option', { value: c.key, selected: c.key === cat }, `${c.name} (${c.animations.length})`)))),
-      h('input', { type: 'search', class: 'search', 'aria-label': 'Search animations', placeholder: 'Search animations…', value: q, oninput: e => { q = e.target.value; const caret = e.target.selectionStart; scrollTop = 0; draw(); const search = root.querySelector('.search'); search.focus(); search.setSelectionRange(caret, caret); } }),
-      h('small', { class: 'animation-count', role: 'status' }, `${list.length} animation${list.length === 1 ? '' : 's'} · click to apply`)),
+      // every category is a chip you can see at once (no hidden drop-down list); the search looks through all of them
+      h('div', { class: 'anim-cats', role: 'group', 'aria-label': 'Animation category' }, cats.map(c => h('button', { type: 'button', class: `anim-cat${c.key === cat && !q.trim() ? ' on' : ''}`, 'data-cat': c.key, 'aria-pressed': String(c.key === cat && !q.trim()), onclick: () => { S.animFocus = null; cat = c.key; q = ''; scrollTop = 0; draw(); } },
+        h('span', {}, c.name.replace(/\s*\(layer\)$/i, '')), h('small', {}, String(c.animations.length))))),          // "(layer)" is said by the card, not the chip
+      h('input', { type: 'search', class: 'search', 'aria-label': 'Search animations', placeholder: 'Search all animations…', value: q, oninput: e => { q = e.target.value; const caret = e.target.selectionStart; scrollTop = 0; draw(); const search = root.querySelector('.search'); search.focus(); search.setSelectionRange(caret, caret); } }),
+      h('small', { class: 'animation-count', role: 'status' }, `${list.length} animation${list.length === 1 ? '' : 's'}${q.trim() ? ' found' : ''}`)),
       list.length ? viewport : h('p', { class: 'sub' }, 'No matching animations. Try another category or search.'));
     paint(); viewport.scrollTop = scrollTop;
     observer = new ResizeObserver(paint); observer.observe(viewport); browserObservers.add(observer);
@@ -2108,9 +2110,14 @@ function tabFx() {
     h('button', { type: 'button', class: 'ib', title: 'Delete', 'aria-label': `Delete ${f.name}`, onclick: () => { selectOnly('fx', f.id); deleteSelected(); } }, icon('trash')))))
     : null;
   return h('div', { class: 'list' },
-    h('div', { class: 'card flat' }, h('h2', {}, 'Effects'), h('p', { class: 'sub studio-help' }, `Tap a look to put it on: ${name}. Then drag it on the timeline to choose where it starts and ends, and tap Edit to change anything.`), chips),
-    ...FX_TEMPLATE_GROUPS.map((g) => h('div', { class: 'card flat' }, h('h3', { class: 'fx-h' }, g), grid(g))),
-    inScene);
+    // the "where" stays on top while the looks scroll under it; each group can be reached with one tap
+    h('div', { class: 'card flat fx-head' },
+      h('p', { class: 'sub studio-help' }, 'Choose where it goes, then tap a look.'),
+      h('span', { class: 'fx-on-label' }, 'Put it on'), chips,
+      h('div', { class: 'fx-jump', role: 'group', 'aria-label': 'Go to a group of looks' }, FX_TEMPLATE_GROUPS.map((g) => h('button', { type: 'button', onclick: (e) => e.currentTarget.closest('.list')?.querySelector(`[data-fx-group="${g}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, g)))),
+    ...FX_TEMPLATE_GROUPS.map((g) => h('div', { class: 'card flat', 'data-fx-group': g }, h('h3', { class: 'fx-h' }, g), grid(g))),
+    inScene,
+    h('p', { class: 'hint', style: 'text-align:left' }, 'Tip: drag an effect on the timeline to set when it starts and ends, and tap Edit to change it.'));
 }
 /** the editor of one effect: every number, with the same preview on the stage while the slider moves */
 function openFxDock(fx) {
@@ -2583,16 +2590,20 @@ function tabGrade() {
   const status = h('small', { class: 'sub' }, text());
   const markTouched = () => { status.textContent = text(); reset.disabled = !(gradeActive(S.grade) || S.gradeKeys.length); };
   const groups = [...new Set(GRADE_CONTROLS.map((c) => c.group))], keys = S.gradeKeys.slice().sort((a, b) => a.t - b.t);
+  const snap = (() => { if (!stage) return null; const g = stage.grade, gk = stage.gradeKeys; stage.grade = null; stage.gradeKeys = []; try { return fxSnapshot('scene'); } finally { stage.grade = g; stage.gradeKeys = gk; } })();          // the scene without any grade: each look is shown on it
   return h('div', { class: 'list grade-panel' },
     h('div', { class: 'card flat' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('h2', { style: 'margin:0' }, '🎨 Colour Grading'), reset),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 8px' }, 'Affects the whole scene (background + characters + props + effects). The same look appears in the export. Double-click a slider to reset that control to neutral.'), status),
-    h('div', { class: 'card flat' }, h('h3', {}, 'Looks'), h('div', { class: 'grade-presets' }, GRADE_PRESETS.map((p) => h('button', { type: 'button', class: current === p.id ? 'on' : '', onclick: () => { setGrade(presetGrade(p.id), !keyed); drawTabs(); } }, p.label)))),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:6px 0 8px' }, 'One look for the whole scene: background, characters, props and effects. The export looks the same.'), status),
+    // every look is a small picture of your own scene with that look on it, so you can see it before you tap
+    h('div', { class: 'card flat' }, h('h3', {}, 'Looks'), h('div', { class: 'tile-grid fx-grid grade-looks' }, GRADE_PRESETS.map((p) => h('button', { type: 'button', class: `tile fx-tile grade-look${current === p.id ? ' on' : ''}`, 'aria-pressed': String(current === p.id), 'data-look': p.id, onclick: () => { setGrade(presetGrade(p.id), !keyed); drawTabs(); } },
+      h('span', { class: 'tile-pic' }, fxThumbOf(snap, cleanFx(p.grade), p.label)), h('span', { class: 'tile-name' }, h('b', {}, p.label)))))),
     h('div', { class: 'card flat' }, h('h3', {}, '◆ Change over time'),
-      h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Move the playhead wherever you like, pick a look, then add a keyframe. The grade glides automatically between two keyframes (like day to night).'),
+      h('p', { class: 'sub', style: 'font-size:12px;margin:0 0 8px' }, 'Like day to night: move the playhead, pick a look, tap Keyframe here. Do it again at another time and the colour glides between them.'),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { class: 'btn ok', type: 'button', onclick: addGradeKey }, '＋ Keyframe here')),
       keys.map((k, i) => h('div', { class: `item ${k.id === S.gradeSel ? 'on' : ''}`, style: 'cursor:pointer', onclick: () => { S.gradeSel = k.id; player.seek(Math.min(player.total, k.t)); S.dirty = true; drawTabs(); } },
         h('span', { class: 'chip' }, i + 1), h('b', {}, `${k.t.toFixed(2)} s`),
         h('button', { class: 'ib', style: 'margin-left:auto', title: 'Remove keyframe', onclick: (e) => { e.stopPropagation(); S.gradeKeys = S.gradeKeys.filter((x) => x !== k); syncGrade(); drawTimeline(); drawTabs(); } }, '✕')))),
+    h('p', { class: 'sub grade-fine-head' }, 'Fine-tune (double-click a slider to reset it)'),
     ...groups.map((group) => h('div', { class: 'card flat' }, h('h3', {}, group), ...GRADE_CONTROLS.filter((c) => c.group === group).map(row),
       group === 'Colour' ? h('div', { class: 'grade-row grade-tint' }, h('label', {}, 'Tint colour'), tint) : null)),
     h('p', { class: 'sub', style: 'font-size:12px' }, 'Tip: add the background and characters first, then grade.'));
@@ -3949,7 +3960,7 @@ function tabAnim() {
   if (!withChar.some((s) => s.key === S.animFor)) S.animFor = withChar[0].key;
   const L = lineById(S.lineSel), noAudio = !player.clips.length;
   const cur = () => { const s = sOf(S.animFor), l = lineById(S.lineSel); if (noAudio) { const o = s && S.solo[s.key]; return s ? { body: o?.body ?? defaultAnims(charOf(s)).idle, auto: !o?.body } : null; } return s && l ? resolveLine(l, s) : null; };
-  const chips = () => h('div', { class: 'tabs' }, withChar.map((s) => h('button', { class: s.key === S.animFor ? 'on' : '', onclick: () => { S.animFor = s.key; drawTabs(); drawLineBox(); } }, h('span', { class: 'dot', style: `background:${s.color};display:inline-block;margin-right:6px` }), s.name)));
+  const chips = () => withChar.length < 2 ? null : h('div', { class: 'tabs' }, withChar.map((s) => h('button', { class: s.key === S.animFor ? 'on' : '', onclick: () => { S.animFor = s.key; drawTabs(); drawLineBox(); } }, h('span', { class: 'dot', style: `background:${s.color};display:inline-block;margin-right:6px` }), s.name)));
   const selectedRef = () => {
     const sp = sOf(S.animFor), f = S.mclip && findManual(S.mclip);
     if (f && sp && f.s?.key === sp.key && f.m.kind === 'body') return f.m.ref;          // the animation clip you tapped on the timeline (or just added) is the marked one
@@ -3957,9 +3968,15 @@ function tabAnim() {
   };
   const idx = L ? player.clips.indexOf(L) + 1 : 0;
   return h('div', { class: 'animation-panel' },
-    h('div', { class: 'animation-context' }, h('p', { class: 'hint', style: 'text-align:left;margin:0 0 6px' }, noAudio ? 'Choose an animation for this scene.' : L ? `Choosing for line ${idx} (${fmt(L.start)}–${fmt(L.end)}). Pick the audio line first on the timeline.` : 'Tap an audio line on the timeline first.')),
-    h('details', { class: 'animation-options' }, h('summary', {}, 'Apply options'), h('label', { class: 'tog', style: 'margin-bottom:8px', title: 'Every tap places the animation on the timeline at the playhead, so you can stack as many as you like — the same one again too' }, h('input', { type: 'checkbox', checked: S.addMode, onchange: (e) => { S.addMode = e.target.checked; } }), '➕ Add on the timeline at the playhead (instead of replacing)'),
-    noAudio ? null : h('label', { class: 'tog', style: 'margin-bottom:8px' }, h('input', { type: 'checkbox', checked: S.applyAll, onchange: (e) => { S.applyAll = e.target.checked; } }), 'Use for all lines of this character')),
+    // what a tap on a card does, always in sight: use it (replaces the animation) or add one more clip at the playhead
+    h('div', { class: 'anim-mode', role: 'group', 'aria-label': 'Tap a card to' },
+      h('span', { class: 'anim-mode-label' }, 'Tap a card to'),
+      h('div', { class: 'anim-mode-seg' },
+        h('button', { type: 'button', class: S.addMode ? '' : 'on', 'aria-pressed': String(!S.addMode), title: noAudio ? 'The animation plays for the whole scene (it replaces the current one)' : 'The animation plays for the chosen audio line (it replaces the current one)', onclick: () => { S.addMode = false; drawTabs(); } }, noAudio ? 'Use for scene' : 'Use for line'),
+        h('button', { type: 'button', class: S.addMode ? 'on' : '', 'aria-pressed': String(!!S.addMode), title: 'Every tap places the animation on the timeline at the playhead, so you can stack as many as you like — the same one again too', onclick: () => { S.addMode = true; drawTabs(); } }, '+ Add at playhead'))),
+    !S.addMode && !noAudio ? h('div', { class: 'animation-context' },
+      h('p', { class: 'hint', style: 'text-align:left;margin:0' }, L ? `For line ${idx} (${fmt(L.start)}–${fmt(L.end)}). Tap another audio line on the timeline to change it.` : 'Please tap an audio line on the timeline first.'),
+      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: S.applyAll, onchange: (e) => { S.applyAll = e.target.checked; } }), 'Use for all lines of this character')) : null,
     animBrowser({ getSpeaker: () => sOf(S.animFor), chips, onPick: pickAnimation, selectedRef }).el);
 }
 

@@ -42,7 +42,7 @@ test('preview modes alter canvas, GPU budgets and playback cadence without chang
   await page.locator('#app .tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
   await expect(page.getByRole('button',{name:'+ Import',exact:true})).toHaveCount(0);
   await expect(page.locator('.animation-filters input[type=file]')).toHaveCount(0);
-  expect(await page.getByLabel('Animation category').locator('option').allTextContents()).not.toContain('Custom');
+  expect(await page.locator('.anim-cats .anim-cat span').allTextContents()).not.toContain('Custom');
   await page.setViewportSize({width:390,height:844});
   const timeline=await page.locator('#app .tlwrap').boundingBox();expect(timeline.y+timeline.height).toBeLessThanOrEqual(844);
   expect(errors).toEqual([]);

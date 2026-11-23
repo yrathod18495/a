@@ -46,10 +46,19 @@ body:has(#app:not([hidden])){overflow:hidden}
 #app .ws .panel.animation-panel-host{overflow:hidden;display:flex;flex-direction:column}
 #app .ws .panel.animation-panel-host:not(.open){display:none}
 #app .animation-panel{display:flex;flex-direction:column;gap:7px;min-height:0;height:100%;overflow:hidden}
-.animation-context,.animation-options{flex:none}
-.animation-options{font-size:11px;color:var(--mute)}
-.animation-options summary{cursor:pointer;padding:3px 0}
-.animation-options .tog{font-size:11px;padding-top:5px}
+.animation-context{flex:none;display:flex;flex-direction:column;gap:4px}
+.animation-context .tog{font-size:11px;margin:0}
+.anim-mode{display:flex;flex-direction:column;gap:4px;flex:none}
+.anim-mode-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}
+.anim-mode-seg{display:flex;flex:1;min-width:0;gap:2px;padding:2px;border:1px solid var(--line);border-radius:10px;background:var(--card2)}
+.anim-mode-seg button{flex:1;min-width:0;min-height:32px;padding:0 6px;border:0;border-radius:8px;background:transparent;color:var(--text);font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.anim-mode-seg button.on{background:var(--acc);color:#fff}
+.anim-cats{display:flex;flex-wrap:wrap;gap:4px}
+.anim-cat{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 9px;border:1px solid var(--line);border-radius:99px;background:var(--card2);color:var(--text);font-size:11.5px;font-weight:600;white-space:nowrap;cursor:pointer}
+.anim-cat small{min-width:18px;padding:1px 6px;border-radius:99px;background:var(--card);color:var(--mute);font-size:10px;text-align:center}
+.anim-cat.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.anim-cat.on small{background:#ffffff33;color:#fff}
+@media (pointer:coarse){.anim-cat{min-height:36px}.anim-mode-seg button{min-height:38px}}
 .ab{display:flex;flex-direction:column;min-height:0;flex:1;gap:6px}
 .animation-filters{display:flex;flex-direction:column;gap:7px;flex:none;background:var(--card)}
 .animation-filters .tabs{flex:none;margin:0;padding:0;gap:4px}
@@ -134,8 +143,7 @@ body:has(#app:not([hidden])){overflow:hidden}
   #app .ws .animation-context,#app .ws .animation-count{display:none}
   .animation-filters{gap:4px}
   .animation-filters .search{padding:5px}
-  #app .ws .animation-options summary{padding:0}
-  .animation-filters .row select{padding:5px}
+  .anim-cat{min-height:26px;font-size:11px}
   .animation-list{min-height:48px}
 }
 @media(max-height:500px) and (min-width:601px) and (max-width:860px){

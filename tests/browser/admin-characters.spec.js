@@ -168,9 +168,9 @@ test('after the admin uploads Maya, a creator picks her in the Animator Studio, 
   const cats = await page.evaluate(async () => { const { categoriesFor } = await import('/src/catalog.js'); const l = window.__toon.stage.layers[0]; const def = [...window.__toon.stage.assets.values()][0].def; return categoriesFor(def.rig).map((c) => [c.name, c.animations.length]); });
   expect(cats.map((c) => c[0])).toEqual(['Idle', 'Walk / run / dance', 'Body animations', 'Arms & hands (layer)']);          // Maya's talking moves are arm actions (both talk, right explain)
   expect(cats.reduce((n, c) => n + c[1], 0)).toBe(21);                    // the Front view (the pose chosen above) has 21 animations; the 3/4 view has 29
-  const walkLabel = (await page.locator('select[aria-label="Animation category"] option', { hasText: 'Walk / run / dance' }).textContent()).trim();      // e.g. "Walk / run / dance (7)" for the Front view
-  await page.getByLabel('Animation category').selectOption({ label: walkLabel });
-  const walkCount = Number(walkLabel.match(/\((\d+)\)/)[1]);
+  const walkChip = page.locator('.anim-cats .anim-cat', { hasText: 'Walk / run / dance' });      // the chip shows the name and the count, e.g. 7 for the Front view
+  await walkChip.click();
+  const walkCount = Number(await walkChip.locator('small').textContent());
   expect(walkCount).toBeGreaterThanOrEqual(1);
   await expect.poll(() => page.locator('.animation-thumb video').evaluateAll((vs) => vs.filter((v) => v.src.startsWith('blob:') && v.videoWidth === 128 && v.loop && v.muted).length), { timeout: 30000 }).toBe(walkCount);      // the previews are looping, muted videos
   // apply walk: the clip is placed and the animation file came from the stored copy

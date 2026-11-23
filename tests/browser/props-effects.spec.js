@@ -135,7 +135,7 @@ test('a prop can be held in the left or right hand of a character and follows th
   await page.getByRole('button', { name: 'Left hand', exact: true }).click();
   const before = await page.evaluate(async () => { const { stage } = window.__toon, { heldAt } = await import('/shared/studio-effects.js'); stage.render(2.4, 0, [], []); const h = heldAt(stage.layers[0], 'L'); return [h.x, h.y]; });
   await rail.getByRole('button', { name: 'Animations', exact: true }).click();
-  await page.getByLabel('Animation category').selectOption({ index: 4 });
+  await page.locator('.anim-cats .anim-cat').nth(4).click();
   await page.locator('.animation-apply').first().click();
   await page.waitForTimeout(900);
   const after = await page.evaluate(async () => { const { stage } = window.__toon, { heldAt } = await import('/shared/studio-effects.js'); stage.render(2.4, 0, [], []); const h = heldAt(stage.layers[0], 'L'); return [h.x, h.y]; });

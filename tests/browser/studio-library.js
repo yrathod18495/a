@@ -72,7 +72,7 @@ export async function openStudio(page, { viewport = { width: 1366, height: 768 }
 export async function addCharacter(page) {
   const wide = (page.viewportSize()?.width || 1366) > 860;
   if (wide) await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
-  else { await page.locator('.tl-cats .tl-cat', { hasText: 'Characters' }).click(); }
+  else { await page.locator('.tl-cats .tl-cat', { hasText: 'Characters' }).click(); await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click(); }          // phone: the timeline row picks the bottom bar, its first button opens the panel
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).first().click(); await page.locator('.cp-poses .pose').first().click();
   await page.waitForFunction(() => window.__toon.stage.layers.length >= 1, null, { timeout: 30000 }); await page.waitForTimeout(600);
 }

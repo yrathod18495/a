@@ -46,9 +46,9 @@ test('animation rows are virtualized; selection, playback, editor zoom and reset
   await page.getByLabel('Selected character name').fill('Rani'); await page.getByLabel('Selected character name').press('Tab');
   await expect.poll(() => page.evaluate(() => window.__toon.S.speakers[0].name)).toBe('Rani');
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Animations', exact: true }).click();
-  const category = page.getByLabel('Animation category');
-  const largest = await category.locator('option').evaluateAll(options => options.map(o => ({ value: o.value, n: Number(o.textContent.match(/\((\d+)\)$/)?.[1] || 0) })).sort((a, b) => b.n - a.n)[0]);
-  await category.selectOption(largest.value);
+  const category = page.getByRole('group', { name: 'Animation category' });
+  const largest = await category.locator('.anim-cat').evaluateAll(chips => chips.map(c => ({ value: c.dataset.cat, n: Number(c.querySelector('small')?.textContent || 0) })).sort((a, b) => b.n - a.n)[0]);
+  await category.locator(`[data-cat="${largest.value}"]`).click();
   await expect(page.locator('.animation-row').first()).toBeVisible();
   expect(largest.n).toBeGreaterThan(20);
   expect(await page.locator('.animation-row').count()).toBeLessThan(largest.n);
