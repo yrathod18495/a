@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { installLibrary } from './studio-library.js';
 
 async function studio(page) {
   await page.setViewportSize({ width: 1366, height: 800 });
   await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
-  await page.route('**/api/r2', r => r.fulfill({ json: { configured: false } }));
+  await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Props');
@@ -97,7 +98,6 @@ test('a prop can be held in the left or right hand of a character and follows th
   await studio(page); await publish(page);
   const rail = page.locator('#app .tabs.big');
   await rail.getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);

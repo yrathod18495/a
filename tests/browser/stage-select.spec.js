@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { installLibrary } from './studio-library.js';
 
 const N = 10;
 async function studio(page) {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
-  await page.route('**/api/r2', r => r.fulfill({ json: { configured: false } }));
+  await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Ten');

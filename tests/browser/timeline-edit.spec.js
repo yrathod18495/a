@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { installLibrary } from './studio-library.js';
 
 async function studio(page, query = '?debug&workers=0') {
   await page.setViewportSize({ width: 1366, height: 800 });
   await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
-  await page.route('**/api/r2', r => r.fulfill({ json: { configured: false } }));
+  await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
   await page.goto(`/${query}#/toons`);
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Timeline');
@@ -116,7 +117,6 @@ test('a character animation clip and a prop lane can be dragged: trim, stretch, 
   await studio(page);
   const chars = page.locator('.tabs.big').getByRole('button', { name: 'Characters', exact: true });
   if (await chars.getAttribute('aria-pressed') !== 'true') await chars.click();
-  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);
@@ -162,7 +162,6 @@ test('an automatic animation clip made from the voice can be dragged too', async
   await studio(page);
   const chars = page.locator('.tabs.big').getByRole('button', { name: 'Characters', exact: true });
   if (await chars.getAttribute('aria-pressed') !== 'true') await chars.click();
-  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);

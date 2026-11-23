@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { installLibrary } from './studio-library.js';
 
 async function studio(page, { width = 1366, height = 768, mode = 'day' } = {}) {
   await page.setViewportSize({ width, height });
   await page.addInitScript(mode => localStorage.setItem('12toons-theme', mode), mode);
   await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
-  await page.route('**/api/r2', r => r.fulfill({ json: { configured: false } }));
+  await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
   await page.goto('/?debug#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Optimized studio');
@@ -14,7 +15,6 @@ async function studio(page, { width = 1366, height = 768, mode = 'day' } = {}) {
 }
 async function addCharacter(page) {
   await page.locator('#app .tabs.big').getByRole('button', { name: 'Characters', exact: true }).click();
-  await page.getByRole('button', { name: 'Add character', exact: true }).click();
   await page.locator('.cp-card').filter({ hasText: /^Neha$/ }).click();
   await page.locator('.cp-poses .pose').first().click();
   await expect.poll(() => page.evaluate(() => window.__toon.stage.layers.length)).toBe(1);

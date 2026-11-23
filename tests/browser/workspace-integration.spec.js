@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
+import {installLibrary} from './studio-library.js';
 test('latest workspace controls coexist with undo, export presets and themed scene deletion',async({page},info)=>{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));await page.setViewportSize({width:1366,height:768});
- await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
  await page.goto('/?debug&workers=0#/toons');await expect(page.locator('.projects-toolbar button')).toHaveText(['+ New Project']);
  await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Workspace integration');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
@@ -21,9 +22,9 @@ test('latest workspace controls coexist with undo, export presets and themed sce
  await page.screenshot({path:info.outputPath('merged-workspace.png')});expect(errors).toEqual([]);
 });
 test('animation duration from latest main stays consistent through undo and merged scene export',async({page})=>{
- await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Animation length');await page.getByRole('button',{name:'Create project',exact:true}).click();await expect(page.locator('#app .stagebox canvas')).toBeVisible();
- await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
+ await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);await expect(page.locator('.busy')).toHaveCount(0);
  await expect(page.locator('.lane2.audio')).toHaveCount(0);await expect(page.locator('.line-details')).toBeHidden();
  await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
  await page.locator('.anim-cats .anim-cat',{hasText:/talking/i}).first().click();await page.locator('.animation-apply').first().click();await expect(page.locator('.busy')).toHaveCount(0);
@@ -37,7 +38,7 @@ test('animation duration from latest main stays consistent through undo and merg
 });
 
 test('side menus slide away after 5 s idle and return from the screen edge; timeline is the largest area',async({page})=>{
- await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Dock');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  await expect(page.locator('.prev .hint')).toHaveCount(0);await expect(page.locator('.guides')).toHaveCount(0);
@@ -51,7 +52,7 @@ test('side menus slide away after 5 s idle and return from the screen edge; time
 });
 
 test('free accounts cannot export more than 2 minutes, one scene or all scenes joined; the export panel shows no plan card',async({page})=>{
- await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Limit');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  const key=t=>({id:`k${t}`,t,cx:.5,cy:.5,zoom:1,ease:'linear'});
@@ -65,7 +66,7 @@ test('free accounts cannot export more than 2 minutes, one scene or all scenes j
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'a',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
  await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'b',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
- await page.locator('.upload-tools>summary').click();await page.locator('.tabs.big').getByRole('button',{name:'Audio',exact:true}).click();await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
+ await page.locator('.tabs.big').getByRole('button',{name:'Audio',exact:true}).click();await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.locator('.exp-summary')).toContainText('Length · 2 scenes');await expect(page.locator('.exp-summary')).toContainText('141.0 s');
  await page.locator('.hdr-tools').getByRole('button',{name:'Export',exact:true}).click();
  await expect(page.getByText(/Your video is 2 min 21 s long/).first()).toBeVisible();
@@ -73,12 +74,12 @@ test('free accounts cannot export more than 2 minutes, one scene or all scenes j
 });
 
 test('preview quality sits in the header, and projects saved before animation-length scenes get the length of their animation',async({page})=>{
- await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Quality');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  await expect(page.locator('.toast').filter({hasText:/could not be opened|could not/})).toHaveCount(0);
  await expect(page.locator('.hdr-tools').getByLabel('Preview quality')).toBeVisible();await expect(page.locator('.controls').getByLabel('Preview quality')).toHaveCount(0);
- await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.getByRole('button',{name:'Add character',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
+ await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
  await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
  await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
  await page.locator('.anim-cats .anim-cat',{hasText:/Hands & arms/i}).first().click();
@@ -89,7 +90,7 @@ test('preview quality sits in the header, and projects saved before animation-le
 });
 
 test('tool menu and side panel can be dragged anywhere, keep their place after reload, leave a button when idle, and dock back on double click',async({page})=>{
- await page.setViewportSize({width:1366,height:800});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));await page.route('**/api/r2',r=>r.fulfill({json:{configured:false}}));
+ await page.setViewportSize({width:1366,height:800});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Float');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  const rail=page.locator('#app .tabs.big'),panel=page.locator('#app .panel');
