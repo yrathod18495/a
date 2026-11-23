@@ -85,3 +85,10 @@ export async function addLibraryProp(server, { name = 'Red box', type = 'prop', 
   const asset = { id: `asset_${type}_${server.assets.length + 1}_abcdef`, type, name, key: `assets/${hash}`, size: bytes.length, mime: 'image/png', enabled: true, access, ...(type === 'prop' ? { group } : { blend: 'normal', opacity: 1, placement: 'sticker' }), category: 'Test', thumb: 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==' };
   server.assets.push(asset); return asset;
 }
+
+/** open a studio tool from the desktop rail (the "More tools" list is opened first, so Move / Camera / Mask / Colour ... are reachable); a tool that is already open stays open */
+export async function tool(page, name) {
+  await page.evaluate(() => document.querySelectorAll('.advanced-tools,.rail-more').forEach((e) => { e.open = true; }));
+  const btn = page.locator('#app .tabs.big').getByRole('button', { name, exact: true });
+  if (await btn.getAttribute('aria-pressed') !== 'true') await btn.click();
+}
