@@ -38,8 +38,8 @@ test('animation duration from latest main stays consistent through undo and merg
  expect(Math.abs(duration-(Math.max(1,length)+8))).toBeLessThanOrEqual(.21);
 });
 
-test('side menus slide away after 5 s idle and return from the screen edge; the grip makes the timeline the largest area',async({page})=>{
- await page.setViewportSize({width:1366,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
+test('medium screen (960 px): side menus slide away after 5 s idle and return from the screen edge; the timeline can be made the largest area',async({page})=>{
+ await page.setViewportSize({width:960,height:768});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Dock');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  await expect(page.locator('.prev .hint')).toHaveCount(0);await expect(page.locator('.guides')).toHaveCount(0);
@@ -47,11 +47,10 @@ test('side menus slide away after 5 s idle and return from the screen edge; the 
  await page.mouse.move(600,200);
  await expect(ws).toHaveAttribute('data-dock-rail','out',{timeout:9000});await expect(ws).toHaveAttribute('data-dock-panel','out');
  const stage=await page.locator('.stagebox').boundingBox(),timeline=await page.locator('.tlwrap').boundingBox();
- await page.locator('.tl-size-grip').click();          // a tap on the grip above the timeline: a big timeline (another tap: back)
- await expect(page.locator('.ws')).toHaveAttribute('data-tl','big');
+ await page.locator('.tl-toggle').click();          // the bigger / normal button of the timeline
  await expect.poll(async()=>(await page.locator('.tlwrap').boundingBox()).height).toBeGreaterThan(timeline.height+40);
  expect((await page.locator('.tlwrap').boundingBox()).height).toBeGreaterThan((await page.locator('.stagebox').boundingBox()).height);
- await page.locator('.tl-size-grip').click();await expect.poll(async()=>Math.round((await page.locator('.stagebox').boundingBox()).height)).toBe(Math.round(stage.height));
+ await page.locator('.tl-toggle').click();await expect.poll(async()=>Math.round((await page.locator('.stagebox').boundingBox()).height)).toBe(Math.round(stage.height));
  await page.mouse.move(600,200);await expect(ws).toHaveAttribute('data-dock-rail','out',{timeout:9000});
  await page.mouse.move(2,200);await expect(ws).toHaveAttribute('data-dock-rail','in');
  await page.mouse.move(1364,200);await expect(ws).toHaveAttribute('data-dock-panel','in');
@@ -90,19 +89,20 @@ test('preview quality sits in the header, and projects saved before animation-le
  await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
  await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
  await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
- await page.locator('.anim-cats .anim-cat',{hasText:/Hands & arms/i}).first().click();
+ await page.locator('.anim-cats .anim-cat',{hasText:/Arms & hands/i}).first().click();
  await page.locator('.animation-apply').first().click();
  const length=await page.evaluate(()=>Object.values(window.__toon.S.solo)[0].bodyLen);expect(length).toBeGreaterThan(0);expect(length).toBeLessThan(8);
  const restored=await page.evaluate(()=>{const {S,fillSoloLengths}=window.__toon;const solo=Object.values(S.solo)[0];delete solo.bodyLen;fillSoloLengths({solo:S.solo,speakers:S.speakers});return solo.bodyLen;});
  expect(restored).toBe(length);
 });
 
-test('tool menu and side panel can be dragged anywhere, keep their place after reload, leave a button when idle, and dock back on double click',async({page})=>{
- await page.setViewportSize({width:1366,height:800});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
+test('medium screen (960 px): tool menu and side panel can be dragged anywhere, keep their place after reload, leave a button when idle, and dock back on double click',async({page})=>{
+ await page.setViewportSize({width:960,height:800});await page.route('**/api/security',r=>r.fulfill({json:{maintenance:false}}));
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Float');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  const rail=page.locator('#app .tabs.big'),panel=page.locator('#app .panel');
- await rail.getByRole('button',{name:'Export',exact:true}).click();await expect(panel).toBeVisible();
+ await rail.getByRole('button',{name:'Upload',exact:true}).click();          // below 1000 px the bar follows the timeline group (Audio first: Voices, Music, Edit voice, Upload)
+ await expect(panel).toBeVisible();
  const drag=async(handle,dx,dy)=>{const box=await handle.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+Math.min(10,box.height/2));await page.mouse.down();await page.mouse.move(box.x+box.width/2+dx,box.y+Math.min(10,box.height/2)+dy,{steps:6});await page.mouse.up();};
  const docked=await rail.boundingBox();
  await drag(page.locator('.dock-grip'),380,100);
@@ -111,7 +111,7 @@ test('tool menu and side panel can be dragged anywhere, keep their place after r
  await drag(page.locator('.sheet-close'),-520,70);
  const panelBox=await panel.boundingBox();expect(panelBox.x).toBeLessThan(900);await expect(panel).toHaveClass(/free/);
  // the menus still work where they were dropped
- await rail.getByRole('button',{name:'Audio',exact:true}).click();await expect(panel.locator('.sheet-close b')).toContainText('Upload');
+ await rail.getByRole('button',{name:'Upload',exact:true}).click();await expect(panel).not.toHaveClass(/open/);await rail.getByRole('button',{name:'Upload',exact:true}).click();await expect(panel).toHaveClass(/open/);await expect(panel.locator('.sheet-close b')).toContainText('Upload');          // a second tap closes it, a third opens it again
  // the position is remembered
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('12toons.studio.layout')));expect(saved.railPos.x).toBeGreaterThan(300);expect(saved.panelPos.w).toBeGreaterThan(200);
  await page.reload();await expect.poll(()=>page.evaluate(()=>window.__toon?.S.ready)).toBe(true);

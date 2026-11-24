@@ -98,7 +98,10 @@ const busy = (msg, onCancel) => {
 };
 
 function modal(title, body, onClose) {
-  const close = () => { onClose?.(); el.remove(); };
+  // Escape closes the pop-up on top (the one opened last), like its ✕
+  const onKey = (e) => { if (e.key === 'Escape' && el.isConnected && [...document.querySelectorAll('.modal')].at(-1) === el) { e.stopPropagation(); close(); } };
+  const close = () => { document.removeEventListener('keydown', onKey, true); if (!el.isConnected) return; onClose?.(); el.remove(); };
+  document.addEventListener('keydown', onKey, true);
   const el = h('div', { class: 'modal', onclick: (e) => e.target === el && close() },
     h('div', { class: 'sheet' }, h('div', { class: 'row', style: 'margin-bottom:12px' }, h('h2', { style: 'margin:0' }, title), h('span', { class: 'sp' }), h('button', { class: 'btn sm', onclick: close }, '✕')), body));
   document.body.append(el);

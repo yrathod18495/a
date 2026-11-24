@@ -114,6 +114,7 @@ export function keepSharedAssets(page) {
     const body = route.request().postDataJSON() || {};
     if (body.action !== 'list') return route.fallback();          // characters and files: the fake server (when there is one) answers
     const assets = await page.evaluate(() => (window.__toon?.S.sharedAssets || []).map((a) => ({ ...a }))).catch(() => []);
+    if (!assets.length) return route.fulfill({ status: 503, json: { error: 'unavailable' } });          // nothing yet: as if the library could not be reached (an empty answer would be cached by the app and later replace the test's items)
     return route.fulfill({ json: { assets } });
   });
 }

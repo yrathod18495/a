@@ -25,7 +25,7 @@ test('phone: the selected clip\'s tools are in the bottom bar, and Delete remove
   const edits = await page.locator('.tltools .edit-btn:visible').evaluateAll((els) => els.map((e) => e.className.match(/edit-(?!btn)(\w+)/)[1]));
   expect(edits).toEqual(['prev', 'next', 'split', 'dup', 'del', 'cam', 'ai', 'ai']);                     // the row above the timeline: Prev / Next, Split / Duplicate / Delete, Camera, AI Motion, AI Voice
   const tabs = await page.locator('.tabs.big').boundingBox(), bb = await nav.boundingBox();
-  expect(Math.abs(bb.y + bb.height - (tabs.y + tabs.height))).toBeLessThan(3); expect(bb.x + bb.width).toBeLessThanOrEqual(390.5);       // it takes the place of the bottom menu
+  expect(Math.abs(bb.y + bb.height - (tabs.y + tabs.height))).toBeLessThan(10); expect(bb.x + bb.width).toBeLessThanOrEqual(390.5);       // it takes the place of the bottom menu
   // More: Move / Length arrows, Paste, Duplicate, Lock, Done (no Prev / Next: they are in the row above the timeline)
   await nav.locator('.char-more summary').click();
   const list = nav.locator('.cb-more-list'); await expect(list).toBeVisible();

@@ -46,7 +46,7 @@ for(const workers of [0,2])test(`tear PNG and animation survive video export wit
   const result={size:[canvas.width,canvas.height],cyan,duration:video.duration,frame:canvas.toDataURL(),region:{x,y,w,h}};URL.revokeObjectURL(url);return result;
  },{base64:bytes.toString('base64'),anchor});
  const {writeFile}=await import('node:fs/promises');await writeFile(info.outputPath('tear-export-frame.png'),Buffer.from(result.frame.split(',')[1],'base64'));
- expect(result.size).toEqual([1280,720]);expect(result.cyan).toBeGreaterThan(0);expect(result.duration).toBeCloseTo(workers?8:16,0);await expect(page.locator('.busy')).toHaveCount(0);expect(await page.evaluate(()=>window.__toon.stage.H)).toBe(180);
+ expect(result.size).toEqual([1280,720]);expect(result.cyan).toBeGreaterThan(0);expect(result.duration).toBeCloseTo(workers?8:16,0);await expect(page.locator('.busy')).toHaveCount(0);expect(await page.evaluate(()=>window.__toon.stage.H)).toBe(360);/* back to the Low preview (360 p) */
  if(!workers){await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');await page.getByRole('tab',{name:'Scene 1',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 1',exact:true})).toHaveAttribute('aria-selected','true');}
  expect((await config(page)).style).toBe(4);
 });
