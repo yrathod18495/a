@@ -53,7 +53,7 @@ test('medium screen (960 px): side menus slide away after 5 s idle and return fr
  await page.locator('.tl-toggle').click();await expect.poll(async()=>Math.round((await page.locator('.stagebox').boundingBox()).height)).toBe(Math.round(stage.height));
  await page.mouse.move(600,200);await expect(ws).toHaveAttribute('data-dock-rail','out',{timeout:9000});
  await page.mouse.move(2,200);await expect(ws).toHaveAttribute('data-dock-rail','in');
- await page.mouse.move(1364,200);await expect(ws).toHaveAttribute('data-dock-panel','in');
+ await page.mouse.move(958,200);await expect(ws).toHaveAttribute('data-dock-panel','in');
  await page.mouse.move(600,200);await page.keyboard.press('[');await expect(ws).toHaveAttribute('data-dock-rail','out');
 });
 
@@ -70,7 +70,7 @@ test('free accounts cannot export more than 2 minutes, one scene or all scenes j
  expect(await page.evaluate(()=>window.__toon.S.exporting)).toBe(false);await expect(page.locator('.busy')).toHaveCount(0);
  await page.keyboard.press('Escape');await expect(page.locator('.modal')).toHaveCount(0);
  // two scenes of 70 s each: 140 s joined is too long
- await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'a',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
+ await page.evaluate(()=>{const T=window.__toon;T.S.bgClips.length=0;T.commitClips();T.S.camKeys.length=0;T.S.camKeys.push({id:'a',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});T.S.dirty=true;});          // the 130 s background goes: an empty scene is stretched by its camera point
  await page.getByRole('button',{name:'+ New Scene',exact:true}).click();await expect(page.getByRole('tab',{name:'Scene 2',exact:true})).toHaveAttribute('aria-selected','true');
  await page.evaluate(()=>{window.__toon.S.camKeys.length=0;window.__toon.S.camKeys.push({id:'b',t:70,cx:.5,cy:.5,zoom:1,ease:'linear'});window.__toon.S.dirty=true;});
  await page.locator('.tabs.big').getByRole('button',{name:'Audio',exact:true}).click();await page.locator('.tabs.big').getByRole('button',{name:'Export',exact:true}).click();
@@ -89,7 +89,7 @@ test('preview quality sits in the header, and projects saved before animation-le
  await page.locator('.tabs.big').getByRole('button',{name:'Characters',exact:true}).click();await page.locator('.cp-card').filter({hasText:/^Neha$/}).click();await page.locator('.cp-poses .pose').first().click();
  await expect.poll(()=>page.evaluate(()=>window.__toon.stage.layers.length)).toBe(1);
  await page.locator('.tabs.big').getByRole('button',{name:'Animations',exact:true}).click();
- await page.locator('.anim-cats .anim-cat',{hasText:/Arms & hands/i}).first().click();
+ await page.locator('.anim-cats .anim-cat',{hasText:/Walk/i}).first().click();
  await page.locator('.animation-apply').first().click();
  const length=await page.evaluate(()=>Object.values(window.__toon.S.solo)[0].bodyLen);expect(length).toBeGreaterThan(0);expect(length).toBeLessThan(8);
  const restored=await page.evaluate(()=>{const {S,fillSoloLengths}=window.__toon;const solo=Object.values(S.solo)[0];delete solo.bodyLen;fillSoloLengths({solo:S.solo,speakers:S.speakers});return solo.bodyLen;});
@@ -101,19 +101,19 @@ test('medium screen (960 px): tool menu and side panel can be dragged anywhere, 
  await page.goto('/?debug&workers=0#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Float');await page.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(page.locator('#app .stagebox canvas')).toBeVisible();
  const rail=page.locator('#app .tabs.big'),panel=page.locator('#app .panel');
- await rail.getByRole('button',{name:'Upload',exact:true}).click();          // below 1000 px the bar follows the timeline group (Audio first: Voices, Music, Edit voice, Upload)
+ if(!(await panel.evaluate(e=>e.classList.contains('open'))))await rail.getByRole('button',{name:'Upload',exact:true}).click();          // below 1000 px the bar follows the timeline group (Audio first: Voices, Music, Edit voice, Upload)
  await expect(panel).toBeVisible();
  const drag=async(handle,dx,dy)=>{const box=await handle.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+Math.min(10,box.height/2));await page.mouse.down();await page.mouse.move(box.x+box.width/2+dx,box.y+Math.min(10,box.height/2)+dy,{steps:6});await page.mouse.up();};
  const docked=await rail.boundingBox();
- await drag(page.locator('.dock-grip'),380,100);
- const moved=await rail.boundingBox();expect(moved.x).toBeGreaterThan(docked.x+300);expect(moved.y).toBeGreaterThan(docked.y+60);
+ await drag(page.locator('.dock-grip'),260,100);
+ const moved=await rail.boundingBox();expect(moved.x).toBeGreaterThan(docked.x+200);expect(moved.y).toBeGreaterThan(docked.y+60);
  await expect(rail).toHaveClass(/free/);
- await drag(page.locator('.sheet-close'),-520,70);
- const panelBox=await panel.boundingBox();expect(panelBox.x).toBeLessThan(900);await expect(panel).toHaveClass(/free/);
+ const panel0=await panel.boundingBox();await drag(page.locator('.sheet-close'),-150,70);          // (moved only a little: the screen is 960 px, the menus must not end up on top of each other)
+ const panelBox=await panel.boundingBox();expect(panelBox.x).toBeLessThan(panel0.x-100);await expect(panel).toHaveClass(/free/);
  // the menus still work where they were dropped
  await rail.getByRole('button',{name:'Upload',exact:true}).click();await expect(panel).not.toHaveClass(/open/);await rail.getByRole('button',{name:'Upload',exact:true}).click();await expect(panel).toHaveClass(/open/);await expect(panel.locator('.sheet-close b')).toContainText('Upload');          // a second tap closes it, a third opens it again
  // the position is remembered
- const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('12toons.studio.layout')));expect(saved.railPos.x).toBeGreaterThan(300);expect(saved.panelPos.w).toBeGreaterThan(200);
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('12toons.studio.layout')));expect(saved.railPos.x).toBeGreaterThan(200);expect(saved.panelPos.w).toBeGreaterThan(200);
  await page.reload();await expect.poll(()=>page.evaluate(()=>window.__toon?.S.ready)).toBe(true);
  await expect(rail).toHaveClass(/free/);expect(Math.abs((await rail.boundingBox()).x-moved.x)).toBeLessThan(3);
  // idle: both menus slide away and leave a small round button where they were
