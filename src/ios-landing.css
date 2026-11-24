@@ -57,7 +57,7 @@
   /* the hero uses the whole width: the shortcut strip is a small menu button that opens on tap (see the end of this file) */
   :root[data-theme] body .lp .lp-hero-copy{padding-right:0}
   :root[data-theme] body .lp .lp-header{gap:8px}
-  :root[data-theme] body .lp .lp-brand-crest{flex:1 1 auto;min-width:0;text-align:center}
+  :root[data-theme] body .lp .lp-brand-crest{flex:1 1 auto;min-width:0;text-align:left}          /* the logo at the left edge (there is no menu button before it) */
   :root[data-theme] body .lp .lp-header-right{flex:none;display:flex;align-items:center;gap:8px}
   :root[data-theme] body .lp .lp-header-right>.lp-button{padding:8px 12px;font-size:13px;max-width:none;white-space:nowrap;min-height:40px}
   :root[data-theme] body .lp .lp-hero h1{font-size:clamp(38px,11vw,52px)}
@@ -90,4 +90,18 @@
   :root[data-theme] body .lp .lp-dock.open .lp-dock-toggle{width:auto;height:40px;justify-content:flex-start;padding:0 8px}
   :root[data-theme] body .lp .lp-dock.open .lp-dock-item span{opacity:1;transform:none}
   :root[data-theme] body .lp .lp-hero{padding-top:64px}
+}
+
+/* header grid: phone = logo at the left and the button at the right (no empty first column); tablet = the columns follow their content, so "Open Studio" never runs out of the bar */
+@media (max-width:760px){
+  :root[data-theme] body .lp .lp-header{grid-template-columns:minmax(0,1fr) auto}
+  :root[data-theme] body .lp .lp-header .lp-brand-crest{grid-column:1;justify-self:start}
+  :root[data-theme] body .lp .lp-header .lp-header-right{grid-column:2}
+}
+@media (min-width:761px) and (max-width:1100px){
+  :root[data-theme] body .lp .lp-header-right>.lp-button{max-width:none;white-space:nowrap;line-height:1.2}          /* (an older rule squeezed it to 80 px and its text ran out of it) */
+  :root[data-theme] body .lp .lp-header{grid-template-columns:auto minmax(0,1fr) auto;gap:14px}
+  :root[data-theme] body .lp .lp-header .lp-brand-crest{justify-self:center}
+  :root[data-theme] body .lp .lp-nav{gap:14px}
+  :root[data-theme] body .lp .lp-header-right{gap:14px}
 }

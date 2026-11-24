@@ -60,10 +60,6 @@ function setupReveal(root) {
     el.style.setProperty('--i', String(Math.min(n, 6))); io.observe(el);
   }
 }
-function menuIcon() {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M4 6h16M4 12h16M4 18h16'); svg.append(path); return svg;
-}
 function heroIcon(name) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', HERO_PATHS[name]); svg.append(path);
@@ -102,21 +98,13 @@ export function landingView({ user, cta, profileMenu, logo }) {
     navLink('Home', 'top'), navLink('Features', 'features'));
   const rightNav = h('nav', { class: 'lp-nav lp-nav-right', 'aria-label': 'More navigation' },
     navLink('How it works', 'how'), pricingLink);
-  const mobileNav = h('nav', { class: 'lp-mobile-nav', 'aria-label': 'Mobile navigation' },
-    navLink('Home', 'top'), navLink('Features', 'features'), navLink('How it works', 'how'),
-    h('a', { href: '#/credits', onclick: (e) => { e.preventDefault(); window.location.hash = '#/credits'; } }, 'Pricing'), navLink('FAQ', 'faq'));
-
-  const burger = h('button', { type: 'button', class: 'hdr-burger', 'aria-label': 'Open menu', 'aria-expanded': 'false', onclick: () => { const open = mobileNav.classList.toggle('open'); burger.setAttribute('aria-expanded', String(open)); } }, menuIcon());
-  mobileNav.addEventListener('click', (e) => { if (e.target.closest('a')) { mobileNav.classList.remove('open'); burger.setAttribute('aria-expanded', 'false'); } });
   const page = h('div', { class: 'sh lp' },
     h('header', { class: 'sh-bar lp-header' },
-      burger,
       leftNav,
       h('div', { class: 'lp-brand-crest' }, brand),
       h('div', { class: 'lp-header-right' }, rightNav,
         user ? profileMenu() : button('Open Studio →', cta, 'primary'))
     ),
-    mobileNav,
     h('main', {},
       h('section', { class: 'lp-hero', id: 'top' },
         h('div', { class: 'lp-hero-copy' },

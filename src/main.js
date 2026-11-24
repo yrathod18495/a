@@ -1002,6 +1002,13 @@ function placeToolbarGroup(group) {
 }
 // pop-up menus close when you tap anywhere else, and after you pick something inside them
 const POPUPS = '#app :is(.upload-tools,.advanced-tools,.scene-menu,.studio-menu,.save-status,.char-more)[open]';
+// ... and with Escape (the keyboard focus goes back to the menu's own button); a menu that closes this way does not also trigger the Escape shortcut
+window.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const open = [...document.querySelectorAll(POPUPS)]; if (!open.length) return;
+  for (const group of open) group.open = false;
+  open.at(-1).querySelector('summary')?.focus(); event.stopPropagation();
+}, true);
 document.addEventListener('pointerdown', event => {
   for (const group of document.querySelectorAll(POPUPS)) if (!group.contains(event.target)) group.open = false;
 }, true);
