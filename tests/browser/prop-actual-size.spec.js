@@ -28,9 +28,9 @@ test('an imported prop keeps the size and shape of its picture; Size and Origina
   const lamp = await prop(page);
   expect(lamp).toMatchObject({ w: 0.1823, h: 0.9259, natW: 700, natH: 2000 });             // 700 x 2000 on a 4K reference canvas
   expect(lamp.y + lamp.h / 2).toBeLessThanOrEqual(1);                                     // not cut off at the bottom
-  // the Objects tab lists it under "In the scene": a tap opens its editor; Size is in % of the size it came in with
-  await page.evaluate(() => window.__toon.openTab('props'));
-  await page.locator('.panel .tile[title^="lamp"]').click();
+  // selected, its bar under the timeline has Edit: Size is in % of the size it came in with
+  await page.evaluate(() => { const T = window.__toon, id = T.S.props[0].id; T.S.propSel = id; T.S.selectedPropId = id; T.drawTimeline(); T.drawClipBar(); });
+  await page.locator('#app .clipbar').getByRole('button', { name: /Edit/ }).click();
   const size = page.locator('.edit-dock input[aria-label="Size"]');
   const setSize = (v) => size.evaluate((el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }, v);
   await setSize(50);

@@ -154,8 +154,8 @@ function cloudCategories(rig) {
     cat('face', 'Face & expressions (layer)', all.filter((a) => a.layer === 'face'), true, 'face')].filter((c) => c.animations.length);
 }
 function allCategories(rig) {
-  if (rig?.cloudAnims) return cloudCategories(rig);
-  const bundled = String(rig?.toonPattern || '').startsWith('ad:') ? adCategories(rig.toonPattern.slice(3)) : rig?.animList?.length ? embeddedCategories(rig) : [];
+  // a character from the admin's library has its own animations; the clips the admin published for its pose (Admin -> Add Animation) come after them
+  const bundled = rig?.cloudAnims ? cloudCategories(rig) : String(rig?.toonPattern || '').startsWith('ad:') ? adCategories(rig.toonPattern.slice(3)) : rig?.animList?.length ? embeddedCategories(rig) : [];
   const clips = managedAnimations.filter(asset => asset.target === rig?.templateId);
   const labels = { body: 'Body', hand: 'Arms & hands', legs: 'Legs', face: 'Face' };
   const managed = Object.entries(labels).map(([layer, label]) => ({ key: `managed:${layer}`, name: `Admin animations · ${label}`, overlay: layer !== 'body', layer: layer === 'body' ? undefined : layer,

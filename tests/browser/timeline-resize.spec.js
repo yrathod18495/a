@@ -29,13 +29,14 @@ test('the timeline has a visible bar that can be dragged, and a button to make i
   expect(Math.abs((await height(page)) - normal)).toBeLessThan(3);
 });
 
-test('the edit buttons sit in the same row as the zoom buttons (with the side panel closed; a narrow timeline wraps them to a second line)', async ({ page }) => {
+test('the timeline tools: zoom on the first line, the edit buttons (Prev, Next, Split, Duplicate, Delete ...) on the line under it, nothing overlaps', async ({ page }) => {
   await studio(page);
-  await page.locator('.sheet-close').getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.locator('#app .panel.open')).toHaveCount(0);
-  const zoom = await page.getByRole('button', { name: 'Zoom in timeline' }).boundingBox(), split = await page.locator('.edit-split').boundingBox();
-  expect(Math.abs(zoom.y - split.y)).toBeLessThan(8);
+  const zoom = await page.getByRole('button', { name: 'Zoom in timeline' }).boundingBox(), split = await page.locator('.edit-split').boundingBox(), tools = await page.locator('.tltools').boundingBox();
+  expect(split.y).toBeGreaterThanOrEqual(zoom.y + zoom.height - 2);                       // the edit row is under the zoom row ...
+  expect(split.y + split.height).toBeLessThanOrEqual(tools.y + tools.height + 1);         // ... inside the tools box
   await expect(page.locator('.edit-split')).toBeVisible();
+  const boxes = await page.locator('.tltools button:visible').evaluateAll((els) => els.map((e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }));
+  for (let i = 0; i < boxes.length; i++) for (let k = i + 1; k < boxes.length; k++) { const a = boxes[i], c = boxes[k]; expect(a[2] <= c[0] + 0.5 || c[2] <= a[0] + 0.5 || a[3] <= c[1] + 0.5 || c[3] <= a[1] + 0.5).toBe(true); }
 });
 
 test('a floating side panel saved on a small screen does not shrink the docked panel, and every timeline row is visible', async ({ page }) => {

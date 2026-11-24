@@ -55,7 +55,11 @@ test('background layer delete clears its base and clips, preserves uploaded file
   await expect(page.getByRole('tab', { name: 'Scene 1 copy', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('button', { name: 'Delete background layer', exact: true }).click();
   const blank = () => page.evaluate(() => { const { S, stage } = window.__toon; stage.render(0, 0, [], []); const px = new Uint8Array(4); stage.gl.readPixels(2, 2, 1, 1, stage.gl.RGBA, stage.gl.UNSIGNED_BYTE, px); return { id: S.bgId, clips: S.bgClips.length, preset: stage.bg.preset, pixel: [...px], files: S.myBgs.length }; });
-  expect(await blank()).toEqual({ id: null, clips: 0, preset: 0, pixel: [255, 255, 255, 255], files: 1 });
+  const expectBlank = async () => {          // no background layer: the plain dark "Blank canvas", not the red picture or the sky
+    const gone = await blank(); expect({ ...gone, pixel: undefined }).toEqual({ id: null, clips: 0, preset: 0, pixel: undefined, files: 1 });
+    const [r, g, b] = gone.pixel; expect(Math.max(r, g, b)).toBeLessThan(60); expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(20);
+  };
+  await expectBlank();
   await expect(page.locator('.lane2.bg')).toHaveCount(0);
   await history(page, 'Undo');
   expect(await page.evaluate(() => ({ id: window.__toon.S.bgId, clips: window.__toon.S.bgClips.length }))).toEqual({ id, clips: 2 });
@@ -67,5 +71,5 @@ test('background layer delete clears its base and clips, preserves uploaded file
   await expect.poll(() => page.evaluate(() => window.__toon.S.bgId)).toBe(null);
   await page.waitForTimeout(1300); await page.reload();
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
-  expect(await blank()).toEqual({ id: null, clips: 0, preset: 0, pixel: [255, 255, 255, 255], files: 1 });
+  await expectBlank();
 });

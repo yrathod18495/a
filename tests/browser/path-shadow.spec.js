@@ -206,3 +206,18 @@ test('Path: the starting point is where the character stands when its clip start
   });
   expect(r.x).toBeCloseTo(0.35, 2); expect(r.y).toBeCloseTo(0.2, 2);
 });
+
+// (moved from the old motion-path spec, whose pen-drawn path was replaced by this shadow path in fa14896)
+test('Path while the camera is zoomed in: the end point is where the shadow was left on the picture, through the camera', async ({ page }) => {
+  await studio(page);
+  await page.evaluate(() => { const T = window.__toon; T.S.camKeys = [{ id: 'c1', t: 0, zoom: 2, cx: 0.25, cy: 0.5, ease: 'smooth' }]; T.syncCam(); T.player.seek(1); T.S.dirty = true; });
+  await expect.poll(() => page.evaluate(() => window.__toon.stage.view?.w / window.__toon.stage.W)).toBeCloseTo(0.5, 2);          // half the scene fills the picture
+  await page.evaluate(() => window.__toon.startPathShadow(window.__toon.S.speakers.find((x) => x.key === 'fake1')));
+  const box = await page.locator('.pathshadow-layer').boundingBox(), s0 = await page.locator('.pathshadow').boundingBox();
+  const fx = s0.x + s0.width / 2, fy = s0.y + s0.height * 0.5, dx = box.width * 0.3;
+  await page.mouse.move(fx, fy); await page.mouse.down(); await page.mouse.move(fx + dx / 2, fy, { steps: 4 }); await page.mouse.move(fx + dx, fy, { steps: 4 }); await page.mouse.up();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  const pts = await page.evaluate(() => window.__toon.S.paths.fake1.pts);
+  expect(pts[1].x - pts[0].x).toBeCloseTo(0.3 * 0.5, 1);          // 30 % of the picture is 15 % of the scene at 2x zoom (not 30 %)
+  expect(Math.abs(pts[1].y - pts[0].y)).toBeLessThan(0.05);
+});

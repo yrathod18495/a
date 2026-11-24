@@ -32,8 +32,8 @@ test('48 stickers: the progress bar moves, all 48 are published, and the page sa
   await page.getByRole('button', { name: 'Publish sticker' }).click();
   await expect(page.locator('.upload-progress')).toBeVisible({ timeout: 3000 });
   await expect(page.locator('.upload-progress .pb-text')).toContainText(/Publishing|of 48/, { timeout: 5000 });
-  const widths = new Set(); for (let i = 0; i < 12; i++) { widths.add(await page.locator('.pb-fill').evaluate((e) => e.style.width).catch(() => '')); await page.waitForTimeout(250); }
-  expect(widths.size).toBeGreaterThan(2);                                        // it really moves
+  const widths = new Set(); for (let i = 0; i < 12; i++) { widths.add(await page.locator('.pb-fill').evaluate((e) => e.style.width, null, { timeout: 500 }).catch(() => 'done')); await page.waitForTimeout(250); }
+  expect([...widths].filter((w) => w !== 'done').length).toBeGreaterThan(2);          // it really moves (three or more different widths while it was there)
   await expect.poll(() => saved.length, { timeout: 60000 }).toBe(48);
   await expect(page.locator('.upload-progress')).toHaveCount(0, { timeout: 10000 });
   await expect(page.getByRole('button', { name: 'Publish sticker' })).toBeEnabled();

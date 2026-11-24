@@ -2476,6 +2476,7 @@ function rangeBar(bc, pr) {
     arrows('Move', () => (bc ? bc.start : pr.start || 0), (v) => { if (bc) bc.start = Math.max(0, +v.toFixed(2)); else { const len = (pr.end ?? player.total) - (pr.start || 0); pr.start = Math.max(0, +v.toFixed(2)); if (pr.end != null) pr.end = +(pr.start + len).toFixed(2); } }, () => { if (bc) syncBgClips(); else { stage.setProps(S.props); dbPut('props', pr); } setTimeout(commitClips, 0); }),
     arrows('Length', () => (bc ? bc.dur : (pr.end ?? player.total) - (pr.start || 0)), (v) => { if (bc) bc.dur = Math.max(MIN_CLIP, +v.toFixed(2)); else pr.end = +((pr.start || 0) + Math.max(MIN_CLIP, v)).toFixed(2); }, () => { if (bc) syncBgClips(); else { stage.setProps(S.props); dbPut('props', pr); } setTimeout(commitClips, 0); }),
     ...(bc ? [] : [btn('↔ Whole scene', () => { delete pr.start; delete pr.end; stage.setProps(S.props); dbPut('props', pr); S.dirty = true; commitClips(); }, 'Remove start / end: show through the whole scene')]),
+    ...(pr ? [btn('✎ Edit', () => openPropEdit(pr), 'Size, turn, opacity, glow, in front of or behind the characters')] : []),          // (the phone has it in its clip bar; on a big screen it was missing)
     btn('🗑 Delete', deleteSelected, bc ? 'Remove this background clip' : 'Remove this prop'),
     btn('✕', () => { S.bgSel = null; S.propSel = S.shadowSel = S.fxSel = null; clipBar.hidden = true; drawTimeline(); }, 'Close'));
 }

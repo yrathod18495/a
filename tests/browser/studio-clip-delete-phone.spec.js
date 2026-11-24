@@ -13,7 +13,7 @@ async function open(page) {
   await page.evaluate(async () => { const { S, stage } = window.__toon; S.bgClips.push({ id: 'b1', bgId: null, preset: 3, start: 0, dur: 2 }); await stage.setBackgroundClips(S.bgClips.map((c) => ({ start: c.start, dur: c.dur, preset: c.preset, blob: null }))); window.__toon.drawTimeline(); });
   await page.locator('#app .tl-cat[data-cat="background"]').click();          // the timeline shows one group of layers at a time
 }
-test('phone: the selected clip\'s tools are in the bottom bar, nothing is left at the top, and Delete removes the clip', async ({ page }) => {
+test('phone: the selected clip\'s tools are in the bottom bar, and Delete removes the clip', async ({ page }) => {
   await open(page);
   await expect(page.locator('.clip-nav')).toBeHidden();                                          // nothing selected: the normal bottom menu
   await page.locator('#app .lane2.bg .tclip.mine').first().click();
@@ -23,7 +23,7 @@ test('phone: the selected clip\'s tools are in the bottom bar, nothing is left a
   await expect(nav.locator('.cb-list .cb-btn > span:last-child')).toHaveText(['Split', 'Objects', 'Adjust', 'Crop', 'Replace', 'Delete']);          // Adjust: joystick + size slider for the background
   await expect(page.locator('.tltools .clipbar')).toBeHidden(); await expect(page.locator('.selbar')).toBeHidden();
   const edits = await page.locator('.tltools .edit-btn:visible').evaluateAll((els) => els.map((e) => e.className.match(/edit-(?!btn)(\w+)/)[1]));
-  expect(edits).toEqual(['prev', 'next', 'paste', 'del']);                                              // only the ones that need no selection stay at the top
+  expect(edits).toEqual(['prev', 'next', 'split', 'dup', 'del', 'cam', 'ai', 'ai']);                     // the row above the timeline: Prev / Next, Split / Duplicate / Delete, Camera, AI Motion, AI Voice
   const tabs = await page.locator('.tabs.big').boundingBox(), bb = await nav.boundingBox();
   expect(Math.abs(bb.y - tabs.y)).toBeLessThan(3); expect(bb.x + bb.width).toBeLessThanOrEqual(390.5);       // it takes the place of the bottom menu
   // More: Move / Length arrows, Paste, Duplicate, Lock, Done (no Prev / Next: they are in the row above the timeline)

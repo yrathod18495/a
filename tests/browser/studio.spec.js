@@ -22,6 +22,9 @@ async function moreTool(page, name) {
     await expect(more.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true');
     return;
   }
+  if (await page.locator('.panel.open').count()) await page.locator('.panel.open .sheet-close button').click();          // the phone's tool sheet covers the timeline while it is open
+  await page.locator('#app .tl-cat[data-cat="chars"]').click();                                                         // the Characters group's bar ends with More
+  await expect(page.locator('#app .tabs-scroll.cube-out')).toHaveCount(0);
   const menu = page.locator('#app .tabs-scroll:not(.cube-out) .advanced-tools');
   await expect(menu.locator('.advanced-tools-list')).toBeHidden();
   await menu.locator('summary').click();
