@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { installLibrary } from './studio-library.js';
+import { installLibrary, keepSharedAssets } from './studio-library.js';
 
 const N = 10;
 async function studio(page) {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
-  await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
+  await installLibrary(page); await keepSharedAssets(page);          // the overlays below are put into the page by hand          // "Neha" comes from the admin's character library (no character is bundled)
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Ten');
@@ -58,7 +58,7 @@ test(`${N} voices + ${N} characters + 5 backgrounds + 3 effects: every character
     }
   });
 await tab(page, 'Overlays');                                            // the sticker-style effects are the Overlays tool
-  for (let i = 0; i < 3; i++) await press(page.locator('.lib-card').nth(i));
+  for (let i = 0; i < 3; i++) await press(page.locator('#app .panel .tile:not(.add)').nth(i));
   await expect.poll(() => page.evaluate(() => window.__toon.S.props.filter(p => p.kind === 'effect').length)).toBe(3);
   // 1. a click on each character selects exactly that character and shows its frame with four handles
   const keys = await page.evaluate(() => window.__toon.stage.layers.map(l => l.key));

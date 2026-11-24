@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { keepSharedAssets } from './studio-library.js';
 // Props and Backgrounds are picture tiles like the animation cards: "+" first (opens the device files), then the pictures.
 async function open(page, width) {
   await page.setViewportSize({ width, height: 800 });
-  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await keepSharedAssets(page); await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();

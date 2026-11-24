@@ -3664,7 +3664,8 @@ function fitCharInFrame(l) {
 }
 function hideSelBar() { if (selBar) selBar.hidden = true; if (charBar) { charBar.hidden = true; charBar.dataset.key = ''; } }
 const mirrorChar = (l, s) => { s.flip = !s.flip; s._flipSet = true; const cur = stage.layers.find((x) => x.key === l.key); cur.flip = s.flip; if (S.charKeys[l.key]?.length) writeCharKey(cur); stage.layout(); updateSel(); S.dirty = true; };
-const resetChar = (l, s) => { s.xf = null; const cur = stage.layers.find((x) => x.key === l.key); cur.mul = 1; cur.rot = 0; cur.axf = cur.ayf = null; stage.layout(); updateSel(); S.dirty = true; };
+/** Reset (size & position): the same as a double tap on the character — 100 %, upright, back inside the frame — and it can be undone. It is also the way back for a character dragged right out of the picture (its handles are then off-screen) */
+const resetChar = (l) => { const cur = stage.layers.find((x) => x.key === l.key); if (!cur) return; historyAction(() => fitCharInFrame(cur)); updateSel(); };
 /** phone: when a character is selected, a bar with a named button for each thing you can do with it replaces the bottom menu */
 /** the tool you are in is lit: the open tab, or Path while its shadow is being dragged */
 function markCharBar(l) { for (const b of charBar.querySelectorAll('[data-tab]')) b.classList.toggle('on', b.dataset.tab === 'motion' ? S.pathDraw?.key === l.key : S.tab === b.dataset.tab && S.panelOpen && !S.pathDraw); }

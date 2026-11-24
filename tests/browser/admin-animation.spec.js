@@ -18,7 +18,7 @@ test('published admin clips appear for their pose; users have no animation impor
     const assets=[${JSON.stringify(asset)}];
     export const listStudioAssets=async()=>assets;
     export const loadStudioAnimation=async()=>(${JSON.stringify(motion)});
-    export const saveStudioAsset=async()=>{},deleteStudioAsset=async()=>{},downloadStudioAsset=async()=>{};
+    export const saveStudioAsset=async()=>{},deleteStudioAsset=async()=>{},downloadStudioAsset=async()=>{},setPropGroup=async()=>{},setAssetAccess=async()=>{},makeThumb=async()=>null;
     export const saveStudioAnimation=async(name,file,values)=>{window.__publishedAnimation={name,file:file.name,...values};assets.push({...assets[0],id:'new_animation_review_123',name,...values});return assets.at(-1)};
   `}));
   await page.goto('/?debug#/toons');await page.getByRole('button',{name:'Create New Project',exact:true}).click();await page.getByRole('textbox',{name:'Create a project'}).fill('Admin clips');await page.getByRole('button',{name:'Create project',exact:true}).click();

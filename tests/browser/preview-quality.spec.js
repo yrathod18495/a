@@ -68,13 +68,10 @@ test('low preview exports at selected video size, then restores the low GPU budg
   },bytes.toString('base64'));
   expect(dimensions).toEqual([1280,720]);await expect(page.locator('.busy')).toHaveCount(0);
   expect(await page.evaluate(()=>[window.__toon.stage.H,window.__toon.stage.maxTex])).toEqual([LOW.short,LOW.maxTex]);
-  await page.evaluate(()=>{
-    window.__bitmapBackup=window.createImageBitmap;let calls=0;
-    window.createImageBitmap=(...args)=>{if(++calls===2)return Promise.reject(Error('Simulated graphics memory failure'));return window.__bitmapBackup(...args);};
-  });
+  // the next change fails while the bigger textures load (as when the graphics memory runs out): everything stays on Low
+  await page.evaluate(()=>{const {stage}=window.__toon;window.__limitBackup=stage.setTextureLimit;stage.setTextureLimit=async()=>{stage.setTextureLimit=window.__limitBackup;throw Error('Simulated graphics memory failure');};});
   await page.getByLabel('Preview quality').selectOption('high');await expect(page.getByLabel('Preview quality')).toBeEnabled();
   await expect(page.getByLabel('Preview quality')).toHaveValue('low');
   expect(await page.evaluate(()=>[window.__toon.stage.H,window.__toon.stage.maxTex])).toEqual([LOW.short,LOW.maxTex]);
   await expect(page.locator('.toast').filter({hasText:/Could not change the preview quality/})).toBeVisible();
-  await page.evaluate(()=>{window.createImageBitmap=window.__bitmapBackup;});
 });

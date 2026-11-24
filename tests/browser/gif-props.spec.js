@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { keepSharedAssets } from './studio-library.js';
 import { createHash } from 'node:crypto';
 // An animated GIF becomes a sprite sheet (so it plays in the studio and the video); a held prop can be selected on the canvas, shows in the Props tab and on the timeline.
 async function open(page, width = 1366, height = 800) {
   await page.setViewportSize({ width, height });
-  await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
+  await keepSharedAssets(page); await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
   await page.route('**/api/r2', (r) => r.fulfill({ json: { configured: false } }));
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();

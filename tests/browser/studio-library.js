@@ -3,6 +3,7 @@
 // ZIP made smaller (one 3/4 view, a few dozen animations) and stored with the app's own `storeCharacter`, under the name the old tests knew ("Neha").
 import { existsSync, readFileSync } from 'node:fs';
 import JSZip from 'jszip';
+import zlibSync from 'node:zlib';
 export const ZIP = process.env.CHARACTER_ZIP || '/home/user/a/deliver/dayan-plus.zip';
 export const haveZip = () => existsSync(ZIP);
 export function fakeServer(page) {
@@ -83,12 +84,19 @@ export async function addCharacter(page) {
   await page.waitForFunction(() => window.__toon.stage.layers.length >= 1, null, { timeout: 30000 }); await page.waitForTimeout(600);
 }
 
-/** a prop (default) or an effect picture in the shared library: a red 48 x 48 square */
-export async function addLibraryProp(server, { name = 'Red box', type = 'prop', access = 'free', group = 'general' } = {}) {
-  const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAZElEQVR4nO3PMQ0AIBDAQOS8fz14AREMF5IO3a9rz5yfWxrQgAY0oAENaEADGtCABjSgAQ1oQAMa0IAGNKABDWhAAxrQgAY0oAENaEADGtCABjSgAQ1oQAMa0IAGNKABDWjAaxdEY4QeHlpSAAAAAABJRU5ErkJggg==', 'base64');
+/** a plain square PNG of one colour (no canvas in Node: the file is put together by hand) */
+export function solidPng([r, g, b], size = 48) {
+  const { deflateSync, crc32 } = zlibSync, chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const body = Buffer.concat([Buffer.from(type), data]); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body) >>> 0); return Buffer.concat([len, body, crc]); };
+  const head = Buffer.alloc(13); head.writeUInt32BE(size, 0); head.writeUInt32BE(size, 4); head[8] = 8; head[9] = 2;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(size * 3).map((_, i) => [r, g, b][i % 3])]);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', head), chunk('IDAT', deflateSync(Buffer.concat(Array(size).fill(row)))), chunk('IEND', Buffer.alloc(0))]);
+}
+/** a prop (default) or an effect picture in the shared library: a red 48 x 48 square (or `color`); `extra` adds fields such as blend, opacity, placement, sheet */
+export async function addLibraryProp(server, { name = 'Red box', type = 'prop', access = 'free', group = 'general', color = null, extra = {} } = {}) {
+  const bytes = color ? solidPng(color) : Buffer.from('iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAZElEQVR4nO3PMQ0AIBDAQOS8fz14AREMF5IO3a9rz5yfWxrQgAY0oAENaEADGtCABjSgAQ1oQAMa0IAGNKABDWhAAxrQgAY0oAENaEADGtCABjSgAQ1oQAMa0IAGNKABDWjAaxdEY4QeHlpSAAAAAABJRU5ErkJggg==', 'base64');
   const { createHash } = await import('node:crypto'), hash = createHash('sha256').update(bytes).digest('hex');
   server.r2.set(hash, bytes);
-  const asset = { id: `asset_${type}_${server.assets.length + 1}_abcdef`, type, name, key: `assets/${hash}`, size: bytes.length, mime: 'image/png', enabled: true, access, ...(type === 'prop' ? { group } : { blend: 'normal', opacity: 1, placement: 'sticker' }), category: 'Test', thumb: 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==' };
+  const asset = { id: `asset_${type}_${server.assets.length + 1}_abcdef`, type, name, key: `assets/${hash}`, size: bytes.length, mime: 'image/png', enabled: true, access, ...(type === 'prop' ? { group } : { blend: 'normal', opacity: 1, placement: 'sticker' }), ...extra, category: 'Test', thumb: 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==' };
   server.assets.push(asset); return asset;
 }
 
@@ -97,4 +105,15 @@ export async function tool(page, name) {
   await page.evaluate(() => document.querySelectorAll('.advanced-tools,.rail-more').forEach((e) => { e.open = true; }));
   const btn = page.locator('#app .tabs.big').getByRole('button', { name, exact: true });
   if (await btn.getAttribute('aria-pressed') !== 'true') await btn.click();
+}
+
+/** for tests that put library items into the page by hand (S.sharedAssets): the library list from the "server" is what the page already has,
+ *  so opening a library tab (which reads the list again) does not wipe them */
+export function keepSharedAssets(page) {
+  return page.route('**/api/studio-assets', async (route) => {
+    const body = route.request().postDataJSON() || {};
+    if (body.action !== 'list') return route.fallback();          // characters and files: the fake server (when there is one) answers
+    const assets = await page.evaluate(() => (window.__toon?.S.sharedAssets || []).map((a) => ({ ...a }))).catch(() => []);
+    return route.fulfill({ json: { assets } });
+  });
 }

@@ -1,32 +1,24 @@
 import { test, expect } from '@playwright/test';
-import { installLibrary, tool } from './studio-library.js';
+import { installLibrary, tool, addLibraryProp } from './studio-library.js';
 
 async function studio(page) {
   await page.setViewportSize({ width: 1366, height: 800 });
   await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
-  await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
+  const server = await installLibrary(page);          // "Neha" comes from the admin's character library (no character is bundled)
+  // what the admin published to the shared library: an object, a hand prop and two overlays (the studio lists them from the server, as for a real user)
+  await addLibraryProp(server, { name: 'Chair', color: [0, 255, 0] });
+  await addLibraryProp(server, { name: 'Cup', color: [0, 255, 0], group: 'hand' });
+  await addLibraryProp(server, { name: 'Sparkle', type: 'effect', color: [255, 0, 255], extra: { placement: 'full' } });
+  await addLibraryProp(server, { name: 'Glow', type: 'effect', color: [255, 0, 255], extra: { placement: 'full', blend: 'add', opacity: 0.5, sheet: { cols: 2, rows: 2, fps: 8 } } });
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Props');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__toon?.S.ready).catch(() => false)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__toon.S.sharedAssets.length)).toBe(4);
 }
-// what the admin tab would have published: a prop and two effects, with their files already "downloaded"
-async function publish(page) {
-  await page.evaluate(async () => {
-    const { S, sharedBlobs } = window.__toon;
-    const solid = async (color) => { const c = document.createElement('canvas'); c.width = c.height = 4; const g = c.getContext('2d'); g.fillStyle = color; g.fillRect(0, 0, 4, 4); return new Promise((r) => c.toBlob(r, 'image/png')); };
-    sharedBlobs.set('prop-chair', await solid('#00ff00')); sharedBlobs.set('prop-cup', await solid('#00ff00'));
-    sharedBlobs.set('fx-sparkle', await solid('#ff00ff'));
-    sharedBlobs.set('fx-glow', await solid('#ff00ff'));
-    S.sharedAssets.push(
-      { id: 'prop-cup', type: 'prop', name: 'Cup', category: 'Kitchen', group: 'hand', access: 'free', updatedAt: '4' },
-      { id: 'prop-chair', type: 'prop', name: 'Chair', category: 'Furniture', access: 'free', thumb: 'data:image/webp;base64,AAAA', updatedAt: '1' },
-      { id: 'fx-sparkle', type: 'effect', name: 'Sparkle', category: 'Magic', access: 'free', blend: 'normal', opacity: 1, placement: 'full', updatedAt: '2' },
-      { id: 'fx-glow', type: 'effect', name: 'Glow', category: 'Light', access: 'free', blend: 'add', opacity: 0.5, placement: 'full', sheet: { cols: 2, rows: 2, fps: 8 }, updatedAt: '3' });
-  });
-}
+const publish = async () => {};          // (the library is published in studio())
 const centerPixel = (page, t = 0) => page.evaluate((t) => {
   const { stage } = window.__toon; stage.render(t, 0, [], []);
   const px = new Uint8Array(4), gl = stage.gl; gl.readPixels(Math.floor(stage.W / 2), Math.floor(stage.H / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); return [...px];

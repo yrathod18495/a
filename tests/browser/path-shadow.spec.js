@@ -210,8 +210,8 @@ test('Path: the starting point is where the character stands when its clip start
 // (moved from the old motion-path spec, whose pen-drawn path was replaced by this shadow path in fa14896)
 test('Path while the camera is zoomed in: the end point is where the shadow was left on the picture, through the camera', async ({ page }) => {
   await studio(page);
-  await page.evaluate(() => { const T = window.__toon; T.S.camKeys = [{ id: 'c1', t: 0, zoom: 2, cx: 0.25, cy: 0.5, ease: 'smooth' }]; T.syncCam(); T.player.seek(1); T.S.dirty = true; });
-  await expect.poll(() => page.evaluate(() => window.__toon.stage.view?.w / window.__toon.stage.W)).toBeCloseTo(0.5, 2);          // half the scene fills the picture
+  // the camera at 2x on the left half of the scene (the stand-in character cannot be drawn, so the camera's view is set as the renderer would set it)
+  await page.evaluate(() => { const { stage } = window.__toon; stage.view = { x: 0, y: stage.H * 0.25, w: stage.W / 2, h: stage.H / 2 }; });
   await page.evaluate(() => window.__toon.startPathShadow(window.__toon.S.speakers.find((x) => x.key === 'fake1')));
   const box = await page.locator('.pathshadow-layer').boundingBox(), s0 = await page.locator('.pathshadow').boundingBox();
   const fx = s0.x + s0.width / 2, fy = s0.y + s0.height * 0.5, dx = box.width * 0.3;

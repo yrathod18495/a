@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { keepSharedAssets } from './studio-library.js';
 
 async function studio(page) {
   await page.setViewportSize({ width: 1366, height: 800 });
-  await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
+  await keepSharedAssets(page); await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
   await page.route('**/api/r2', r => r.fulfill({ json: { configured: false } }));
   await page.goto('/?debug&workers=0#/toons');
   await page.getByRole('button', { name: 'Create New Project', exact: true }).click();
@@ -74,7 +75,7 @@ test('admin: choose General or Hand when publishing a prop, and change it later 
     export const setAssetAccess = async () => ({}); export const setPropGroup = async (id, group) => { window.__calls.push(['group', id, group]); const a = assets.find((x) => x.id === id); if (group === 'hand') a.group = 'hand'; else delete a.group; return { ...a }; };
     export const deleteStudioAsset = async () => {}; export const downloadStudioAsset = async () => {};
   ` }));
-  await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
+  await keepSharedAssets(page); await page.route('**/api/security', r => r.fulfill({ json: { maintenance: false } }));
   await page.route('**/api/r2', r => r.fulfill({ json: { configured: false } }));
   await page.goto('/?debug#/hub');
   await page.evaluate(async () => { const { propsEffectsView } = await import('/src/admin-props-effects.js'); document.querySelector('#shell').replaceChildren(await propsEffectsView({ home: () => {}, back: () => {}, toast: (m) => { window.__toast = m; } })); });

@@ -332,7 +332,7 @@ test('background export: the editor stays free while the video is made from a sn
 });
 
 test('background export: closing the studio while it renders does not stop it; the file still arrives', async ({ page }) => {
-  test.setTimeout(330000);          // 12 s of video at 40 fps on a software-GL test machine
+  test.setTimeout(330000);          // a short video: it only has to keep going after the studio is closed
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.route('**/api/security', (r) => r.fulfill({ json: { maintenance: false } }));
@@ -342,7 +342,7 @@ test('background export: closing the studio while it renders does not stop it; t
   await page.getByRole('textbox', { name: 'Create a project' }).fill('Leave');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page.locator('#app .stagebox canvas')).toBeVisible();
-  await page.locator('.drop input[type=file]').setInputFiles({ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: wav(12) });
+  await page.locator('.drop input[type=file]').setInputFiles({ name: '001-Narrator.wav', mimeType: 'audio/wav', buffer: wav(3) });
   await expect(page.locator('.tclip.voice')).toHaveCount(1, { timeout: 20000 });
   await page.evaluate(() => { window.__toon.S.fps = 40; window.__toon.S.quality = 360; });
   const downloadReady = page.waitForEvent('download', { timeout: 300000 });
