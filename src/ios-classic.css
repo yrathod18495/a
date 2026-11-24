@@ -1,0 +1,90 @@
+/* ios-classic: the studio in the look of a classic iOS app (dark mode). Loaded after every other studio sheet.
+   Only looks: no layout or behaviour changes. The brand purple stays the tint colour (iOS apps use their own tint);
+   surfaces, separators, controls and type follow the iOS system styles. No heavy blur (kept fast on slow phones). */
+#app .ws,.modal,.edit-dock,.voice-sheet,.exp-pop{
+  --ios-panel:#1c1c1e;           /* secondarySystemBackground */
+  --ios-cell:#2c2c2e;            /* tertiarySystemBackground: a grouped cell */
+  --ios-fill:rgba(118,118,128,.24);
+  --ios-fill2:rgba(120,120,128,.36);
+  --ios-thumb:#636366;           /* the sliding part of a segmented control */
+  --ios-label2:rgba(235,235,245,.6);
+  --ios-label3:rgba(235,235,245,.3);
+  --ios-sep:rgba(84,84,88,.6);
+  --ios-green:#30d158;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Inter,system-ui,sans-serif;
+}
+
+/* ---- the tool sheet: one grey surface, a centred title and a round grey close button ---- */
+#app .ws .panel{background:var(--ios-panel)}
+#app .ws .panel .sheet-close{justify-content:center;position:relative;min-height:36px;border-bottom:0}
+#app .ws .panel .sheet-close b{flex:0 1 auto;font-size:17px;font-weight:600;letter-spacing:-.02em;text-align:center;color:var(--text)}
+#app .ws .panel .sheet-close button{position:absolute;right:0;top:50%;transform:translateY(-50%);width:30px!important;height:30px!important;min-height:0;padding:0;border:0;border-radius:50%;background:var(--ios-fill);color:var(--ios-label2);box-shadow:none}
+#app .ws .panel .sheet-close button svg{width:14px;height:14px;stroke-width:3}
+#app .ws .panel .sheet-close button:active{transform:translateY(-50%) scale(.9)}
+#app .ws .sheet-grip i{width:36px;height:5px;border-radius:3px;background:var(--ios-fill2)}
+
+/* grouped sections: a cell on the sheet, no outline; its title is an iOS section header */
+#app .ws .panel .card.flat{background:var(--ios-cell);border:0;border-radius:12px;box-shadow:none}
+#app .ws .panel .card :is(h2,h3),#app .ws .panel .fx-group-title{font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--ios-label2);margin:0 0 8px}
+#app .ws .panel .sub,#app .ws .panel .hint{color:var(--ios-label2)}
+#app .ws .panel .fx-head::before{background:var(--ios-panel)}
+#app .ws .panel .fx-on-label,#app .ws .panel .anim-mode-label,#app .ws .panel .grade-fine-head{font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--ios-label2)}
+
+/* ---- segmented controls: a grey track with a lighter sliding thumb (not filled with the tint) ---- */
+#app .ws :is(.seg,.anim-mode-seg,.fx-jump),.exp-pop .seg,.modal .seg{display:flex;gap:2px;padding:2px;border:0;border-radius:9px;background:var(--ios-fill)}
+#app .ws :is(.seg,.anim-mode-seg,.fx-jump) button,.exp-pop .seg button,.modal .seg button{flex:1 1 0;min-height:30px;padding:4px 8px;border:0;border-radius:7px;background:transparent;color:var(--text);font-size:13px;font-weight:500;letter-spacing:-.01em;text-transform:none;box-shadow:none}
+:root body #app .ws :is(.seg,.anim-mode-seg) button:is(.on,.active,[aria-pressed="true"]),:root body .exp-pop .seg button:is(.on,.active,[aria-pressed="true"]),:root body .modal .seg button:is(.on,.active,[aria-pressed="true"]){background:var(--ios-thumb)!important;color:#fff!important;font-weight:600;box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04)!important}
+#app .ws .fx-jump button:active{background:var(--ios-thumb)}
+
+/* ---- capsule chips (animation categories, "Put it on" targets, look filters) ---- */
+#app .ws :is(.anim-cat,.fx-targets button,.fx-targets .chip){border:0;border-radius:99px;background:var(--ios-fill);color:var(--text);font-weight:500;box-shadow:none}
+#app .ws :is(.anim-cat,.fx-targets button,.fx-targets .chip):is(.on,[aria-pressed="true"]){background:var(--acc);color:#fff;font-weight:600}
+#app .ws .anim-cat small{background:transparent;color:var(--ios-label2);font-weight:500}
+#app .ws .anim-cat.on small{color:rgba(255,255,255,.75)}
+
+/* ---- search field: grey, rounded, a magnifying glass inside ---- */
+#app .ws input[type=search],#app .ws .panel input.search{height:36px;padding:0 10px 0 32px;border:0;border-radius:10px;background:var(--ios-fill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 10px 50%/15px;color:var(--text);font-size:15px;box-shadow:none}
+#app .ws input[type=search]::placeholder,#app .ws .panel input.search::placeholder{color:var(--ios-label2)}
+
+/* ---- sliders: a thin track and a round white knob ---- */
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) input[type=range]{-webkit-appearance:none;appearance:none;height:28px;background:transparent;accent-color:var(--acc)}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--ios-fill2)}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-11px;border-radius:50%;background:#fff;box-shadow:0 0.5px 4px rgba(0,0,0,.12),0 6px 13px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--ios-fill2)}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) input[type=range]::-moz-range-progress{height:4px;border-radius:2px;background:var(--acc)}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) input[type=range]::-moz-range-thumb{width:26px;height:26px;border:0;border-radius:50%;background:#fff;box-shadow:0 0.5px 4px rgba(0,0,0,.12),0 6px 13px rgba(0,0,0,.12)}
+
+/* ---- on / off: the green iOS switch ---- */
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) label.tog{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-direction:row-reverse}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) label.tog input[type=checkbox]{-webkit-appearance:none;appearance:none;position:relative;flex:none;width:51px;height:31px;margin:0;border-radius:16px;background:var(--ios-fill2);cursor:pointer;transition:background-color .2s ease}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) label.tog input[type=checkbox]::before{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 3px 1px rgba(0,0,0,.06);transition:transform .25s var(--ios-ease,ease)}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) label.tog input[type=checkbox]:checked{background:var(--ios-green)}
+:is(#app .ws .panel,.edit-dock,.voice-sheet,.modal) label.tog input[type=checkbox]:checked::before{transform:translateX(20px)}
+
+/* ---- picture tiles (looks, effects, animations, props, backgrounds): softer corners, a tint ring when chosen ---- */
+#app .ws .panel :is(.tile,.fx-tile,.lib-card,.animation-row>*){border-radius:12px}
+#app .ws .panel :is(.tile,.fx-tile):not(.add){border:0;background:var(--ios-fill);box-shadow:none}
+#app .ws .panel :is(.tile,.fx-tile).on,#app .ws .panel .grade-look.on{box-shadow:0 0 0 2.5px var(--acc)}
+#app .ws .panel .tile-name{font-size:12px;font-weight:600;letter-spacing:-.01em}
+
+/* ---- buttons in a sheet: grey "tinted" buttons; the main action stays filled ---- */
+#app .ws .panel .btn:not(.pri):not(.ok):not(.danger):not(.icon-btn):not(.on){border:0;background:var(--ios-fill);color:var(--acc);box-shadow:none}
+#app .ws .panel .btn.danger{border:0;background:rgba(255,69,58,.18);color:#ff453a}
+
+/* ---- the phone's bottom bar is an iOS tab bar: a hairline on top, the chosen tab is tinted (no filled pill) ---- */
+@media(max-width:860px){
+  #app .ws .tabs.big{background:var(--ios-panel);border:0;box-shadow:0 -.5px 0 var(--ios-sep)}
+  #app .ws .tabs-scroll>button,#app .ws .tabs-scroll>details>summary{color:var(--ios-label2);background:transparent}
+  :root[data-theme] body #app .ws .tabs.big .tabs-scroll>button.on,:root[data-theme] body #app .ws .tabs.big .tabs-scroll>button[aria-pressed="true"]{background:transparent!important;color:var(--acc)!important;box-shadow:none!important;animation:nav-pop .46s cubic-bezier(.3,1.4,.5,1) backwards}
+  #app .ws .tabs-scroll>button .sr,#app .ws .tabs-scroll>details>summary .sr{font-size:10px;font-weight:500;letter-spacing:.01em}
+  :root[data-theme] body #app .ws .tabs.big .tabs-scroll>details.has-active>summary{background:transparent!important;color:var(--acc)!important;box-shadow:none!important}
+  #app .ws :is(.clip-nav,.char-bar):not([hidden]){background:var(--ios-panel);border:0;box-shadow:0 -.5px 0 var(--ios-sep)}
+  #app .ws :is(.clip-nav,.char-bar) .cb-btn{color:var(--ios-label2)}
+  :root body #app .ws :is(.clip-nav,.char-bar) .cb-btn:is(.on,[aria-pressed="true"]){background:transparent!important;color:var(--acc)!important}
+  #app .ws :is(.clip-nav,.char-bar) .cb-btn.danger{color:#ff453a}
+}
+
+/* ---- pop-ups (Export, background options ...): the iOS sheet grey ---- */
+.modal .sheet{background:var(--ios-panel);border:0}
+.modal .sheet .row>.btn.sm:last-child{width:30px;height:30px;min-height:0;padding:0;border:0;border-radius:50%;background:var(--ios-fill);color:var(--ios-label2)}
+.edit-dock{background:var(--ios-panel)}

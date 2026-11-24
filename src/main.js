@@ -10,6 +10,7 @@ import { icon, watchIcons } from './icons.js';
 import { installTips } from './tips.js';
 import './studio-icons.css';
 import './ios-studio.css';
+import './ios-classic.css';          // the classic iOS look of the studio (loaded last)
 import { syncPresentation } from './sync-feedback.js';
 import { brandWordmark, swipeAway } from './dom.js';
 import { creditsBadge } from './credits-badge.js';
